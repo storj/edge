@@ -2,7 +2,7 @@
 
 S3-compatible gateway for Storj V3 Network, based on [MinIO](https://github.com/minio/minio).
 
-[![Go Report Card](https://goreportcard.com/badge/storj.io/gateway)](https://goreportcard.com/report/storj.io/stargate)
+[![Go Report Card](https://goreportcard.com/badge/storj.io/stargate)](https://goreportcard.com/report/storj.io/stargate)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/stargate)
 ![Beta](https://img.shields.io/badge/version-beta-green.svg)
 

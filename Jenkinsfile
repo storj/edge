@@ -75,19 +75,6 @@ timeout(time: 26, unit: 'MINUTES') {
 						}
 					}
 
-					branchedStages["Integration"] = {
-						stage("Integration") {
-							withEnv([
-								// use different hostname to avoid port conflicts
-								"STORJ_NETWORK_HOST4=127.0.0.2",
-								"STORJ_NETWORK_HOST6=127.0.0.2",
-								"STORJ_SIM_POSTGRES=postgres://postgres@localhost/teststorj2?sslmode=disable"
-							]){
-								sh 'psql -U postgres -c \'create database teststorj2;\''
-								sh 'cd ./testsuite/integration && ./run.sh'
-							}
-						}
-					}
 					parallel branchedStages
 				}
 			}
@@ -99,50 +86,6 @@ timeout(time: 26, unit: 'MINUTES') {
 				deleteDir()
 			}
 
-		}
-
-		stage('Mint') {
-			checkout scm
-			gwContainerName = UUID.randomUUID().toString()
-			withDockerNetwork{n ->
-				dockerImage.withRun("--network ${n} --name ${gwContainerName} -p 11000:11000 -u root:root -v '/tmp/gomod':/go/pkg/mod -v `pwd`:/go/gateway --entrypoint /go/gateway/testsuite/miniogw/mint/run.sh") { c->
-					try {
-						docker.image('curlimages/curl').inside("--network ${n}") {
-							sh (
-								script: "while ! curl --output /dev/null --silent http://${gwContainerName}:11000/minio/health/live; do sleep 1; done",
-								label: "Wait for the gateway to be ready"
-							)
-						}
-						ACCESS_KEY = sh (
-							script: "docker exec ${gwContainerName} storj-sim network env GATEWAY_0_ACCESS",
-							returnStdout: true
-						).trim()
-						def mintImage = docker.build("minio-mint", "--pull https://github.com/storj/minio.git#storj -f Dockerfile.mint")
-						mintImage.inside("--network ${n} --entrypoint='' -u root:root -e SERVER_ENDPOINT=${gwContainerName}:11000 -e MINT_MODE=full -e ACCESS_KEY=${ACCESS_KEY} -e SECRET_KEY=doesnotmatter -e ENABLE_HTTPS=0") {
-							try {
-								sh "cp testsuite/miniogw/mint/mint.sh /mint/mint.sh"
-								sh "cd /mint && ./entrypoint.sh /mint/run/core/aws-sdk-go /mint/run/core/aws-sdk-java /mint/run/core/s3select /mint/run/core/security"
-							}
-							catch(err) {
-								throw err
-							}
-							finally {
-								sh "cat /mint/log/log.json || echo 'No log file available'"
-							}
-							// failing tests:  /mint/run/core/healthcheck /mint/run/core/minio-py /mint/run/core/aws-sdk-ruby /mint/run/core/awscli /mint/run/core/aws-sdk-php /mint/run/core/minio-dotnet
-							// /mint/run/core/minio-go /mint/run/core/minio-java /mint/run/core/mc /mint/run/core/minio-js /mint/run/core/s3cmd
-						}
-					}
-					catch(err) {
-						sh "docker logs ${gwContainerName}"
-						throw err
-					}
-					finally {
-						sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
-						deleteDir()
-					}
-				}
-			}
 		}
 	}
 }

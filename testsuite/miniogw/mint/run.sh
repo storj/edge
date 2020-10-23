@@ -13,7 +13,7 @@ cd $SCRIPTDIR && go install \
 	storj.io/storj/cmd/versioncontrol \
 	storj.io/storj/cmd/storj-sim
 
-cd $SCRIPTDIR && go install storj.io/gateway
+cd $SCRIPTDIR && go install storj.io/stargate
 
 until pg_isready; do sleep 3; done
 

@@ -27,7 +27,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/gateway/miniogw"
+	"storj.io/stargate/miniogw"
 	"storj.io/storj/private/testplanet"
 	"storj.io/uplink"
 )

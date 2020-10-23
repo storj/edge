@@ -21,7 +21,7 @@ import (
 	"storj.io/common/processgroup"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway/internal/minioclient"
+	"storj.io/stargate/internal/minioclient"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -41,7 +41,7 @@ func TestUploadDownload(t *testing.T) {
 		// may conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", index)
 
-		gatewayExe := ctx.Compile("storj.io/gateway")
+		gatewayExe := ctx.Compile("storj.io/stargate")
 
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway:     gatewayAddr,

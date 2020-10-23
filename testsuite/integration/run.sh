@@ -12,7 +12,7 @@ cd $SCRIPTDIR && go install \
 	storj.io/storj/cmd/versioncontrol \
 	storj.io/storj/cmd/storj-sim
 
-cd $SCRIPTDIR && go install storj.io/gateway
+cd $SCRIPTDIR && go install storj.io/stargate
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
