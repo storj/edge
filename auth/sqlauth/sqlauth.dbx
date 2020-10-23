@@ -1,0 +1,22 @@
+model record (
+	key encryption_key_hash
+
+	field encryption_key_hash    blob
+	field created_at             timestamp ( autoinsert )
+
+	field satellite_address      text
+	field macaroon_head          blob
+
+	field encrypted_secret_key   blob
+	field encrypted_access_grant blob
+
+	// TODO: invalid stuff
+)
+
+create record ( noreturn )
+
+read scalar has (
+	select record
+	where record.encryption_key_hash = ?
+)
+
