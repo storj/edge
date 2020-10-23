@@ -2,8 +2,8 @@
 
 S3-compatible gateway for Storj V3 Network, based on [MinIO](https://github.com/minio/minio).
 
-[![Go Report Card](https://goreportcard.com/badge/storj.io/gateway)](https://goreportcard.com/report/storj.io/gateway)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/gateway)
+[![Go Report Card](https://goreportcard.com/badge/storj.io/gateway)](https://goreportcard.com/report/storj.io/stargate)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/stargate)
 ![Beta](https://img.shields.io/badge/version-beta-green.svg)
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
@@ -25,8 +25,8 @@ retrieve those files!
 
 # License
 
-This library is distributed under the
-[Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
+This software is distributed under the
+[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license.
 
 # Support
 
