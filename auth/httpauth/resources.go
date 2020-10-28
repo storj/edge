@@ -4,6 +4,8 @@
 package httpauth
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"net/http"
 
 	"storj.io/stargate/auth"
@@ -53,11 +55,64 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
-	http.Error(w, "not implemented", http.StatusInternalServerError)
+	var request struct {
+		AccessGrant string `json:"access_grant"`
+	}
+
+	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var key auth.EncryptionKey // TODO: generate this
+
+	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant)
+	if err != nil {
+		http.Error(w, "error storing request in database", http.StatusInternalServerError)
+		return
+	}
+
+	var response struct {
+		AccessKeyID string `json:"access_key_id"`
+		SecretKey   string `json:"secret_key"`
+	}
+
+	response.AccessKeyID = hex.EncodeToString(key[:])  // TODO: better encoding
+	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
-	http.Error(w, "not implemented", http.StatusInternalServerError)
+	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+
+	var key auth.EncryptionKey
+	copy(key[:], encryptionKeyBytes)
+
+	accessGrant, secretKey, err := res.db.Get(req.Context(), key)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var response struct {
+		AccessGrant string `json:"access_grant"`
+		SecretKey   string `json:"secret_key"`
+	}
+
+	response.AccessGrant = accessGrant
+	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {

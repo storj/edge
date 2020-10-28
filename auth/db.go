@@ -33,49 +33,48 @@ func NewDatabase(kv KV) *Database {
 	return &Database{kv: kv}
 }
 
-// Put encrypts the access with the key and stores it in a key/value store under the
+// Put encrypts the access grant with the key and stores it in a key/value store under the
 // hash of the encryption key.
-func (db *Database) Put(ctx context.Context, key EncryptionKey, access *uplink.Access) (err error) {
+func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string) (secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	serialized, err := access.Serialize()
+	access, err := uplink.ParseAccess(accessGrant)
 	if err != nil {
-		return errs.Wrap(err)
+		return nil, err
 	}
+	_ = access // TODO: use access below
+
+	secretKey = []byte("TODO")      // TODO: generate
+	encryptedSecretKey := secretKey // TODO: encrypt
 
 	record := &Record{
-		SatelliteAddress:     "TODO",             // TODO: extend something to read this
-		MacaroonHead:         []byte("TODO"),     // TODO: extend something to read this
-		EncryptedSecretKey:   []byte("TODO"),     // TODO: generate and encrypt this
-		EncryptedAccessGrant: []byte(serialized), // TODO: encrypt this
+		SatelliteAddress:     "TODO",         // TODO: extend something to read this
+		MacaroonHead:         []byte("TODO"), // TODO: extend something to read this
+		EncryptedSecretKey:   encryptedSecretKey,
+		EncryptedAccessGrant: []byte(accessGrant), // TODO: encrypt this
 	}
 
 	if err := db.kv.Put(ctx, key.Hash(), record); err != nil {
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	return nil
+	return encryptedSecretKey, err
 }
 
-// Get retreives an access and secret key from the key/value store, looked up by the
+// Get retreives an access grant and secret key from the key/value store, looked up by the
 // hash of the key and decrypted.
-func (db *Database) Get(ctx context.Context, key EncryptionKey) (access *uplink.Access, secretKey []byte, err error) {
+func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	record, err := db.kv.Get(ctx, key.Hash())
 	if err != nil {
-		return access, nil, errs.Wrap(err)
+		return "", nil, errs.Wrap(err)
 	} else if record == nil {
-		return nil, nil, NotFound.New("key hash: %x", key.Hash())
+		return "", nil, NotFound.New("key hash: %x", key.Hash())
 	}
 
 	secretKey = record.EncryptedSecretKey             // TODO: decrypt this
-	serialized := string(record.EncryptedAccessGrant) // TODO: decrypt this
+	accessGrant = string(record.EncryptedAccessGrant) // TODO: decrypt this
 
-	access, err = uplink.ParseAccess(serialized)
-	if err != nil {
-		return nil, nil, errs.Wrap(err)
-	}
-
-	return access, secretKey, nil
+	return accessGrant, secretKey, nil
 }
