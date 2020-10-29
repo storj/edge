@@ -61,7 +61,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	return encryptedSecretKey, err
 }
 
-// Get retreives an access grant and secret key from the key/value store, looked up by the
+// Get retrieves an access grant and secret key from the key/value store, looked up by the
 // hash of the key and decrypted.
 func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -77,4 +77,12 @@ func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant str
 	accessGrant = string(record.EncryptedAccessGrant) // TODO: decrypt this
 
 	return accessGrant, secretKey, nil
+}
+
+// Delete removes any access grant information from the key/value store, looked up by the
+// hash of the key.
+func (db *Database) Delete(ctx context.Context, key EncryptionKey) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return errs.Wrap(db.kv.Delete(ctx, key.Hash()))
 }

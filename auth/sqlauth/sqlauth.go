@@ -42,7 +42,7 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 	))
 }
 
-// Get retreives the record from the key/value store.
+// Get retrieves the record from the key/value store.
 func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -60,4 +60,14 @@ func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record
 		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
 		EncryptedAccessGrant: dbRecord.EncryptedAccessGrant,
 	}, nil
+}
+
+// Delete removes the record from the key/value store.
+// It is not an error if the key does not exist.
+func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = d.db.Delete_Record_By_EncryptionKeyHash(ctx,
+		Record_EncryptionKeyHash(keyHash[:]))
+	return errs.Wrap(err)
 }

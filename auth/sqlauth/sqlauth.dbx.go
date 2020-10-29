@@ -1040,6 +1040,32 @@ func (obj *pgxcockroachImpl) Find_Record_By_EncryptionKeyHash(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Record_By_EncryptionKeyHash(ctx context.Context,
+	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM records WHERE records.encryption_key_hash = ?")
+
+	var __values []interface{}
+	__values = append(__values, record_encryption_key_hash.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxcockroachImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -1141,6 +1167,32 @@ func (obj *sqlite3Impl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 		return (*Record)(nil), obj.makeErr(err)
 	}
 	return record, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Record_By_EncryptionKeyHash(ctx context.Context,
+	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM records WHERE records.encryption_key_hash = ?")
+
+	var __values []interface{}
+	__values = append(__values, record_encryption_key_hash.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -1252,6 +1304,16 @@ func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_Record_By_EncryptionKeyHash(ctx context.Context,
+	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Record_By_EncryptionKeyHash(ctx, record_encryption_key_hash)
+}
+
 func (rx *Rx) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 	record *Record, err error) {
@@ -1280,6 +1342,10 @@ type Methods interface {
 		record_encrypted_secret_key Record_EncryptedSecretKey_Field,
 		record_encrypted_access_grant Record_EncryptedAccessGrant_Field) (
 		err error)
+
+	Delete_Record_By_EncryptionKeyHash(ctx context.Context,
+		record_encryption_key_hash Record_EncryptionKeyHash_Field) (
+		deleted bool, err error)
 
 	Find_Record_By_EncryptionKeyHash(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field) (

@@ -55,20 +55,34 @@ func TestResources_CRUD(t *testing.T) {
 	f := fmt.Sprintf
 	res := New(auth.NewDatabase(memauth.New()))
 
-	exec := func(method, path, body string) map[string]interface{} {
+	exec := func(method, path, body string) (map[string]interface{}, bool) {
 		rec := httptest.NewRecorder()
 		res.ServeHTTP(rec, httptest.NewRequest(method, path, strings.NewReader(body)))
-		t.Log("response body:", rec.Body.String())
-		require.Equal(t, rec.Code, http.StatusOK)
-		out := make(map[string]interface{})
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-		return out
+		if rec.Code != http.StatusOK {
+			return nil, false
+		}
+		var out map[string]interface{}
+		if rec.Body.Len() > 0 {
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+		}
+		return out, true
 	}
 
 	// create an access
-	createResult := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+	createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+	require.True(t, ok)
 
 	// retrieve an access
-	fetchResult := exec("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
+	fetchResult, ok := exec("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
+	require.True(t, ok)
 	require.Equal(t, minimalAccess, fetchResult["access_grant"])
+
+	// delete an access
+	deleteResult, ok := exec("DELETE", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
+	require.True(t, ok)
+	require.Nil(t, deleteResult)
+
+	// retrieve fails now
+	_, ok = exec("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
+	require.False(t, ok)
 }

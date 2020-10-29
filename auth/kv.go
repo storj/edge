@@ -24,7 +24,11 @@ type KV interface {
 	// It is an error if the key already exists.
 	Put(ctx context.Context, keyHash KeyHash, record *Record) (err error)
 
-	// Get retreives the record from the key/value store.
+	// Get retrieves the record from the key/value store.
 	// It returns nil if the key does not exist.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
+
+	// Delete removes the record from the key/value store.
+	// It is not an error if the key does not exist.
+	Delete(ctx context.Context, keyHash KeyHash) error
 }

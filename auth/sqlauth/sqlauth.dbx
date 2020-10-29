@@ -15,6 +15,10 @@ model record (
 
 create record ( noreturn )
 
+delete record (
+	where record.encryption_key_hash = ?
+)
+
 read scalar has (
 	select record
 	where record.encryption_key_hash = ?

@@ -116,7 +116,22 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
-	http.Error(w, "not implemented", http.StatusInternalServerError)
+	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+
+	var key auth.EncryptionKey
+	copy(key[:], encryptionKeyBytes)
+
+	if err := res.db.Delete(req.Context(), key); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request) {
