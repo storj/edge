@@ -1,16 +1,21 @@
 model record (
 	key encryption_key_hash
 
-	field encryption_key_hash    blob
-	field created_at             timestamp ( autoinsert )
+	field encryption_key_hash blob
+	field created_at          timestamp ( autoinsert )
 
-	field satellite_address      text
-	field macaroon_head          blob
+	// denormalized information from access grant
+	field satellite_address text
+	field macaroon_head     blob
+	field expires_at        timestamp ( nullable )
 
+	// sensitive data
 	field encrypted_secret_key   blob
 	field encrypted_access_grant blob
 
-	// TODO: invalid stuff
+	// invalid tracking
+	field invalid_reason text      ( nullable, updatable )
+	field invalid_at     timestamp ( nullable, updatable )
 )
 
 create record ( noreturn )
@@ -24,3 +29,8 @@ read scalar has (
 	where record.encryption_key_hash = ?
 )
 
+update record (
+	noreturn
+	where record.encryption_key_hash = ?
+	where record.invalid_reason = null
+)

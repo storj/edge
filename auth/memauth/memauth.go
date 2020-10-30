@@ -19,12 +19,14 @@ var mon = monkit.Package()
 type KV struct {
 	mu      sync.Mutex
 	entries map[auth.KeyHash]*auth.Record
+	invalid map[auth.KeyHash]string
 }
 
 // New constructs a KV.
 func New() *KV {
 	return &KV{
 		entries: make(map[auth.KeyHash]*auth.Record),
+		invalid: make(map[auth.KeyHash]string),
 	}
 }
 
@@ -52,6 +54,10 @@ func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	if reason, ok := d.invalid[keyHash]; ok {
+		return nil, auth.Invalid.New("%s", reason)
+	}
+
 	return d.entries[keyHash], nil
 }
 
@@ -64,5 +70,22 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 	defer d.mu.Unlock()
 
 	delete(d.entries, keyHash)
+	delete(d.invalid, keyHash)
+	return nil
+}
+
+// Invalidate causes the record to become invalid.
+// It is not an error if the key does not exist.
+// It does not update the invalid reason if the record is already invalid.
+func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if _, ok := d.invalid[keyHash]; !ok {
+		d.invalid[keyHash] = reason
+	}
+
 	return nil
 }

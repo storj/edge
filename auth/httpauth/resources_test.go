@@ -62,27 +62,49 @@ func TestResources_CRUD(t *testing.T) {
 			return nil, false
 		}
 		var out map[string]interface{}
-		if rec.Body.Len() > 0 {
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
 		return out, true
 	}
 
-	// create an access
-	createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
-	require.True(t, ok)
+	{
+		// create an access
+		createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+		require.True(t, ok)
+		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
-	// retrieve an access
-	fetchResult, ok := exec("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
-	require.True(t, ok)
-	require.Equal(t, minimalAccess, fetchResult["access_grant"])
+		// retrieve an access
+		fetchResult, ok := exec("GET", url, ``)
+		require.True(t, ok)
+		require.Equal(t, minimalAccess, fetchResult["access_grant"])
 
-	// delete an access
-	deleteResult, ok := exec("DELETE", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
-	require.True(t, ok)
-	require.Nil(t, deleteResult)
+		// delete an access
+		deleteResult, ok := exec("DELETE", url, ``)
+		require.True(t, ok)
+		require.Equal(t, map[string]interface{}{}, deleteResult)
 
-	// retrieve fails now
-	_, ok = exec("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), ``)
-	require.False(t, ok)
+		// retrieve fails now
+		_, ok = exec("GET", url, ``)
+		require.False(t, ok)
+	}
+
+	{
+		// create an access
+		createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+		require.True(t, ok)
+		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
+
+		// retrieve an access
+		fetchResult, ok := exec("GET", url, ``)
+		require.True(t, ok)
+		require.Equal(t, minimalAccess, fetchResult["access_grant"])
+
+		// invalidate an access
+		invalidateResult, ok := exec("PUT", url+"/invalid", `{"reason": "test"}`)
+		require.True(t, ok)
+		require.Equal(t, map[string]interface{}{}, invalidateResult)
+
+		// retrieve fails now
+		_, ok = exec("GET", url, ``)
+		require.False(t, ok)
+	}
 }

@@ -86,3 +86,10 @@ func (db *Database) Delete(ctx context.Context, key EncryptionKey) (err error) {
 
 	return errs.Wrap(db.kv.Delete(ctx, key.Hash()))
 }
+
+// Invalidate causes the access to become invalid.
+func (db *Database) Invalidate(ctx context.Context, key EncryptionKey, reason string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return errs.Wrap(db.kv.Invalidate(ctx, key.Hash(), reason))
+}

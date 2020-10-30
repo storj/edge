@@ -6,6 +6,7 @@ package httpauth
 import (
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"storj.io/stargate/auth"
@@ -132,8 +133,38 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, "{}")
 }
 
 func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request) {
-	http.Error(w, "not implemented", http.StatusInternalServerError)
+	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+
+	var key auth.EncryptionKey
+	copy(key[:], encryptionKeyBytes)
+
+	var request struct {
+		Reason string `json:"reason"`
+	}
+
+	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := res.db.Invalidate(req.Context(), key, request.Reason); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, "{}")
 }
