@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package httpauth
@@ -22,7 +22,9 @@ const minimalAccess = "138CV9Drxrw8ir1XpxcZhk2wnHjhzVjuSZe6yDsNiMZDP8cow9V6sHDYd
 func TestResources_URLs(t *testing.T) {
 	check := func(method, path string) bool {
 		rec := httptest.NewRecorder()
-		New(nil).ServeHTTP(rec, httptest.NewRequest(method, path, nil))
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer authToken")
+		New(nil, "endpoint", "authToken").ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
 
@@ -49,15 +51,22 @@ func TestResources_URLs(t *testing.T) {
 	require.False(t, check("DELETE", "/v1/access_/someid"))
 	require.False(t, check("PUT", "/v1/access_/someid/invalid"))
 	require.False(t, check("PUT", "/v1/access/someid/invalid_"))
+
+	// check trailing slashes are invalid
+	require.False(t, check("POST", "/v1/access/"))
+	require.False(t, check("GET", "/v1/access/someid/"))
+	require.False(t, check("PUT", "/v1/access/someid/invalid/"))
+	require.False(t, check("DELETE", "/v1/access/someid/"))
 }
 
 func TestResources_CRUD(t *testing.T) {
-	f := fmt.Sprintf
-	res := New(auth.NewDatabase(memauth.New()))
+	res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
 
 	exec := func(method, path, body string) (map[string]interface{}, bool) {
 		rec := httptest.NewRecorder()
-		res.ServeHTTP(rec, httptest.NewRequest(method, path, strings.NewReader(body)))
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer authToken")
+		res.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
 			return nil, false
 		}
@@ -68,8 +77,10 @@ func TestResources_CRUD(t *testing.T) {
 
 	{
 		// create an access
-		createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		createResult, ok := exec("POST", "/v1/access", createRequest)
 		require.True(t, ok)
+		require.Equal(t, createResult["endpoint"], "endpoint")
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
@@ -89,8 +100,10 @@ func TestResources_CRUD(t *testing.T) {
 
 	{
 		// create an access
-		createResult, ok := exec("POST", "/v1/access", f(`{"access_grant": %q}`, minimalAccess))
+		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		createResult, ok := exec("POST", "/v1/access", createRequest)
 		require.True(t, ok)
+		require.Equal(t, createResult["endpoint"], "endpoint")
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
@@ -107,4 +120,29 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok = exec("GET", url, ``)
 		require.False(t, ok)
 	}
+}
+
+func TestResources_Authorization(t *testing.T) {
+	res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+
+	// create an access grant and base url
+	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+	req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(createRequest))
+	rec := httptest.NewRecorder()
+	res.ServeHTTP(rec, req)
+	var out map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	baseURL := fmt.Sprintf("/v1/access/%s", out["access_key_id"])
+
+	check := func(method, path string) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, nil)
+		res.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	}
+
+	// check that these requests are unauthorized
+	check("GET", baseURL)
+	check("PUT", baseURL+"/invalid")
+	check("DELETE", baseURL)
 }

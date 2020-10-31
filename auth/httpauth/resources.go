@@ -1,9 +1,10 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package httpauth
 
 import (
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -14,15 +15,21 @@ import (
 
 // Resources wrap a database and expose methods over HTTP.
 type Resources struct {
-	db      *auth.Database
+	db        *auth.Database
+	endpoint  string
+	authToken string
+
 	handler http.Handler
 	id      *Arg
 }
 
 // New constructs Resources for some database.
-func New(db *auth.Database) *Resources {
+func New(db *auth.Database, endpoint, authToken string) *Resources {
 	res := &Resources{
-		db: db,
+		db:        db,
+		endpoint:  endpoint,
+		authToken: authToken,
+
 		id: new(Arg),
 	}
 
@@ -76,16 +83,28 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	var response struct {
 		AccessKeyID string `json:"access_key_id"`
 		SecretKey   string `json:"secret_key"`
+		Endpoint    string `json:"endpoint"`
 	}
 
 	response.AccessKeyID = hex.EncodeToString(key[:])  // TODO: better encoding
 	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+	response.Endpoint = res.endpoint
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
 }
 
+func (res *Resources) requestAuthorized(req *http.Request) bool {
+	auth := req.Header.Get("Authorization")
+	return subtle.ConstantTimeCompare([]byte(auth), []byte("Bearer "+res.authToken)) == 1
+}
+
 func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
+	if !res.requestAuthorized(req) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -117,6 +136,11 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
+	if !res.requestAuthorized(req) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -139,6 +163,11 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request) {
+	if !res.requestAuthorized(req) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

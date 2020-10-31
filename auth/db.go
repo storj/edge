@@ -1,12 +1,12 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package auth
 
 import (
 	"context"
+	"crypto/sha256"
 
-	"github.com/zeebo/blake3"
 	"github.com/zeebo/errs"
 
 	"storj.io/uplink"
@@ -20,7 +20,7 @@ type EncryptionKey [32]byte
 
 // Hash returns the KeyHash for the EncryptionKey.
 func (k EncryptionKey) Hash() KeyHash {
-	return KeyHash(blake3.Sum256(k[:]))
+	return KeyHash(sha256.Sum256(k[:]))
 }
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
@@ -44,21 +44,22 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	}
 	_ = access // TODO: use access below
 
-	secretKey = []byte("TODO")      // TODO: generate
-	encryptedSecretKey := secretKey // TODO: encrypt
+	secretKey = []byte("TODO")                  // TODO: generate
+	encryptedSecretKey := secretKey             // TODO: encrypt
+	encryptedAccessGrant := []byte(accessGrant) // TODO: encrypt
 
 	record := &Record{
 		SatelliteAddress:     "TODO",         // TODO: extend something to read this
 		MacaroonHead:         []byte("TODO"), // TODO: extend something to read this
 		EncryptedSecretKey:   encryptedSecretKey,
-		EncryptedAccessGrant: []byte(accessGrant), // TODO: encrypt this
+		EncryptedAccessGrant: encryptedAccessGrant,
 	}
 
 	if err := db.kv.Put(ctx, key.Hash(), record); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	return encryptedSecretKey, err
+	return secretKey, err
 }
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the

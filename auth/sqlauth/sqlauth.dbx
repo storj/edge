@@ -24,7 +24,7 @@ delete record (
 	where record.encryption_key_hash = ?
 )
 
-read scalar has (
+read scalar (
 	select record
 	where record.encryption_key_hash = ?
 )

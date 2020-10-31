@@ -1113,26 +1113,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Has_Record_By_EncryptionKeyHash(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-	has bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM records WHERE records.encryption_key_hash = ? )")
-
-	var __values []interface{}
-	__values = append(__values, record_encryption_key_hash.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
-
-}
-
 func (obj *pgxcockroachImpl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 	record *Record, err error) {
@@ -1285,26 +1265,6 @@ func (obj *sqlite3Impl) CreateNoReturn_Record(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
-
-}
-
-func (obj *sqlite3Impl) Has_Record_By_EncryptionKeyHash(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-	has bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM records WHERE records.encryption_key_hash = ? )")
-
-	var __values []interface{}
-	__values = append(__values, record_encryption_key_hash.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
 
 }
 
@@ -1528,16 +1488,6 @@ func (rx *Rx) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	return tx.Find_Record_By_EncryptionKeyHash(ctx, record_encryption_key_hash)
 }
 
-func (rx *Rx) Has_Record_By_EncryptionKeyHash(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-	has bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Has_Record_By_EncryptionKeyHash(ctx, record_encryption_key_hash)
-}
-
 func (rx *Rx) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
 	update Record_Update_Fields) (
@@ -1566,10 +1516,6 @@ type Methods interface {
 	Find_Record_By_EncryptionKeyHash(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 		record *Record, err error)
-
-	Has_Record_By_EncryptionKeyHash(ctx context.Context,
-		record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-		has bool, err error)
 
 	UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field,
