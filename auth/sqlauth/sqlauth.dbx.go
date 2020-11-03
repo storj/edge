@@ -276,6 +276,7 @@ func (obj *pgxcockroachDB) Schema() string {
 	return `CREATE TABLE records (
 	encryption_key_hash bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
+	public boolean NOT NULL,
 	satellite_address text NOT NULL,
 	macaroon_head bytea NOT NULL,
 	expires_at timestamp with time zone,
@@ -351,6 +352,7 @@ func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE records (
 	encryption_key_hash BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
+	public INTEGER NOT NULL,
 	satellite_address TEXT NOT NULL,
 	macaroon_head BLOB NOT NULL,
 	expires_at TIMESTAMP,
@@ -425,6 +427,7 @@ nextval:
 type Record struct {
 	EncryptionKeyHash    []byte
 	CreatedAt            time.Time
+	Public               bool
 	SatelliteAddress     string
 	MacaroonHead         []byte
 	ExpiresAt            *time.Time
@@ -484,6 +487,25 @@ func (f Record_CreatedAt_Field) value() interface{} {
 }
 
 func (Record_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Record_Public_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Record_Public(v bool) Record_Public_Field {
+	return Record_Public_Field{_set: true, _value: v}
+}
+
+func (f Record_Public_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Record_Public_Field) _Column() string { return "public" }
 
 type Record_SatelliteAddress_Field struct {
 	_set   bool
@@ -1079,6 +1101,7 @@ func (h *__sqlbundle_Hole) Render() string {
 
 func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
 	record_encrypted_secret_key Record_EncryptedSecretKey_Field,
@@ -1089,6 +1112,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__encryption_key_hash_val := record_encryption_key_hash.value()
 	__created_at_val := __now
+	__public_val := record_public.value()
 	__satellite_address_val := record_satellite_address.value()
 	__macaroon_head_val := record_macaroon_head.value()
 	__expires_at_val := optional.ExpiresAt.value()
@@ -1097,10 +1121,10 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 	__invalid_reason_val := optional.InvalidReason.value()
 	__invalid_at_val := optional.InvalidAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO records ( encryption_key_hash, created_at, satellite_address, macaroon_head, expires_at, encrypted_secret_key, encrypted_access_grant, invalid_reason, invalid_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO records ( encryption_key_hash, created_at, public, satellite_address, macaroon_head, expires_at, encrypted_secret_key, encrypted_access_grant, invalid_reason, invalid_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __encryption_key_hash_val, __created_at_val, __satellite_address_val, __macaroon_head_val, __expires_at_val, __encrypted_secret_key_val, __encrypted_access_grant_val, __invalid_reason_val, __invalid_at_val)
+	__values = append(__values, __encryption_key_hash_val, __created_at_val, __public_val, __satellite_address_val, __macaroon_head_val, __expires_at_val, __encrypted_secret_key_val, __encrypted_access_grant_val, __invalid_reason_val, __invalid_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1117,7 +1141,7 @@ func (obj *pgxcockroachImpl) Find_Record_By_EncryptionKeyHash(ctx context.Contex
 	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 	record *Record, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE records.encryption_key_hash = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE records.encryption_key_hash = ?")
 
 	var __values []interface{}
 	__values = append(__values, record_encryption_key_hash.value())
@@ -1126,7 +1150,7 @@ func (obj *pgxcockroachImpl) Find_Record_By_EncryptionKeyHash(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	record = &Record{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
 	if err == sql.ErrNoRows {
 		return (*Record)(nil), nil
 	}
@@ -1234,6 +1258,7 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 
 func (obj *sqlite3Impl) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
 	record_encrypted_secret_key Record_EncryptedSecretKey_Field,
@@ -1244,6 +1269,7 @@ func (obj *sqlite3Impl) CreateNoReturn_Record(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__encryption_key_hash_val := record_encryption_key_hash.value()
 	__created_at_val := __now
+	__public_val := record_public.value()
 	__satellite_address_val := record_satellite_address.value()
 	__macaroon_head_val := record_macaroon_head.value()
 	__expires_at_val := optional.ExpiresAt.value()
@@ -1252,10 +1278,10 @@ func (obj *sqlite3Impl) CreateNoReturn_Record(ctx context.Context,
 	__invalid_reason_val := optional.InvalidReason.value()
 	__invalid_at_val := optional.InvalidAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO records ( encryption_key_hash, created_at, satellite_address, macaroon_head, expires_at, encrypted_secret_key, encrypted_access_grant, invalid_reason, invalid_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO records ( encryption_key_hash, created_at, public, satellite_address, macaroon_head, expires_at, encrypted_secret_key, encrypted_access_grant, invalid_reason, invalid_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __encryption_key_hash_val, __created_at_val, __satellite_address_val, __macaroon_head_val, __expires_at_val, __encrypted_secret_key_val, __encrypted_access_grant_val, __invalid_reason_val, __invalid_at_val)
+	__values = append(__values, __encryption_key_hash_val, __created_at_val, __public_val, __satellite_address_val, __macaroon_head_val, __expires_at_val, __encrypted_secret_key_val, __encrypted_access_grant_val, __invalid_reason_val, __invalid_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1272,7 +1298,7 @@ func (obj *sqlite3Impl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 	record *Record, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE records.encryption_key_hash = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE records.encryption_key_hash = ?")
 
 	var __values []interface{}
 	__values = append(__values, record_encryption_key_hash.value())
@@ -1281,7 +1307,7 @@ func (obj *sqlite3Impl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	record = &Record{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
 	if err == sql.ErrNoRows {
 		return (*Record)(nil), nil
 	}
@@ -1363,13 +1389,13 @@ func (obj *sqlite3Impl) getLastRecord(ctx context.Context,
 	pk int64) (
 	record *Record, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	record = &Record{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
 	if err != nil {
 		return (*Record)(nil), obj.makeErr(err)
 	}
@@ -1454,6 +1480,7 @@ func (rx *Rx) Rollback() (err error) {
 
 func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
 	record_encrypted_secret_key Record_EncryptedSecretKey_Field,
@@ -1464,7 +1491,7 @@ func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_Record(ctx, record_encryption_key_hash, record_satellite_address, record_macaroon_head, record_encrypted_secret_key, record_encrypted_access_grant, optional)
+	return tx.CreateNoReturn_Record(ctx, record_encryption_key_hash, record_public, record_satellite_address, record_macaroon_head, record_encrypted_secret_key, record_encrypted_access_grant, optional)
 
 }
 
@@ -1502,6 +1529,7 @@ func (rx *Rx) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Nu
 type Methods interface {
 	CreateNoReturn_Record(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field,
+		record_public Record_Public_Field,
 		record_satellite_address Record_SatelliteAddress_Field,
 		record_macaroon_head Record_MacaroonHead_Field,
 		record_encrypted_secret_key Record_EncryptedSecretKey_Field,

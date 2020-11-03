@@ -36,6 +36,7 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 
 	return errs.Wrap(d.db.CreateNoReturn_Record(ctx,
 		Record_EncryptionKeyHash(keyHash[:]),
+		Record_Public(record.Public),
 		Record_SatelliteAddress(record.SatelliteAddress),
 		Record_MacaroonHead(record.MacaroonHead),
 		Record_EncryptedSecretKey(record.EncryptedSecretKey),
@@ -63,6 +64,7 @@ func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record
 		MacaroonHead:         dbRecord.MacaroonHead,
 		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
 		EncryptedAccessGrant: dbRecord.EncryptedAccessGrant,
+		Public:               dbRecord.Public,
 	}, nil
 }
 

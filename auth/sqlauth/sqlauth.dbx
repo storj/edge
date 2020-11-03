@@ -1,8 +1,10 @@
 model record (
 	key encryption_key_hash
 
+	// record data
 	field encryption_key_hash blob
 	field created_at          timestamp ( autoinsert )
+	field public              bool
 
 	// denormalized information from access grant
 	field satellite_address text

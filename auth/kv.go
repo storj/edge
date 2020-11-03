@@ -18,6 +18,7 @@ type Record struct {
 	MacaroonHead         []byte // 32 bytes probably
 	EncryptedSecretKey   []byte
 	EncryptedAccessGrant []byte
+	Public               bool // if true, knowledge of secret key is not required
 }
 
 // KeyHash is the key portion of the key/value store.

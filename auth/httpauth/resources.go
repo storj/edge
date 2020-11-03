@@ -65,6 +65,7 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	var request struct {
 		AccessGrant string `json:"access_grant"`
+		Public      bool   `json:"public"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
@@ -74,7 +75,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	var key auth.EncryptionKey // TODO: generate this
 
-	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant)
+	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
 		http.Error(w, "error storing request in database", http.StatusInternalServerError)
 		return
@@ -117,7 +118,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	var key auth.EncryptionKey
 	copy(key[:], encryptionKeyBytes)
 
-	accessGrant, secretKey, err := res.db.Get(req.Context(), key)
+	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -126,10 +127,12 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	var response struct {
 		AccessGrant string `json:"access_grant"`
 		SecretKey   string `json:"secret_key"`
+		Public      bool   `json:"public"`
 	}
 
 	response.AccessGrant = accessGrant
 	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+	response.Public = public
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)

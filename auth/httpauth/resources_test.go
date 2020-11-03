@@ -60,9 +60,7 @@ func TestResources_URLs(t *testing.T) {
 }
 
 func TestResources_CRUD(t *testing.T) {
-	res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
-
-	exec := func(method, path, body string) (map[string]interface{}, bool) {
+	exec := func(res http.Handler, method, path, body string) (map[string]interface{}, bool) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer authToken")
@@ -75,51 +73,72 @@ func TestResources_CRUD(t *testing.T) {
 		return out, true
 	}
 
-	{
+	t.Run("CRUD", func(t *testing.T) {
+		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
-		createResult, ok := exec("POST", "/v1/access", createRequest)
+		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 		require.Equal(t, createResult["endpoint"], "endpoint")
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
-		fetchResult, ok := exec("GET", url, ``)
+		fetchResult, ok := exec(res, "GET", url, ``)
 		require.True(t, ok)
 		require.Equal(t, minimalAccess, fetchResult["access_grant"])
 
 		// delete an access
-		deleteResult, ok := exec("DELETE", url, ``)
+		deleteResult, ok := exec(res, "DELETE", url, ``)
 		require.True(t, ok)
 		require.Equal(t, map[string]interface{}{}, deleteResult)
 
 		// retrieve fails now
-		_, ok = exec("GET", url, ``)
+		_, ok = exec(res, "GET", url, ``)
 		require.False(t, ok)
-	}
+	})
 
-	{
+	t.Run("Invalidate", func(t *testing.T) {
+		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
-		createResult, ok := exec("POST", "/v1/access", createRequest)
+		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 		require.Equal(t, createResult["endpoint"], "endpoint")
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
-		fetchResult, ok := exec("GET", url, ``)
+		fetchResult, ok := exec(res, "GET", url, ``)
 		require.True(t, ok)
 		require.Equal(t, minimalAccess, fetchResult["access_grant"])
 
 		// invalidate an access
-		invalidateResult, ok := exec("PUT", url+"/invalid", `{"reason": "test"}`)
+		invalidateResult, ok := exec(res, "PUT", url+"/invalid", `{"reason": "test"}`)
 		require.True(t, ok)
 		require.Equal(t, map[string]interface{}{}, invalidateResult)
 
 		// retrieve fails now
-		_, ok = exec("GET", url, ``)
+		_, ok = exec(res, "GET", url, ``)
 		require.False(t, ok)
-	}
+	})
+
+	t.Run("Public", func(t *testing.T) {
+		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+
+		// create a public access
+		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
+		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
+		require.True(t, ok)
+		require.Equal(t, createResult["endpoint"], "endpoint")
+		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
+
+		// retrieve an access
+		fetchResult, ok := exec(res, "GET", url, ``)
+		require.True(t, ok)
+		require.Equal(t, minimalAccess, fetchResult["access_grant"])
+		require.True(t, fetchResult["public"].(bool))
+	})
 }
 
 func TestResources_Authorization(t *testing.T) {

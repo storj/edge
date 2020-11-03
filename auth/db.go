@@ -35,7 +35,8 @@ func NewDatabase(kv KV) *Database {
 
 // Put encrypts the access grant with the key and stores it in a key/value store under the
 // hash of the encryption key.
-func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string) (secretKey []byte, err error) {
+func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (
+	secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	access, err := uplink.ParseAccess(accessGrant)
@@ -53,6 +54,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		MacaroonHead:         []byte("TODO"), // TODO: extend something to read this
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,
+		Public:               public,
 	}
 
 	if err := db.kv.Put(ctx, key.Hash(), record); err != nil {
@@ -64,20 +66,20 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the
 // hash of the key and decrypted.
-func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, secretKey []byte, err error) {
+func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, public bool, secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	record, err := db.kv.Get(ctx, key.Hash())
 	if err != nil {
-		return "", nil, errs.Wrap(err)
+		return "", false, nil, errs.Wrap(err)
 	} else if record == nil {
-		return "", nil, NotFound.New("key hash: %x", key.Hash())
+		return "", false, nil, NotFound.New("key hash: %x", key.Hash())
 	}
 
 	secretKey = record.EncryptedSecretKey             // TODO: decrypt this
 	accessGrant = string(record.EncryptedAccessGrant) // TODO: decrypt this
 
-	return accessGrant, secretKey, nil
+	return accessGrant, record.Public, secretKey, nil
 }
 
 // Delete removes any access grant information from the key/value store, looked up by the
