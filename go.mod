@@ -15,10 +15,10 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.5.1
-	github.com/zeebo/blake3 v0.1.1-0.20201014231448-350c65fcbf6b
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/sys v0.0.0-20201014080544-cc95f250f6bc // indirect
 	storj.io/common v0.0.0-20201013134311-f2cfd0712d88
 	storj.io/private v0.0.0-20201013115607-898c54912fab
 	storj.io/uplink v1.3.1

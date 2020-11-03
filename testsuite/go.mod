@@ -11,6 +11,7 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
 	storj.io/common v0.0.0-20201013134311-f2cfd0712d88
+	storj.io/stargate v0.0.0-00010101000000-000000000000
 	storj.io/storj v0.12.1-0.20201013144504-830817ec0dde
 	storj.io/uplink v1.3.1
 )

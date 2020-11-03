@@ -37,6 +37,17 @@ type GatewayFlags struct {
 	Config
 }
 
+// ClientConfig is a configuration struct for the uplink that controls how
+// to talk to the rest of the network.
+type ClientConfig struct {
+	DialTimeout time.Duration `help:"timeout for dials" default:"0h2m00s"`
+}
+
+// Config uplink configuration.
+type Config struct {
+	Client ClientConfig
+}
+
 var (
 	// Error is the default gateway setup errs class.
 	Error = errs.Class("gateway setup error")
