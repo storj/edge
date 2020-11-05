@@ -4,11 +4,13 @@
 package httpauth
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/btcsuite/btcutil/base58"
 
 	"storj.io/stargate/auth"
 )
@@ -73,7 +75,11 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var key auth.EncryptionKey // TODO: generate this
+	var key auth.EncryptionKey
+	if _, err := rand.Read(key[:]); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
@@ -87,8 +93,8 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		Endpoint    string `json:"endpoint"`
 	}
 
-	response.AccessKeyID = hex.EncodeToString(key[:])  // TODO: better encoding
-	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+	response.AccessKeyID = base58.CheckEncode(key[:], auth.VersionAccessKeyID)
+	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
 	response.Endpoint = res.endpoint
 
 	w.Header().Set("Content-Type", "application/json")
@@ -106,12 +112,17 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+	}
+	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
 		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+	if version != auth.VersionAccessKeyID {
+		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 
@@ -131,7 +142,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	response.AccessGrant = accessGrant
-	response.SecretKey = hex.EncodeToString(secretKey) // TODO: encoding?
+	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
 	response.Public = public
 
 	w.Header().Set("Content-Type", "application/json")
@@ -144,12 +155,17 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+	}
+	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
 		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+	if version != auth.VersionAccessKeyID {
+		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 
@@ -171,12 +187,17 @@ func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	encryptionKeyBytes, err := hex.DecodeString(res.id.Value(req.Context()))
+	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	} else if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
+	}
+	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
 		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		return
+	}
+	if version != auth.VersionAccessKeyID {
+		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 

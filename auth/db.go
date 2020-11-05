@@ -5,10 +5,13 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/encryption"
+	"storj.io/common/storj"
 	"storj.io/uplink"
 )
 
@@ -45,9 +48,27 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	}
 	_ = access // TODO: use access below
 
-	secretKey = []byte("TODO")                  // TODO: generate
-	encryptedSecretKey := secretKey             // TODO: encrypt
-	encryptedAccessGrant := []byte(accessGrant) // TODO: encrypt
+	secretKey = make([]byte, 32)
+	if _, err := rand.Read(secretKey); err != nil {
+		return nil, err
+	}
+
+	storjKey := storj.Key(key)
+	nonce := &storj.Nonce{}
+
+	encryptedSecretKey, err := encryption.Encrypt(secretKey, storj.EncAESGCM, &storjKey, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := encryption.Increment(nonce, 1); err != nil {
+		return nil, err
+	}
+
+	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, nonce)
+	if err != nil {
+		return nil, err
+	}
 
 	record := &Record{
 		SatelliteAddress:     "TODO",         // TODO: extend something to read this
@@ -76,10 +97,24 @@ func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant str
 		return "", false, nil, NotFound.New("key hash: %x", key.Hash())
 	}
 
-	secretKey = record.EncryptedSecretKey             // TODO: decrypt this
-	accessGrant = string(record.EncryptedAccessGrant) // TODO: decrypt this
+	nonce := &storj.Nonce{}
 
-	return accessGrant, record.Public, secretKey, nil
+	storjKey := storj.Key(key)
+	secretKey, err = encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, nonce)
+	if err != nil {
+		return "", false, nil, errs.Wrap(err)
+	}
+
+	if _, err := encryption.Increment(nonce, 1); err != nil {
+		return "", false, nil, errs.Wrap(err)
+	}
+
+	ag, err := encryption.Decrypt(record.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, nonce)
+	if err != nil {
+		return "", false, nil, errs.Wrap(err)
+	}
+
+	return string(ag), record.Public, secretKey, nil
 }
 
 // Delete removes any access grant information from the key/value store, looked up by the

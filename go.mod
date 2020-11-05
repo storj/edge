@@ -3,7 +3,7 @@ module storj.io/stargate
 go 1.13
 
 require (
-	github.com/btcsuite/btcutil v1.0.2 // indirect
+	github.com/btcsuite/btcutil v1.0.2
 	github.com/calebcase/tmpfile v1.0.2 // indirect
 	github.com/jackc/pgconn v1.7.0
 	github.com/jackc/pgx/v4 v4.9.0

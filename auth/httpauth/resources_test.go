@@ -87,6 +87,7 @@ func TestResources_CRUD(t *testing.T) {
 		fetchResult, ok := exec(res, "GET", url, ``)
 		require.True(t, ok)
 		require.Equal(t, minimalAccess, fetchResult["access_grant"])
+		require.Equal(t, createResult["secret_key"], fetchResult["secret_key"])
 
 		// delete an access
 		deleteResult, ok := exec(res, "DELETE", url, ``)
