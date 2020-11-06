@@ -19,6 +19,9 @@ import (
 
 const minimalAccess = "138CV9Drxrw8ir1XpxcZhk2wnHjhzVjuSZe6yDsNiMZDP8cow9V6sHDYdwgvYoQGgqVvoMnxdWDbpBiEPW5oP7DtPJ5sZx2MVxFrUoZYFfVAgxidW"
 
+// This is the satellite address embedded in the access above.
+const minimalAccessSatelliteAddr = "s"
+
 func TestResources_URLs(t *testing.T) {
 	check := func(method, path string) bool {
 		rec := httptest.NewRecorder()
@@ -74,7 +77,7 @@ func TestResources_CRUD(t *testing.T) {
 	}
 
 	t.Run("CRUD", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -99,8 +102,24 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 	})
 
+	t.Run("ApprovedSatelliteAddr", func(t *testing.T) {
+		res := New(auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), "endpoint", "authToken")
+
+		// create an access
+		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		_, ok := exec(res, "POST", "/v1/access", createRequest)
+		require.False(t, ok)
+
+		res = New(auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), "endpoint", "authToken")
+
+		// create an access
+		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		_, ok = exec(res, "POST", "/v1/access", createRequest)
+		require.True(t, ok)
+	})
+
 	t.Run("Invalidate", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -125,7 +144,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -143,7 +162,7 @@ func TestResources_CRUD(t *testing.T) {
 }
 
 func TestResources_Authorization(t *testing.T) {
-	res := New(auth.NewDatabase(memauth.New()), "endpoint", "authToken")
+	res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)

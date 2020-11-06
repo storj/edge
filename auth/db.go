@@ -28,12 +28,20 @@ func (k EncryptionKey) Hash() KeyHash {
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
 type Database struct {
-	kv KV
+	kv                KV
+	allowedSatellites map[string]struct{}
 }
 
 // NewDatabase constructs a Database.
-func NewDatabase(kv KV) *Database {
-	return &Database{kv: kv}
+func NewDatabase(kv KV, allowedSatellites []string) *Database {
+	m := make(map[string]struct{})
+	for _, sat := range allowedSatellites {
+		m[sat] = struct{}{}
+	}
+	return &Database{
+		kv:                kv,
+		allowedSatellites: m,
+	}
 }
 
 // Put encrypts the access grant with the key and stores it in a key/value store under the
@@ -46,7 +54,13 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	if err != nil {
 		return nil, err
 	}
-	_ = access // TODO: use access below
+
+	// Check that the satellite address embedded in the access grant is on the
+	// allowed list.
+	satelliteAddr := access.SatelliteAddress
+	if _, ok := db.allowedSatellites[satelliteAddr]; !ok {
+		return nil, errs.New("access grant contains disallowed satellite")
+	}
 
 	secretKey = make([]byte, 32)
 	if _, err := rand.Read(secretKey); err != nil {
@@ -71,10 +85,8 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	}
 
 	// TODO: Verify access with satellite.
-	// TODO: Verify satellite address is on whitelist.
-
 	record := &Record{
-		SatelliteAddress:     access.SatelliteAddress,
+		SatelliteAddress:     satelliteAddr,
 		MacaroonHead:         access.APIKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,

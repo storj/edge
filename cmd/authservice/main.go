@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/stargate/auth"
@@ -35,9 +36,10 @@ var (
 
 // Config is the config.
 type Config struct {
-	Endpoint   string `help:"endpoint to return to clients" default:""`
-	AuthToken  string `help:"auth token to validate requests" default:""`
-	ListenAddr string `help:"address to listen for incoming connections" releaseDefault:"" devDefault:"localhost:8000"`
+	Endpoint          string   `help:"endpoint to return to clients" default:""`
+	AuthToken         string   `help:"auth token to validate requests" default:""`
+	ListenAddr        string   `help:"address to listen for incoming connections" releaseDefault:"" devDefault:"localhost:8000"`
+	AllowedSatellites []string `help:"List of satellite addresses allowed for incoming access grants"`
 }
 
 func init() {
@@ -55,8 +57,18 @@ func main() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
+
+	// Confirm that all satellites in config.AllowedSatellites is a valid storj
+	// node URL.
+	for _, sat := range config.AllowedSatellites {
+		_, err := storj.ParseNodeURL(sat)
+		if err != nil {
+			return err
+		}
+	}
+
 	kv := memauth.New()
-	db := auth.NewDatabase(kv)
+	db := auth.NewDatabase(kv, config.AllowedSatellites)
 
 	res := httpauth.New(db, config.Endpoint, config.AuthToken)
 
