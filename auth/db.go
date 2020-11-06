@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/storj"
-	"storj.io/uplink"
+	"storj.io/uplink/private/access2"
 )
 
 // NotFound is returned when a record is not found.
@@ -42,7 +42,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	secretKey []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	access, err := uplink.ParseAccess(accessGrant)
+	access, err := access2.ParseAccess(accessGrant)
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +70,12 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return nil, err
 	}
 
+	// TODO: Verify access with satellite.
+	// TODO: Verify satellite address is on whitelist.
+
 	record := &Record{
-		SatelliteAddress:     "TODO",         // TODO: extend something to read this
-		MacaroonHead:         []byte("TODO"), // TODO: extend something to read this
+		SatelliteAddress:     access.SatelliteAddress,
+		MacaroonHead:         access.APIKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,
 		Public:               public,
