@@ -41,7 +41,7 @@ We use the minio mint testsuite to ensure our compatibility to the S3 API. As so
 
 To build our custom image and tag it as storj/mint:
 ```
-docker build --pull https://github.com/storj/minio.git#storj -f Dockerfile.mint -t storj/mint
+docker build --pull https://github.com/storj/minio.git#main -f Dockerfile.mint -t storj/mint
 ```
 To run the tests against the endpoint `endpoint_address` (using the `HOST:PORT` format), use:
 ```
