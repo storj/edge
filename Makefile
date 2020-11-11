@@ -73,7 +73,7 @@ test: ## Run tests on source code (jenkins)
 ##@ Build
 
 .PHONY: images
-images: stargate-image ## Build stargate Docker images
+images: stargate-image authservice-image ## Build stargate and authservice Docker images
 	echo Built version: ${TAG}
 
 .PHONY: stargate-image
@@ -87,35 +87,22 @@ stargate-image: stargate_linux_arm64 stargate_linux_amd64 ## Build stargate Dock
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
 		-f cmd/stargate/Dockerfile .
 
+.PHONY: authservice-image
+authservice-image: authservice_linux_arm64 authservice_linux_amd64 ## Build authservice Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-amd64 \
+		-f cmd/authservice/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/authservice/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-aarch64 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/authservice/Dockerfile .
+
 .PHONY: binary
 binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
-	mkdir -p release/${TAG}
-	mkdir -p /tmp/go-cache /tmp/go-pkg
-	rm -f resource.syso
-	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
-	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o resource.syso \
-	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
-	-description "${COMPONENT} program for Storj" \
-        -product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-                -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-        -product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-                -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-        -product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
-                -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
-        -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
-        -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
-	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
-	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
-	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
-	-e RELEASE_BUILD_REQUIRED=${RELEASE_BUILD_REQUIRED} \
-	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
-	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
-	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} ./cmd/stargate/
-	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
-	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
-	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
+	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}"
 
 .PHONY: binary-check
 binary-check:
@@ -131,18 +118,22 @@ binary-check:
 stargate_%:
 	$(MAKE) binary-check COMPONENT=stargate GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
-COMPONENTLIST := stargate
+.PHONY: authservice_%
+authservice_%:
+	$(MAKE) binary-check COMPONENT=authservice GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+
+COMPONENTLIST := stargate authservice
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build stargate binaries (jenkins)
+binaries: ${BINARIES} ## Build stargate and authservice binaries (jenkins)
 
 ##@ Deploy
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	for c in stargate; do \
+	for c in ${COMPONENTLIST}; do \
 		docker push storjlabs/$$c:${TAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}-aarch64 \
@@ -186,6 +177,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 clean-images:
 	-docker rmi storjlabs/stargate:${TAG}
+	-docker rmi storjlabs/authservice:${TAG}
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target
