@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/calebcase/tmpfile v1.0.2 // indirect
-	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
 	github.com/jackc/pgconn v1.7.0
 	github.com/jackc/pgx/v4 v4.9.0
 	github.com/mattn/go-sqlite3 v1.14.4
@@ -26,4 +25,4 @@ require (
 	storj.io/uplink v1.3.2-0.20201104145754-2f6dfd29a96c
 )
 
-replace github.com/minio/minio => github.com/storj/minio v0.0.0-20201005142930-0b1e648a8dee
+replace github.com/minio/minio => github.com/storj/minio v0.0.0-20201110204916-623e6095d650
