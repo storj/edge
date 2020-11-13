@@ -23,6 +23,32 @@ retrieve those files!
 
 * [Using the S3 Gateway](https://documentation.tardigrade.io/api-reference/s3-gateway)
 
+# How to run stargate with auth service
+- Run auth service
+    - `--auth-token` is used to authenticate `GET` request. We will need to pass the same value into `stargate` so it can talk to the `authservice` instance.
+    - `--allowed-satellites` is the satellite node url.
+        - we can use uplink cli to get the satellite node url that's associated with a given access grant
+        ```
+        uplink access inspect "my-access-grant"
+        ```
+    ```
+    authservice run --auth-token "super-secret" --allowed-satellites="satellite-node-url"
+    ```
+- Run stargate
+Currently, auth service configuration is passed in to `minio` through environment variables:
+    - `MINIO_NOAUTH_ENABLED=enable` enables stargate to use our auth service implementation
+    - `MINIO_NOAUTH_AUTH_TOKEN` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command
+    - `MINIO_NOAUTH_SERVER_ADDR` defines the address of our auth service instance. It's default to `localhost:8000`
+    ```
+    MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_SERVER_ADDR=localhost:8000 stargate run
+    ```
+- Register an access grant with auth service
+    ```
+    uplink access register "my-access-grant"
+    ```
+    After registering an access grant with the auth service, you will have the s3 credential, `Access Key Id` and `Secret Key`
+    You can use that credential to configure an s3 client to talk to storj network through the stargate
+
 # S3 API Compatibility using Docker
 The following S3 methods are supported:
 - HeadBucket
