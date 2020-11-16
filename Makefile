@@ -79,7 +79,7 @@ images: stargate-image authservice-image ## Build stargate and authservice Docke
 	echo Built version: ${TAG}
 
 .PHONY: stargate-image
-stargate-image: stargate_linux_arm64 stargate_linux_amd64 ## Build stargate Docker image
+stargate-image: ## Build stargate Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/stargate:${TAG}-amd64 \
 		-f cmd/stargate/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/stargate:${TAG}-arm32v6 \
@@ -90,7 +90,7 @@ stargate-image: stargate_linux_arm64 stargate_linux_amd64 ## Build stargate Dock
 		-f cmd/stargate/Dockerfile .
 
 .PHONY: authservice-image
-authservice-image: authservice_linux_arm64 authservice_linux_amd64 ## Build authservice Docker image
+authservice-image: ## Build authservice Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-amd64 \
 		-f cmd/authservice/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
