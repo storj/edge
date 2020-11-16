@@ -29,6 +29,16 @@ func New(db *DB) *KV {
 	}
 }
 
+// MigrateToLatest migrates the kv store to the latest version of the schema.
+func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO(jeff): do real migrations instead of this
+
+	_, err = d.db.ExecContext(ctx, d.db.Schema())
+	return errs.Wrap(err)
+}
+
 // Put stores the record in the key/value store.
 // It is an error if the key already exists.
 func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record) (err error) {

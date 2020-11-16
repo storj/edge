@@ -4,9 +4,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
@@ -15,7 +17,6 @@ import (
 	"storj.io/private/process"
 	"storj.io/stargate/auth"
 	"storj.io/stargate/auth/httpauth"
-	"storj.io/stargate/auth/memauth"
 )
 
 var (
@@ -29,6 +30,11 @@ var (
 		Short: "Run the auth service",
 		RunE:  cmdRun,
 	}
+	runMigrationCmd = &cobra.Command{
+		Use:   "migration",
+		Short: "Run migrations for the auth service",
+		RunE:  cmdMigrationRun,
+	}
 
 	config  Config
 	confDir string
@@ -38,8 +44,17 @@ var (
 type Config struct {
 	Endpoint          string   `help:"endpoint to return to clients" default:""`
 	AuthToken         string   `help:"auth token to validate requests" default:""`
-	ListenAddr        string   `help:"address to listen for incoming connections" releaseDefault:"" devDefault:"localhost:8000"`
 	AllowedSatellites []string `help:"List of satellite addresses allowed for incoming access grants"`
+
+	KVBackend string `help:"key/value store backend url" default:"memory://"`
+
+	ListenAddr    string `user:"true" help:"public address to listen on" default:":8000"`
+	ListenAddrTLS string `user:"true" help:"public tls address to listen on" default:":8443"`
+
+	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
+	CertFile    string `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
+	KeyFile     string `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
+	PublicURL   string `user:"true" help:"public url for the server" devDefault:"http://localhost:8080" releaseDefault:""`
 }
 
 func init() {
@@ -48,7 +63,9 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	runCmd.AddCommand(runMigrationCmd)
 	process.Bind(runCmd, &config, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(runMigrationCmd, &config, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func main() {
@@ -67,11 +84,75 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	kv := memauth.New()
-	db := auth.NewDatabase(kv, config.AllowedSatellites)
+	kv, err := openKV(config.KVBackend)
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
+	db := auth.NewDatabase(kv, config.AllowedSatellites)
 	res := httpauth.New(db, config.Endpoint, config.AuthToken)
 
-	log.Info("listening for incoming connections", zap.String("address", config.ListenAddr))
-	return http.ListenAndServe(config.ListenAddr, res)
+	tlsInfo := &TLSInfo{
+		LetsEncrypt: config.LetsEncrypt,
+		CertFile:    config.CertFile,
+		KeyFile:     config.KeyFile,
+		PublicURL:   config.PublicURL,
+		ConfigDir:   confDir,
+	}
+
+	tlsConfig, handler, err := configureTLS(tlsInfo, res)
+	if err != nil {
+		return err
+	}
+
+	errors := make(chan error, 2)
+	launch := func(fn func() error) { go func() { errors <- fn() }() }
+
+	launch(func() error {
+		if tlsConfig == nil {
+			return nil
+		}
+
+		log.Info("listening for incoming TLS connections", zap.String("address", config.ListenAddrTLS))
+
+		return (&http.Server{
+			Handler:   handler,
+			TLSConfig: tlsConfig,
+			Addr:      config.ListenAddrTLS,
+		}).ListenAndServeTLS("", "")
+	})
+
+	launch(func() error {
+		log.Info("listening for incoming connections", zap.String("address", config.ListenAddr))
+
+		return (&http.Server{
+			Handler: handler,
+			Addr:    config.ListenAddr,
+		}).ListenAndServe()
+	})
+
+	// return at the first error
+	return <-errors
+}
+
+func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	kv, err := openKV(config.KVBackend)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	migrator, ok := kv.(interface {
+		MigrateToLatest(ctx context.Context) error
+	})
+	if !ok {
+		return errs.New("database backend does not support migrations")
+	}
+
+	if err := migrator.MigrateToLatest(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
