@@ -2,6 +2,7 @@ GO_VERSION ?= 1.15.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
+COMPONENTLIST := stargate authservice
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},main)
@@ -105,29 +106,11 @@ binary:
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}"
 
-.PHONY: binary-check
-binary-check:
-	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} ] || [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.exe ]; \
-	then \
-		echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; \
-	else \
-		echo "Making ${COMPONENT}"; \
-		$(MAKE) binary; \
-	fi
-
-.PHONY: stargate_%
-stargate_%:
-	$(MAKE) binary-check COMPONENT=stargate GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-
-.PHONY: authservice_%
-authservice_%:
-	$(MAKE) binary-check COMPONENT=authservice GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-
-COMPONENTLIST := stargate authservice
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
-BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build stargate and authservice binaries (jenkins)
+	for C in ${COMPONENTLIST}; do\
+		$(MAKE) binary COMPONENT=$$C \
+	; done
 
 ##@ Deploy
 
