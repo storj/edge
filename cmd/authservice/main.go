@@ -90,7 +90,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db := auth.NewDatabase(kv, config.AllowedSatellites)
-	res := httpauth.New(db, config.Endpoint, config.AuthToken)
+	res := httpauth.New(log.Named("resources"), db, config.Endpoint, config.AuthToken)
 
 	tlsInfo := &TLSInfo{
 		LetsEncrypt: config.LetsEncrypt,

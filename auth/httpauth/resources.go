@@ -7,10 +7,12 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/btcsuite/btcutil/base58"
+	"go.uber.org/zap"
 
 	"storj.io/stargate/auth"
 )
@@ -23,16 +25,19 @@ type Resources struct {
 
 	handler http.Handler
 	id      *Arg
+
+	log *zap.Logger
 }
 
 // New constructs Resources for some database.
-func New(db *auth.Database, endpoint, authToken string) *Resources {
+func New(log *zap.Logger, db *auth.Database, endpoint, authToken string) *Resources {
 	res := &Resources{
 		db:        db,
 		endpoint:  endpoint,
 		authToken: authToken,
 
-		id: new(Arg),
+		id:  new(Arg),
+		log: log,
 	}
 
 	res.handler = Dir{
@@ -64,26 +69,32 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	res.handler.ServeHTTP(w, req)
 }
 
+func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
+	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
+	http.Error(w, msg, status)
+}
+
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
+	res.log.Debug("newAccess request", zap.String("remote address", req.RemoteAddr))
 	var request struct {
 		AccessGrant string `json:"access_grant"`
 		Public      bool   `json:"public"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "newAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var key auth.EncryptionKey
 	if _, err := rand.Read(key[:]); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "newAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
-		http.Error(w, "error storing request in database", http.StatusInternalServerError)
+		res.writeError(w, "newAccess", fmt.Sprintf("error storing request in database: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}
 
@@ -107,22 +118,23 @@ func (res *Resources) requestAuthorized(req *http.Request) bool {
 }
 
 func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
+	res.log.Debug("getAccess request", zap.String("remote address", req.RemoteAddr))
 	if !res.requestAuthorized(req) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		res.writeError(w, "getAccess", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		res.writeError(w, "getAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
 	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		res.writeError(w, "getAccess", "invalid access key id length", http.StatusBadRequest)
 		return
 	}
 	if version != auth.VersionAccessKeyID {
-		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
+		res.writeError(w, "getAccess", "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 
@@ -131,7 +143,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -150,22 +162,23 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
+	res.log.Debug("deleteAccess request", zap.String("remote address", req.RemoteAddr))
 	if !res.requestAuthorized(req) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		res.writeError(w, "deleteAccess", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		res.writeError(w, "deleteAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
 	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		res.writeError(w, "deleteAccess", "invalid access key id length", http.StatusBadRequest)
 		return
 	}
 	if version != auth.VersionAccessKeyID {
-		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
+		res.writeError(w, "deleteAccess", "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 
@@ -173,7 +186,7 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 	copy(key[:], encryptionKeyBytes)
 
 	if err := res.db.Delete(req.Context(), key); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "deleteAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -182,22 +195,23 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request) {
+	res.log.Debug("invalidateAccess request", zap.String("remote address", req.RemoteAddr))
 	if !res.requestAuthorized(req) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		res.writeError(w, "invalidateAccess", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		res.writeError(w, "invalidateAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
 	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		http.Error(w, "invalid access key id length", http.StatusBadRequest)
+		res.writeError(w, "invalidateAccess", "invalid access key id length", http.StatusBadRequest)
 		return
 	}
 	if version != auth.VersionAccessKeyID {
-		http.Error(w, "unexpected decoded version", http.StatusBadRequest)
+		res.writeError(w, "invalidateAccess", "unexpected decoded version", http.StatusBadRequest)
 		return
 	}
 
@@ -209,12 +223,12 @@ func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request)
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "invalidateAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := res.db.Invalidate(req.Context(), key, request.Reason); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "invalidateAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 

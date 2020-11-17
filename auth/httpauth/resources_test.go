@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/stargate/auth"
 	"storj.io/stargate/auth/memauth"
@@ -27,7 +28,7 @@ func TestResources_URLs(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
-		New(nil, "endpoint", "authToken").ServeHTTP(rec, req)
+		New(zaptest.NewLogger(t), nil, "endpoint", "authToken").ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
 
@@ -77,7 +78,7 @@ func TestResources_CRUD(t *testing.T) {
 	}
 
 	t.Run("CRUD", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -103,14 +104,14 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("ApprovedSatelliteAddr", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), "endpoint", "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		res = New(auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), "endpoint", "authToken")
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), "endpoint", "authToken")
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -119,7 +120,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Invalidate", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -144,7 +145,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -162,7 +163,7 @@ func TestResources_CRUD(t *testing.T) {
 }
 
 func TestResources_Authorization(t *testing.T) {
-	res := New(auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
