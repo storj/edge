@@ -1031,7 +1031,7 @@ func TestDeleteObjectWithNoReadOrListPermission(t *testing.T) {
 		_, err = createFile(ctx, project, testBucketInfo.Name, TestFile, nil, nil)
 		require.NoError(t, err)
 
-		access, err := uplink.ParseAccess(logger.GetReqInfo(ctx).AccessKey)
+		access, err := uplink.ParseAccess(logger.GetReqInfo(ctx).AccessGrant)
 		require.NoError(t, err)
 
 		// Restrict the access grant to deletes only

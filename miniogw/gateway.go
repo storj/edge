@@ -70,7 +70,7 @@ type gatewayLayer struct {
 func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, 
 func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -124,7 +124,7 @@ func (layer *gatewayLayer) DeleteObjects(ctx context.Context, bucketName string,
 func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string) (bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}
@@ -143,7 +143,7 @@ func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string)
 func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objectPath string, rangeSpec *minio.HTTPRangeSpec, header http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objec
 func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -265,7 +265,7 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, object
 func (layer *gatewayLayer) ListBuckets(ctx context.Context) (items []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return result, err
 	}
@@ -422,7 +422,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return result, err
 	}
@@ -551,7 +551,7 @@ func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName
 func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketName string, opts minio.BucketOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return err
 	}
@@ -574,7 +574,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
 	// }
 
-	// project, err := layer.openProject(ctx, getAccessKey(ctx))
+	// project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	// if err != nil {
 	// 	return minio.ObjectInfo{}, err
 	// }
@@ -647,7 +647,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessKey(ctx))
+	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -786,10 +786,10 @@ func minioObjectInfo(bucket, etag string, object *uplink.Object) minio.ObjectInf
 	}
 }
 
-func getAccessKey(ctx context.Context) string {
+func getAccessGrant(ctx context.Context) string {
 	reqInfo := logger.GetReqInfo(ctx)
 	if reqInfo == nil {
 		return ""
 	}
-	return reqInfo.AccessKey
+	return reqInfo.AccessGrant
 }
