@@ -106,7 +106,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	errors := make(chan error, 2)
-	launch := func(fn func() error) { go func() { errors <- fn() }() }
+	launch := func(fn func() error) {
+		go func() {
+			err := fn()
+			if err != nil {
+				errors <- err
+			}
+		}()
+	}
 
 	launch(func() error {
 		if tlsConfig == nil {
