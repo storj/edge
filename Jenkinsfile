@@ -21,6 +21,8 @@ timeout(time: 26, unit: 'MINUTES') {
 					sh 'service postgresql start'
 
 					sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
+
+					sh 'make build-packages'
 				}
 
 				stage('Verification') {
