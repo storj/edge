@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/minio/cli"
-	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	minio "github.com/storj/minio/cmd"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 

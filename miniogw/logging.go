@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"reflect"
 
-	minio "github.com/minio/minio/cmd"
-	"github.com/minio/minio/pkg/auth"
-	"github.com/minio/minio/pkg/bucket/policy"
-	"github.com/minio/minio/pkg/madmin"
+	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/pkg/auth"
+	"github.com/storj/minio/pkg/bucket/policy"
+	"github.com/storj/minio/pkg/madmin"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"

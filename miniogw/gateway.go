@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"strings"
 
-	minio "github.com/minio/minio/cmd"
-	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/auth"
-	"github.com/minio/minio/pkg/hash"
 	"github.com/spacemonkeygo/monkit/v3"
+	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/cmd/logger"
+	"github.com/storj/minio/pkg/auth"
+	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
