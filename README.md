@@ -44,7 +44,7 @@ Currently, auth service configuration is passed in to `minio` through environmen
     ```
 - Register an access grant with auth service
     ```
-    uplink access register "my-access-grant"
+    uplink access register "my-access-grant" --auth-service https://localhost:8000
     ```
     After registering an access grant with the auth service, you will have the s3 credential, `Access Key Id` and `Secret Key`
     You can use that credential to configure an s3 client to talk to storj network through the stargate
