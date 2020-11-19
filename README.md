@@ -69,6 +69,10 @@ To build our custom image and tag it as storj/mint:
 ```
 docker build --pull https://github.com/storj/minio.git#main -f Dockerfile.mint -t storj/mint
 ```
+If you're testing against local changes involving Minio, run this command from your minio directory instead:
+```
+docker build . -f Dockerfile.mint -t storj/mint
+```
 To run the tests against the endpoint `endpoint_address` (using the `HOST:PORT` format), use:
 ```
 docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECRET_KEY=mysecretkey -e ENABLE_HTTPS=0 storj/mint
