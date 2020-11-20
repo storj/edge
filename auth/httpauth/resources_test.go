@@ -14,8 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/macaroon"
 	"storj.io/stargate/auth"
 	"storj.io/stargate/auth/memauth"
+	"storj.io/uplink/private/access2"
 )
 
 const minimalAccess = "138CV9Drxrw8ir1XpxcZhk2wnHjhzVjuSZe6yDsNiMZDP8cow9V6sHDYdwgvYoQGgqVvoMnxdWDbpBiEPW5oP7DtPJ5sZx2MVxFrUoZYFfVAgxidW"
@@ -115,6 +117,25 @@ func TestResources_CRUD(t *testing.T) {
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		_, ok = exec(res, "POST", "/v1/access", createRequest)
+		require.True(t, ok)
+
+		allowedSats, err := auth.RemoveNodeIDs([]string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777", "s", "b", "c"})
+		require.NoError(t, err)
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowedSats), "endpoint", "authToken")
+		mac, err := macaroon.NewAPIKey(nil)
+		require.NoError(t, err)
+		access := access2.Access{
+			SatelliteAddress: "us-central-1.tardigrade.io:7777",
+			APIKey:           mac,
+			EncAccess:        access2.NewEncryptionAccess(),
+		}
+
+		noNodeID, err := access.Serialize()
+		require.NoError(t, err)
+
+		// create an access
+		createRequest = fmt.Sprintf(`{"access_grant": %q}`, noNodeID)
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 	})

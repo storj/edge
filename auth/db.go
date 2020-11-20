@@ -28,20 +28,35 @@ func (k EncryptionKey) Hash() KeyHash {
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
 type Database struct {
-	kv                KV
-	allowedSatellites map[string]struct{}
+	kv                        KV
+	allowedSatelliteAddresses map[string]struct{}
 }
 
-// NewDatabase constructs a Database.
-func NewDatabase(kv KV, allowedSatellites []string) *Database {
-	m := make(map[string]struct{})
-	for _, sat := range allowedSatellites {
+// NewDatabase constructs a Database. allowedSatelliteAddresses should contain
+// the full URL (without a node ID), including port, for which satellites we
+// allow for incoming access grants.
+func NewDatabase(kv KV, allowedSatelliteAddresses []string) *Database {
+	m := make(map[string]struct{}, len(allowedSatelliteAddresses))
+	for _, sat := range allowedSatelliteAddresses {
 		m[sat] = struct{}{}
 	}
 	return &Database{
-		kv:                kv,
-		allowedSatellites: m,
+		kv:                        kv,
+		allowedSatelliteAddresses: m,
 	}
+}
+
+// RemoveNodeIDs removes the nodeIDs from a list of valid node URLs. This can
+// be called prior to NewDatabase to prepare allowed satellite addresses.
+func RemoveNodeIDs(ss []string) (p []string, err error) {
+	for _, s := range ss {
+		url, err := storj.ParseNodeURL(s)
+		if err != nil {
+			return nil, err
+		}
+		p = append(p, url.Address)
+	}
+	return p, nil
 }
 
 // Put encrypts the access grant with the key and stores it in a key/value store under the
@@ -58,7 +73,11 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	if _, ok := db.allowedSatellites[satelliteAddr]; !ok {
+	url, err := storj.ParseNodeURL(satelliteAddr)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := db.allowedSatelliteAddresses[url.Address]; !ok {
 		return nil, errs.New("access grant contains disallowed satellite")
 	}
 

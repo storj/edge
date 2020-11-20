@@ -89,7 +89,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	db := auth.NewDatabase(kv, config.AllowedSatellites)
+	allowedSats, err := auth.RemoveNodeIDs(config.AllowedSatellites)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	db := auth.NewDatabase(kv, allowedSats)
 	res := httpauth.New(log.Named("resources"), db, config.Endpoint, config.AuthToken)
 
 	tlsInfo := &TLSInfo{
