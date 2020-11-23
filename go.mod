@@ -14,7 +14,7 @@ require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.7
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
-	github.com/storj/minio v0.0.0-20201118180608-b7036f0538ab
+	github.com/storj/minio v0.0.0-20201123173841-6fdac6dbc542
 	github.com/stretchr/testify v1.5.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.15.0
