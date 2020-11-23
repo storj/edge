@@ -10,9 +10,11 @@ import (
 	"reflect"
 
 	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/cmd/logger"
 	"github.com/storj/minio/pkg/auth"
 	"github.com/storj/minio/pkg/bucket/policy"
 	"github.com/storj/minio/pkg/madmin"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -46,9 +48,23 @@ func minioError(err error) bool {
 	return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
 }
 
-// log unexpected errors, i.e. non-minio errors. It will return the given error
+// log logs non-minio erros and request info.
+func (log *layerLogging) log(ctx context.Context, err error) error {
+	err = log.logErr(err)
+	req := logger.GetReqInfo(ctx)
+	if req == nil {
+		log.logger.Error("gateway error:", zap.Error(errs.New("empty request")))
+		return err
+	}
+
+	log.logger.Debug("gateway", zap.String("operation", req.API), zap.String("user agent", req.UserAgent))
+
+	return err
+}
+
+// logErr logs unexpected errors, i.e. non-minio errors. It will return the given error
 // to allow method chaining.
-func (log *layerLogging) log(err error) error {
+func (log *layerLogging) logErr(err error) error {
 	// most of the time context canceled is intentionally caused by the client
 	// to keep log message clean, we will only log it on debug level
 	if errs2.IsCanceled(err) {
@@ -67,7 +83,7 @@ func (log *layerLogging) NewNSLock(bucket string, objects ...string) minio.RWLoc
 }
 
 func (log *layerLogging) Shutdown(ctx context.Context) error {
-	return log.log(log.layer.Shutdown(ctx))
+	return log.log(ctx, log.layer.Shutdown(ctx))
 }
 
 func (log *layerLogging) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
@@ -75,140 +91,140 @@ func (log *layerLogging) StorageInfo(ctx context.Context, local bool) (minio.Sto
 }
 
 func (log *layerLogging) MakeBucketWithLocation(ctx context.Context, bucket string, opts minio.BucketOptions) error {
-	return log.log(log.layer.MakeBucketWithLocation(ctx, bucket, opts))
+	return log.log(ctx, log.layer.MakeBucketWithLocation(ctx, bucket, opts))
 }
 
 func (log *layerLogging) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
 	bucketInfo, err = log.layer.GetBucketInfo(ctx, bucket)
-	return bucketInfo, log.log(err)
+	return bucketInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	buckets, err = log.layer.ListBuckets(ctx)
-	return buckets, log.log(err)
+	return buckets, log.log(ctx, err)
 }
 
 func (log *layerLogging) DeleteBucket(ctx context.Context, bucket string, forceDelete bool) error {
-	return log.log(log.layer.DeleteBucket(ctx, bucket, forceDelete))
+	return log.log(ctx, log.layer.DeleteBucket(ctx, bucket, forceDelete))
 }
 
 func (log *layerLogging) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	result, err = log.layer.ListObjects(ctx, bucket, prefix, marker, delimiter, maxKeys)
-	return result, log.log(err)
+	return result, log.log(ctx, err)
 }
 
 func (log *layerLogging) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
 	result, err = log.layer.ListObjectsV2(ctx, bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
-	return result, log.log(err)
+	return result, log.log(ctx, err)
 }
 
 func (log *layerLogging) GetObjectNInfo(ctx context.Context, bucket, object string, rs *minio.HTTPRangeSpec, h http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
 	reader, err = log.layer.GetObjectNInfo(ctx, bucket, object, rs, h, lockType, opts)
-	return reader, log.log(err)
+	return reader, log.log(ctx, err)
 }
 
 func (log *layerLogging) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
-	return log.log(log.layer.GetObject(ctx, bucket, object, startOffset, length, writer, etag, opts))
+	return log.log(ctx, log.layer.GetObject(ctx, bucket, object, startOffset, length, writer, etag, opts))
 }
 
 func (log *layerLogging) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = log.layer.GetObjectInfo(ctx, bucket, object, opts)
-	return objInfo, log.log(err)
+	return objInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = log.layer.PutObject(ctx, bucket, object, data, opts)
-	return objInfo, log.log(err)
+	return objInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = log.layer.CopyObject(ctx, srcBucket, srcObject, destBucket, destObject, srcInfo, srcOpts, destOpts)
-	return objInfo, log.log(err)
+	return objInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) DeleteObject(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = log.layer.DeleteObject(ctx, bucket, object, opts)
-	return objInfo, log.log(err)
+	return objInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, errors []error) {
 	deleted, errors = log.layer.DeleteObjects(ctx, bucket, objects, opts)
 	for _, err := range errors {
-		_ = log.log(err)
+		_ = log.log(ctx, err)
 	}
 	return deleted, errors
 }
 
 func (log *layerLogging) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
 	result, err = log.layer.ListMultipartUploads(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
-	return result, log.log(err)
+	return result, log.log(ctx, err)
 }
 
 func (log *layerLogging) NewMultipartUpload(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (uploadID string, err error) {
 	uploadID, err = log.layer.NewMultipartUpload(ctx, bucket, object, opts)
-	return uploadID, log.log(err)
+	return uploadID, log.log(ctx, err)
 }
 
 func (log *layerLogging) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	info, err = log.layer.CopyObjectPart(ctx, srcBucket, srcObject, destBucket, destObject, uploadID, partID, startOffset, length, srcInfo, srcOpts, destOpts)
-	return info, log.log(err)
+	return info, log.log(ctx, err)
 }
 
 func (log *layerLogging) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	info, err = log.layer.PutObjectPart(ctx, bucket, object, uploadID, partID, data, opts)
-	return info, log.log(err)
+	return info, log.log(ctx, err)
 }
 
 func (log *layerLogging) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
 	info, err = log.layer.GetMultipartInfo(ctx, bucket, object, uploadID, opts)
-	return info, log.log(err)
+	return info, log.log(ctx, err)
 }
 
 func (log *layerLogging) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int, opts minio.ObjectOptions) (result minio.ListPartsInfo, err error) {
 	result, err = log.layer.ListObjectParts(ctx, bucket, object, uploadID, partNumberMarker, maxParts, opts)
-	return result, log.log(err)
+	return result, log.log(ctx, err)
 }
 
 func (log *layerLogging) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts minio.ObjectOptions) error {
-	return log.log(log.layer.AbortMultipartUpload(ctx, bucket, object, uploadID, opts))
+	return log.log(ctx, log.layer.AbortMultipartUpload(ctx, bucket, object, uploadID, opts))
 }
 
 func (log *layerLogging) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = log.layer.CompleteMultipartUpload(ctx, bucket, object, uploadID, uploadedParts, opts)
-	return objInfo, log.log(err)
+	return objInfo, log.log(ctx, err)
 }
 
 func (log *layerLogging) HealFormat(ctx context.Context, dryRun bool) (madmin.HealResultItem, error) {
 	rv, err := log.layer.HealFormat(ctx, dryRun)
-	return rv, log.log(err)
+	return rv, log.log(ctx, err)
 }
 
 func (log *layerLogging) HealBucket(ctx context.Context, bucket string, dryRun, remove bool) (madmin.HealResultItem, error) {
 	rv, err := log.layer.HealBucket(ctx, bucket, dryRun, remove)
-	return rv, log.log(err)
+	return rv, log.log(ctx, err)
 }
 
 func (log *layerLogging) HealObject(ctx context.Context, bucket, object, versionID string, opts madmin.HealOpts) (madmin.HealResultItem, error) {
 	rv, err := log.layer.HealObject(ctx, bucket, object, versionID, opts)
-	return rv, log.log(err)
+	return rv, log.log(ctx, err)
 }
 
 func (log *layerLogging) ListBucketsHeal(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	buckets, err = log.layer.ListBucketsHeal(ctx)
-	return buckets, log.log(err)
+	return buckets, log.log(ctx, err)
 }
 
 func (log *layerLogging) SetBucketPolicy(ctx context.Context, n string, p *policy.Policy) error {
-	return log.log(log.layer.SetBucketPolicy(ctx, n, p))
+	return log.log(ctx, log.layer.SetBucketPolicy(ctx, n, p))
 }
 
 func (log *layerLogging) GetBucketPolicy(ctx context.Context, n string) (*policy.Policy, error) {
 	p, err := log.layer.GetBucketPolicy(ctx, n)
-	return p, log.log(err)
+	return p, log.log(ctx, err)
 }
 
 func (log *layerLogging) DeleteBucketPolicy(ctx context.Context, n string) error {
-	return log.log(log.layer.DeleteBucketPolicy(ctx, n))
+	return log.log(ctx, log.layer.DeleteBucketPolicy(ctx, n))
 }
 
 func (log *layerLogging) IsNotificationSupported() bool {
@@ -225,5 +241,5 @@ func (log *layerLogging) IsCompressionSupported() bool {
 
 func (log *layerLogging) GetMetrics(ctx context.Context) (*minio.Metrics, error) {
 	metrics, err := log.layer.GetMetrics(ctx)
-	return metrics, log.log(err)
+	return metrics, log.log(ctx, err)
 }
