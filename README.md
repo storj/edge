@@ -38,7 +38,7 @@ retrieve those files!
 Currently, auth service configuration is passed in to `minio` through environment variables:
     - `MINIO_NOAUTH_ENABLED=enable` enables stargate to use our auth service implementation
     - `MINIO_NOAUTH_AUTH_TOKEN` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command
-    - `MINIO_NOAUTH_SERVER_ADDR` defines the address of our auth service instance. It's default to `localhost:8000`
+    - `MINIO_NOAUTH_AUTH_URL` defines the address of our auth service instance. It's default to `http://localhost:8000`
     ```
     MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_SERVER_ADDR=localhost:8000 stargate run
     ```
@@ -69,17 +69,36 @@ To build our custom image and tag it as storj/mint:
 ```
 docker build --pull https://github.com/storj/minio.git#main -f Dockerfile.mint -t storj/mint
 ```
-If you're testing against local changes involving Minio, run this command from your minio directory instead:
-```
-docker build . -f Dockerfile.mint -t storj/mint
-```
 To run the tests against the endpoint `endpoint_address` (using the `HOST:PORT` format), use:
 ```
 docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECRET_KEY=mysecretkey -e ENABLE_HTTPS=0 storj/mint
 ```
 The `ENABLE_HTTPS` flag indicates if https should be used (`ENABLE_HTTPS=1`)
 
+# Stargate + storj-sim + Minio Mint test workflow
+Stargate is designed to becompatible with the Minio Mint's Docker-based test suite.  If you'd like to use storj-sim to test local changes to Mint, run these commands:
 
+```
+storj-sim network setup
+storj-sim network run
+```
+
+```
+authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)"
+```
+
+```
+MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=localhost:8000 stargate run
+```
+
+```
+docker build . -f Dockerfile.mint -t storj/mint
+uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:8000 --aws-profile storjsim
+export ACCESS_KEY=$(aws configure get aws_access_key_id --profile=storjsim)
+export SECRET_KEY=$(aws configure get aws_secret_access_key --profile=storjsim)
+docker run -e SERVER_ENDPOINT=host.docker.internal:7777 -e ACCESS_KEY=$ACCESS_KEY -e SECRET_KEY=$SECRET_KEY -e ENABLE_HTTPS=0 storj/mint
+```
+Note that Linux users may need alter the above commmand to `SERVER_ENDPOINT=localhost:7777` to use or the `--add-host=host.docker.internal:host-gateway` flag.
 
 # License
 
