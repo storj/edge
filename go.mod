@@ -3,7 +3,7 @@ module storj.io/stargate
 go 1.13
 
 require (
-	github.com/btcsuite/btcutil v1.0.2
+	github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded
 	github.com/calebcase/tmpfile v1.0.2 // indirect
 	github.com/jackc/pgconn v1.7.0
 	github.com/jackc/pgx/v4 v4.9.0
@@ -21,7 +21,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sys v0.0.0-20201014080544-cc95f250f6bc // indirect
 	google.golang.org/api v0.20.0 // indirect
-	storj.io/common v0.0.0-20201030140758-31112c1cc750
+	storj.io/common v0.0.0-20201124202331-31c1d1dc486d
 	storj.io/private v0.0.0-20201026143115-bc926bfa3bca
-	storj.io/uplink v1.3.2-0.20201104145754-2f6dfd29a96c
+	storj.io/uplink v1.3.2-0.20201130131447-ea426a358c6d
 )
