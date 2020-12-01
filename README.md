@@ -40,7 +40,7 @@ Currently, auth service configuration is passed in to `minio` through environmen
     - `MINIO_NOAUTH_AUTH_TOKEN` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command
     - `MINIO_NOAUTH_AUTH_URL` defines the address of our auth service instance. It's default to `http://localhost:8000`
     ```
-    MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_SERVER_ADDR=localhost:8000 stargate run
+    MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 stargate run
     ```
 - Register an access grant with auth service
     ```
@@ -88,7 +88,7 @@ authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim n
 ```
 
 ```
-MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=localhost:8000 stargate run
+MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 stargate run
 ```
 
 ```
