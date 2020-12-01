@@ -105,7 +105,9 @@ timeout(time: 26, unit: 'MINUTES') {
 
 				sh 'docker run -u root:root --rm -i -d --name mintsetup-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-mint.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres storjlabs/golang:1.15.5'
 				// Wait until the docker command above prints out the keys before proceeding
-				sh '''t="0"
+				sh '''#!/bin/bash
+						set -e +x
+						t="0"
 						while true; do
 							logs=$(docker logs mintsetup-$BUILD_NUMBER -t --since "$t" 2>&1)
 							keys=$(echo "$logs" | grep "Finished access_key_id" || true)
@@ -115,12 +117,13 @@ timeout(time: 26, unit: 'MINUTES') {
 								SECRET_KEY=$(echo "$keys" | rev |  cut -d "," -f1 | cut -d ":" -f1 | rev)
 								break
 							fi
+							t=$(echo -E "$logs" | tail -n 1 | cut -d " " -f1)
+							echo "printing logs"
 							echo "$logs"
-							t=$(echo "$logs" | tail -n 1 | cut -d " " -f1)
 							sleep 5
 						done
 
-						echo "parsed keys $S3_ACCESS_KEY_ID $S3_SECRET_KEY"
+						echo "parsed keys ${ACCESS_KEY} ${SECRET_KEY}"
 						docker network create minttest-$BUILD_NUMBER
 						docker network connect --alias mintsetup minttest-$BUILD_NUMBER mintsetup-$BUILD_NUMBER
 						docker run -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-$BUILD_NUMBER storjlabs/minio-mint:latest
