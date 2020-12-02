@@ -112,6 +112,7 @@ timeout(time: 26, unit: 'MINUTES') {
 							logs=$(docker logs mintsetup-$BUILD_NUMBER -t --since "$t" 2>&1)
 							keys=$(echo "$logs" | grep "Finished access_key_id" || true)
 							if [ ! -z "$keys" ]; then
+								echo "$logs"
 								echo "found keys $keys"
 								ACCESS_KEY_ID=$(echo "$keys" | rev |  cut -d "," -f2 | cut -d ":" -f1 | rev)
 								SECRET_KEY=$(echo "$keys" | rev |  cut -d "," -f1 | cut -d ":" -f1 | rev)
