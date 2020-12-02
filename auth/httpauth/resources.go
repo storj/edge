@@ -4,7 +4,6 @@
 package httpauth
 
 import (
-	"crypto/rand"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -86,8 +85,9 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var err error
 	var key auth.EncryptionKey
-	if _, err := rand.Read(key[:]); err != nil {
+	if key, err = auth.NewEncryptionKey(); err != nil {
 		res.writeError(w, "newAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}

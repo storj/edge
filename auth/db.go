@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base32"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -17,13 +19,55 @@ import (
 
 // NotFound is returned when a record is not found.
 var NotFound = errs.Class("not found")
+var base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+
+const eKeySizeEncoded = 28   // size in base32 bytes + magic byte
+const versionByte = byte(77) // magic number for v1 EncryptionKey encoding
 
 // EncryptionKey is an encryption key that an access/secret are encrypted with.
-type EncryptionKey [32]byte
+type EncryptionKey [16]byte
+
+// NewEncryptionKey returns a new random EncryptionKey with initial version byte.
+func NewEncryptionKey() (EncryptionKey, error) {
+	key := EncryptionKey{versionByte}
+	if _, err := rand.Read(key[:]); err != nil {
+		return key, err
+	}
+	return key, nil
+}
 
 // Hash returns the KeyHash for the EncryptionKey.
 func (k EncryptionKey) Hash() KeyHash {
 	return KeyHash(sha256.Sum256(k[:]))
+}
+
+// FromBase32 loads the EncryptionKey from a lowercase RFC 4648 base32 string.
+func (k *EncryptionKey) FromBase32(encoded string) error {
+	if len(encoded) != eKeySizeEncoded {
+		return errs.New("alphanumeric encryption key length expected to be %d, was %d", eKeySizeEncoded, len(encoded))
+	}
+	data, err := base32Encoding.DecodeString(strings.ToUpper(encoded))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	if data[0] != versionByte {
+		return errs.New("encryption key did not start with expected byte")
+	}
+	copy(k[:], data[1:]) // overwrite k
+	return nil
+}
+
+// ToBase32 returns the EncryptionKey as a lowercase RFC 4648 base32 string.
+func (k EncryptionKey) ToBase32() string {
+	keyWithMagic := append([]byte{versionByte}, k[:]...)
+	return strings.ToLower(base32Encoding.EncodeToString(keyWithMagic))
+}
+
+// ToStorjKey returns the storj.Key equivalent for the EncryptionKey.
+func (k EncryptionKey) ToStorjKey() storj.Key {
+	var storjKey storj.Key
+	copy(storjKey[:], k[:])
+	return storjKey
 }
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
@@ -86,19 +130,14 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return nil, err
 	}
 
-	storjKey := storj.Key(key)
-	nonce := &storj.Nonce{}
-
-	encryptedSecretKey, err := encryption.Encrypt(secretKey, storj.EncAESGCM, &storjKey, nonce)
+	storjKey := key.ToStorjKey()
+	// note that we currently always use the same nonce here - all zero's for secret keys
+	encryptedSecretKey, err := encryption.Encrypt(secretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
 		return nil, err
 	}
-
-	if _, err := encryption.Increment(nonce, 1); err != nil {
-		return nil, err
-	}
-
-	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, nonce)
+	// note that we currently always use the same nonce here - one then all zero's for access grants
+	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
 	if err != nil {
 		return nil, err
 	}
@@ -131,19 +170,14 @@ func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant str
 		return "", false, nil, NotFound.New("key hash: %x", key.Hash())
 	}
 
-	nonce := &storj.Nonce{}
-
-	storjKey := storj.Key(key)
-	secretKey, err = encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, nonce)
+	storjKey := key.ToStorjKey()
+	// note that we currently always use the same nonce here - all zero's for secret keys
+	secretKey, err = encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
 		return "", false, nil, errs.Wrap(err)
 	}
-
-	if _, err := encryption.Increment(nonce, 1); err != nil {
-		return "", false, nil, errs.Wrap(err)
-	}
-
-	ag, err := encryption.Decrypt(record.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, nonce)
+	// note that we currently always use the same nonce here - one then all zero's for access grants
+	ag, err := encryption.Decrypt(record.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, &storj.Nonce{1})
 	if err != nil {
 		return "", false, nil, errs.Wrap(err)
 	}

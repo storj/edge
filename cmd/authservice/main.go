@@ -84,6 +84,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
+	if len(config.AllowedSatellites) == 0 {
+		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
+	}
+
 	kv, err := openKV(config.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
