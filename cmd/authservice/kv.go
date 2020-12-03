@@ -8,9 +8,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/stargate/auth"
-	"storj.io/stargate/auth/memauth"
-	"storj.io/stargate/auth/sqlauth"
+	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/memauth"
+	"storj.io/gateway-mt/auth/sqlauth"
 )
 
 func openKV(kvurl string) (auth.KV, error) {

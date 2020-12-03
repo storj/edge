@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/macaroon"
-	"storj.io/stargate/auth"
-	"storj.io/stargate/auth/memauth"
+	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/uplink/private/access2"
 )
 

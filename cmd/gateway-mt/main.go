@@ -22,10 +22,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
+	"storj.io/gateway-mt/internal/wizard"
+	"storj.io/gateway-mt/miniogw"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/stargate/internal/wizard"
-	"storj.io/stargate/miniogw"
 	"storj.io/uplink"
 )
 

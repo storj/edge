@@ -31,8 +31,8 @@ build_binary "/home/storj" "storj.io/storj/cmd/versioncontrol"
 build_binary "/home/storj" "storj.io/storj/cmd/uplink"
 build_binary "/home/storj" "storj.io/storj/cmd/identity"
 build_binary "/home/storj" "storj.io/storj/cmd/certificates"
-build_binary "$SCRIPTDIR" "storj.io/stargate/cmd/stargate"
-build_binary "$SCRIPTDIR" "storj.io/stargate/cmd/authservice"
+build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/gateway-mt"
+build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/authservice"
 
 # install exact version of storj/gateway
 cd /home && mkdir -p .build/gateway-tmp &&
@@ -87,7 +87,7 @@ authtoken="bob"
 authservice_address="localhost:8000"
 
 authservice run --allowed-satellites ${satellite_node_url} --auth-token ${authtoken} &
-MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_SERVER_ADDR="${authservice_address}" MINIO_NOAUTH_AUTH_TOKEN=${authtoken} stargate run --server.address 0.0.0.0:7777 &
+MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_SERVER_ADDR="${authservice_address}" MINIO_NOAUTH_AUTH_TOKEN=${authtoken} gateway-mt run --server.address 0.0.0.0:7777 &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"

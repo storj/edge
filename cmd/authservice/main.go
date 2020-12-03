@@ -13,10 +13,10 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
+	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/httpauth"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/stargate/auth"
-	"storj.io/stargate/auth/httpauth"
 )
 
 var (

@@ -2,7 +2,7 @@ GO_VERSION ?= 1.15.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
-COMPONENTLIST := stargate authservice
+COMPONENTLIST := gateway-mt authservice
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},main)
@@ -75,19 +75,19 @@ test: ## Run tests on source code (jenkins)
 ##@ Build
 
 .PHONY: images
-images: stargate-image authservice-image ## Build stargate and authservice Docker images
+images: gateway-mt-image authservice-image ## Build gateway-mt and authservice Docker images
 	echo Built version: ${TAG}
 
-.PHONY: stargate-image
-stargate-image: ## Build stargate Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/stargate:${TAG}-amd64 \
-		-f cmd/stargate/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/stargate:${TAG}-arm32v6 \
+.PHONY: gateway-mt-image
+gateway-mt-image: ## Build gateway-mt Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-amd64 \
+		-f cmd/gateway-mt/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/stargate/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/stargate:${TAG}-aarch64 \
+		-f cmd/gateway-mt/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-aarch64 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
-		-f cmd/stargate/Dockerfile .
+		-f cmd/gateway-mt/Dockerfile .
 
 .PHONY: authservice-image
 authservice-image: ## Build authservice Docker image
@@ -107,7 +107,7 @@ binary:
 	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}"
 
 .PHONY: binaries
-binaries: ${BINARIES} ## Build stargate and authservice binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway-mt and authservice binaries (jenkins)
 	for C in ${COMPONENTLIST}; do\
 		$(MAKE) binary COMPONENT=$$C \
 	; done
@@ -160,7 +160,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-	-docker rmi storjlabs/stargate:${TAG}
+	-docker rmi storjlabs/gateway-mt:${TAG}
 	-docker rmi storjlabs/authservice:${TAG}
 
 .PHONY: test-docker-clean

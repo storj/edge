@@ -1,4 +1,4 @@
-module storj.io/stargate
+module storj.io/gateway-mt
 
 go 1.13
 

@@ -1,9 +1,9 @@
-# S3 "Stargate" Gateway
+# S3 Gateway Multitenant
 
 S3-compatible gateway for Storj V3 Network, based on [MinIO](https://github.com/minio/minio).
 
-[![Go Report Card](https://goreportcard.com/badge/storj.io/stargate)](https://goreportcard.com/report/storj.io/stargate)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/stargate)
+[![Go Report Card](https://goreportcard.com/badge/storj.io/gateway-mt)](https://goreportcard.com/report/storj.io/gateway-mt)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/gateway-mt)
 ![Beta](https://img.shields.io/badge/version-beta-green.svg)
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
@@ -23,9 +23,9 @@ retrieve those files!
 
 * [Using the S3 Gateway](https://documentation.tardigrade.io/api-reference/s3-gateway)
 
-# How to run stargate with auth service
+# How to run gateway-mt with auth service
 - Run auth service
-    - `--auth-token` is used to authenticate `GET` request. We will need to pass the same value into `stargate` so it can talk to the `authservice` instance.
+    - `--auth-token` is used to authenticate `GET` request. We will need to pass the same value into `gateway-mt` so it can talk to the `authservice` instance.
     - `--allowed-satellites` is the satellite node url.
         - we can use uplink cli to get the satellite node url that's associated with a given access grant
         ```
@@ -34,20 +34,20 @@ retrieve those files!
     ```
     authservice run --auth-token "super-secret" --allowed-satellites="satellite-node-url"
     ```
-- Run stargate
+- Run gateway-mt
 Currently, auth service configuration is passed in to `minio` through environment variables:
-    - `MINIO_NOAUTH_ENABLED=enable` enables stargate to use our auth service implementation
+    - `MINIO_NOAUTH_ENABLED=enable` enables gateway-mt to use our auth service implementation
     - `MINIO_NOAUTH_AUTH_TOKEN` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command
     - `MINIO_NOAUTH_AUTH_URL` defines the address of our auth service instance. It's default to `http://localhost:8000`
     ```
-    MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 stargate run
+    MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 gateway-mt run
     ```
 - Register an access grant with auth service
     ```
     uplink access register "my-access-grant" --auth-service https://localhost:8000
     ```
     After registering an access grant with the auth service, you will have the s3 credential, `Access Key Id` and `Secret Key`
-    You can use that credential to configure an s3 client to talk to storj network through the stargate
+    You can use that credential to configure an s3 client to talk to storj network through the gateway-mt
 
 # S3 API Compatibility using Docker
 The following S3 methods are supported:
@@ -75,8 +75,8 @@ docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECR
 ```
 The `ENABLE_HTTPS` flag indicates if https should be used (`ENABLE_HTTPS=1`)
 
-# Stargate + storj-sim + Minio Mint test workflow
-Stargate is designed to becompatible with the Minio Mint's Docker-based test suite.  If you'd like to use storj-sim to test local changes to Mint, run these commands:
+# Gateway MT + storj-sim + Minio Mint test workflow
+Gateway MT is designed to becompatible with the Minio Mint's Docker-based test suite.  If you'd like to use storj-sim to test local changes to Mint, run these commands:
 
 ```
 storj-sim network setup
@@ -88,7 +88,7 @@ authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim n
 ```
 
 ```
-MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 stargate run
+MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 gateway-mt run
 ```
 
 ```

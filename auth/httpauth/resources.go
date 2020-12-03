@@ -14,7 +14,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"go.uber.org/zap"
 
-	"storj.io/stargate/auth"
+	"storj.io/gateway-mt/auth"
 )
 
 // Resources wrap a database and expose methods over HTTP.

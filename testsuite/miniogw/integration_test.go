@@ -21,7 +21,7 @@ import (
 	"storj.io/common/processgroup"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/stargate/internal/minioclient"
+	"storj.io/gateway-mt/internal/minioclient"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -41,7 +41,7 @@ func TestUploadDownload(t *testing.T) {
 		// may conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", index)
 
-		gatewayExe := ctx.Compile("storj.io/stargate")
+		gatewayExe := ctx.Compile("storj.io/gateway-mt")
 
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway:     gatewayAddr,
@@ -130,7 +130,7 @@ func TestUploadDownload(t *testing.T) {
 
 			// require.Equal(t, data, bytes)
 		}
-		{ // TODO: we need to support user agent in Stargate
+		{ // TODO: we need to support user agent in Gateway MT
 			// uplink := planet.Uplinks[0]
 			// satellite := planet.Satellites[0]
 			// info, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), uplink.Projects[0].ID)
