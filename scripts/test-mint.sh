@@ -8,7 +8,7 @@ apt update
 apt install -y curl jq unzip
 
 # setup tmpdir for testfiles and cleanup
-export TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
 	rm -rf "$TMP"
 }
@@ -23,7 +23,7 @@ build_binary(){
     sourcepath="$1"
     cmdpath="$2"
     mkdir -p "$sourcepath"
-    cd $sourcepath && go build -o $bin_dir -race -v $cmdpath
+    cd "$sourcepath" && go build -o "$bin_dir" -race -v "$cmdpath"
 }
 
 echo "Build all needed binaries"
@@ -55,11 +55,11 @@ storj-sim -x network destroy
 echo "Set up storj-sim"
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing.
-if [ -z ${STORJ_SIM_POSTGRES} ]; then
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network setup
+if [ -z "${STORJ_SIM_POSTGRES}" ]; then
+	storj-sim -x --satellites 1 --host "$STORJ_NETWORK_HOST4" network setup
 else
     echo "setting up with STORJ_SIM_POSTGRES"
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+	storj-sim -x --satellites 1 --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
 fi
 
 storj-sim -x network run &
@@ -67,20 +67,20 @@ storj-sim -x network run &
 for i in {1..60}; do
     echo "Trying ${i} time for access grant"
     access_grant=$(storj-sim network env | grep GATEWAY_0_ACCESS= | cut -d "=" -f2)
-    if [ ! -z ${access_grant} ]; then
+    if [ -n "${access_grant}" ]; then
         break
     fi
     sleep 1
 done
 
-if [ -z ${access_grant} ]; then
+if [ -z "${access_grant}" ]; then
     echo "Failed to find access_grant"
     exit 1
 fi
 
 echo "Found access grant: ${access_grant}"
 
-satellite_node_url=$(uplink access inspect ${access_grant} | grep Satellite | cut -d ":" -f2,3 | xargs)
+satellite_node_url=$(uplink access inspect "${access_grant}" | grep Satellite | cut -d ":" -f2,3 | xargs)
 
 if [ -z "${satellite_node_url}" ]; then
     echo "satellite_node_url is empty"
@@ -90,16 +90,16 @@ fi
 authtoken="bob"
 authservice_address="127.0.0.1:9191"
 
-authservice run --allowed-satellites ${satellite_node_url} --auth-token ${authtoken} --listen-addr ${authservice_address} &
+authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}" &
 MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_URL=http://${authservice_address} MINIO_NOAUTH_AUTH_TOKEN=${authtoken} gateway-mt run --server.address 0.0.0.0:7777 &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"
-    body=$(echo '{"access_grant":"'"${access_grant}"'"}')
-    json=$(curl -s -XPOST -H "Content-Type: application/json" -d ${body} ${authservice_address}/v1/access)
+    body='{"access_grant":"'"${access_grant}"'"}'
+    json=$(curl -s -XPOST -H "Content-Type: application/json" -d "${body}" ${authservice_address}/v1/access)
     access_key_id=$(echo "${json}" | jq .access_key_id -r)
     secret_key=$(echo "${json}" | jq .secret_key -r)
-    if [ ! -z "${access_key_id}" ]; then
+    if [ -n "${access_key_id}" ]; then
         break
     fi
     sleep 1
@@ -129,9 +129,9 @@ for i in {1..60}; do
     sleep 1
 done
 
-if [ ! -z "$ret" ]; then
+if [ -n "$ret" ]; then
     echo "awscli failed to verify everything is working"
-    echo $ret
+    echo "$ret"
     exit 1
 fi
 
