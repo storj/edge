@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
+	"storj.io/common/rpc"
 	"storj.io/gateway-mt/internal/wizard"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/private/cfgstruct"
@@ -177,8 +178,9 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 // NewGateway creates a new minio Gateway.
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
 	config := flags.newUplinkConfig(ctx)
+	pool := rpc.NewDefaultConnectionPool()
 
-	return miniogw.NewStorjGateway(config), nil
+	return miniogw.NewStorjGateway(config, pool), nil
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

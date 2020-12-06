@@ -21,7 +21,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sys v0.0.0-20201014080544-cc95f250f6bc // indirect
 	google.golang.org/api v0.20.0 // indirect
-	storj.io/common v0.0.0-20201124202331-31c1d1dc486d
+	storj.io/common v0.0.0-20201207172416-78f4e59925c3
 	storj.io/private v0.0.0-20201026143115-bc926bfa3bca
-	storj.io/uplink v1.4.0
+	storj.io/uplink v1.4.2-0.20201207200902-096b244adcb2
 )

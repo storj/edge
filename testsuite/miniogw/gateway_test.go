@@ -25,6 +25,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/miniogw"
@@ -1114,7 +1115,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		gateway := miniogw.NewStorjGateway(uplink.Config{})
+		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
 		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 		require.NoError(t, err)
 

@@ -19,9 +19,11 @@ import (
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/storj"
 	"storj.io/private/version"
 	"storj.io/uplink"
+	"storj.io/uplink/private/transport"
 )
 
 var (
@@ -32,15 +34,17 @@ var (
 )
 
 // NewStorjGateway creates a new Storj S3 gateway.
-func NewStorjGateway(config uplink.Config) *Gateway {
+func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool) *Gateway {
 	return &Gateway{
-		config: config,
+		config:         config,
+		connectionPool: connectionPool,
 	}
 }
 
 // Gateway is the implementation of a minio cmd.Gateway.
 type Gateway struct {
-	config uplink.Config
+	config         uplink.Config
+	connectionPool *rpcpool.Pool
 }
 
 // Name implements cmd.Gateway.
@@ -51,8 +55,7 @@ func (gateway *Gateway) Name() string {
 // NewGatewayLayer implements cmd.Gateway.
 func (gateway *Gateway) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) {
 	return &gatewayLayer{
-		gateway:  gateway,
-		projects: make(map[string]*uplink.Project),
+		gateway: gateway,
 	}, nil
 }
 
@@ -63,8 +66,7 @@ func (gateway *Gateway) Production() bool {
 
 type gatewayLayer struct {
 	minio.GatewayUnsupported
-	gateway  *Gateway
-	projects map[string]*uplink.Project // TODO: we need a better way to cache open projects
+	gateway *Gateway
 }
 
 func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
@@ -74,6 +76,9 @@ func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, 
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	if forceDelete {
 		_, err = project.DeleteBucketWithObjects(ctx, bucketName)
@@ -91,6 +96,9 @@ func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectP
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -128,6 +136,9 @@ func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string)
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	bucket, err := project.StatBucket(ctx, bucketName)
 	if err != nil {
@@ -147,6 +158,9 @@ func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objec
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -210,6 +224,9 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -247,6 +264,9 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, object
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -269,6 +289,9 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (items []minio.Bucke
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	buckets := project.ListBuckets(ctx, nil)
 	for buckets.Next() {
@@ -300,6 +323,9 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 	if err != nil {
 		return result, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -426,6 +452,9 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 	if err != nil {
 		return result, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -555,6 +584,9 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	_, err = project.CreateBucket(ctx, bucketName)
 
@@ -651,6 +683,9 @@ func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
 
 	// TODO this should be removed and implemented on satellite side
 	_, err = project.StatBucket(ctx, bucketName)
@@ -697,11 +732,7 @@ func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath
 func (layer *gatewayLayer) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for _, project := range layer.projects {
-		err = errs.Combine(err, project.Close())
-	}
-
-	return err
+	return layer.gateway.connectionPool.Close()
 }
 
 func (layer *gatewayLayer) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
@@ -714,22 +745,19 @@ func (layer *gatewayLayer) StorageInfo(ctx context.Context, local bool) (minio.S
 func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, ok := layer.projects[accessKey]
-	if !ok {
-		access, err := uplink.ParseAccess(accessKey)
-		if err != nil {
-			return nil, err
-		}
+	config := layer.gateway.config
+	config.UserAgent = getUserAgent(ctx)
 
-		project, err = uplink.OpenProject(ctx, access)
-		if err != nil {
-			return nil, err
-		}
-
-		layer.projects[accessKey] = project
+	err = transport.SetConnectionPool(ctx, &config, layer.gateway.connectionPool)
+	if err != nil {
+		return nil, err
+	}
+	access, err := uplink.ParseAccess(accessKey)
+	if err != nil {
+		return nil, err
 	}
 
-	return project, nil
+	return config.OpenProject(ctx, access)
 }
 
 func convertError(err error, bucket, object string) error {
@@ -792,4 +820,12 @@ func getAccessGrant(ctx context.Context) string {
 		return ""
 	}
 	return reqInfo.AccessGrant
+}
+
+func getUserAgent(ctx context.Context) string {
+	reqInfo := logger.GetReqInfo(ctx)
+	if reqInfo == nil {
+		return ""
+	}
+	return reqInfo.UserAgent
 }

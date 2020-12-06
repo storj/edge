@@ -130,12 +130,33 @@ func TestUploadDownload(t *testing.T) {
 
 			// require.Equal(t, data, bytes)
 		}
-		{ // TODO: we need to support user agent in Gateway MT
-			// uplink := planet.Uplinks[0]
-			// satellite := planet.Satellites[0]
-			// info, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), uplink.Projects[0].ID)
-			// require.NoError(t, err)
-			// require.False(t, info.PartnerID.IsZero())
+		{
+			// user-agent is correctly set
+			uplink := planet.Uplinks[0]
+			satellite := planet.Satellites[0]
+			info, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), uplink.Projects[0].ID)
+			require.NoError(t, err)
+			require.False(t, info.PartnerID.IsZero())
+
+			// operating with a different user agent
+			rawClient, ok := client.(*minioclient.Minio)
+			require.True(t, ok)
+			rawClient.API.SetAppInfo("gateway-mt-test", "gateway-mt-test")
+
+			bucket := "bucket-test"
+
+			err = client.MakeBucket(bucket, "")
+			require.NoError(t, err)
+
+			data := testrand.BytesInt(5)
+			objectName := "testdata"
+
+			err = client.Upload(bucket, objectName, data)
+			require.NoError(t, err)
+
+			infoWithCustomUserAgent, err := satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), uplink.Projects[0].ID)
+			require.NoError(t, err)
+			require.NotEqual(t, info.PartnerID.String(), infoWithCustomUserAgent.PartnerID.String())
 		}
 	})
 }
