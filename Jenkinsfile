@@ -94,22 +94,22 @@ timeout(time: 26, unit: 'MINUTES') {
 
 				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
 				env.STORJ_SIM_REDIS = 'redis:6379'
-				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:12.3'
-				sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
-				sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER postgres:12.3'
+				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER redis:latest'
+				sh '''until $(docker logs postgres-gateway-mt-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
 					do printf '.'
 					sleep 5
 					done
 				'''
-				sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
+				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
 
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres storjlabs/golang:1.15.5'
+				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.15.5'
 				// Wait until the docker command above prints out the keys before proceeding
 				sh '''#!/bin/bash
 						set -e +x
 						t="0"
 						while true; do
-							logs=$(docker logs mintsetup-$BUILD_NUMBER -t --since "$t" 2>&1)
+							logs=$(docker logs mintsetup-gateway-mt-$BUILD_NUMBER -t --since "$t" 2>&1)
 							keys=$(echo "$logs" | grep "Finished access_key_id" || true)
 							if [ ! -z "$keys" ]; then
 								echo "$logs"
@@ -125,15 +125,19 @@ timeout(time: 26, unit: 'MINUTES') {
 						done
 
 						echo "parsed keys ${ACCESS_KEY} ${SECRET_KEY}"
-						docker network create minttest-$BUILD_NUMBER
-						docker network connect --alias mintsetup minttest-$BUILD_NUMBER mintsetup-$BUILD_NUMBER
-						docker run -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-$BUILD_NUMBER storjlabs/minio-mint:latest
+						docker network create minttest-gateway-mt-$BUILD_NUMBER
+						docker network connect --alias mintsetup minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
+						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''
 			}
 			catch(err) {
 				throw err
 			}
 			finally {
+				sh 'docker stop mintsetup-gateway-mt-$BUILD_NUMBER || true'
+				sh 'docker stop postgres-gateway-mt-$BUILD_NUMBER || true'
+				sh 'docker stop redis-gateway-mt-$BUILD_NUMBER || true'
+				sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
 				sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
 				deleteDir()
 			}

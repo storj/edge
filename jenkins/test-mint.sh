@@ -10,6 +10,8 @@ apt install -y curl jq unzip
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
+	ret=$?
+	echo "EXIT STATUS: $ret"
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
