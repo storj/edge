@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/btcsuite/btcutil/base58"
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ import (
 // Resources wrap a database and expose methods over HTTP.
 type Resources struct {
 	db        *auth.Database
-	endpoint  string
+	endpoint  *url.URL
 	authToken string
 
 	handler http.Handler
@@ -29,7 +30,7 @@ type Resources struct {
 }
 
 // New constructs Resources for some database.
-func New(log *zap.Logger, db *auth.Database, endpoint, authToken string) *Resources {
+func New(log *zap.Logger, db *auth.Database, endpoint *url.URL, authToken string) *Resources {
 	res := &Resources{
 		db:        db,
 		endpoint:  endpoint,
@@ -106,7 +107,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	response.AccessKeyID = base58.CheckEncode(key[:], auth.VersionAccessKeyID)
 	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
-	response.Endpoint = res.endpoint
+	response.Endpoint = res.endpoint.String()
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)

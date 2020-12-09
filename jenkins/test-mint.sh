@@ -91,8 +91,9 @@ fi
 
 authtoken="bob"
 authservice_address="127.0.0.1:9191"
+minio_url="http://127.0.0.1:7777/"
 
-authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}" &
+authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" &
 MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_URL=http://${authservice_address} MINIO_NOAUTH_AUTH_TOKEN=${authtoken} gateway-mt run --server.address 0.0.0.0:7777 &
 
 for i in {1..60}; do
@@ -123,7 +124,7 @@ cd /home && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "
 
 for i in {1..60}; do
 	echo "Attempting to verify with aws $i"
-    ret=$(AWS_ACCESS_KEY_ID=${access_key_id} AWS_SECRET_ACCESS_KEY=${secret_key} /usr/local/bin/aws s3 ls --endpoint http://localhost:7777 2>&1)
+    ret=$(AWS_ACCESS_KEY_ID=${access_key_id} AWS_SECRET_ACCESS_KEY=${secret_key} /usr/local/bin/aws s3 ls --endpoint ${minio_url} 2>&1)
     if [ -z "$ret" ]; then
         break
     fi

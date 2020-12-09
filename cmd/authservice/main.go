@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -87,6 +88,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
+	if config.Endpoint == "" {
+		return errs.New("endpoint parameter '--endpoint' is required")
+	}
+	endpoint, err := url.Parse(config.Endpoint)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	if endpoint.Scheme != "http" && endpoint.Scheme != "https" {
+		return errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
+	}
 
 	kv, err := openKV(config.KVBackend)
 	if err != nil {
@@ -98,7 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 	db := auth.NewDatabase(kv, allowedSats)
-	res := httpauth.New(log.Named("resources"), db, config.Endpoint, config.AuthToken)
+	res := httpauth.New(log.Named("resources"), db, endpoint, config.AuthToken)
 
 	tlsInfo := &TLSInfo{
 		LetsEncrypt: config.LetsEncrypt,

@@ -84,7 +84,7 @@ storj-sim network run
 ```
 
 ```
-authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)"
+authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)" --endpoint="http://localhost:7777/"
 ```
 
 ```

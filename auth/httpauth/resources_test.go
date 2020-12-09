@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -26,11 +27,14 @@ const minimalAccess = "138CV9Drxrw8ir1XpxcZhk2wnHjhzVjuSZe6yDsNiMZDP8cow9V6sHDYd
 const minimalAccessSatelliteAddr = "s"
 
 func TestResources_URLs(t *testing.T) {
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+
 	check := func(method, path string) bool {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
-		New(zaptest.NewLogger(t), nil, "endpoint", "authToken").ServeHTTP(rec, req)
+		New(zaptest.NewLogger(t), nil, endpoint, "authToken").ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
 
@@ -79,14 +83,17 @@ func TestResources_CRUD(t *testing.T) {
 		return out, true
 	}
 
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+
 	t.Run("CRUD", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
-		require.Equal(t, createResult["endpoint"], "endpoint")
+		require.Equal(t, createResult["endpoint"], endpoint.String())
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
@@ -106,14 +113,14 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("ApprovedSatelliteAddr", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), "endpoint", "authToken")
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), endpoint, "authToken")
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -122,7 +129,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowedSats, err := auth.RemoveNodeIDs([]string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777", "s", "b", "c"})
 		require.NoError(t, err)
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowedSats), "endpoint", "authToken")
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowedSats), endpoint, "authToken")
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := access2.Access{
@@ -141,13 +148,13 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Invalidate", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
-		require.Equal(t, createResult["endpoint"], "endpoint")
+		require.Equal(t, createResult["endpoint"], endpoint.String())
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
@@ -166,13 +173,13 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
-		require.Equal(t, createResult["endpoint"], "endpoint")
+		require.Equal(t, createResult["endpoint"], endpoint.String())
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access
@@ -184,7 +191,10 @@ func TestResources_CRUD(t *testing.T) {
 }
 
 func TestResources_Authorization(t *testing.T) {
-	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), "endpoint", "authToken")
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+
+	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
