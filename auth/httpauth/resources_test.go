@@ -179,12 +179,7 @@ func TestResources_CRUD(t *testing.T) {
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
-		returnedEndpoint, err := url.Parse(createResult["endpoint"].(string))
-		require.NoError(t, err)
-		require.Equal(t, endpoint.Scheme, returnedEndpoint.Scheme)
-		require.NotEqual(t, endpoint.Host, returnedEndpoint.Host)
-		require.Equal(t, endpoint.RawPath, returnedEndpoint.RawPath)
-
+		require.Equal(t, createResult["endpoint"], endpoint.String())
 		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
 
 		// retrieve an access

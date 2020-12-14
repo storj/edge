@@ -107,13 +107,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	response.AccessKeyID = base58.CheckEncode(key[:], auth.VersionAccessKeyID)
 	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
-	if request.Public {
-		publicURL := *res.endpoint
-		publicURL.Host = key.ToBase32() + "." + res.endpoint.Host
-		response.Endpoint = publicURL.String()
-	} else {
-		response.Endpoint = res.endpoint.String()
-	}
+	response.Endpoint = res.endpoint.String()
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
