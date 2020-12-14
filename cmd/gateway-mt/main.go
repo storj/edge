@@ -139,10 +139,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		err = errs.Combine(err, Error.Wrap(os.Setenv(envName, value)))
 	}
-	validateAndSet(runCfg.AuthToken, "auth-token", "MINIO_NOAUTH_AUTH_TOKEN")
-	validateAndSet(runCfg.AuthURL, "auth-url", "MINIO_NOAUTH_AUTH_URL")
+	validateAndSet(runCfg.AuthToken, "auth-token", "MINIO_STORJ_AUTH_TOKEN")
+	validateAndSet(runCfg.AuthURL, "auth-url", "MINIO_STORJ_AUTH_URL")
 	validateAndSet(runCfg.DomainName, "domain-name", "MINIO_DOMAIN")
-	validateAndSet("enable", "n/a", "MINIO_NOAUTH_ENABLED")
+	validateAndSet("enable", "n/a", "STORJ_AUTH_ENABLED")
 	validateAndSet("off", "n/a", "MINIO_BROWSER")
 	if err != nil {
 		return err

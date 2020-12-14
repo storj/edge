@@ -136,9 +136,9 @@ index f38b7d1..cb024fb 100644
      #   - ./public.crt:/root/.local/share/storj/gateway/minio/certs/public.crt
      #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
 @@ -15,6 +17,7 @@ services:
-       - MINIO_NOAUTH_ENABLED=enable
-       - MINIO_NOAUTH_AUTH_URL=http://auth:8000
-       - MINIO_NOAUTH_AUTH_TOKEN=staging
+       - STORJ_AUTH_ENABLED=enable
+       - MINIO_STORJ_AUTH_URL=http://auth:8000
+       - MINIO_STORJ_AUTH_TOKEN=staging
 +      - MINIO_DOMAIN=gateway.local
      ports:
        - "7777:7777"

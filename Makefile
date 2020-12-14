@@ -172,8 +172,8 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@master storj.io/private@master storj.io/uplink@multipart-upload
+	go get storj.io/common@main storj.io/private@main storj.io/uplink@multipart-upload github.com/storj/minio
 	go mod tidy
 	cd testsuite;\
-		go get storj.io/common@master storj.io/storj@multipart-upload storj.io/uplink@multipart-upload;\
+		go get storj.io/common@main storj.io/storj@multipart-upload storj.io/uplink@multipart-upload;\
 		go mod tidy

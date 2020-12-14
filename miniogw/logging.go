@@ -199,19 +199,14 @@ func (log *layerLogging) HealFormat(ctx context.Context, dryRun bool) (madmin.He
 	return rv, log.log(ctx, err)
 }
 
-func (log *layerLogging) HealBucket(ctx context.Context, bucket string, dryRun, remove bool) (madmin.HealResultItem, error) {
-	rv, err := log.layer.HealBucket(ctx, bucket, dryRun, remove)
+func (log *layerLogging) HealBucket(ctx context.Context, bucket string, opts madmin.HealOpts) (madmin.HealResultItem, error) {
+	rv, err := log.layer.HealBucket(ctx, bucket, opts)
 	return rv, log.log(ctx, err)
 }
 
 func (log *layerLogging) HealObject(ctx context.Context, bucket, object, versionID string, opts madmin.HealOpts) (madmin.HealResultItem, error) {
 	rv, err := log.layer.HealObject(ctx, bucket, object, versionID, opts)
 	return rv, log.log(ctx, err)
-}
-
-func (log *layerLogging) ListBucketsHeal(ctx context.Context) (buckets []minio.BucketInfo, err error) {
-	buckets, err = log.layer.ListBucketsHeal(ctx)
-	return buckets, log.log(ctx, err)
 }
 
 func (log *layerLogging) SetBucketPolicy(ctx context.Context, n string, p *policy.Policy) error {
