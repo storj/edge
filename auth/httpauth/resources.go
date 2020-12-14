@@ -105,7 +105,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		Endpoint    string `json:"endpoint"`
 	}
 
-	response.AccessKeyID = base58.CheckEncode(key[:], auth.VersionAccessKeyID)
+	response.AccessKeyID = key.ToBase32()
 	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
 	response.Endpoint = res.endpoint.String()
 
@@ -125,22 +125,12 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
+	var key auth.EncryptionKey
+	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "getAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
-	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		res.writeError(w, "getAccess", "invalid access key id length", http.StatusBadRequest)
-		return
-	}
-	if version != auth.VersionAccessKeyID {
-		res.writeError(w, "getAccess", "unexpected decoded version", http.StatusBadRequest)
-		return
-	}
-
-	var key auth.EncryptionKey
-	copy(key[:], encryptionKeyBytes)
 
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
@@ -169,22 +159,12 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
+	var key auth.EncryptionKey
+	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "deleteAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
-	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		res.writeError(w, "deleteAccess", "invalid access key id length", http.StatusBadRequest)
-		return
-	}
-	if version != auth.VersionAccessKeyID {
-		res.writeError(w, "deleteAccess", "unexpected decoded version", http.StatusBadRequest)
-		return
-	}
-
-	var key auth.EncryptionKey
-	copy(key[:], encryptionKeyBytes)
 
 	if err := res.db.Delete(req.Context(), key); err != nil {
 		res.writeError(w, "deleteAccess", err.Error(), http.StatusInternalServerError)
@@ -202,22 +182,12 @@ func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	encryptionKeyBytes, version, err := base58.CheckDecode(res.id.Value(req.Context()))
+	var key auth.EncryptionKey
+	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "invalidateAccess", err.Error(), http.StatusBadRequest)
 		return
 	}
-	if len(encryptionKeyBytes) != len(auth.EncryptionKey{}) {
-		res.writeError(w, "invalidateAccess", "invalid access key id length", http.StatusBadRequest)
-		return
-	}
-	if version != auth.VersionAccessKeyID {
-		res.writeError(w, "invalidateAccess", "unexpected decoded version", http.StatusBadRequest)
-		return
-	}
-
-	var key auth.EncryptionKey
-	copy(key[:], encryptionKeyBytes)
 
 	var request struct {
 		Reason string `json:"reason"`
