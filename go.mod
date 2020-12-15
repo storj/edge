@@ -15,13 +15,13 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/storj/minio v0.0.0-20201123173841-6fdac6dbc542
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/sys v0.0.0-20201014080544-cc95f250f6bc // indirect
+	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	google.golang.org/api v0.20.0 // indirect
-	storj.io/common v0.0.0-20201207172416-78f4e59925c3
+	storj.io/common v0.0.0-20201210184814-6206aefd1d48
 	storj.io/private v0.0.0-20201026143115-bc926bfa3bca
-	storj.io/uplink v1.4.2-0.20201207200902-096b244adcb2
+	storj.io/uplink v1.4.3-0.20201221082153-978ed720034f
 )

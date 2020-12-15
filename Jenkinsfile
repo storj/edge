@@ -127,6 +127,7 @@ timeout(time: 26, unit: 'MINUTES') {
 						echo "parsed keys ${ACCESS_KEY} ${SECRET_KEY}"
 						docker network create minttest-gateway-mt-$BUILD_NUMBER
 						docker network connect --alias mintsetup minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
+						docker pull storjlabs/minio-mint:latest
 						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''
 			}

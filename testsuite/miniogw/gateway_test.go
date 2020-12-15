@@ -964,15 +964,48 @@ func testListObjects(t *testing.T, listObjects func(*testing.T, context.Context,
 
 func TestListMultipartUploads(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.ListMultipartUploads(ctx, "bucket", "prefix", "keyMarker", "uploadIDMarker", "delimiter", 1)
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listParts, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listParts.Uploads)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		listParts, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Len(t, listParts.Uploads, 1)
+
+		err = layer.AbortMultipartUpload(ctx, TestBucket, TestFile, uploadID, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		listParts, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listParts.Uploads)
 	})
 }
 
 func TestNewMultipartUpload(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.NewMultipartUpload(ctx, "bucket", "object", minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listParts, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listParts.Uploads)
+
+		_, err = layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+		_, err = layer.NewMultipartUpload(ctx, TestBucket, TestFile2, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		listParts, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 2)
+		require.NoError(t, err)
+		require.Len(t, listParts.Uploads, 2)
 	})
 }
 
@@ -985,40 +1018,137 @@ func TestCopyObjectPart(t *testing.T) {
 
 func TestPutObjectPart(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.PutObjectPart(ctx, "bucket", "object", "uploadID", 0, nil, minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listInfo, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listInfo.Uploads)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		totalPartsCount := 3
+		for i := 1; i <= totalPartsCount; i++ {
+			info, err := layer.PutObjectPart(ctx, TestBucket, TestFile, uploadID, i, newMinioPutObjReader(t), minio.ObjectOptions{})
+			require.NoError(t, err)
+			require.Equal(t, i, info.PartNumber)
+		}
+
+		listParts, err := layer.ListObjectParts(ctx, TestBucket, TestFile, uploadID, 0, totalPartsCount, minio.ObjectOptions{})
+		require.NoError(t, err)
+		require.Len(t, listParts.Parts, totalPartsCount)
+		require.Equal(t, TestBucket, listParts.Bucket)
+		require.Equal(t, TestFile, listParts.Object)
+		require.Equal(t, uploadID, listParts.UploadID)
 	})
 }
 
 func TestGetMultipartInfo(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.GetMultipartInfo(ctx, "bucket", "object", "uploadID", minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listInfo, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listInfo.Uploads)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		info, err := layer.GetMultipartInfo(ctx, TestBucket, TestFile, uploadID, minio.ObjectOptions{})
+		require.NoError(t, err)
+		require.Equal(t, TestBucket, info.Bucket)
+		require.Equal(t, TestFile, info.Object)
+		require.Equal(t, uploadID, info.UploadID)
 	})
 }
 
 func TestListObjectParts(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.ListObjectParts(ctx, "bucket", "object", "uploadID", 0, 0, minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listInfo, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listInfo.Uploads)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		totalPartsCount := 3
+		for i := 1; i <= totalPartsCount; i++ {
+			info, err := layer.PutObjectPart(ctx, TestBucket, TestFile, uploadID, i, newMinioPutObjReader(t), minio.ObjectOptions{})
+			require.NoError(t, err)
+			require.Equal(t, i, info.PartNumber)
+		}
+
+		listParts, err := layer.ListObjectParts(ctx, TestBucket, TestFile, uploadID, 0, totalPartsCount, minio.ObjectOptions{})
+		require.NoError(t, err)
+		require.Len(t, listParts.Parts, totalPartsCount)
+		require.Equal(t, TestBucket, listParts.Bucket)
+		require.Equal(t, TestFile, listParts.Object)
+		require.Equal(t, uploadID, listParts.UploadID)
 	})
 }
 
 func TestAbortMultipartUpload(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		err := layer.AbortMultipartUpload(ctx, "bucket", "object", "uploadID", minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		// invalid upload
+		err := layer.AbortMultipartUpload(ctx, TestBucket, TestFile, "uploadID", minio.ObjectOptions{})
+		require.Error(t, err)
+
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		err = layer.AbortMultipartUpload(ctx, TestBucket, TestFile, uploadID, minio.ObjectOptions{})
+		require.NoError(t, err)
 	})
 }
 
 func TestCompleteMultipartUpload(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
 		_, err := layer.CompleteMultipartUpload(ctx, "bucket", "object", "invalid-upload", nil, minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
+		require.Error(t, err)
 
-		// object, err := layer.CompleteMultipartUpload(ctx, "bucket", "object", "invalid-upload", nil, minio.ObjectOptions{})
-		// require.NoError(t, err)
-		// require.Equal(t, minio.ObjectInfo{}, object)
+		bucket, err := project.CreateBucket(ctx, TestBucket)
+		require.NoError(t, err)
+		require.Equal(t, bucket.Name, TestBucket)
+
+		listInfo, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		require.NoError(t, err)
+		require.Empty(t, listInfo.Uploads)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		totalPartsCount := 3
+		completeParts := make([]minio.CompletePart, totalPartsCount)
+		for i := 1; i <= totalPartsCount; i++ {
+			info, err := layer.PutObjectPart(ctx, TestBucket, TestFile, uploadID, i, newMinioPutObjReader(t), minio.ObjectOptions{})
+			require.NoError(t, err)
+			require.Equal(t, i, info.PartNumber)
+			completeParts = append(completeParts, minio.CompletePart{
+				ETag:       info.ETag,
+				PartNumber: i,
+			})
+		}
+
+		_, err = layer.CompleteMultipartUpload(ctx, TestBucket, TestFile, uploadID, completeParts, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		obj, err := layer.ListObjects(ctx, TestBucket, TestFile, "", "", 2)
+		require.NoError(t, err)
+		require.Len(t, obj.Objects, 1)
+		require.Equal(t, TestBucket, obj.Objects[0].Bucket)
+		require.Equal(t, TestFile, obj.Objects[0].Name)
 	})
 }
 
@@ -1043,7 +1173,7 @@ func TestDeleteObjectWithNoReadOrListPermission(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set the restricted Access Grant as the S3 Access Key in the Context
-		ctx = logger.SetReqInfo(ctx, &logger.ReqInfo{AccessKey: restrictedAccessString})
+		ctx = logger.SetReqInfo(ctx, &logger.ReqInfo{AccessGrant: restrictedAccessString})
 
 		// Delete the object info using the Minio API
 		deleted, err := layer.DeleteObject(ctx, TestBucket, TestFile, minio.ObjectOptions{})
@@ -1126,7 +1256,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 		require.NoError(t, err)
 
 		// Set the Access Grant as the S3 Access Key in the Context
-		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessKey: accessString})
+		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
 
 		project, err := uplink.OpenProject(ctx, access)
 		require.NoError(t, err)
@@ -1191,4 +1321,18 @@ func createFile(ctx context.Context, project *uplink.Project, bucket, key string
 	}
 
 	return upload.Info(), nil
+}
+
+func newMinioPutObjReader(t *testing.T) *minio.PutObjReader {
+	hashReader, err := hash.NewReader(bytes.NewReader([]byte("test")),
+		int64(len("test")),
+		"098f6bcd4621d373cade4e832627b4f6",
+		"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+		int64(len("test")),
+		true,
+	)
+	require.NoError(t, err)
+	data := minio.NewPutObjReader(hashReader, nil, nil)
+
+	return data
 }
