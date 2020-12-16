@@ -9,13 +9,10 @@ services:
           cpus: '1.5'
           memory: 1024M
         reservations:
-          cpus: '0.3'
           memory: 512M
       restart_policy:
         condition: on-failure
-        delay: 5s
         max_attempts: 3
-        window: 120s
     # volumes:
     #   - ./public.crt:/root/.local/share/storj/gateway/minio/certs/public.crt
     #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
@@ -39,13 +36,10 @@ services:
           cpus: '1.5'
           memory: 1024M
         reservations:
-          cpus: '0.3'
           memory: 512M
       restart_policy:
         condition: on-failure
-        delay: 5s
         max_attempts: 3
-        window: 120s
     volumes:
       # - ./public.crt
       # - ./private.key
