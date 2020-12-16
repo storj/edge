@@ -14,6 +14,7 @@ TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
 ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
 LATEST_STABLE_TAG := latest
 endif
+LATEST_DEV_TAG := dev
 endif
 RELEASE_BUILD_REQUIRED ?= false
 
