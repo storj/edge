@@ -1,7 +1,7 @@
 version: "3.8"
 services:
-  stargate:
-    image: storjlabs/stargate:dev
+  gateway-mt:
+    image: storjlabs/gateway-mt:dev
     deploy:
       replicas: 1
       resources:
@@ -29,7 +29,7 @@ services:
     command:
       - run
     networks:
-      stargate: {}
+      gateway-mt: {}
   auth:
     image: storjlabs/authservice:dev
     deploy:
@@ -65,6 +65,6 @@ services:
       # - --cert-file=/app/public.crt
       # - --key-file=/app/private.key
     networks:
-      stargate: {}
+      gateway-mt: {}
 networks:
-  stargate:
+  gateway-mt:
