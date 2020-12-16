@@ -34,17 +34,23 @@ var (
 )
 
 // NewStorjGateway creates a new Storj S3 gateway.
-func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool) *Gateway {
+func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool, multipartSatAddrs []string) *Gateway {
+	m := make(map[string]struct{}, len(multipartSatAddrs))
+	for _, sat := range multipartSatAddrs {
+		m[sat] = struct{}{}
+	}
 	return &Gateway{
-		config:         config,
-		connectionPool: connectionPool,
+		config:            config,
+		connectionPool:    connectionPool,
+		multipartSatAddrs: m,
 	}
 }
 
 // Gateway is the implementation of a minio cmd.Gateway.
 type Gateway struct {
-	config         uplink.Config
-	connectionPool *rpcpool.Pool
+	config            uplink.Config
+	connectionPool    *rpcpool.Pool
+	multipartSatAddrs map[string]struct{}
 }
 
 // Name implements cmd.Gateway.
@@ -742,7 +748,7 @@ func (layer *gatewayLayer) StorageInfo(ctx context.Context, local bool) (minio.S
 	return info, nil
 }
 
-func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+func (layer *gatewayLayer) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	config := layer.gateway.config
@@ -752,12 +758,44 @@ func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_
 	if err != nil {
 		return nil, err
 	}
+
+	return config.OpenProject(ctx, access)
+}
+
+func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return config.OpenProject(ctx, access)
+	return layer.setupProject(ctx, access)
+}
+
+func (layer *gatewayLayer) openProjectMultipart(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	access, err := uplink.ParseAccess(accessKey)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeURL, err := storj.ParseNodeURL(access.SatelliteAddress())
+	if err != nil {
+		return nil, err
+	}
+
+	reqInfo := logger.GetReqInfo(ctx)
+	if reqInfo == nil {
+		return nil, err
+	}
+
+	if _, ok := layer.gateway.multipartSatAddrs[nodeURL.Address]; !ok {
+		return nil, minio.NotImplemented{API: reqInfo.API}
+	}
+
+	return layer.setupProject(ctx, access)
 }
 
 func convertError(err error, bucket, object string) error {

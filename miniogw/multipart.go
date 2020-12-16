@@ -20,7 +20,7 @@ import (
 func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func (layer *gatewayLayer) GetMultipartInfo(ctx context.Context, bucket string, 
 func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.PartInfo{}, err
 	}
@@ -71,7 +71,7 @@ func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, up
 func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, _ minio.ObjectOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, obj
 func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -120,7 +120,7 @@ func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, 
 func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int, opts minio.ObjectOptions) (result minio.ListPartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ListPartsInfo{}, err
 	}
@@ -161,7 +161,7 @@ func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, 
 func (layer *gatewayLayer) ListMultipartUploads(ctx context.Context, bucket string, prefix string, keyMarker string, uploadIDMarker string, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ListMultipartsInfo{}, err
 	}
@@ -266,7 +266,7 @@ func (layer *gatewayLayer) ListMultipartUploads(ctx context.Context, bucket stri
 func (layer *gatewayLayer) listSingleUpload(ctx context.Context, bucketName, key string, recursive bool) (result minio.ListMultipartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ListMultipartsInfo{}, err
 	}
