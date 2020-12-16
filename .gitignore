@@ -9,4 +9,4 @@ release/
 .vscode/
 
 # docker-compose auth db
-auth-deb/
+auth-db/
