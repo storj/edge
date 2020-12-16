@@ -33,7 +33,7 @@ var (
 	}
 	runMigrationCmd = &cobra.Command{
 		Use:   "migration",
-		Short: "Run migrations for the auth service",
+		Short: "Create or update the database schema, then quit",
 		RunE:  cmdMigrationRun,
 	}
 
@@ -48,6 +48,7 @@ type Config struct {
 	AllowedSatellites []string `help:"List of satellite addresses allowed for incoming access grants"`
 
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
+	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
 	ListenAddr    string `user:"true" help:"public address to listen on" default:":8000"`
 	ListenAddrTLS string `user:"true" help:"public tls address to listen on" default:":8443"`
@@ -74,6 +75,12 @@ func main() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if config.Migration {
+		if err = cmdMigrationRun(cmd, args); err != nil {
+			return err
+		}
+	}
+
 	log := zap.L()
 
 	// Confirm that all satellites in config.AllowedSatellites is a valid storj
