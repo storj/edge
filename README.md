@@ -31,8 +31,10 @@ retrieve those files!
         ```
         uplink access inspect "my-access-grant"
         ```
-    ```
-    authservice run --auth-token "super-secret" --allowed-satellites="satellite-node-url"
+    ```bash
+    # migration automatically applies or updates DB schema in use.
+    # shouldn't be run against the same database by multiple instances at once.
+    authservice run --migration --auth-token "super-secret" --allowed-satellites="satellite-node-url"
     ```
 - Run gateway-mt
 Currently, auth service configuration is passed in to `minio` through environment variables:

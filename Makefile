@@ -11,8 +11,9 @@ BRANCH_NAME :=
 else
 TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
 ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
-LATEST_TAG := latest
+LATEST_STABLE_TAG := latest
 endif
+LATEST_DEV_TAG := dev
 endif
 RELEASE_BUILD_REQUIRED ?= false
 
@@ -121,7 +122,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 		docker push storjlabs/$$c:${TAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}-aarch64 \
-		&& for t in ${TAG} ${LATEST_TAG}; do \
+		&& for t in ${TAG} ${LATEST_DEV_TAG} ${LATEST_STABLE_TAG}; do \
 			docker manifest create storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}-amd64 \
 			storjlabs/$$c:${TAG}-arm32v6 \

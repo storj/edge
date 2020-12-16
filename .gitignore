@@ -7,3 +7,6 @@ release/
 
 # VS Code
 .vscode/
+
+# docker-compose auth db
+auth-deb/
