@@ -4,12 +4,6 @@ services:
     image: storjlabs/gateway-mt:dev
     deploy:
       replicas: 1
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 1024M
-        reservations:
-          memory: 512M
       restart_policy:
         condition: on-failure
         max_attempts: 3
@@ -31,12 +25,6 @@ services:
     image: storjlabs/authservice:dev
     deploy:
       replicas: 1
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 1024M
-        reservations:
-          memory: 512M
       restart_policy:
         condition: on-failure
         max_attempts: 3
