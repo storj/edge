@@ -44,7 +44,8 @@ func New(log *zap.Logger, db *auth.Database, endpoint *url.URL, authToken string
 		"/v1": Dir{
 			"/access": Dir{
 				"": Method{
-					"POST": http.HandlerFunc(res.newAccess),
+					"POST":    http.HandlerFunc(res.newAccess),
+					"OPTIONS": http.HandlerFunc(res.newAccessCORS),
 				},
 				"*": res.id.Capture(Dir{
 					"": Method{
@@ -75,6 +76,7 @@ func (res *Resources) writeError(w http.ResponseWriter, method string, msg strin
 }
 
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
+	res.newAccessCORS(w, req)
 	res.log.Debug("newAccess request", zap.String("remote address", req.RemoteAddr))
 	var request struct {
 		AccessGrant string `json:"access_grant"`
@@ -111,6 +113,14 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {
+	// TODO: we should be checking req.Header.Get("Origin") against
+	// an explicit allowlist and returning it here instead of "*" if it
+	// matches, but this is okay for now.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 }
 
 func (res *Resources) requestAuthorized(req *http.Request) bool {
