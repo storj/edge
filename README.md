@@ -44,6 +44,10 @@ Currently, auth service configuration is passed in to `minio` through environmen
     ```
     MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 gateway-mt run
     ```
+
+    - Enable multipart-uploads
+        - by default, multipart-upload is disabled
+        - `gateway-mt run --multipart-upload-sattelites="satellite-node-url"` enables gateway-mt to allow multipart-upload requests being sent to specified satellites that have multipart-upload support.
 - Register an access grant with auth service
     ```
     uplink access register "my-access-grant" --auth-service https://localhost:8000
