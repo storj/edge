@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -26,6 +27,9 @@ type Resources struct {
 	id      *Arg
 
 	log *zap.Logger
+
+	mu      sync.Mutex
+	startup bool
 }
 
 // New constructs Resources for some database.
@@ -41,6 +45,18 @@ func New(log *zap.Logger, db *auth.Database, endpoint *url.URL, authToken string
 
 	res.handler = Dir{
 		"/v1": Dir{
+			"/health": Dir{
+				"/startup": Dir{
+					"": Method{
+						"GET": http.HandlerFunc(res.getStartup),
+					},
+				},
+				"/live": Dir{
+					"": Method{
+						"GET": http.HandlerFunc(res.getLive),
+					},
+				},
+			},
 			"/access": Dir{
 				"": Method{
 					"POST":    http.HandlerFunc(res.newAccess),
@@ -72,6 +88,53 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
 	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
 	http.Error(w, msg, status)
+}
+
+// SetStartupDone sets the startup status flag to true indicating startup is complete.
+func (res *Resources) SetStartupDone() {
+	res.mu.Lock()
+	defer res.mu.Unlock()
+
+	res.startup = true
+}
+
+// getStartup returns 200 when the service has finished initial start up
+// processing and 503 Service Unavailable otherwise (e.g. established initial
+// database connection, finished database migrations).
+func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
+	res.mu.Lock()
+	defer res.mu.Unlock()
+
+	if res.startup {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+}
+
+// getLive returns 200 when the service is able to process requests and 503
+// Service Unavailable otherwise (e.g. this would return 503 if the database
+// connection failed).
+func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
+	res.log.Debug("getLive request", zap.String("remote address", req.RemoteAddr))
+
+	res.mu.Lock()
+	defer res.mu.Unlock()
+
+	// Confirm we have finished startup.
+	if !res.startup {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	// Confirm we can at a minimum reach the database.
+	err := res.db.Ping(req.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {

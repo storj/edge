@@ -89,3 +89,13 @@ func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string
 
 	return nil
 }
+
+// Ping attempts to do a database roundtrip and returns an error if it can't.
+func (d *KV) Ping(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return nil
+}

@@ -43,4 +43,8 @@ type KV interface {
 	// It is not an error if the key does not exist.
 	// It does not update the invalid reason if the record is already invalid.
 	Invalidate(ctx context.Context, keyHash KeyHash, reason string) error
+
+	// Ping attempts to do a DB roundtrip. If it can't it will return an
+	// error.
+	Ping(ctx context.Context) error
 }

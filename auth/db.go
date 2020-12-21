@@ -213,3 +213,10 @@ func (db *Database) Invalidate(ctx context.Context, key EncryptionKey, reason st
 
 	return errs.Wrap(db.kv.Invalidate(ctx, key.Hash(), reason))
 }
+
+// Ping attempts to do a DB roundtrip. If it can't it will return an error.
+func (db *Database) Ping(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return errs.Wrap(db.kv.Ping(ctx))
+}

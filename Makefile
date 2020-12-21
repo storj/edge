@@ -5,10 +5,10 @@ GOPATH ?= $(shell go env GOPATH)
 COMPONENTLIST := gateway-mt authservice
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+LATEST_DEV_TAG := dev
 ifeq (${BRANCH_NAME},main)
 TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 BRANCH_NAME :=
-LATEST_DEV_TAG := dev
 else
 TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
 ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
@@ -89,6 +89,7 @@ gateway-mt-image: ## Build gateway-mt Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-aarch64 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
 		-f cmd/gateway-mt/Dockerfile .
+	docker tag storjlabs/gateway-mt:${TAG}-amd64 storjlabs/gateway-mt:${LATEST_DEV_TAG}
 
 .PHONY: authservice-image
 authservice-image: ## Build authservice Docker image
@@ -100,6 +101,7 @@ authservice-image: ## Build authservice Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-aarch64 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
 		-f cmd/authservice/Dockerfile .
+	docker tag storjlabs/authservice:${TAG}-amd64 storjlabs/authservice:${LATEST_DEV_TAG}
 
 .PHONY: binary
 binary:
