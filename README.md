@@ -59,6 +59,125 @@ We also require the `MINIO_DOMAIN` environment variable, which allows the gatewa
     After registering an access grant with the auth service, you will have the s3 credential, `Access Key Id` and `Secret Key`
     You can use that credential to configure an s3 client to talk to storj network through the gateway-mt
 
+
+# How to configure gateway-mt with a base and wildcard certificates
+
+Gateway-MT will load certificates from a certs directory (using the same
+mechanisms from
+[Minio](https://docs.min.io/docs/how-to-secure-access-to-minio-server-with-tls)).
+Multiple certificates can be placed in subdirectories to load more than one
+(using this undocumented [Minio
+feature](https://github.com/minio/minio/pull/10207)).
+
+The following is a complete walk through for doing this locally.
+
+First we generate two certificates for use (one static and one wildcard):
+
+```
+wget -O generate_cert.go 'https://golang.org/src/crypto/tls/generate_cert.go?m=text'
+
+mkdir -p certs
+
+pushd certs
+go run ../generate_cert.go -host 'gateway.local'
+ln -s cert.pem public.crt
+ln -s key.pem private.key
+popd
+
+mkdir -p certs/wildcard
+
+pushd certs/wildcard
+go run ../generate_cert.go -host '*.gateway.local'
+ln -s cert.pem public.crt
+ln -s key.pem private.key
+popd
+```
+
+After running these commands you should have a `certs` directory that contains:
+
+```
+certs/
+certs/cert.pem
+certs/key.pem
+certs/wildcard
+certs/wildcard/cert.pem
+certs/wildcard/key.pem
+certs/wildcard/public.crt
+certs/wildcard/private.key
+certs/public.crt
+certs/private.key
+```
+
+Inspecting the certificates should reveal that they contain the correct subject names:
+
+```
+openssl x509 -in certs/public.crt -text
+openssl x509 -in certs/wildcard/public.crt -text
+```
+
+Update the docker-compose yaml to add this set of certs to the gateway-mt service:
+
+
+```diff
+diff --git a/docker-compose.yml b/docker-compose.yml
+index f38b7d1..cb024fb 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -7,6 +7,8 @@ services:
+       restart_policy:
+         condition: on-failure
+         max_attempts: 3
++    volumes:
++      - ./certs:/root/.local/share/storj/gateway/minio/certs
+     # volumes:
+     #   - ./public.crt:/root/.local/share/storj/gateway/minio/certs/public.crt
+     #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
+@@ -15,6 +17,7 @@ services:
+       - MINIO_NOAUTH_ENABLED=enable
+       - MINIO_NOAUTH_AUTH_URL=http://auth:8000
+       - MINIO_NOAUTH_AUTH_TOKEN=staging
++      - MINIO_DOMAIN=gateway.local
+     ports:
+       - "7777:7777"
+     command:
+```
+
+After the config is updated start the gateway-mt and auth services:
+
+```
+docker-compose up
+```
+
+Use the uplink CLI to register an access grant (replace `$ACCESS` with an access grant):
+
+```
+uplink access register --auth-service http://127.0.0.1:9000 $ACCESS
+```
+
+Export the provided access key id and secret:
+
+```
+export AWS_ACCESS_KEY_ID=some_access_key_id
+export AWS_SECRET_ACCESS_KEY=some_secret_key
+```
+
+Now we can use the AWS CLI with special DNS resolution to confirm that a `test`
+bucket can be accessed using virtual host style requests:
+
+```
+docker run -it --rm --net=host \
+  --add-host=test.gateway.local:127.0.0.1 \
+  --add-host=gateway.local:127.0.0.1 \
+  -e AWS_SECRET_ACCESS_KEY \
+  -e AWS_ACCESS_KEY_ID \
+  --entrypoint /bin/bash amazon/aws-cli
+aws configure set default.s3.addressing_style virtual
+aws s3 ls --endpoint https://gateway.local:7777 --no-verify-ssl --debug
+```
+
+The request should succeed and the debug output should contain lines like
+`MainThread - botocore.utils - DEBUG - Using S3 virtual host style addressing.`
+
 # S3 API Compatibility using Docker
 The following S3 methods are supported:
 - HeadBucket
