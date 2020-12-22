@@ -16,7 +16,7 @@ services:
       - run
       - --auth-token=staging
       - --auth-url=http://auth:8000
-      - --domain-name=gateway-mt
+      - --domain-name=gateway.local
     networks:
       gateway-mt: {}
   auth:
