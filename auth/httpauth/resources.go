@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/btcsuite/btcutil/base58"
 	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/auth"
@@ -108,7 +107,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	response.AccessKeyID = key.ToBase32()
-	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
+	response.SecretKey = secretKey.ToBase32()
 	response.Endpoint = res.endpoint.String()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -157,7 +156,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	response.AccessGrant = accessGrant
-	response.SecretKey = base58.CheckEncode(secretKey, auth.VersionSecretKey)
+	response.SecretKey = secretKey.ToBase32()
 	response.Public = public
 
 	w.Header().Set("Content-Type", "application/json")

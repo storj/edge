@@ -17,7 +17,7 @@ func TestBase32(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, oldKey, EncryptionKey{})
 	encoded := oldKey.ToBase32()
-	require.Len(t, encoded, eKeySizeEncoded)
+	require.Len(t, encoded, encKeySizeEncoded)
 	var newKey EncryptionKey
 	err = newKey.FromBase32(encoded)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestBase32Fail(t *testing.T) {
 	key, err := NewEncryptionKey()
 	require.NoError(t, err)
 	encoded := key.ToBase32()
-	require.Len(t, encoded, eKeySizeEncoded)
+	require.Len(t, encoded, encKeySizeEncoded)
 	require.Error(t, key.FromBase32(encoded[1:]))
 	require.Error(t, key.FromBase32(encoded[2:]))
 	encoded = "a" + encoded[1:]
