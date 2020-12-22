@@ -121,6 +121,8 @@ func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {
 	// matches, but this is okay for now.
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers",
+		"Content-Type, Accept, Accept-Language, Content-Language, Content-Length, Accept-Encoding")
 }
 
 func (res *Resources) requestAuthorized(req *http.Request) bool {
