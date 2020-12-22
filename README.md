@@ -40,17 +40,17 @@ retrieve those files!
     ```
 ## Run gateway-mt
 
-Currently, auth service configuration is passed in to `minio` through environment variables:
-    - `MINIO_NOAUTH_AUTH_TOKEN` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command
-    - `MINIO_NOAUTH_AUTH_URL` defines the address of our auth service instance. It's default to `http://localhost:8000`
 
-We also require the `MINIO_DOMAIN` environment variable, which allows the gateway-mt to work with virtual hosted style requests. For example, if the `MINIO_DOMAIN` variable is set to `asdf.com`, then a request to `bob.asdf.com` will be interpreted as specifying the bucket `bob`.
+Gateway-MT requires the following command line parameters: 
+      - `--auth-token` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth-token` in `authservice` command.
+      - `--auth-url` defines the address of our auth service instance. It's default to `http://localhost:8000`.
+      - `--domain-name` allows the gateway-mt to work with virtual hosted style requests. For example, if the `MINIO_DOMAIN` variable is set to `asdf.com`, then a request to `bob.asdf.com` will be interpreted as specifying the bucket `bob`.
 
-    MINIO_NOAUTH_AUTH_TOKEN="bob" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 MINIO_DOMAIN=asdf.com gateway-mt run
+    gateway-mt run --auth-token="super secret" --auth-url=http://localhost:8000 --domain-name=localhost
 
     - Enable multipart-uploads
         - by default, multipart-upload is disabled
-        - `gateway-mt run --multipart-upload-sattelites="satellite-node-url"` enables gateway-mt to allow multipart-upload requests being sent to specified satellites that have multipart-upload support.
+        - `gateway-mt run --auth-token="super-secret" --auth-url="auth-svc-url" --domain-name="gateway-domain" --multipart-upload-sattelites="satellite-node-url"` enables gateway-mt to allow multipart-upload requests being sent to specified satellites that have multipart-upload support.
 
 ## Register an access grant with auth service
     ```
@@ -217,7 +217,7 @@ authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim n
 ```
 
 ```
-MINIO_NOAUTH_AUTH_TOKEN="super-secret" MINIO_NOAUTH_AUTH_URL=http://localhost:8000 MINIO_DOMAIN=asdf.com gateway-mt run
+gateway-mt run --auth-token="super-secret" --auth-url=http://localhost:8000 --domain-name=localhost
 ```
 
 ```

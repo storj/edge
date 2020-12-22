@@ -36,6 +36,9 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	MultipartUploadSattelites []string `help:"satellite addresses that has multipart-upload enabled" default:"" basic-help:"true"`
+	AuthURL                   string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
+	AuthToken                 string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
+	DomainName                string   `help:"base domain name used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
 	Config
 }
 
@@ -128,16 +131,21 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = os.Setenv("MINIO_NOAUTH_ENABLED", "enable")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, env := range []string{"MINIO_NOAUTH_ENABLED", "MINIO_NOAUTH_AUTH_TOKEN", "MINIO_NOAUTH_AUTH_URL", "MINIO_DOMAIN"} {
-		val := os.Getenv(env)
-		if val == "" {
-			return Error.New("required env variable %s not set", env)
+	// setup environment variables for Minio
+	validateAndSet := func(value, configName, envName string) {
+		if value == "" {
+			err = errs.Combine(err, Error.New("required parameter --%s not set", configName))
+			return
 		}
+		err = errs.Combine(err, Error.Wrap(os.Setenv(envName, value)))
+	}
+	validateAndSet(runCfg.AuthToken, "auth-token", "MINIO_NOAUTH_AUTH_TOKEN")
+	validateAndSet(runCfg.AuthURL, "auth-url", "MINIO_NOAUTH_AUTH_URL")
+	validateAndSet(runCfg.DomainName, "domain-name", "MINIO_DOMAIN")
+	validateAndSet("enable", "n/a", "MINIO_NOAUTH_ENABLED")
+	validateAndSet("off", "n/a", "MINIO_BROWSER")
+	if err != nil {
+		return err
 	}
 
 	zap.S().Info("Starting Tardigrade S3 Gateway\n\n")

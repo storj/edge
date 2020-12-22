@@ -10,14 +10,13 @@ services:
     # volumes:
     #   - ./public.crt:/root/.local/share/storj/gateway/minio/certs/public.crt
     #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
-    environment:
-      - MINIO_BROWSER=off
-      - MINIO_NOAUTH_AUTH_URL=http://auth:8000
-      - MINIO_NOAUTH_AUTH_TOKEN=staging
     ports:
       - "7777:7777"
     command:
       - run
+      - --auth-token=staging
+      - --auth-url=http://auth:8000
+      - --domain-name=gateway-mt
     networks:
       gateway-mt: {}
   auth:

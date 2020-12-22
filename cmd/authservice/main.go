@@ -43,20 +43,20 @@ var (
 
 // Config is the config.
 type Config struct {
-	Endpoint          string   `help:"endpoint to return to clients" default:""`
-	AuthToken         string   `help:"auth token to validate requests" default:""`
-	AllowedSatellites []string `help:"List of satellite addresses allowed for incoming access grants"`
+	Endpoint          string   `help:"Gateway endpoint URL to return to clients" default:""`
+	AuthToken         string   `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
+	AllowedSatellites []string `help:"list of satellite addresses allowed for incoming access grants"`
 
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
-	ListenAddr    string `user:"true" help:"public address to listen on" default:":8000"`
+	ListenAddr    string `user:"true" help:"public address to listen on" default:"8000"`
 	ListenAddrTLS string `user:"true" help:"public tls address to listen on" default:":8443"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	CertFile    string `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
 	KeyFile     string `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
-	PublicURL   string `user:"true" help:"public url for the server" devDefault:"http://localhost:8080" releaseDefault:""`
+	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:8080" releaseDefault:""`
 }
 
 func init() {
