@@ -12,7 +12,6 @@ services:
     #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
     environment:
       - MINIO_BROWSER=off
-      - MINIO_NOAUTH_ENABLED=enable
       - MINIO_NOAUTH_AUTH_URL=http://auth:8000
       - MINIO_NOAUTH_AUTH_TOKEN=staging
     ports:

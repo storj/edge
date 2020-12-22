@@ -68,7 +68,7 @@ storj-sim -x network run &
 
 for i in {1..60}; do
     echo "Trying ${i} time for access grant"
-    access_grant=$(storj-sim network env | grep GATEWAY_0_ACCESS= | cut -d "=" -f2)
+    access_grant=$(storj-sim network env GATEWAY_0_ACCESS)
     if [ -n "${access_grant}" ]; then
         break
     fi
@@ -82,7 +82,7 @@ fi
 
 echo "Found access grant: ${access_grant}"
 
-satellite_node_url=$(uplink access inspect "${access_grant}" | grep Satellite | cut -d ":" -f2,3 | xargs)
+satellite_node_url=$(storj-sim network env SATELLITE_0_ADDR)
 
 if [ -z "${satellite_node_url}" ]; then
     echo "satellite_node_url is empty"
@@ -94,7 +94,7 @@ authservice_address="127.0.0.1:9191"
 minio_url="http://127.0.0.1:7777/"
 
 authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" &
-MINIO_NOAUTH_ENABLED=enable MINIO_NOAUTH_AUTH_URL=http://${authservice_address} MINIO_NOAUTH_AUTH_TOKEN=${authtoken} gateway-mt run --server.address 0.0.0.0:7777 &
+MINIO_NOAUTH_AUTH_URL=http://${authservice_address} MINIO_NOAUTH_AUTH_TOKEN=${authtoken} MINIO_DOMAIN=asdf.com gateway-mt run --multipart-upload-sattelites ${satellite_node_url} --server.address 0.0.0.0:7777 &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"

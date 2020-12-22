@@ -128,6 +128,18 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
+	err = os.Setenv("MINIO_NOAUTH_ENABLED", "enable")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, env := range []string{"MINIO_NOAUTH_ENABLED", "MINIO_NOAUTH_AUTH_TOKEN", "MINIO_NOAUTH_AUTH_URL", "MINIO_DOMAIN"} {
+		val := os.Getenv(env)
+		if val == "" {
+			return Error.New("required env variable %s not set", env)
+		}
+	}
+
 	zap.S().Info("Starting Tardigrade S3 Gateway\n\n")
 	zap.S().Infof("Endpoint: %s\n", address)
 	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
