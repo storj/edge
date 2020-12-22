@@ -31,6 +31,7 @@ services:
       # - ./private.key
       - ./auth-db/:/app/db/
     ports:
+      - "5999:5999"
       # remap auth port because many common docker services try to bind to 8000
       - "9000:8000"
     command:
@@ -40,6 +41,7 @@ services:
       - --auth-token=staging
       - --public-url=http://localhost:9000
       - --endpoint=http://localhost:7777
+      - --debug.addr=0.0.0.0:5999
       # - --cert-file=/app/public.crt
       # - --key-file=/app/private.key
     networks:

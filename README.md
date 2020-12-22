@@ -51,6 +51,9 @@ Gateway-MT requires the following command line parameters:
     - Enable multipart-uploads
         - by default, multipart-upload is disabled
         - `gateway-mt run --auth-token="super-secret" --auth-url="auth-svc-url" --domain-name="gateway-domain" --multipart-upload-sattelites="satellite-node-url"` enables gateway-mt to allow multipart-upload requests being sent to specified satellites that have multipart-upload support.
+    - Enable debug server
+        - by default, the debug server is disabled
+        - `gateway-mt run --debug.addr=debug-server-address` enables debug server.
 
 ## Register an access grant with auth service
     ```
