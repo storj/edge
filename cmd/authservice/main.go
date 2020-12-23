@@ -56,7 +56,7 @@ type Config struct {
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
-	ListenAddr    string `user:"true" help:"public address to listen on" default:"8000"`
+	ListenAddr    string `user:"true" help:"public address to listen on" default:":8000"`
 	ListenAddrTLS string `user:"true" help:"public tls address to listen on" default:":8443"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
