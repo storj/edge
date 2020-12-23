@@ -136,7 +136,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return secretKey, err
 	}
 	if _, ok := db.allowedSatelliteAddresses[url.Address]; !ok {
-		return secretKey, errs.New("access grant contains disallowed satellite")
+		return secretKey, errs.New("access grant contains disallowed satellite '%s'", satelliteAddr)
 	}
 
 	if _, err := rand.Read(secretKey[:]); err != nil {

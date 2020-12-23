@@ -766,6 +766,10 @@ func (layer *gatewayLayer) setupProject(ctx context.Context, access *uplink.Acce
 func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if accessKey == "" {
+		return nil, errs.New("Access key is empty")
+	}
+
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
 		return nil, err
