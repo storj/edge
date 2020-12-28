@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon              = monkit.Package()
+	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
 
 	// Error is the errs class of standard End User Client errors.
 	Error = errs.Class("Storj Gateway error")
@@ -861,9 +862,15 @@ func getAccessGrant(ctx context.Context) string {
 }
 
 func getUserAgent(ctx context.Context) string {
+	userAgent := gatewayUserAgent
 	reqInfo := logger.GetReqInfo(ctx)
 	if reqInfo == nil {
-		return ""
+		return userAgent
 	}
-	return reqInfo.UserAgent
+
+	if reqInfo.UserAgent != "" {
+		userAgent = reqInfo.UserAgent + " " + userAgent
+	}
+
+	return userAgent
 }
