@@ -5,6 +5,7 @@ go 1.14
 replace storj.io/gateway-mt => ../
 
 require (
+	github.com/aws/aws-sdk-go v1.36.15
 	github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded
 	github.com/storj/minio v0.0.0-20201123173841-6fdac6dbc542
 	github.com/stretchr/testify v1.6.1

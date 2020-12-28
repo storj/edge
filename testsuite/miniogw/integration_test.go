@@ -20,6 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -60,7 +64,6 @@ func registerAccess(t *testing.T, authService string, access *uplink.Access) (ac
 }
 
 func TestUploadDownload(t *testing.T) {
-	t.Skip("disable integration test until we can reach auth service in the test")
 	var counter int64
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -173,6 +176,40 @@ func TestUploadDownload(t *testing.T) {
 
 			require.Equal(t, data, bytes)
 		}
+		{
+			// minio client has default minio user-agent set. On the
+			// server-side, it has a partner ID associated with minio user-agent
+			// string. Here we are checking if the corresponding partner ID is
+			// set on the bucket created by using minio client
+			uplink := planet.Uplinks[0]
+			satellite := planet.Satellites[0]
+			info, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), uplink.Projects[0].ID)
+			require.NoError(t, err)
+			require.False(t, info.PartnerID.IsZero())
+
+			// operating with aws-ask-go that has a default user-agent string
+			// set for aws
+			newSession, err := session.NewSession(&aws.Config{
+				Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
+				Endpoint:         aws.String("http://" + gatewayAddr),
+				Region:           aws.String("us-east-1"),
+				S3ForcePathStyle: aws.Bool(true),
+			})
+			require.NoError(t, err)
+			s3Client := s3.New(newSession)
+
+			_, err = s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+				Bucket: aws.String("aws-bucket"),
+			})
+			require.NoError(t, err)
+
+			// making sure the partner ID associated with the bucket created
+			// using aws-sdk-go has a different partnerID than the bucket
+			// created using minio client
+			infoWithCustomUserAgent, err := satellite.DB.Buckets().GetBucket(ctx, []byte("aws-bucket"), uplink.Projects[0].ID)
+			require.NoError(t, err)
+			require.NotEqual(t, info.PartnerID.String(), infoWithCustomUserAgent.PartnerID.String())
+		}
 	})
 }
 
@@ -250,7 +287,7 @@ func tryConnectAuthSvc(authSvcAddress string) bool {
 	return err == nil
 }
 
-func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayAddress, 
+func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayAddress,
 	authSvcAddress, satelliteAddr string, moreFlags ...string) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--server.address", gatewayAddress,
