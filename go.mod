@@ -3,7 +3,6 @@ module storj.io/gateway-mt
 go 1.13
 
 require (
-	github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded
 	github.com/calebcase/tmpfile v1.0.2 // indirect
 	github.com/jackc/pgconn v1.7.0
 	github.com/jackc/pgx/v4 v4.9.0
