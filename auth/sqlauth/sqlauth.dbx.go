@@ -22,7 +22,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"math/rand"
 
-	"storj.io/gateway-mt/private/tagsql"
+	"storj.io/private/tagsql"
 )
 
 // Prevent conditional imports from causing build failures

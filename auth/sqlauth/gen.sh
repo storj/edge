@@ -7,7 +7,7 @@ dbx golang -p sqlauth -d pgxcockroach -d sqlite3 sqlauth.dbx .
 gofmt -r "*sql.Tx -> tagsql.Tx" -w sqlauth.dbx.go
 gofmt -r "*sql.Rows -> tagsql.Rows" -w sqlauth.dbx.go
 perl -0777 -pi \
-  -e 's,\t"math/rand"\n\),\t"math/rand"\n\n\t"storj.io/gateway-mt/private/tagsql"\n\),' \
+  -e 's,\t"math/rand"\n\),\t"math/rand"\n\n\t"storj.io/private/tagsql"\n\),' \
   sqlauth.dbx.go
 perl -0777 -pi \
   -e 's/type DB struct \{\n\t\*sql\.DB/type DB struct \{\n\ttagsql.DB/' \

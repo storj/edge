@@ -9,6 +9,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/auth"
 )
@@ -19,24 +20,25 @@ var mon = monkit.Package()
 
 // KV is a key/value store backed by a sql database.
 type KV struct {
-	db *DB
+	db *DB // DBX
 }
 
-// New wraps the sql database into a KV.
+// New returns a SQL implementation of a key-value store.
 func New(db *DB) *KV {
-	return &KV{
-		db: db,
-	}
+	return &KV{db: db}
 }
 
 // MigrateToLatest migrates the kv store to the latest version of the schema.
 func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jeff): do real migrations instead of this
-
-	_, err = d.db.ExecContext(ctx, d.db.Schema())
-	return errs.Wrap(err)
+	log := zap.L().Named("migrate")
+	migration := d.Migration(ctx)
+	err = migration.Run(ctx, log)
+	if err != nil {
+		return err
+	}
+	return migration.ValidateVersions(ctx, log)
 }
 
 // Put stores the record in the key/value store.

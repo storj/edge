@@ -11,7 +11,7 @@ import (
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/gateway-mt/auth/sqlauth"
-	"storj.io/gateway-mt/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
 )
 
 func openKV(kvurl string) (auth.KV, error) {
@@ -30,7 +30,7 @@ func openKV(kvurl string) (auth.KV, error) {
 	case "memory":
 		return memauth.New(), nil
 
-	case "pgxcockroach":
+	case "pgxcockroach", "postgres", "cockroach", "pgx":
 		parsed.Scheme = "postgres"
 		db, err := sqlauth.Open("pgxcockroach", parsed.String())
 		if err != nil {
@@ -38,7 +38,7 @@ func openKV(kvurl string) (auth.KV, error) {
 		}
 		return sqlauth.New(db), nil
 
-	case "sqlite3":
+	case "sqlite3", "file":
 		parsed.Scheme = "file"
 		db, err := sqlauth.Open("sqlite3", parsed.String())
 		if err != nil {

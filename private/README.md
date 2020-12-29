@@ -1,3 +1,0 @@
-# S3 Gateway Multitenant private directory
-
-This directory consists of code copied from storj.io/gateway-mt/private.  We decided to use certain features from storj.io/storj such as tagsql (JT, Egon)  It seems like a good idea to not require a dependency on storj.io/storj within gateway (Kaloyan, Egon).  In the long run, it would be best to move these features into another repo, likely storj.io/private or storj.io/common, however for the time being we will duplicate them here (Egon).

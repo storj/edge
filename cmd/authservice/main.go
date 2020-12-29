@@ -192,7 +192,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		MigrateToLatest(ctx context.Context) error
 	})
 	if !ok {
-		return errs.New("database backend does not support migrations")
+		return errs.New("database backend %T does not support migrations", kv)
 	}
 
 	if err := migrator.MigrateToLatest(ctx); err != nil {
