@@ -24,7 +24,8 @@ func openKV(kvurl string) (auth.KV, error) {
 		return memauth.New(), nil
 
 	case "pgxcockroach":
-		db, err := sqlauth.Open("pgxcockroach", kvurl)
+		parsed.Scheme = "postgres"
+		db, err := sqlauth.Open("pgxcockroach", parsed.String())
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
