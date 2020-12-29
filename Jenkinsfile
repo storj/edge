@@ -19,6 +19,9 @@ timeout(time: 26, unit: 'MINUTES') {
 
 						sh 'mkdir -p .build'
 
+						// make a backup of the mod file in case, for later linting
+						sh 'cp go.mod .build/go.mod.orig'
+
 						sh 'service postgresql start'
 
 						sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
@@ -42,6 +45,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'check-errs ./...'
 								sh 'staticcheck ./...'
 								sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+								sh 'check-mod-tidy -mod .build/go.mod.orig'
 								// TODO: reenable,
 								//	currently there are few packages that contain non-standard license formats.
 								//sh 'go-licenses check ./...'
