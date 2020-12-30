@@ -217,3 +217,43 @@ func TestResources_Authorization(t *testing.T) {
 	check("PUT", baseURL+"/invalid")
 	check("DELETE", baseURL)
 }
+
+func TestResources_CORS(t *testing.T) {
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+
+	check := func(method, path string) bool {
+		rec := httptest.NewRecorder()
+
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer authToken")
+		req.Header.Add("Origin", "http://example.com")
+		New(zaptest.NewLogger(t), nil, endpoint, "authToken").ServeHTTP(rec, req)
+
+		var isValidCORSHeaders bool
+		result := rec.Result()
+		defer require.NoError(t, result.Body.Close())
+
+		respHeaders := result.Header.Get("Access-Control-Allow-Origin")
+		if respHeaders == "*" {
+			isValidCORSHeaders = true
+		}
+		respHeaders = result.Header.Get("Access-Control-Allow-Methods")
+		if respHeaders == "POST, OPTIONS" {
+
+			isValidCORSHeaders = true
+		}
+		respHeaders = result.Header.Get("Access-Control-Allow-Headers")
+		if respHeaders == "Content-Type, Accept, Accept-Language, Content-Language, Content-Length, Accept-Encoding" {
+			isValidCORSHeaders = true
+		}
+
+		return isValidCORSHeaders
+	}
+
+	require.True(t, check("POST", "/v1/access"))
+	require.True(t, check("OPTIONS", "/v1/access"))
+	require.False(t, check("GET", "/v1/access/someid"))
+	require.False(t, check("PUT", "/v1/access/someid/invalid"))
+	require.False(t, check("DELETE", "/v1/access/someid"))
+}
