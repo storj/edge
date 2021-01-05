@@ -207,6 +207,72 @@ docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECR
 ```
 The `ENABLE_HTTPS` flag indicates if https should be used (`ENABLE_HTTPS=1`)
 
+# Using docker-compose for local development
+
+For convenience in local testing, a docker-compose file can be found in
+`docker-local/docker-compose.yml`. This section explains how to use this
+properly for local testing.
+
+## Set environment variables
+
+The compose script requires two environment variables to run correctly:
+
+- `STORJ_SRC_DIR`: This is the path to your storj.io/storj source code.
+- `GATEWAY_SRC_DIR`: This is the path to your storj.io/gateway-mt source code.
+
+Example:
+
+`STORJ_SRC_DIR=$HOME/storj.io/storj GATEWAY_SRC_DIR=$HOME/storj.io/gateway-mt docker-compose up`
+
+This is only an example, the correct paths for your machine must be provided.
+
+## Start the docker containers
+
+Navigate to the `docker-local` folder and run `docker-compose up`.
+
+The first time it runs it will pull docker containers and build all the source
+code and pull external go modules. This will all be cached.
+
+When the processes finishes, the `gateway-mt` container will output the
+following (an example):
+
+```
+gateway-mt_1   | ===================================================================
+gateway-mt_1   | Access 1NfEEWDxPUob3Qib9EhjP4rdCw4GnnwT81aNwV2txywscPHDpBsTmT6VjrhLGBmJjULdNZA8TnvYC5vSYvxgSfDW2h5P9D9cow6gmHoqaNeGT5DcWH7L9FinpBgjM3S1cinHSQwufsRLzFtYd3CohW4QDohcASreWqPB8HxwAi5M1UQMPUgSftXZzGKPCkvRDjkCkySyfR93gkfxqStn873ScKnYwvXSXjjk9KiFSZ2KbAf1do1a3sJsT
+gateway-mt_1   | ===================================================================
+gateway-mt_1   | ========== CREDENTIALS ===================================================================
+gateway-mt_1   | Access Key ID:  jxjlhpevlqi6wg5y4lqj3kg5gu3a
+gateway-mt_1   | Secret Key   :  jzzqymrvhwxos7hfynucwnr4sn2zphxfxyq52k7guicuarmhc5gta
+gateway-mt_1   | Endpoint     :  http://localhost:7777
+gateway-mt_1   | ===================================================================
+```
+
+The access is the access for storj-sim, in case you want to use it for something
+else. (See NOTE below.)
+
+The gateway-mt registers this access with the authservice for you, and the
+access key and secret key are printed out also.
+
+You now should be able to connect to the gateway-mt at `http://localhost:7777`
+using those credentials.
+
+NOTE: The satellite address embedded in the access is strange: something like
+`1RztXfxeGrQMku8SRfFeLbVwdqq1XbMm59Gjapck3SCmfXB6WR@storjsim:10000`. This
+`storjsim` address is due to docker's internal networking. If you need to use
+this access locally, you need to make your computer resolve `storjsim` to
+`localhost`.
+
+## Development workflow
+
+After it is running, if you make code changes and wish to test them, simply do
+the following:
+
+- Stop the containers with `docker-compose down`
+- Start the containers again with `docker-compose up`
+
+This will build the code again, but should only build code that has changed, and
+will provide you with new credentials.
+
 # Gateway MT + storj-sim + Minio Mint test workflow
 Gateway MT is designed to becompatible with the Minio Mint's Docker-based test suite.  If you'd like to use storj-sim to test local changes to Mint, run these commands:
 

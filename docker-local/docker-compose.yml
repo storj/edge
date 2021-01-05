@@ -1,0 +1,58 @@
+version: "3.8"
+
+volumes:
+  storjsimconfig:
+  localgopath:
+
+services:
+  redis:
+    image: redis:6.0.9
+  postgres:
+    image: postgres:12
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=dcstorj
+  storjsim:
+    image: golang:1.15.6
+    entrypoint: /scripts/start-storj-sim.sh
+    volumes:
+      - localgopath:/go/storjpath
+      - ${STORJ_SRC_DIR}:/code
+      - ./start-storj-sim.sh:/scripts/start-storj-sim.sh
+      - storjsimconfig:/root/.local/share/storj
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+    env_file:
+      - service.env
+    depends_on:
+      - postgres
+      - redis
+  authservice:
+    image: golang:1.15.6
+    entrypoint: /scripts/start-auth-service.sh
+    volumes:
+      - localgopath:/go/storjpath
+      - ${GATEWAY_SRC_DIR}:/code
+      - ./start-auth-service.sh:/scripts/start-auth-service.sh
+    ports:
+      - "8000:8000"
+    depends_on:
+      - storjsim
+    env_file:
+      - service.env
+  gateway-mt:
+    image: golang:1.15.6
+    volumes:
+      - localgopath:/go/storjpath
+      - ${GATEWAY_SRC_DIR}:/code
+      - ./start-gateway-mt.sh:/scripts/start-gateway-mt.sh
+      - storjsimconfig:/config
+    env_file:
+      - service.env
+    ports:
+      - "7777:7777"
+    entrypoint: /scripts/start-gateway-mt.sh
+    depends_on:
+      - storjsim
+      - authservice
