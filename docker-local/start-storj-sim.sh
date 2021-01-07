@@ -5,7 +5,7 @@ set -e
 export PATH=$GOPATH/bin:$PATH
 
 cd /code
-make install-sim
+make GATEWAYPATH="$GOPATH/gateway" install-sim
 
 storj-sim network destroy
 
