@@ -291,7 +291,7 @@ func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayA
 	authSvcAddress, satelliteAddr string, moreFlags ...string) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--server.address", gatewayAddress,
-		"--multipart-upload-sattelites", satelliteAddr,
+		"--multipart-upload-satellites", satelliteAddr,
 		"--auth-token", "super-secret",
 		"--auth-url", "http://" + authSvcAddress,
 		"--domain-name", "localhost",

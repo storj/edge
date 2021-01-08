@@ -35,7 +35,7 @@ type GatewayFlags struct {
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
 
-	MultipartUploadSattelites []string `help:"satellite addresses that has multipart-upload enabled" default:"" basic-help:"true"`
+	MultipartUploadSatellites []string `help:"satellite addresses that has multipart-upload enabled" default:"" basic-help:"true"`
 	AuthURL                   string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
 	AuthToken                 string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
 	DomainName                string   `help:"base domain name used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
@@ -199,7 +199,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 // NewGateway creates a new minio Gateway.
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
 	config := flags.newUplinkConfig(ctx)
-	multipartSatAddrs := flags.MultipartUploadSattelites
+	multipartSatAddrs := flags.MultipartUploadSatellites
 	addrs, err := miniogw.RemoveNodeIDs(multipartSatAddrs)
 	if err != nil {
 		return nil, err
