@@ -21,6 +21,8 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/mattn/go-sqlite3"
 	"math/rand"
+
+	"storj.io/gateway-mt/private/tagsql"
 )
 
 // Prevent conditional imports from causing build failures
@@ -122,7 +124,7 @@ func constraintViolation(err error, constraint string) error {
 
 type driver interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
@@ -132,7 +134,7 @@ var (
 )
 
 type DB struct {
-	*sql.DB
+	tagsql.DB
 	dbMethods
 
 	Hooks struct {
@@ -164,7 +166,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 
 	db = &DB{
-		DB: sql_db,
+		DB: tagsql.Wrap(sql_db),
 	}
 	db.Hooks.Now = time.Now
 
@@ -219,12 +221,12 @@ func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 }
 
 type Tx struct {
-	Tx *sql.Tx
+	Tx tagsql.Tx
 	txMethods
 }
 
 type dialectTx struct {
-	tx *sql.Tx
+	tx tagsql.Tx
 }
 
 func (tx *dialectTx) Commit() (err error) {
@@ -288,7 +290,7 @@ func (obj *pgxcockroachDB) Schema() string {
 );`
 }
 
-func (obj *pgxcockroachDB) wrapTx(tx *sql.Tx) txMethods {
+func (obj *pgxcockroachDB) wrapTx(tx tagsql.Tx) txMethods {
 	return &pgxcockroachTx{
 		dialectTx: dialectTx{tx: tx},
 		pgxcockroachImpl: &pgxcockroachImpl{
@@ -364,7 +366,7 @@ func (obj *sqlite3DB) Schema() string {
 );`
 }
 
-func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
+func (obj *sqlite3DB) wrapTx(tx tagsql.Tx) txMethods {
 	return &sqlite3Tx{
 		dialectTx: dialectTx{tx: tx},
 		sqlite3Impl: &sqlite3Impl{
@@ -1441,7 +1443,7 @@ type Rx struct {
 	tx *Tx
 }
 
-func (rx *Rx) UnsafeTx(ctx context.Context) (unsafe_tx *sql.Tx, err error) {
+func (rx *Rx) UnsafeTx(ctx context.Context) (unsafe_tx tagsql.Tx, err error) {
 	tx, err := rx.getTx(ctx)
 	if err != nil {
 		return nil, err
@@ -1576,7 +1578,7 @@ type DBMethods interface {
 type dbMethods interface {
 	DBMethods
 
-	wrapTx(tx *sql.Tx) txMethods
+	wrapTx(tx tagsql.Tx) txMethods
 	makeErr(err error) error
 }
 

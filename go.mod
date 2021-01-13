@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/jackc/pgconn v1.7.0
+	github.com/jackc/pgtype v1.5.0
 	github.com/jackc/pgx/v4 v4.9.0
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/minio/cli v1.22.0

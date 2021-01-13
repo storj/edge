@@ -11,9 +11,16 @@ import (
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/gateway-mt/auth/sqlauth"
+	"storj.io/gateway-mt/private/dbutil/pgutil"
 )
 
 func openKV(kvurl string) (auth.KV, error) {
+	// ensure connection string is present for monkit / tagsql
+	kvurl, err := pgutil.CheckApplicationName(kvurl, "gateway-mt-auth")
+	if err != nil {
+		return nil, err
+	}
+
 	parsed, err := url.Parse(kvurl)
 	if err != nil {
 		return nil, errs.Wrap(err)
