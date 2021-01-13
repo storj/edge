@@ -132,12 +132,13 @@ timeout(time: 26, unit: 'MINUTES') {
 				}
 			}
 		}
-		stage('mint-tests'){
+		stage('integration-tests'){
 			try {
 				checkout scm
 
 				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
 				env.STORJ_SIM_REDIS = 'redis:6379'
+				env.GATEWAY_DOMAIN = 'gateway.local'
 				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER postgres:12.3'
 				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER redis:latest'
 				sh '''until $(docker logs postgres-gateway-mt-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
@@ -147,10 +148,12 @@ timeout(time: 26, unit: 'MINUTES') {
 				'''
 				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
 
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.15.6'
+				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.15.6'
 				// Wait until the docker command above prints out the keys before proceeding
 				sh '''#!/bin/bash
 						set -e +x
+						echo "listing"
+						ls $PWD/jenkins
 						t="0"
 						while true; do
 							logs=$(docker logs mintsetup-gateway-mt-$BUILD_NUMBER -t --since "$t" 2>&1)
@@ -168,9 +171,12 @@ timeout(time: 26, unit: 'MINUTES') {
 							sleep 5
 						done
 
-						echo "parsed keys ${ACCESS_KEY} ${SECRET_KEY}"
-						docker network create minttest-gateway-mt-$BUILD_NUMBER
-						docker network connect --alias mintsetup minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
+						gatewayip=10.11.0.10
+
+						echo "parsed keys ${ACCESS_KEY_ID} ${SECRET_KEY}"
+						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
+						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
+						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/jenkins/test-aws.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/golang:1.15.6
 						docker pull storjlabs/minio-mint:latest
 						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''
