@@ -17,7 +17,7 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
-	storj.io/common v0.0.0-20201218144426-181d559803f9
-	storj.io/private v0.0.0-20201209191110-4b1ec2d52676
-	storj.io/uplink v1.4.5-0.20210107155327-9c8f5611fecf
+	storj.io/common v0.0.0-20210113135631-07a5dc68dc1c
+	storj.io/private v0.0.0-20210108233641-2ba1ef686d1f
+	storj.io/uplink v1.4.5-0.20210114104337-ce4ca047ab1f
 )
