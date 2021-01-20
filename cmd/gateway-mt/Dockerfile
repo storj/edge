@@ -11,7 +11,7 @@ WORKDIR /app
 
 VOLUME /root/.local/share/storj/gateway-mt
 
-RUN echo 'hosts: files dns' > /etc/nsswitch.conf
+COPY cmd/gateway-mt/etc/nsswitch.conf /etc/nsswitch.conf
 COPY release/${TAG}/gateway-mt_linux_${GOARCH:-amd64} /app/gateway-mt
 COPY cmd/gateway-mt/entrypoint /entrypoint
 

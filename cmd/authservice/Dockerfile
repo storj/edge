@@ -14,7 +14,7 @@ VOLUME /root/.local/share/storj/authservice
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s \
   CMD ["/app/authservice", "--log.level=error", "health-check"]
 
-RUN echo 'hosts: files dns' > /etc/nsswitch.conf
+COPY cmd/authservice/etc/nsswitch.conf /etc/nsswitch.conf
 COPY release/${TAG}/authservice_linux_${GOARCH:-amd64} /app/authservice
 COPY cmd/authservice/entrypoint /entrypoint
 
