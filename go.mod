@@ -3,22 +3,22 @@ module storj.io/gateway-mt
 go 1.13
 
 require (
-	github.com/jackc/pgconn v1.7.0
-	github.com/jackc/pgtype v1.5.0
-	github.com/jackc/pgx/v4 v4.9.0
-	github.com/mattn/go-sqlite3 v1.14.4
+	github.com/jackc/pgconn v1.8.0
+	github.com/jackc/pgtype v1.6.2
+	github.com/jackc/pgx/v4 v4.10.1
+	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/minio/cli v1.22.0
 	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
 	github.com/spacemonkeygo/monkit/v3 v3.0.7
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
-	github.com/storj/minio v0.0.0-20201228181928-03a2e0af355b
+	github.com/storj/minio v0.0.0-20210120175557-77944f7408c6
 	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
-	storj.io/common v0.0.0-20210113135631-07a5dc68dc1c
-	storj.io/private v0.0.0-20210108233641-2ba1ef686d1f
-	storj.io/uplink v1.4.5-0.20210114104337-ce4ca047ab1f
+	storj.io/common v0.0.0-20210119231202-8321551aa24d
+	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
+	storj.io/uplink v1.4.6-0.20210115090500-10cfa3d1c277
 )
