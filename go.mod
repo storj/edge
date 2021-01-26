@@ -3,6 +3,7 @@ module storj.io/gateway-mt
 go 1.13
 
 require (
+	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgtype v1.6.2
 	github.com/jackc/pgx/v4 v4.10.1
@@ -17,6 +18,7 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	storj.io/common v0.0.0-20210119231202-8321551aa24d
 	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
