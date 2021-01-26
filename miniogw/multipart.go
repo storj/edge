@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/uplink"
+	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/storage/streams"
 )
 
@@ -44,7 +45,7 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 		err = errs.Combine(err, project.Close())
 	}()
 
-	info, err := project.NewMultipartUpload(ctx, bucket, object, nil)
+	info, err := multipart.NewMultipartUpload(ctx, project, bucket, object, nil)
 	if err != nil {
 		return "", convertMultipartError(err, bucket, object, "")
 	}
@@ -70,7 +71,7 @@ func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, up
 		err = errs.Combine(err, project.Close())
 	}()
 
-	partInfo, err := project.PutObjectPart(ctx, bucket, object, uploadID, partID, data)
+	partInfo, err := multipart.PutObjectPart(ctx, project, bucket, object, uploadID, partID, data)
 	if err != nil {
 		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -95,7 +96,7 @@ func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, obj
 		err = errs.Combine(err, project.Close())
 	}()
 
-	err = project.AbortMultipartUpload(ctx, bucket, object, uploadID)
+	err = multipart.AbortMultipartUpload(ctx, project, bucket, object, uploadID)
 	if err != nil {
 		return convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -123,7 +124,7 @@ func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, 
 	metadata := uplink.CustomMetadata(opts.UserDefined).Clone()
 	metadata["s3:etag"] = etag
 
-	obj, err := project.CompleteMultipartUpload(ctx, bucket, object, uploadID, &uplink.MultipartObjectOptions{
+	obj, err := multipart.CompleteMultipartUpload(ctx, project, bucket, object, uploadID, &multipart.ObjectOptions{
 		CustomMetadata: metadata,
 	})
 	if err != nil {
@@ -144,7 +145,7 @@ func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, 
 		err = errs.Combine(err, project.Close())
 	}()
 
-	list, err := project.ListObjectParts(ctx, bucket, object, uploadID, partNumberMarker, maxParts)
+	list, err := multipart.ListObjectParts(ctx, project, bucket, object, uploadID, partNumberMarker, maxParts)
 	if err != nil {
 		return minio.ListPartsInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -225,7 +226,7 @@ func (layer *gatewayLayer) ListMultipartUploads(ctx context.Context, bucket stri
 		return layer.listSingleUpload(ctx, bucket, prefix, recursive)
 	}
 
-	list := project.ListMultipartUploads(ctx, bucket, &uplink.ListMultipartUploadsOptions{
+	list := multipart.ListMultipartUploads(ctx, project, bucket, &multipart.ListMultipartUploadsOptions{
 		Prefix:    prefix,
 		Cursor:    keyMarker,
 		Recursive: recursive,
@@ -292,7 +293,7 @@ func (layer *gatewayLayer) listSingleUpload(ctx context.Context, bucketName, key
 
 	var prefixes []string
 	if !recursive {
-		list := project.ListMultipartUploads(ctx, bucketName, &uplink.ListMultipartUploadsOptions{
+		list := multipart.ListMultipartUploads(ctx, project, bucketName, &multipart.ListMultipartUploadsOptions{
 			Prefix:    key + "/",
 			Recursive: true,
 			// Limit: 1, would be nice to set here
@@ -323,16 +324,16 @@ func (layer *gatewayLayer) listSingleUpload(ctx context.Context, bucketName, key
 	}, nil
 }
 
-func minioMultipartInfo(bucket string, object *uplink.Object) minio.MultipartInfo {
+func minioMultipartInfo(bucket string, object *multipart.Object) minio.MultipartInfo {
 	if object == nil {
-		object = &uplink.Object{}
+		object = &multipart.Object{}
 	}
 
 	return minio.MultipartInfo{
 		Bucket:      bucket,
 		Object:      object.Key,
 		Initiated:   object.System.Created,
-		UploadID:    object.System.StreamID,
+		UploadID:    object.StreamID,
 		UserDefined: object.Custom,
 	}
 }
@@ -363,7 +364,7 @@ func canonicalEtag(etag string) string {
 }
 
 func convertMultipartError(err error, bucket, object, uploadID string) error {
-	if errors.Is(err, uplink.ErrStreamIDInvalid) {
+	if errors.Is(err, multipart.ErrStreamIDInvalid) {
 		return minio.InvalidUploadID{Bucket: bucket, Object: object, UploadID: uploadID}
 	}
 
