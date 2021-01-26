@@ -32,46 +32,55 @@ type Server struct {
 	http     http.Server
 	listener net.Listener
 	log      *zap.Logger
+	domain   string
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(listener net.Listener, log *zap.Logger) *Server {
-	s := &Server{listener: listener, log: log}
+func New(listener net.Listener, log *zap.Logger, domainBase string) *Server {
+	s := &Server{listener: listener, log: log, domain: domainBase}
 	r := mux.NewRouter()
 
-	r.HandleFunc("/{bucket}/{key:.+}", s.DeleteObjectTagging).Methods(http.MethodDelete).Queries("tagging", "")
-	r.HandleFunc("/{bucket}/{key:.+}", s.GetObjectTagging).Methods(http.MethodGet).Queries("tagging", "")
-	r.HandleFunc("/{bucket}/{key:.+}", s.PutObjectTagging).Methods(http.MethodPut).Queries("tagging", "") // Tagging XML root
+	pathStyle := r.Host(domainBase).Subrouter()
+	s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
+	pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
-	r.HandleFunc("/{bucket}/{key:.+}", s.AbortMultipartUpload).Methods(http.MethodDelete).Queries("uploadId", "{UploadId:.+}")
-	r.HandleFunc("/{bucket}/{key:.+}", s.ListParts).Methods(http.MethodGet).Queries("uploadId", "{UploadId:.+}")
-	r.HandleFunc("/{bucket}/{key:.+}", s.CreateMultipartUpload).Methods(http.MethodPost).Queries("uploads", "")                 // InitiateMultipartUploadResult XML root
-	r.HandleFunc("/{bucket}/{key:.+}", s.CompleteMultipartUpload).Methods(http.MethodPost).Queries("uploadId", "{UploadId:.+}") // CompleteMultipartUpload XML root
-	r.HandleFunc("/{bucket}/{key:.+}", s.UploadPartCopy).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}").HeadersRegexp("x-amz-copy-source", ".+")
-	r.HandleFunc("/{bucket}/{key:.+}", s.UploadPart).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}")
-
-	r.HandleFunc("/{bucket}/{key:.+}", s.GetObject).Methods(http.MethodGet)
-	r.HandleFunc("/{bucket}/{key:.+}", s.CopyObject).Methods(http.MethodPut).HeadersRegexp("x-amz-copy-source", ".+")
-	r.HandleFunc("/{bucket}/{key:.+}", s.PutObject).Methods(http.MethodPut)
-	r.HandleFunc("/{bucket}/{key:.+}", s.DeleteObject).Methods(http.MethodDelete)
-	r.HandleFunc("/{bucket}/{key:.+}", s.HeadObject).Methods(http.MethodHead)
-
-	r.HandleFunc("/{bucket}", s.DeleteBucketTagging).Methods(http.MethodDelete).Queries("tagging", "")
-	r.HandleFunc("/{bucket}", s.GetBucketTagging).Methods(http.MethodGet).Queries("tagging", "")
-	r.HandleFunc("/{bucket}", s.PutBucketTagging).Methods(http.MethodPut).Queries("tagging", "") // Tagging XML root
-
-	r.HandleFunc("/{bucket}", s.DeleteObjects).Methods(http.MethodPost).Queries("delete", "") // Delete XML root
-	r.HandleFunc("/{bucket}", s.ListMultipartUploads).Methods(http.MethodGet).Queries("uploads", "")
-	r.HandleFunc("/{bucket}", s.ListObjectsV2).Methods(http.MethodGet).Queries("list-type", "2")
-	r.HandleFunc("/{bucket}", s.ListObjects).Methods(http.MethodGet)
-	r.HandleFunc("/{bucket}", s.CreateBucket).Methods(http.MethodPut) // CreateBucketConfiguration XML root
-	r.HandleFunc("/{bucket}", s.DeleteBucket).Methods(http.MethodDelete)
-	r.HandleFunc("/{bucket}", s.HeadBucket).Methods(http.MethodHead)
-
-	r.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
+	virtualHostStyle := r.Host("{bucket:.+}." + domainBase).Subrouter()
+	s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
 
 	s.http.Handler = r
 	return s
+}
+
+// AddRoutes adds handlers to path-style and virtual-host style routes.
+func (s *Server) AddRoutes(r *mux.Router, bucketPath, objectPath string) {
+	r.HandleFunc(objectPath, s.DeleteObjectTagging).Methods(http.MethodDelete).Queries("tagging", "")
+	r.HandleFunc(objectPath, s.GetObjectTagging).Methods(http.MethodGet).Queries("tagging", "")
+	r.HandleFunc(objectPath, s.PutObjectTagging).Methods(http.MethodPut).Queries("tagging", "")
+
+	r.HandleFunc(objectPath, s.AbortMultipartUpload).Methods(http.MethodDelete).Queries("uploadId", "{UploadId:.+}")
+	r.HandleFunc(objectPath, s.ListParts).Methods(http.MethodGet).Queries("uploadId", "{UploadId:.+}")
+	r.HandleFunc(objectPath, s.CreateMultipartUpload).Methods(http.MethodPost).Queries("uploads", "")
+	r.HandleFunc(objectPath, s.CompleteMultipartUpload).Methods(http.MethodPost).Queries("uploadId", "{UploadId:.+}")
+	r.HandleFunc(objectPath, s.UploadPartCopy).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}").HeadersRegexp("x-amz-copy-source", ".+")
+	r.HandleFunc(objectPath, s.UploadPart).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}")
+
+	r.HandleFunc(objectPath, s.GetObject).Methods(http.MethodGet)
+	r.HandleFunc(objectPath, s.CopyObject).Methods(http.MethodPut).HeadersRegexp("x-amz-copy-source", ".+")
+	r.HandleFunc(objectPath, s.PutObject).Methods(http.MethodPut)
+	r.HandleFunc(objectPath, s.DeleteObject).Methods(http.MethodDelete)
+	r.HandleFunc(objectPath, s.HeadObject).Methods(http.MethodHead)
+
+	r.HandleFunc(bucketPath, s.DeleteBucketTagging).Methods(http.MethodDelete).Queries("tagging", "")
+	r.HandleFunc(bucketPath, s.GetBucketTagging).Methods(http.MethodGet).Queries("tagging", "")
+	r.HandleFunc(bucketPath, s.PutBucketTagging).Methods(http.MethodPut).Queries("tagging", "")
+
+	r.HandleFunc(bucketPath, s.DeleteObjects).Methods(http.MethodPost).Queries("delete", "")
+	r.HandleFunc(bucketPath, s.ListMultipartUploads).Methods(http.MethodGet).Queries("uploads", "")
+	r.HandleFunc(bucketPath, s.ListObjectsV2).Methods(http.MethodGet).Queries("list-type", "2")
+	r.HandleFunc(bucketPath, s.ListObjects).Methods(http.MethodGet)
+	r.HandleFunc(bucketPath, s.CreateBucket).Methods(http.MethodPut)
+	r.HandleFunc(bucketPath, s.DeleteBucket).Methods(http.MethodDelete)
+	r.HandleFunc(bucketPath, s.HeadBucket).Methods(http.MethodHead)
 }
 
 // Run starts the S3 compatible http server.

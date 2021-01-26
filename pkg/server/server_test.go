@@ -20,64 +20,95 @@ import (
 	"storj.io/gateway-mt/pkg/server"
 )
 
-func TestRouting(t *testing.T) {
+func TestRoutingPathStyle(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 	core, logs := observer.New(zapcore.DebugLevel)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-	s := server.New(listener, zap.New(core))
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+	s := server.New(listener, zap.New(core), "localhost")
 
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(s.Run(ctx))
 	})
 	defer ctx.Check(s.Close)
 
-	urlBase := "http://" + listener.Addr().String() + "/"
+	urlBase := "http://localhost:" + port + "/"
 	bucket := urlBase + "bucket"
-	object := bucket + "/key"
-
-	testRoute(t, logs, "DeleteObjectTagging", object+"?tagging", http.MethodDelete, "")
-	testRoute(t, logs, "GetObjectTagging", object+"?tagging", http.MethodGet, "")
-	testRoute(t, logs, "PutObjectTagging", object+"?tagging", http.MethodPut, "")
-
-	testRoute(t, logs, "CreateMultipartUpload", object+"?uploads", http.MethodPost, "")
-	testRoute(t, logs, "AbortMultipartUpload", object+"?uploadId=UploadId", http.MethodDelete, "")
-	testRoute(t, logs, "ListParts", object+"?uploadId=UploadId", http.MethodGet, "")
-	testRoute(t, logs, "CompleteMultipartUpload", object+"?uploadId=UploadId", http.MethodPost, "")
-	testRoute(t, logs, "UploadPartCopy", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, "x-amz-copy-source")
-	testRoute(t, logs, "UploadPart", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, "")
-
-	testRoute(t, logs, "GetObject", object, http.MethodGet, "")
-	testRoute(t, logs, "CopyObject", object, http.MethodPut, "x-amz-copy-source")
-	testRoute(t, logs, "PutObject", object, http.MethodPut, "")
-	testRoute(t, logs, "DeleteObject", object, http.MethodDelete, "")
-	testRoute(t, logs, "HeadObject", object, http.MethodHead, "")
-
-	testRoute(t, logs, "DeleteBucketTagging", bucket+"?tagging", http.MethodDelete, "")
-	testRoute(t, logs, "GetBucketTagging", bucket+"?tagging", http.MethodGet, "")
-	testRoute(t, logs, "PutBucketTagging", bucket+"?tagging", http.MethodPut, "")
-
-	testRoute(t, logs, "DeleteObjects", bucket+"?delete", http.MethodPost, "")
-	testRoute(t, logs, "ListMultipartUploads", bucket+"?uploads", http.MethodGet, "")
-	testRoute(t, logs, "ListObjectsV2", bucket+"?list-type=2", http.MethodGet, "")
-
-	testRoute(t, logs, "ListObjects", bucket, http.MethodGet, "")
-	testRoute(t, logs, "CreateBucket", bucket, http.MethodPut, "")
-	testRoute(t, logs, "DeleteBucket", bucket, http.MethodDelete, "")
-	testRoute(t, logs, "HeadBucket", bucket, http.MethodHead, "")
-
-	testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, "")
+	object := urlBase + "bucket/key"
+	testRouting(t, logs, urlBase, bucket, object, false)
+	testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, false, false)
 }
 
-func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod, header string) {
+func TestRoutingVirtualHostStyle(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	core, logs := observer.New(zapcore.DebugLevel)
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+	s := server.New(listener, zap.New(core), "localhost")
+
+	ctx.Go(func() error {
+		return errs2.IgnoreCanceled(s.Run(ctx))
+	})
+	defer ctx.Check(s.Close)
+
+	urlBase := "http://localhost:" + port + "/"
+	bucket := urlBase
+	object := urlBase + "key"
+	testRouting(t, logs, urlBase, bucket, object, true)
+}
+
+func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, shouldFakeHost bool) {
+	testRoute(t, logs, "DeleteObjectTagging", object+"?tagging", http.MethodDelete, false, shouldFakeHost)
+	testRoute(t, logs, "GetObjectTagging", object+"?tagging", http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "PutObjectTagging", object+"?tagging", http.MethodPut, false, shouldFakeHost)
+
+	testRoute(t, logs, "CreateMultipartUpload", object+"?uploads", http.MethodPost, false, shouldFakeHost)
+	testRoute(t, logs, "AbortMultipartUpload", object+"?uploadId=UploadId", http.MethodDelete, false, shouldFakeHost)
+	testRoute(t, logs, "ListParts", object+"?uploadId=UploadId", http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "CompleteMultipartUpload", object+"?uploadId=UploadId", http.MethodPost, false, shouldFakeHost)
+	testRoute(t, logs, "UploadPartCopy", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, true, shouldFakeHost)
+	testRoute(t, logs, "UploadPart", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, false, shouldFakeHost)
+
+	testRoute(t, logs, "GetObject", object, http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "CopyObject", object, http.MethodPut, true, shouldFakeHost)
+	testRoute(t, logs, "PutObject", object, http.MethodPut, false, shouldFakeHost)
+	testRoute(t, logs, "DeleteObject", object, http.MethodDelete, false, shouldFakeHost)
+	testRoute(t, logs, "HeadObject", object, http.MethodHead, false, shouldFakeHost)
+
+	testRoute(t, logs, "DeleteBucketTagging", bucket+"?tagging", http.MethodDelete, false, shouldFakeHost)
+	testRoute(t, logs, "GetBucketTagging", bucket+"?tagging", http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "PutBucketTagging", bucket+"?tagging", http.MethodPut, false, shouldFakeHost)
+
+	testRoute(t, logs, "DeleteObjects", bucket+"?delete", http.MethodPost, false, shouldFakeHost)
+	testRoute(t, logs, "ListMultipartUploads", bucket+"?uploads", http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "ListObjectsV2", bucket+"?list-type=2", http.MethodGet, false, shouldFakeHost)
+
+	testRoute(t, logs, "ListObjects", bucket, http.MethodGet, false, shouldFakeHost)
+	testRoute(t, logs, "CreateBucket", bucket, http.MethodPut, false, shouldFakeHost)
+	testRoute(t, logs, "DeleteBucket", bucket, http.MethodDelete, false, shouldFakeHost)
+	testRoute(t, logs, "HeadBucket", bucket, http.MethodHead, false, shouldFakeHost)
+}
+
+func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, shouldFakeHost bool) {
 	req, err := http.NewRequest(httpMethod, url, nil)
 	require.NoError(t, err)
-	if header != "" {
-		req.Header.Set(header, "any value currently works for testing")
+	if addAmzCopyHeader {
+		req.Header.Set("x-amz-copy-source", "any value currently works for testing")
+	}
+	if shouldFakeHost {
+		req.Header.Set("Host", "bucket.localhost")
+		req.Host = "bucket.localhost"
 	}
 	client := http.Client{Timeout: 5 * time.Second}
 	response, err := client.Do(req)
 	require.NoError(t, err)
 	defer func() { _ = response.Body.Close() }()
+	require.Equal(t, 1, len(logs.All()), expectedLog)
 	assert.Equal(t, expectedLog, logs.TakeAll()[0].Message)
 }

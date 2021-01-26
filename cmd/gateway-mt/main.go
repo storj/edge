@@ -223,7 +223,7 @@ func cmdRunNew(cmd *cobra.Command, args []string) (err error) {
 	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
 	zap.S().Info("Secret key: anything would work\n")
 
-	s3 := server.New(listener, zap.L()) // todo:, runCfg.DomainName)
+	s3 := server.New(listener, zap.L(), runCfg.DomainName)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
