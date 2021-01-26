@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
@@ -24,7 +25,8 @@ var (
 
 // Config contains configuration for an S3 compatible http server.
 type Config struct {
-	Address string `json:"address" help:"server address of the s3 compatible server" default:"127.0.0.1:7777"`
+	Address    string
+	DomainName string
 }
 
 // Server represents an S3 compatible http server.
@@ -32,23 +34,26 @@ type Server struct {
 	http     http.Server
 	listener net.Listener
 	log      *zap.Logger
-	domain   string
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(listener net.Listener, log *zap.Logger, domainBase string) *Server {
-	s := &Server{listener: listener, log: log, domain: domainBase}
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config Config) (*Server, error) {
 	r := mux.NewRouter()
+	s := &Server{listener: listener, log: log, http: http.Server{Handler: r, Addr: config.Address}}
 
-	pathStyle := r.Host(domainBase).Subrouter()
+	if tlsConfig != nil {
+		s.listener = tls.NewListener(listener, tlsConfig)
+		s.http.TLSConfig = tlsConfig
+	}
+
+	pathStyle := r.Host(config.DomainName).Subrouter()
 	s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
 	pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
-	virtualHostStyle := r.Host("{bucket:.+}." + domainBase).Subrouter()
+	virtualHostStyle := r.Host("{bucket:.+}." + config.DomainName).Subrouter()
 	s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
 
-	s.http.Handler = r
-	return s
+	return s, nil
 }
 
 // AddRoutes adds handlers to path-style and virtual-host style routes.

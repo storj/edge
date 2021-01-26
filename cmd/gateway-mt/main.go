@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -39,7 +40,10 @@ type GatewayFlags struct {
 	MultipartUploadSatellites []string `help:"satellite addresses that has multipart-upload enabled" default:"" basic-help:"true"`
 	AuthURL                   string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
 	AuthToken                 string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
-	DomainName                string   `help:"base domain name used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	CertDir                   string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
+	InsecureDisableTLS        bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
+	DomainName                string   `help:"domain suffix used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+
 	Config
 }
 
@@ -94,6 +98,7 @@ func init() {
 	rootCmd.AddCommand(runNewCmd)
 	rootCmd.AddCommand(setupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(runNewCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 
 	rootCmd.PersistentFlags().BoolVar(new(bool), "advanced", false, "if used in with -h, print advanced flags help")
@@ -223,7 +228,20 @@ func cmdRunNew(cmd *cobra.Command, args []string) (err error) {
 	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
 	zap.S().Info("Secret key: anything would work\n")
 
-	s3 := server.New(listener, zap.L(), runCfg.DomainName)
+	// because existing configs contain most of these values, we don't have separate
+	// parameter bindings for the non-Minio server
+	serverConfig := server.Config{Address: address, DomainName: runCfg.DomainName}
+	var tlsConfig *tls.Config
+	if !runCfg.InsecureDisableTLS {
+		tlsConfig, err = server.LoadTLSConfigFromDir(runCfg.CertDir)
+		if err != nil {
+			return err
+		}
+	}
+	s3, err := server.New(listener, zap.L(), tlsConfig, serverConfig)
+	if err != nil {
+		return err
+	}
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
