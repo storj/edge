@@ -25,6 +25,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/gateway-mt/internal/wizard"
 	"storj.io/gateway-mt/miniogw"
+	"storj.io/gateway-mt/pkg/server"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"
@@ -70,10 +71,14 @@ var (
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the S3 gateway",
+		Short: "Run the classic S3-compatible gateway",
 		RunE:  cmdRun,
 	}
-
+	runNewCmd = &cobra.Command{
+		Use:   "runNew",
+		Short: "Run the new S3-compatible gateway",
+		RunE:  cmdRunNew,
+	}
 	setupCfg GatewayFlags
 	runCfg   GatewayFlags
 
@@ -86,6 +91,7 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(runNewCmd)
 	rootCmd.AddCommand(setupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
@@ -144,6 +150,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	validateAndSet(runCfg.DomainName, "domain-name", "MINIO_DOMAIN")
 	validateAndSet("enable", "n/a", "STORJ_AUTH_ENABLED")
 	validateAndSet("off", "n/a", "MINIO_BROWSER")
+	validateAndSet("dummy-key-to-satisfy-minio", "n/a", "MINIO_ACCESS_KEY")
+	validateAndSet("dummy-key-to-satisfy-minio", "n/a", "MINIO_SECRET_KEY")
 	if err != nil {
 		return err
 	}
@@ -170,20 +178,55 @@ func (flags GatewayFlags) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	// TODO(jt): Surely there is a better way. This is so upsetting
-	err = os.Setenv("MINIO_ACCESS_KEY", "dummy-key-to-satisfy-minio")
-	if err != nil {
-		return err
-	}
-	err = os.Setenv("MINIO_SECRET_KEY", "dummy-key-to-satisfy-minio")
-	if err != nil {
-		return err
-	}
-
 	minio.Main([]string{"storj", "gateway", "storj",
 		"--address", flags.Server.Address, "--config-dir", flags.Minio.Dir, "--quiet",
 		"--compat"})
 	return errs.New("unexpected minio exit")
+}
+
+func cmdRunNew(cmd *cobra.Command, args []string) (err error) {
+	address := runCfg.Server.Address
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	if host == "" {
+		address = net.JoinHostPort("127.0.0.1", port)
+	}
+
+	ctx, _ := process.Ctx(cmd)
+
+	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+	}
+
+	// setup environment variables for Minio
+	if runCfg.AuthToken == "" {
+		err = errs.Combine(err, Error.New("required parameter --auth-token not set"))
+	}
+	if runCfg.AuthURL == "" {
+		err = errs.Combine(err, Error.New("required parameter --auth-url not set"))
+	}
+	if runCfg.DomainName == "" {
+		err = errs.Combine(err, Error.New("required parameter --domain-name not set"))
+	}
+	if err != nil {
+		return err
+	}
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+
+	zap.S().Info("Starting Tardigrade S3 Gateway\n\n")
+	zap.S().Infof("Endpoint: %s\n", address)
+	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
+	zap.S().Info("Secret key: anything would work\n")
+
+	s3 := server.New(listener, zap.L()) // todo:, runCfg.DomainName)
+	runError := s3.Run(ctx)
+	closeError := s3.Close()
+	return errs.Combine(runError, closeError)
 }
 
 func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err error) {
