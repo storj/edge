@@ -71,7 +71,7 @@ func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, up
 		err = errs.Combine(err, project.Close())
 	}()
 
-	partInfo, err := multipart.PutObjectPart(ctx, project, bucket, object, uploadID, partID, data)
+	partInfo, err := multipart.PutObjectPart(ctx, project, bucket, object, uploadID, partID-1, data)
 	if err != nil {
 		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -145,7 +145,7 @@ func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, 
 		err = errs.Combine(err, project.Close())
 	}()
 
-	list, err := multipart.ListObjectParts(ctx, project, bucket, object, uploadID, partNumberMarker, maxParts)
+	list, err := multipart.ListObjectParts(ctx, project, bucket, object, uploadID, partNumberMarker-1, maxParts)
 	if err != nil {
 		return minio.ListPartsInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -153,7 +153,7 @@ func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, 
 	parts := make([]minio.PartInfo, 0, len(list.Items))
 	for _, item := range list.Items {
 		parts = append(parts, minio.PartInfo{
-			PartNumber:   item.PartNumber,
+			PartNumber:   item.PartNumber + 1,
 			LastModified: item.LastModified,
 			ETag:         "",        // TODO: Entity tag returned when the part was initially uploaded.
 			Size:         item.Size, // Size in bytes of the part.

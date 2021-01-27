@@ -21,5 +21,5 @@ require (
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	storj.io/common v0.0.0-20210119231202-8321551aa24d
 	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
-	storj.io/uplink v1.4.6-0.20210126192115-f484c5a10918
+	storj.io/uplink v1.4.6-0.20210127092755-01dd4ce468e9
 )

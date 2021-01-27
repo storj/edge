@@ -1042,6 +1042,10 @@ func TestPutObjectPart(t *testing.T) {
 		require.Equal(t, TestBucket, listParts.Bucket)
 		require.Equal(t, TestFile, listParts.Object)
 		require.Equal(t, uploadID, listParts.UploadID)
+
+		require.Equal(t, listParts.Parts[0].PartNumber, 1)
+		require.Equal(t, listParts.Parts[1].PartNumber, 2)
+		require.Equal(t, listParts.Parts[2].PartNumber, 3)
 	})
 }
 
