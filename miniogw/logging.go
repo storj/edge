@@ -12,8 +12,6 @@ import (
 	minio "github.com/storj/minio/cmd"
 	"github.com/storj/minio/cmd/logger"
 	"github.com/storj/minio/pkg/auth"
-	"github.com/storj/minio/pkg/bucket/policy"
-	"github.com/storj/minio/pkg/madmin"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -78,16 +76,8 @@ func (log *layerLogging) logErr(err error) error {
 	return err
 }
 
-func (log *layerLogging) NewNSLock(bucket string, objects ...string) minio.RWLocker {
-	return log.layer.NewNSLock(bucket, objects...)
-}
-
 func (log *layerLogging) Shutdown(ctx context.Context) error {
 	return log.log(ctx, log.layer.Shutdown(ctx))
-}
-
-func (log *layerLogging) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
-	return log.layer.StorageInfo(ctx, local)
 }
 
 func (log *layerLogging) MakeBucketWithLocation(ctx context.Context, bucket string, opts minio.BucketOptions) error {
@@ -194,34 +184,6 @@ func (log *layerLogging) CompleteMultipartUpload(ctx context.Context, bucket, ob
 	return objInfo, log.log(ctx, err)
 }
 
-func (log *layerLogging) HealFormat(ctx context.Context, dryRun bool) (madmin.HealResultItem, error) {
-	rv, err := log.layer.HealFormat(ctx, dryRun)
-	return rv, log.log(ctx, err)
-}
-
-func (log *layerLogging) HealBucket(ctx context.Context, bucket string, opts madmin.HealOpts) (madmin.HealResultItem, error) {
-	rv, err := log.layer.HealBucket(ctx, bucket, opts)
-	return rv, log.log(ctx, err)
-}
-
-func (log *layerLogging) HealObject(ctx context.Context, bucket, object, versionID string, opts madmin.HealOpts) (madmin.HealResultItem, error) {
-	rv, err := log.layer.HealObject(ctx, bucket, object, versionID, opts)
-	return rv, log.log(ctx, err)
-}
-
-func (log *layerLogging) SetBucketPolicy(ctx context.Context, n string, p *policy.Policy) error {
-	return log.log(ctx, log.layer.SetBucketPolicy(ctx, n, p))
-}
-
-func (log *layerLogging) GetBucketPolicy(ctx context.Context, n string) (*policy.Policy, error) {
-	p, err := log.layer.GetBucketPolicy(ctx, n)
-	return p, log.log(ctx, err)
-}
-
-func (log *layerLogging) DeleteBucketPolicy(ctx context.Context, n string) error {
-	return log.log(ctx, log.layer.DeleteBucketPolicy(ctx, n))
-}
-
 func (log *layerLogging) IsNotificationSupported() bool {
 	return log.layer.IsNotificationSupported()
 }
@@ -232,9 +194,4 @@ func (log *layerLogging) IsEncryptionSupported() bool {
 
 func (log *layerLogging) IsCompressionSupported() bool {
 	return log.layer.IsCompressionSupported()
-}
-
-func (log *layerLogging) GetMetrics(ctx context.Context) (*minio.Metrics, error) {
-	metrics, err := log.layer.GetMetrics(ctx)
-	return metrics, log.log(ctx, err)
 }

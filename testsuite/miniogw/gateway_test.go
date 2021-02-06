@@ -1198,27 +1198,6 @@ func TestListObjectVersions(t *testing.T) {
 	})
 }
 
-func TestSetBucketPolicy(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		err := layer.SetBucketPolicy(ctx, "bucket", nil)
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
-	})
-}
-
-func TestGetBucketPolicy(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		_, err := layer.GetBucketPolicy(ctx, "bucket")
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
-	})
-}
-
-func TestDeleteBucketPolicy(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		err := layer.DeleteBucketPolicy(ctx, "bucket")
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
-	})
-}
-
 func TestPutObjectTags(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
 		err := layer.PutObjectTags(ctx, "bucket", "object", "tags", minio.ObjectOptions{})

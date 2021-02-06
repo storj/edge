@@ -8,6 +8,7 @@ import (
 	"crypto/md5" /* #nosec G501 */ // Is only used for calculating a hash of the ETags of the all the parts of a multipart upload.
 	"encoding/hex"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -160,6 +161,9 @@ func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, 
 			ActualSize:   item.Size, // Decompressed Size.
 		})
 	}
+	sort.Slice(parts, func(i, k int) bool {
+		return parts[i].PartNumber < parts[k].PartNumber
+	})
 	return minio.ListPartsInfo{
 		Bucket:               bucket,
 		Object:               object,
