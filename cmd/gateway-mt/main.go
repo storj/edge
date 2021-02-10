@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/pkg/auth"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -78,11 +78,6 @@ var (
 		Short: "Run the classic S3-compatible gateway",
 		RunE:  cmdRun,
 	}
-	runNewCmd = &cobra.Command{
-		Use:   "runNew",
-		Short: "Run the new S3-compatible gateway",
-		RunE:  cmdRunNew,
-	}
 	setupCfg GatewayFlags
 	runCfg   GatewayFlags
 
@@ -95,10 +90,8 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(runNewCmd)
 	rootCmd.AddCommand(setupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(runNewCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 
 	rootCmd.PersistentFlags().BoolVar(new(bool), "advanced", false, "if used in with -h, print advanced flags help")
@@ -143,20 +136,22 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// setup environment variables for Minio
-	validateAndSet := func(value, configName, envName string) {
+	validate := func(value, configName string) {
 		if value == "" {
 			err = errs.Combine(err, Error.New("required parameter --%s not set", configName))
-			return
 		}
+	}
+	set := func(value, envName string) {
 		err = errs.Combine(err, Error.Wrap(os.Setenv(envName, value)))
 	}
-	validateAndSet(runCfg.AuthToken, "auth-token", "MINIO_STORJ_AUTH_TOKEN")
-	validateAndSet(runCfg.AuthURL, "auth-url", "MINIO_STORJ_AUTH_URL")
-	validateAndSet(runCfg.DomainName, "domain-name", "MINIO_DOMAIN")
-	validateAndSet("enable", "n/a", "STORJ_AUTH_ENABLED")
-	validateAndSet("off", "n/a", "MINIO_BROWSER")
-	validateAndSet("dummy-key-to-satisfy-minio", "n/a", "MINIO_ACCESS_KEY")
-	validateAndSet("dummy-key-to-satisfy-minio", "n/a", "MINIO_SECRET_KEY")
+	validate(runCfg.AuthToken, "auth-token")
+	validate(runCfg.AuthURL, "auth-url")
+	validate(runCfg.DomainName, "domain-name")
+	set(runCfg.DomainName, "MINIO_DOMAIN")
+	set("enable", "STORJ_AUTH_ENABLED")
+	set("off", "MINIO_BROWSER")
+	set("dummy-key-to-satisfy-minio", "MINIO_ACCESS_KEY")
+	set("dummy-key-to-satisfy-minio", "MINIO_SECRET_KEY")
 	if err != nil {
 		return err
 	}
@@ -166,58 +161,30 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
 	zap.S().Info("Secret key: anything would work\n")
 
-	return runCfg.Run(ctx)
+	return runCfg.Run(ctx, address)
 }
 
 // Run starts a Minio Gateway given proper config.
-func (flags GatewayFlags) Run(ctx context.Context) (err error) {
-	err = minio.RegisterGatewayCommand(cli.Command{
-		Name:  "storj",
-		Usage: "Storj",
-		Action: func(cliCtx *cli.Context) error {
-			return flags.action(ctx, cliCtx)
-		},
-		HideHelpCommand: true,
-	})
+func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
+	// set object API handler
+	gw, err := flags.NewGateway(ctx)
+	if err != nil {
+		return err
+	}
+	gw = miniogw.Logging(gw, zap.L())
+	newObject, err := gw.NewGatewayLayer(auth.Credentials{})
 	if err != nil {
 		return err
 	}
 
-	minio.Main([]string{"storj", "gateway", "storj",
-		"--address", flags.Server.Address, "--config-dir", flags.Minio.Dir, "--quiet",
-		"--compat"})
-	return errs.New("unexpected minio exit")
-}
+	// wire up domain names for Minio
+	minio.HandleCommonEnvVars()
+	// make Minio not use random ETags
+	minio.SetGlobalCLI(false, true, false, address, true)
+	store := minio.NewIAMStorjAuthStore(newObject, runCfg.AuthURL, runCfg.AuthToken)
+	minio.SetObjectLayer(newObject)
+	minio.InitCustomStore(store, "StorjAuthSys")
 
-func cmdRunNew(cmd *cobra.Command, args []string) (err error) {
-	address := runCfg.Server.Address
-	host, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return err
-	}
-	if host == "" {
-		address = net.JoinHostPort("127.0.0.1", port)
-	}
-
-	ctx, _ := process.Ctx(cmd)
-
-	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
-	}
-
-	// setup environment variables for Minio
-	if runCfg.AuthToken == "" {
-		err = errs.Combine(err, Error.New("required parameter --auth-token not set"))
-	}
-	if runCfg.AuthURL == "" {
-		err = errs.Combine(err, Error.New("required parameter --auth-url not set"))
-	}
-	if runCfg.DomainName == "" {
-		err = errs.Combine(err, Error.New("required parameter --domain-name not set"))
-	}
-	if err != nil {
-		return err
-	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
@@ -238,23 +205,10 @@ func cmdRunNew(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 	}
-	s3, err := server.New(listener, zap.L(), tlsConfig, serverConfig)
-	if err != nil {
-		return err
-	}
+	s3 := server.New(listener, zap.L(), tlsConfig, serverConfig)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
-}
-
-func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err error) {
-	gw, err := flags.NewGateway(ctx)
-	if err != nil {
-		return err
-	}
-
-	minio.StartGateway(cliCtx, miniogw.Logging(gw, zap.L()))
-	return errs.New("unexpected minio exit")
 }
 
 // NewGateway creates a new minio Gateway.

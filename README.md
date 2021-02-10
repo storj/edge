@@ -46,7 +46,7 @@ Gateway-MT requires the following command line parameters:
       - `--auth-url` defines the address of our auth service instance. It's default to `http://localhost:8000`.
       - `--domain-name` allows the gateway-mt to work with virtual hosted style requests. For example, if the `MINIO_DOMAIN` variable is set to `asdf.com`, then a request to `bob.asdf.com` will be interpreted as specifying the bucket `bob`.
 
-    gateway-mt run --auth-token="super secret" --auth-url=http://localhost:8000 --domain-name=localhost
+    gateway-mt run --auth-token="super-secret" --auth-url=http://localhost:8000 --domain-name=localhost
 
     - Enable multipart-uploads
         - by default, multipart-upload is disabled
@@ -282,7 +282,7 @@ storj-sim network run
 ```
 
 ```
-authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)" --endpoint="http://localhost:7777/"
+authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)" --endpoint=http://localhost:8000
 ```
 
 ```
@@ -291,7 +291,7 @@ gateway-mt run --auth-token="super-secret" --auth-url=http://localhost:8000 --do
 
 ```
 docker build . -f Dockerfile.mint -t storj/mint
-uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:8000 --aws-profile storjsim
+export $(uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:8000 --format env)
 export ACCESS_KEY=$(aws configure get aws_access_key_id --profile=storjsim)
 export SECRET_KEY=$(aws configure get aws_secret_access_key --profile=storjsim)
 docker run -e SERVER_ENDPOINT=host.docker.internal:7777 -e ACCESS_KEY=$ACCESS_KEY -e SECRET_KEY=$SECRET_KEY -e ENABLE_HTTPS=0 storj/mint

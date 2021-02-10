@@ -41,7 +41,7 @@ import (
 	"storj.io/uplink"
 )
 
-// todo: remove this when mulitpart is merged
+// todo: remove this when multipart is merged
 // at the moment testssuite uses storj.io/uplink@multipart-upload
 // however, storj.io/uplink@master is the only place where
 // "storj.io/storj/cmd/uplink/cmd".RegisterAccess() is defined
@@ -192,8 +192,6 @@ func TestUploadDownload(t *testing.T) {
 			err = rawClient.UploadMultipart(bucket, objectName, data, partSize.Int(), 0)
 			require.NoError(t, err)
 
-			// TODO: Restore the below test code when we implement multipart upload again.
-			//
 			doneCh := make(chan struct{})
 			defer close(doneCh)
 
