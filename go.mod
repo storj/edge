@@ -12,7 +12,7 @@ require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.7
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
-	github.com/storj/minio v0.0.0-20210211202127-b674717cd827
+	github.com/storj/minio v0.0.0-20210211210729-bf7920119c85
 	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
@@ -21,5 +21,5 @@ require (
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	storj.io/common v0.0.0-20210210181716-99a1a27ab894
 	storj.io/private v0.0.0-20210210181940-486ec79f567a
-	storj.io/uplink v1.4.6-0.20210209192332-b38c7a40bcd4
+	storj.io/uplink v1.4.6-0.20210211211214-f98a55d2d3c8
 )

@@ -964,27 +964,42 @@ func testListObjects(t *testing.T, listObjects func(*testing.T, context.Context,
 
 func TestListMultipartUploads(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
-		bucket, err := project.CreateBucket(ctx, TestBucket)
-		require.NoError(t, err)
-		require.Equal(t, bucket.Name, TestBucket)
+		// Check the error when listing an object from a bucket with empty name
+		uploads, err := layer.ListMultipartUploads(ctx, "", "", "", "", "", 1)
+		assert.Equal(t, minio.BucketNameInvalid{}, err)
+		assert.Empty(t, uploads)
 
-		listParts, err := layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
-		require.NoError(t, err)
-		require.Empty(t, listParts.Uploads)
+		// Check the error when listing objects from non-existing bucket
+		uploads, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
+		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
+		assert.Empty(t, uploads)
 
-		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
-		require.NoError(t, err)
+		// Create the bucket using the Uplink API
+		_, err = project.CreateBucket(ctx, TestBucket)
+		assert.NoError(t, err)
 
-		listParts, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
-		require.NoError(t, err)
-		require.Len(t, listParts.Uploads, 1)
+		userDefined := make(map[string]string)
 
-		err = layer.AbortMultipartUpload(ctx, TestBucket, TestFile, uploadID, minio.ObjectOptions{})
-		require.NoError(t, err)
+		userDefined["something"] = "a-value"
+		for _, uploadName := range []string{"multipart-upload", "a/prefixed/multipart-upload"} {
+			now := time.Now()
+			upload, err := layer.NewMultipartUpload(ctx, TestBucket, uploadName, minio.ObjectOptions{
+				UserDefined: userDefined,
+			})
+			require.NoError(t, err)
+			require.NotEmpty(t, upload)
 
-		listParts, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
-		require.NoError(t, err)
-		require.Empty(t, listParts.Uploads)
+			uploads, err = layer.ListMultipartUploads(ctx, TestBucket, uploadName, "", "", "", 10)
+			require.NoError(t, err)
+			require.Len(t, uploads.Uploads, 1)
+
+			assert.Equal(t, TestBucket, uploads.Uploads[0].Bucket)
+			assert.Equal(t, uploadName, uploads.Uploads[0].Object)
+			assert.Equal(t, upload, uploads.Uploads[0].UploadID)
+			assert.WithinDuration(t, now, uploads.Uploads[0].Initiated, time.Minute)
+			// TODO: It seems we don't record the userDefined field when creating the multipart upload
+			// assert.EqualValues(t, userDefined, uploads.Uploads[0].UserDefined)
+		}
 	})
 }
 
