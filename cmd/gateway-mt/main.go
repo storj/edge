@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
-	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/internal/wizard"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/gateway-mt/pkg/server"
@@ -265,7 +265,11 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 	if err != nil {
 		return nil, err
 	}
-	pool := rpc.NewDefaultConnectionPool()
+	pool := rpcpool.New(rpcpool.Options{
+		Capacity:       10000,
+		KeyCapacity:    2,
+		IdleExpiration: 30 * time.Second,
+	})
 
 	return miniogw.NewStorjGateway(config, pool, addrs), nil
 }
