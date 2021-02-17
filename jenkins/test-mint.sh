@@ -40,9 +40,8 @@ build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/gateway-mt"
 build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/authservice"
 
 # install exact version of storj/gateway
-cd /home && mkdir -p .build/gateway-tmp &&
-    cd .build/gateway-tmp && go mod init gatewaybuild &&
-    GO111MODULE=on go build -o $bin_dir storj.io/gateway
+go version
+GOBIN=$bin_dir /usr/local/go/bin/go install storj.io/gateway@latest
 
 echo "FINISHED INSTALLING"
 

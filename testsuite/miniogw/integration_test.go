@@ -14,7 +14,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -63,6 +66,44 @@ func registerAccess(t *testing.T, authService string, access *uplink.Access) (ac
 	return respBody["access_key_id"], respBody["secret_key"], respBody["endpoint"], nil
 }
 
+func compileAt(t *testing.T, ctx *testcontext.Context, workDir string, pkg string) string {
+	t.Helper()
+
+	var binName string
+	if pkg == "" {
+		dir, _ := os.Getwd()
+		binName = path.Base(dir)
+	} else {
+		binName = path.Base(pkg)
+	}
+
+	if absDir, err := filepath.Abs(workDir); err == nil {
+		workDir = absDir
+	} else {
+		t.Log(err)
+	}
+
+	exe := ctx.File("build", binName+".exe")
+
+	/* #nosec G204 */ // This package is only used for test
+	cmd := exec.Command("go",
+		"build",
+		"-race",
+		"-tags=unittest",
+		"-o", exe, pkg,
+	)
+	t.Log("exec:", cmd.Args, "dir:", workDir)
+	cmd.Dir = workDir
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Error(string(out))
+		t.Fatal(err)
+	}
+
+	return exe
+}
+
 func TestUploadDownload(t *testing.T) {
 	var counter int64
 	testplanet.Run(t, testplanet.Config{
@@ -80,8 +121,8 @@ func TestUploadDownload(t *testing.T) {
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		satelliteAddr := planet.Satellites[0].Addr()
 
-		gatewayExe := ctx.Compile("storj.io/gateway-mt/cmd/gateway-mt")
-		authSvcExe := ctx.Compile("storj.io/gateway-mt/cmd/authservice")
+		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
+		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
 
 		authSvc, err := startAuthSvc(t, authSvcExe, authSvcAddr, gatewayAddr, satelliteAddr)
 		require.NoError(t, err)
