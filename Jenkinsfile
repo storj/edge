@@ -148,7 +148,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				'''
 				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
 
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.15.7'
+				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.16'
 				// Wait until the docker command above prints out the keys before proceeding
 				sh '''#!/bin/bash
 						set -e +x
@@ -176,7 +176,7 @@ timeout(time: 26, unit: 'MINUTES') {
 						echo "parsed keys ${ACCESS_KEY_ID} ${SECRET_KEY}"
 						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
 						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
-						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/jenkins/test-aws.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/golang:1.15.7
+						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/jenkins/test-aws.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/golang:1.16
 						docker pull storjlabs/minio-mint:latest
 						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''
