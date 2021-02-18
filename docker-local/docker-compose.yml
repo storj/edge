@@ -13,7 +13,7 @@ services:
       - POSTGRES_HOST_AUTH_METHOD=trust
       - POSTGRES_DB=dcstorj
   storjsim:
-    image: golang:1.15.6
+    image: golang:1.16.0
     entrypoint: /scripts/start-storj-sim.sh
     volumes:
       - localgopath:/go/storjpath
@@ -29,7 +29,7 @@ services:
       - postgres
       - redis
   authservice:
-    image: golang:1.15.6
+    image: golang:1.16.0
     entrypoint: /scripts/start-auth-service.sh
     volumes:
       - localgopath:/go/storjpath
@@ -42,7 +42,7 @@ services:
     env_file:
       - service.env
   gateway-mt:
-    image: golang:1.15.6
+    image: golang:1.16.0
     volumes:
       - localgopath:/go/storjpath
       - ${GATEWAY_SRC_DIR}:/code
