@@ -205,7 +205,7 @@ func TestPutObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
 
 		// Check the error when putting an object to a non-existing bucket
-		_, err = layer.PutObject(ctx, TestBucket, TestFile, nil, minio.ObjectOptions{})
+		_, err = layer.PutObject(ctx, TestBucket, TestFile, nil, minio.ObjectOptions{UserDefined: metadata})
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Uplink API

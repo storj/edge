@@ -108,7 +108,10 @@ func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectP
 		err = errs.Combine(err, project.Close())
 	}()
 
-	// TODO this should be removed and implemented on satellite side
+	// TODO this should be removed and implemented on satellite side.
+	// This call needs to occur prior to the DeleteObject call below, because
+	// project.DeleteObject will return a nil error for a missing bucket. To
+	// maintain consistency, we need to manually check if the bucket exists.
 	_, err = project.StatBucket(ctx, bucketName)
 	if err != nil {
 		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
@@ -171,10 +174,9 @@ func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objec
 	}()
 
 	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return nil, convertError(err, bucketName, objectPath)
-	}
+	defer func() {
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
+	}()
 
 	startOffset := int64(0)
 	length := int64(-1)
@@ -236,17 +238,13 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 		err = errs.Combine(err, project.Close())
 	}()
 
-	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return convertError(err, bucketName, objectPath)
-	}
-
 	download, err := project.DownloadObject(ctx, bucketName, objectPath, &uplink.DownloadOptions{
 		Offset: startOffset,
 		Length: length,
 	})
 	if err != nil {
+		// TODO this should be removed and implemented on satellite side
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
 		return convertError(err, bucketName, objectPath)
 	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
@@ -276,14 +274,10 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, object
 		err = errs.Combine(err, project.Close())
 	}()
 
-	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
-	}
-
 	object, err := project.StatObject(ctx, bucketName, objectPath)
 	if err != nil {
+		// TODO this should be removed and implemented on satellite side
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
 		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
 	}
 
@@ -336,10 +330,9 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 	}()
 
 	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return result, convertError(err, bucketName, "")
-	}
+	defer func() {
+		err = checkBucketError(ctx, project, bucketName, "", err)
+	}()
 
 	recursive := delimiter == ""
 
@@ -465,10 +458,9 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 	}()
 
 	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertError(err, bucketName, "")
-	}
+	defer func() {
+		err = checkBucketError(ctx, project, bucketName, "", err)
+	}()
 
 	recursive := delimiter == ""
 
@@ -726,10 +718,9 @@ func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath
 	}()
 
 	// TODO this should be removed and implemented on satellite side
-	_, err = project.StatBucket(ctx, bucketName)
-	if err != nil {
-		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
-	}
+	defer func() {
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
+	}()
 
 	if data == nil {
 		hashReader, err := hash.NewReader(bytes.NewReader([]byte{}), 0, "", "", 0, true)
@@ -832,6 +823,20 @@ func (layer *gatewayLayer) openProjectMultipart(ctx context.Context, accessKey s
 	}
 
 	return layer.setupProject(ctx, access)
+}
+
+// checkBucketError will stat the bucket if the provided error is not nil, in
+// order to check if the proper error to return is really a bucket not found
+// error. If the satellite has already returned this error, do not make an
+// additional check.
+func checkBucketError(ctx context.Context, project *uplink.Project, bucketName, object string, err error) error {
+	if err != nil && !errors.Is(err, uplink.ErrBucketNotFound) {
+		_, statErr := project.StatBucket(ctx, bucketName)
+		if statErr != nil {
+			return convertError(statErr, bucketName, object)
+		}
+	}
+	return err
 }
 
 func convertError(err error, bucket, object string) error {
