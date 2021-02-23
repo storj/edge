@@ -33,4 +33,5 @@ echo "Secret Key ID: $secret_key_id"
 echo "AWS_ACCESS_KEY_ID=$access_key_id AWS_SECRET_ACCESS_KEY=$secret_key_id"
 echo "==================================================================="
 
-gateway-mt run --server.address="0.0.0.0:7777" --auth-token=super-secret --auth-url=http://authservice:8000 --domain-name=gateway.local
+gateway-mt run --server.address="0.0.0.0:7777" --auth-token=super-secret --auth-url=http://authservice:8000 --domain-name=gateway.local \
+--tracing.enabled=true --tracing.sample=1 --tracing.agent-addr=tracing:5775
