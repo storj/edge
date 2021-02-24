@@ -45,6 +45,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'check-errs ./...'
 								sh 'staticcheck ./...'
 								sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+								sh 'check-downgrades'
 								sh 'check-mod-tidy -mod .build/go.mod.orig'
 								// TODO: reenable,
 								//	currently there are few packages that contain non-standard license formats.
