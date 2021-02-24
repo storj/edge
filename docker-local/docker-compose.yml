@@ -52,6 +52,7 @@ services:
       - service.env
     ports:
       - "7777:7777"
+      - "5999:5999"
     entrypoint: /scripts/start-gateway-mt.sh
     depends_on:
       - storjsim
