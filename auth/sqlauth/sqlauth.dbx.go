@@ -19,8 +19,6 @@ import (
 
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/mattn/go-sqlite3"
-	"math/rand"
 
 	"storj.io/private/tagsql"
 )
@@ -147,8 +145,6 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "pgxcockroach":
 		sql_db, err = openpgxcockroach(source)
-	case "sqlite3":
-		sql_db, err = opensqlite3(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -173,8 +169,6 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "pgxcockroach":
 		db.dbMethods = newpgxcockroach(db)
-	case "sqlite3":
-		db.dbMethods = newsqlite3(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -306,82 +300,6 @@ type pgxcockroachTx struct {
 }
 
 func pgxcockroachLogStmt(stmt string, args ...interface{}) {
-	// TODO: render placeholders
-	if Logger != nil {
-		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
-		Logger(out)
-	}
-}
-
-type sqlite3Impl struct {
-	db      *DB
-	dialect __sqlbundle_sqlite3
-	driver  driver
-}
-
-func (obj *sqlite3Impl) Rebind(s string) string {
-	return obj.dialect.Rebind(s)
-}
-
-func (obj *sqlite3Impl) logStmt(stmt string, args ...interface{}) {
-	sqlite3LogStmt(stmt, args...)
-}
-
-func (obj *sqlite3Impl) makeErr(err error) error {
-	constraint, ok := obj.isConstraintError(err)
-	if ok {
-		return constraintViolation(err, constraint)
-	}
-	return makeErr(err)
-}
-
-type sqlite3DB struct {
-	db *DB
-	*sqlite3Impl
-}
-
-func newsqlite3(db *DB) *sqlite3DB {
-	return &sqlite3DB{
-		db: db,
-		sqlite3Impl: &sqlite3Impl{
-			db:     db,
-			driver: db.DB,
-		},
-	}
-}
-
-func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE records (
-	encryption_key_hash BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	public INTEGER NOT NULL,
-	satellite_address TEXT NOT NULL,
-	macaroon_head BLOB NOT NULL,
-	expires_at TIMESTAMP,
-	encrypted_secret_key BLOB NOT NULL,
-	encrypted_access_grant BLOB NOT NULL,
-	invalid_reason TEXT,
-	invalid_at TIMESTAMP,
-	PRIMARY KEY ( encryption_key_hash )
-);`
-}
-
-func (obj *sqlite3DB) wrapTx(tx tagsql.Tx) txMethods {
-	return &sqlite3Tx{
-		dialectTx: dialectTx{tx: tx},
-		sqlite3Impl: &sqlite3Impl{
-			db:     obj.db,
-			driver: tx,
-		},
-	}
-}
-
-type sqlite3Tx struct {
-	dialectTx
-	*sqlite3Impl
-}
-
-func sqlite3LogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -1258,186 +1176,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 
 }
 
-func (obj *sqlite3Impl) CreateNoReturn_Record(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field,
-	record_public Record_Public_Field,
-	record_satellite_address Record_SatelliteAddress_Field,
-	record_macaroon_head Record_MacaroonHead_Field,
-	record_encrypted_secret_key Record_EncryptedSecretKey_Field,
-	record_encrypted_access_grant Record_EncryptedAccessGrant_Field,
-	optional Record_Create_Fields) (
-	err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__encryption_key_hash_val := record_encryption_key_hash.value()
-	__created_at_val := __now
-	__public_val := record_public.value()
-	__satellite_address_val := record_satellite_address.value()
-	__macaroon_head_val := record_macaroon_head.value()
-	__expires_at_val := optional.ExpiresAt.value()
-	__encrypted_secret_key_val := record_encrypted_secret_key.value()
-	__encrypted_access_grant_val := record_encrypted_access_grant.value()
-	__invalid_reason_val := optional.InvalidReason.value()
-	__invalid_at_val := optional.InvalidAt.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO records ( encryption_key_hash, created_at, public, satellite_address, macaroon_head, expires_at, encrypted_secret_key, encrypted_access_grant, invalid_reason, invalid_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __encryption_key_hash_val, __created_at_val, __public_val, __satellite_address_val, __macaroon_head_val, __expires_at_val, __encrypted_secret_key_val, __encrypted_access_grant_val, __invalid_reason_val, __invalid_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *sqlite3Impl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-	record *Record, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE records.encryption_key_hash = ?")
-
-	var __values []interface{}
-	__values = append(__values, record_encryption_key_hash.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	record = &Record{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
-	if err == sql.ErrNoRows {
-		return (*Record)(nil), nil
-	}
-	if err != nil {
-		return (*Record)(nil), obj.makeErr(err)
-	}
-	return record, nil
-
-}
-
-func (obj *sqlite3Impl) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field,
-	update Record_Update_Fields) (
-	err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE records SET "), __sets, __sqlbundle_Literal(" WHERE records.encryption_key_hash = ? AND records.invalid_reason is NULL")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.InvalidReason._set {
-		__values = append(__values, update.InvalidReason.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invalid_reason = ?"))
-	}
-
-	if update.InvalidAt._set {
-		__values = append(__values, update.InvalidAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invalid_at = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, record_encryption_key_hash.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
-func (obj *sqlite3Impl) Delete_Record_By_EncryptionKeyHash(ctx context.Context,
-	record_encryption_key_hash Record_EncryptionKeyHash_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM records WHERE records.encryption_key_hash = ?")
-
-	var __values []interface{}
-	__values = append(__values, record_encryption_key_hash.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) getLastRecord(ctx context.Context,
-	pk int64) (
-	record *Record, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at FROM records WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	record = &Record{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt)
-	if err != nil {
-		return (*Record)(nil), obj.makeErr(err)
-	}
-	return record, nil
-
-}
-
-func (impl sqlite3Impl) isConstraintError(err error) (
-	constraint string, ok bool) {
-	if e, ok := err.(sqlite3.Error); ok {
-		if e.Code == sqlite3.ErrConstraint {
-			msg := err.Error()
-			colon := strings.LastIndex(msg, ":")
-			if colon != -1 {
-				return strings.TrimSpace(msg[colon:]), true
-			}
-			return "", true
-		}
-	}
-	return "", false
-}
-
-func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
-	var __res sql.Result
-	var __count int64
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM records;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-
-	return count, nil
-
-}
-
 type Rx struct {
 	db *DB
 	tx *Tx
@@ -1591,37 +1329,4 @@ func openpgxcockroach(source string) (*sql.DB, error) {
 		db, err = sql.Open("pgx", source)
 	}
 	return db, err
-}
-
-var sqlite3DriverName = func() string {
-	var id [16]byte
-	rand.Read(id[:])
-	return fmt.Sprintf("sqlite3_%x", string(id[:]))
-}()
-
-func init() {
-	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
-		ConnectHook: sqlite3SetupConn,
-	})
-}
-
-// SQLite3JournalMode controls the journal_mode pragma for all new connections.
-// Since it is read without a mutex, it must be changed to the value you want
-// before any Open calls.
-var SQLite3JournalMode = "WAL"
-
-func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
-	_, err = conn.Exec("PRAGMA foreign_keys = ON", nil)
-	if err != nil {
-		return makeErr(err)
-	}
-	_, err = conn.Exec("PRAGMA journal_mode = "+SQLite3JournalMode, nil)
-	if err != nil {
-		return makeErr(err)
-	}
-	return nil
-}
-
-func opensqlite3(source string) (*sql.DB, error) {
-	return sql.Open(sqlite3DriverName, source)
 }

@@ -37,15 +37,6 @@ func openKV(kvurl string) (auth.KV, error) {
 			return nil, errs.Wrap(err)
 		}
 		return sqlauth.New(db), nil
-
-	case "sqlite3", "file":
-		parsed.Scheme = "file"
-		db, err := sqlauth.Open("sqlite3", parsed.String())
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		return sqlauth.New(db), nil
-
 	default:
 		return nil, errs.New("unknown scheme: %q", kvurl)
 	}

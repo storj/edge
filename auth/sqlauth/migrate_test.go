@@ -80,10 +80,8 @@ func OpenUnique(ctx context.Context, connURL string, namePrefix string) (db *DB,
 
 	db = &DB{DB: tempDB.DB}
 	db.Hooks.Now = time.Now
-	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") {
+	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") || strings.HasPrefix(connURL, "cockroach://") {
 		db.dbMethods = newpgxcockroach(db)
-	} else if strings.HasPrefix(connURL, "cockroach://") {
-		db.dbMethods = newsqlite3(db)
 	} else {
 		return nil, unsupportedDriver(connURL)
 	}
