@@ -16,7 +16,7 @@ import (
 
 func openKV(kvurl string) (auth.KV, error) {
 	// ensure connection string is present for monkit / tagsql
-	kvurl, err := pgutil.CheckApplicationName(kvurl, "gateway-mt-auth")
+	kvurl, err := pgutil.CheckApplicationName(kvurl, "authservice")
 	if err != nil {
 		return nil, err
 	}
