@@ -6,7 +6,7 @@ S3-compatible gateway for Storj V3 Network, based on [MinIO](https://github.com/
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/gateway-mt)
 ![Beta](https://img.shields.io/badge/version-beta-green.svg)
 
-<img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
+<img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
 Storj is building a decentralized cloud storage network.
 [Check out our white paper for more info!](https://storj.io/white-paper)
@@ -195,7 +195,7 @@ The following S3 methods are supported:
 - ListObjects
 - ListObjectsV2
 
-We use the minio mint testsuite to ensure our compatibility to the S3 API. As some S3 methods are not supported yet, we use a custom build that you can run it against any endpoint using docker.  The majority of these tests are defined in https://github.com/storj/minio/blob/master/mint/mint.sh.
+We use the minio mint testsuite to ensure our compatibility to the S3 API. As some S3 methods are not supported yet, we use a custom build that you can run it against any endpoint using docker.  The majority of these tests are defined in https://github.com/storj/minio/blob/main/mint/mint.sh.
 
 To build our custom image and tag it as storj/mint:
 ```
