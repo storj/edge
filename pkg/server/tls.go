@@ -21,13 +21,15 @@ func LoadTLSConfigFromDir(configDir string) (*tls.Config, error) {
 	for _, crt := range certFiles {
 		key := crt[0:len(crt)-4] + ".key"
 		_, err := os.Stat(key)
-		if err == nil {
-			cert, err := tls.LoadX509KeyPair(crt, key)
-			if err != nil {
-				return nil, errs.New("unable to load server keypair: %v", err)
-			}
-			certificates = append(certificates, cert)
+		if err != nil {
+			return nil, errs.New("unable to locate key for cert %s (expecting %s): %v", crt, key, err)
 		}
+
+		cert, err := tls.LoadX509KeyPair(crt, key)
+		if err != nil {
+			return nil, errs.New("unable to load server keypair: %v", err)
+		}
+		certificates = append(certificates, cert)
 	}
 	return &tls.Config{Certificates: certificates}, nil
 }
