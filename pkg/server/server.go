@@ -60,7 +60,10 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	minio.RegisterAPIRouter(r)
 	r.Use(minio.RegisterMiddlewares)
 
-	s.http.Handler = r
+	s.http.Handler = minio.CriticalErrorHandler{
+		Handler: minio.CorsHandler(r),
+	}
+
 	return s
 }
 
