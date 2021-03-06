@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
-	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/httpauth"
 	"storj.io/private/cfgstruct"
@@ -49,9 +49,10 @@ var (
 
 // Config is the config.
 type Config struct {
-	Endpoint          string   `help:"Gateway endpoint URL to return to clients" default:""`
-	AuthToken         string   `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
-	AllowedSatellites []string `help:"list of satellite addresses allowed for incoming access grants"`
+	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
+	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
+	AllowedSatellites []string      `help:"list of satellite addresses allowed for incoming access grants" default:"https://tardigrade.io/trusted-satellites"`
+	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
@@ -85,6 +86,8 @@ func main() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
 	if config.Migration {
 		if err = cmdMigrationRun(cmd, args); err != nil {
 			return err
@@ -93,18 +96,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	log := zap.L()
 
-	// Confirm that all satellites in config.AllowedSatellites is a valid storj
-	// node URL.
-	for _, sat := range config.AllowedSatellites {
-		_, err := storj.ParseNodeURL(sat)
-		if err != nil {
-			return err
-		}
-	}
-
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
+	allowedSats, areSatsDynamic, err := auth.LoadSatelliteAddresses(ctx, config.AllowedSatellites)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	if len(allowedSats) == 0 {
+		return errs.New("allowed satellites parameter '--allowed-satellites' resolved to zero satellites")
+	}
+
 	if config.Endpoint == "" {
 		return errs.New("endpoint parameter '--endpoint' is required")
 	}
@@ -121,10 +123,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	allowedSats, err := auth.RemoveNodeIDs(config.AllowedSatellites)
-	if err != nil {
-		return errs.Wrap(err)
-	}
 	db := auth.NewDatabase(kv, allowedSats)
 	res := httpauth.New(log.Named("resources"), db, endpoint, config.AuthToken)
 
@@ -151,6 +149,20 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}()
 	}
 
+	if areSatsDynamic {
+		launch(func() error {
+			return sync2.NewCycle(config.CacheExpiration).Run(ctx, func(ctx context.Context) error {
+				log.Debug("Reloading allowed satellite list")
+				allowedSatelliteAddresses, _, err := auth.LoadSatelliteAddresses(ctx, config.AllowedSatellites)
+				if err != nil {
+					log.Warn("Error reloading allowed satellite list", zap.Error(err))
+				} else {
+					db.SetAllowedSatellites(allowedSatelliteAddresses)
+				}
+				return nil
+			})
+		})
+	}
 	launch(func() error {
 		if tlsConfig == nil {
 			return nil

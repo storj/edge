@@ -4,6 +4,7 @@
 package httpauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -87,7 +88,8 @@ func TestResources_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("CRUD", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
+		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -113,23 +115,25 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("ApprovedSatelliteAddr", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "b", "c"}), endpoint, "authToken")
+		allowed := map[string]struct{}{"a": {}, "b": {}, "c": {}}
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{"a", "s", "b", "c"}), endpoint, "authToken")
+		allowed = map[string]struct{}{"a": {}, "s": {}, "b": {}, "c": {}}
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowedSats, err := auth.RemoveNodeIDs([]string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777", "s", "b", "c"})
+		allowed, _, err := auth.LoadSatelliteAddresses(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowedSats), endpoint, "authToken")
+		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := access2.Access{
@@ -148,7 +152,8 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Invalidate", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
+		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -173,7 +178,8 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
+		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -194,7 +200,8 @@ func TestResources_Authorization(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
-	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), []string{minimalAccessSatelliteAddr}), endpoint, "authToken")
+	allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)

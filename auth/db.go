@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"strings"
+	"sync"
 
 	"github.com/zeebo/errs"
 
@@ -86,35 +87,29 @@ func ToBase32(versionByte byte, k []byte) string {
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
 type Database struct {
-	kv                        KV
+	kv KV
+
+	mu                        sync.Mutex
 	allowedSatelliteAddresses map[string]struct{}
 }
 
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
-// the full URL (without a node ID), including port, for which satellites we
+// the full URL (without a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(kv KV, allowedSatelliteAddresses []string) *Database {
-	m := make(map[string]struct{}, len(allowedSatelliteAddresses))
-	for _, sat := range allowedSatelliteAddresses {
-		m[sat] = struct{}{}
-	}
+func NewDatabase(kv KV, allowedSatelliteAddresses map[string]struct{}) *Database {
 	return &Database{
 		kv:                        kv,
-		allowedSatelliteAddresses: m,
+		allowedSatelliteAddresses: allowedSatelliteAddresses,
 	}
 }
 
-// RemoveNodeIDs removes the nodeIDs from a list of valid node URLs. This can
-// be called prior to NewDatabase to prepare allowed satellite addresses.
-func RemoveNodeIDs(ss []string) (p []string, err error) {
-	for _, s := range ss {
-		url, err := storj.ParseNodeURL(s)
-		if err != nil {
-			return nil, err
-		}
-		p = append(p, url.Address)
-	}
-	return p, nil
+// SetAllowedSatellites updates the allowed satellites list from configuration values.
+// AllowedSatelliteAddresses should contain the full URL (without a node ID), including port,
+// for each satellite we allow for incoming access grants.
+func (db *Database) SetAllowedSatellites(allowedSatelliteAddresses map[string]struct{}) {
+	db.mu.Lock()
+	db.allowedSatelliteAddresses = allowedSatelliteAddresses
+	db.mu.Unlock()
 }
 
 // Put encrypts the access grant with the key and stores it in a key/value store under the
@@ -135,7 +130,10 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	if err != nil {
 		return secretKey, err
 	}
-	if _, ok := db.allowedSatelliteAddresses[url.Address]; !ok {
+	db.mu.Lock()
+	_, ok := db.allowedSatelliteAddresses[url.Address]
+	db.mu.Unlock()
+	if !ok {
 		return secretKey, errs.New("access grant contains disallowed satellite '%s'", satelliteAddr)
 	}
 
