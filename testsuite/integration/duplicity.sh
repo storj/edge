@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -ueo pipefail
+set -Eueo pipefail
+trap 'rc=$?; echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"; exit $rc' ERR
+[ -n "${AWS_ACCESS_KEY_ID}" ]
+[ -n "${AWS_SECRET_ACCESS_KEY}" ]
+[ -n "${SERVER_IP}" ]
+[ -n "${SERVER_PORT}" ]
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -14,7 +19,8 @@ trap cleanup EXIT
 
 SRC_DIR=$TMPDIR/source
 DST_DIR=$TMPDIR/dst
-# DST_DIR_MULTIPART=$TMPDIR/dst-multipart
+DST_DIR_MULTIPART=$TMPDIR/dst-multipart
+SERVER_ENDPOINT="$SERVER_IP:$SERVER_PORT"
 mkdir -p "$SRC_DIR" "$DST_DIR" #"$DST_DIR_MULTIPART"
 
 random_bytes_file () {
@@ -26,22 +32,19 @@ random_bytes_file () {
 random_bytes_file "1MiB"  "$SRC_DIR/backup-testfile-1MiB"  # create 1MiB file of random bytes (remote)
 random_bytes_file "10MiB" "$SRC_DIR/backup-testfile-10MiB" # create 1-MiB file of random bytes (remote)
 
-export AWS_ACCESS_KEY_ID=$GATEWAY_0_ACCESS
-export AWS_SECRET_ACCESS_KEY="anything-would-work"
 export PASSPHRASE="PASSPHRASE"
 
-duplicity -v9 $SRC_DIR s3://$GATEWAY_0_ADDR/duplicity/ --s3-unencrypted-connection
+duplicity -v9 $SRC_DIR s3://$SERVER_ENDPOINT/duplicity/ --s3-unencrypted-connection
 
-duplicity -v9 s3://$GATEWAY_0_ADDR/duplicity/ $DST_DIR --s3-unencrypted-connection
+duplicity -v9 s3://$SERVER_ENDPOINT/duplicity/ $DST_DIR --s3-unencrypted-connection
 
 require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR/backup-testfile-1MiB"
 require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR/backup-testfile-10MiB"
 
-# TODO: activate when we implement multipart upload again
 # use multipart upload
-# duplicity -v9 $SRC_DIR s3://$GATEWAY_0_ADDR/duplicity-multipart/ --s3-unencrypted-connection --s3-use-multiprocessing --s3-multipart-max-procs 2 --s3-multipart-chunk-size 2097152
+duplicity -v9 $SRC_DIR s3://$SERVER_ENDPOINT/duplicity-multipart/ --s3-unencrypted-connection --s3-use-multiprocessing --s3-multipart-max-procs 2 --s3-multipart-chunk-size 2097152
 
-# duplicity -v9 s3://$GATEWAY_0_ADDR/duplicity-multipart/ $DST_DIR_MULTIPART --s3-unencrypted-connection
+duplicity -v9 s3://$SERVER_ENDPOINT/duplicity-multipart/ $DST_DIR_MULTIPART --s3-unencrypted-connection
 
-# require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR_MULTIPART/backup-testfile-1MiB"
-# require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR_MULTIPART/backup-testfile-10MiB"
+require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR_MULTIPART/backup-testfile-1MiB"
+require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR_MULTIPART/backup-testfile-10MiB"

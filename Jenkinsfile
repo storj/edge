@@ -18,14 +18,10 @@ timeout(time: 26, unit: 'MINUTES') {
 						checkout scm
 
 						sh 'mkdir -p .build'
-
 						// make a backup of the mod file in case, for later linting
 						sh 'cp go.mod .build/go.mod.orig'
-
 						sh 'service postgresql start'
-
 						sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
-
 						sh 'make build-packages'
 					}
 
@@ -178,6 +174,8 @@ timeout(time: 26, unit: 'MINUTES') {
 						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
 						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
 						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/jenkins/test-aws.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/golang:1.16
+						# note the storj-ci docker image is used below, it already has duplicati etc. installed 
+						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/testsuite/integration/run.sh --network minttest-gateway-mt-$BUILD_NUMBER storj-ci
 						docker pull storjlabs/minio-mint:latest
 						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''

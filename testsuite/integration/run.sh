@@ -4,45 +4,10 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-cd $SCRIPTDIR && go install \
-	storj.io/storj/cmd/certificates \
-	storj.io/storj/cmd/identity \
-	storj.io/storj/cmd/satellite \
-	storj.io/storj/cmd/storagenode \
-	storj.io/storj/cmd/versioncontrol \
-	storj.io/storj/cmd/storj-sim
-
-cd $SCRIPTDIR && go install storj.io/gateway-mt
-
-# setup tmpdir for testfiles and cleanup
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
-cleanup(){
-	rm -rf "$TMP"
-}
-trap cleanup EXIT
-
-export STORJ_NETWORK_DIR=$TMP
-
-STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
-STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
-
-# make sure any previous storj-sim configuraton is deleted
-storj-sim -x network destroy
-
-# setup the network
-# if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
-if [ -z ${STORJ_SIM_POSTGRES} ]; then
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network setup
-else
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
-fi
-
-# run aws-cli tests
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/awscli.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/awscli_multipart.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/duplicity.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/duplicati.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
+"$SCRIPTDIR"/awscli.sh
+"$SCRIPTDIR"/awscli_multipart.sh
+"$SCRIPTDIR"/duplicity.sh
+"$SCRIPTDIR"/duplicati.sh
 
 # setup the network with ipv6
 #storj-sim -x --host "::1" network setup

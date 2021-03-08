@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -ueo pipefail
+set -Eueo pipefail
+trap 'rc=$?; echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"; exit $rc' ERR
+[ -n "${AWS_ACCESS_KEY_ID}" ]
+[ -n "${AWS_SECRET_ACCESS_KEY}" ]
+[ -n "${SERVER_IP}" ]
+[ -n "${SERVER_PORT}" ]
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -27,9 +32,10 @@ random_bytes_file "10MiB" "$SRC_DIR/backup-testfile-10MiB" # create 10MiB file o
 
 BUCKET="backup-bucket"
 
-duplicati-cli backup  s3://$BUCKET $SRC_DIR --s3-server-name=$GATEWAY_0_ADDR --aws_access_key_id=$GATEWAY_0_ACCESS --aws_secret_access_key=anything-would-work --passphrase=my-pass --use-ssl=false --debug-output=true
-
-duplicati-cli restore s3://$BUCKET --restore-path=$DST_DIR --s3-server-name=$GATEWAY_0_ADDR --aws_access_key_id=$GATEWAY_0_ACCESS --aws_secret_access_key=anything-would-work --passphrase=my-pass --use-ssl=false --debug-output=true
+SERVER_ENDPOINT="$SERVER_IP:$SERVER_PORT"
+GENERIC="--passphrase=my-pass --use-ssl=false --debug-output=true --auth-username=${AWS_ACCESS_KEY_ID} --auth-password=${AWS_SECRET_ACCESS_KEY}" 
+duplicati-cli backup  s3://$BUCKET $SRC_DIR --s3-server-name=$SERVER_ENDPOINT $GENERIC
+duplicati-cli restore s3://$BUCKET --restore-path=$DST_DIR --s3-server-name=$SERVER_ENDPOINT $GENERIC
 
 require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR/backup-testfile-1MiB"
 require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR/backup-testfile-10MiB"
