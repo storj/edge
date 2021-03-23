@@ -40,6 +40,8 @@ type Server struct {
 // New returns new instance of an S3 compatible http server.
 func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config Config) *Server {
 	r := mux.NewRouter()
+	r.SkipClean(true)
+
 	s := &Server{listener: listener, log: log, http: http.Server{Handler: r, Addr: config.Address}}
 
 	if tlsConfig != nil {
