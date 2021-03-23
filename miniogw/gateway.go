@@ -19,7 +19,9 @@ import (
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/private/version"
 	"storj.io/uplink"
@@ -82,7 +84,7 @@ func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, 
 
 	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return err
+		return convertError(err, bucketName, "")
 	}
 	defer func() {
 		err = errs.Combine(err, project.Close())
@@ -232,7 +234,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 
 	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return err
+		return convertError(err, bucketName, objectPath)
 	}
 	defer func() {
 		err = errs.Combine(err, project.Close())
@@ -260,7 +262,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 
 	_, err = io.Copy(writer, download)
 
-	return err
+	return convertError(err, bucketName, objectPath)
 }
 
 func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
@@ -582,7 +584,7 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 
 	project, err := layer.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return err
+		return convertError(err, bucketName, "")
 	}
 	defer func() {
 		err = errs.Combine(err, project.Close())
@@ -862,6 +864,10 @@ func convertError(err error, bucket, object string) error {
 
 	if errors.Is(err, uplink.ErrObjectNotFound) {
 		return minio.ObjectNotFound{Bucket: bucket, Object: object}
+	}
+
+	if errs2.IsRPC(err, rpcstatus.ResourceExhausted) {
+		return minio.ProjectUsageLimit{}
 	}
 
 	return err

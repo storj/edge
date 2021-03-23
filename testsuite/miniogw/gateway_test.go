@@ -6,6 +6,9 @@ package miniogw_test
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -24,10 +27,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/storj/private/testplanet"
 	"storj.io/uplink"
@@ -1264,6 +1269,88 @@ func TestNoMultipartSatellites(t *testing.T) {
 
 		_, err = layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
 		require.EqualError(t, err, minio.NotImplemented{}.Error())
+	})
+}
+
+// md5Hex returns MD5 hash in hex encoding of given data.
+func md5Hex(data []byte) string {
+	sum := md5.Sum(data)
+	return hex.EncodeToString(sum[:])
+}
+
+// sha256Hex returns SHA-256 hash in hex encoding of given data.
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func TestProjectUsageLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satDB := planet.Satellites[0].DB
+		acctDB := satDB.ProjectAccounting()
+
+		now := time.Now()
+		project := planet.Uplinks[0].Projects[0]
+
+		// set custom bandwidth limit for project 512 Kb
+		bandwidthLimit := 500 * memory.KiB
+		err := acctDB.UpdateProjectBandwidthLimit(ctx, project.ID, bandwidthLimit)
+		require.NoError(t, err)
+
+		dataSize := 100 * memory.KiB
+		data := testrand.Bytes(dataSize)
+
+		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), []string{planet.Satellites[0].Addr()})
+		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
+		require.NoError(t, err)
+
+		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
+		require.NoError(t, err)
+
+		accessString, err := access.Serialize()
+		require.NoError(t, err)
+
+		// Set the Access Grant as the S3 Access Key in the Context
+		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
+
+		// Create a bucket with the Minio API
+		err = layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{})
+		assert.NoError(t, err)
+
+		hashReader, err := hash.NewReader(bytes.NewReader(data), int64(dataSize), md5Hex(data), sha256Hex(data), int64(dataSize), true)
+		require.NoError(t, err)
+		putObjectReader := minio.NewPutObjReader(hashReader, nil, nil)
+
+		info, err := layer.PutObject(ctx, "testbucket", "test/path1", putObjectReader, minio.ObjectOptions{UserDefined: make(map[string]string)})
+		require.NoError(t, err)
+		assert.Equal(t, "test/path1", info.Name)
+		assert.Equal(t, "testbucket", info.Bucket)
+		assert.False(t, info.IsDir)
+		assert.True(t, time.Since(info.ModTime) < 1*time.Minute)
+		assert.NotEmpty(t, info.ETag)
+
+		time.Sleep(10 * time.Second)
+		// We'll be able to download 5X before reach the limit.
+		for i := 0; i < 5; i++ {
+			err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+			require.NoError(t, err)
+		}
+
+		// An extra download should return 'Exceeded Usage Limit' error
+		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+		require.Error(t, err)
+		require.EqualError(t, err, minio.ProjectUsageLimit{}.Error())
+
+		// Simulate new billing cycle (newxt month)
+		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
+			return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+
+		// Should not return an error since it's a new month
+		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+		require.NoError(t, err)
 	})
 }
 
