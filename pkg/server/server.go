@@ -49,6 +49,9 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 		s.http.TLSConfig = tlsConfig
 	}
 
+	publicServices := r.PathPrefix("/-/").Subrouter()
+	publicServices.HandleFunc("/health", s.healthCheck)
+
 	pathStyle := r.Host(config.DomainName).Subrouter()
 	s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
 	// this routes was tested, but we have them commented out because they're currently not implemented
@@ -67,6 +70,12 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	}
 
 	return s
+}
+
+func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
+	// TODO: should this function do any tests to confirm the server is operational before returning a 200?
+	// this function should be low-effort, in the sense that the load balancer is going to be hitting it regularly.
+	w.WriteHeader(http.StatusOK)
 }
 
 // AddRoutes adds handlers to path-style and virtual-host style routes.

@@ -81,8 +81,19 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	if useTLS {
 		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	}
+
+	testHealthCheck(t, urlBase+"-/health", client)
 	testRouting(t, logs, urlBase, bucket, object, vHostStyle, client)
 	// testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, false, false, client)
+}
+
+func testHealthCheck(t *testing.T, url string, client *http.Client) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	require.NoError(t, err)
+	response, err := client.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 200, response.StatusCode)
+	defer func() { _ = response.Body.Close() }()
 }
 
 func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, vHostStyle bool, client *http.Client) {
