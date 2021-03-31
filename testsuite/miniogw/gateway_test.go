@@ -1092,6 +1092,27 @@ func TestGetMultipartInfo(t *testing.T) {
 
 func TestListObjectParts(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		// Check the error when listing parts from a bucket with empty name
+		parts, err := layer.ListObjectParts(ctx, "", "", "", 0, 1, minio.ObjectOptions{})
+		assert.Equal(t, minio.BucketNameInvalid{}, err)
+		assert.Empty(t, parts)
+
+		// Check the error when listing parts of an object with empty key
+		parts, err = layer.ListObjectParts(ctx, TestBucket, "", "", 0, 1, minio.ObjectOptions{})
+		assert.Equal(t, minio.ObjectNameInvalid{Bucket: TestBucket}, err)
+		assert.Empty(t, parts)
+
+		// Check the error when listing parts of a multipart upload is empty upload ID
+		parts, err = layer.ListObjectParts(ctx, TestBucket, TestFile, "", 0, 1, minio.ObjectOptions{})
+		assert.Equal(t, minio.InvalidUploadID{Bucket: TestBucket, Object: TestFile}, err)
+		assert.Empty(t, parts)
+
+		// TODO: This fails because InvalidUploadID is returned instead of BucketNotFound. Check if this is a bug.
+		// Check the error when listing parts from non-existing bucket
+		// parts, err = layer.ListObjectParts(ctx, TestBucket, TestFile, "uploadid", 0, 1, minio.ObjectOptions{})
+		// assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
+		// assert.Empty(t, parts)
+
 		bucket, err := project.CreateBucket(ctx, TestBucket)
 		require.NoError(t, err)
 		require.Equal(t, bucket.Name, TestBucket)
@@ -1103,19 +1124,32 @@ func TestListObjectParts(t *testing.T) {
 		uploadID, err := layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
 		require.NoError(t, err)
 
+		now := time.Now()
 		totalPartsCount := 3
-		for i := 1; i <= totalPartsCount; i++ {
-			info, err := layer.PutObjectPart(ctx, TestBucket, TestFile, uploadID, i, newMinioPutObjReader(t), minio.ObjectOptions{})
+		minioReaders := make([]*minio.PutObjReader, 3)
+		for i := 0; i < totalPartsCount; i++ {
+			minioReaders[i] = newMinioPutObjReader(t)
+			info, err := layer.PutObjectPart(ctx, TestBucket, TestFile, uploadID, i+1, minioReaders[i], minio.ObjectOptions{})
 			require.NoError(t, err)
-			require.Equal(t, i, info.PartNumber)
+			assert.Equal(t, i+1, info.PartNumber)
+			assert.Equal(t, minioReaders[i].Size(), info.Size)
+			assert.Equal(t, minioReaders[i].ActualSize(), info.ActualSize)
+			assert.Equal(t, minioReaders[i].MD5CurrentHexString(), info.ETag)
 		}
 
 		listParts, err := layer.ListObjectParts(ctx, TestBucket, TestFile, uploadID, 0, totalPartsCount, minio.ObjectOptions{})
 		require.NoError(t, err)
-		require.Len(t, listParts.Parts, totalPartsCount)
 		require.Equal(t, TestBucket, listParts.Bucket)
 		require.Equal(t, TestFile, listParts.Object)
 		require.Equal(t, uploadID, listParts.UploadID)
+		require.Len(t, listParts.Parts, totalPartsCount)
+		for i := 0; i < totalPartsCount; i++ {
+			assert.Equal(t, i+1, listParts.Parts[i].PartNumber)
+			assert.Equal(t, minioReaders[i].Size(), listParts.Parts[i].Size)
+			assert.Equal(t, minioReaders[i].ActualSize(), listParts.Parts[i].ActualSize)
+			assert.WithinDuration(t, now, listParts.Parts[i].LastModified, 5*time.Second)
+			assert.Equal(t, minioReaders[i].MD5CurrentHexString(), listParts.Parts[i].ETag)
+		}
 	})
 }
 

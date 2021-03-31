@@ -175,5 +175,5 @@ bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main github.com/storj/minio
 	go mod tidy
 	cd testsuite;\
-		go get storj.io/common@main storj.io/storj@multipart-upload storj.io/uplink@main;\
+		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
 		go mod tidy
