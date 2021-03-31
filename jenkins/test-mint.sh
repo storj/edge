@@ -17,7 +17,7 @@ cleanup(){
 trap cleanup EXIT
 
 echo "Clone storj repo"
-cd /home && git clone -b multipart-upload https://github.com/storj/storj.git --depth 1
+cd /home && git clone https://github.com/storj/storj.git --depth 1
 
 bin_dir=/go/bin
 
