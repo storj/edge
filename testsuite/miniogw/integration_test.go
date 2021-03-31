@@ -6,12 +6,9 @@
 package miniogw_test
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -37,34 +34,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/internal/minioclient"
+	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
-	"storj.io/uplink"
 )
-
-// todo: remove this when multipart is merged
-// at the moment testssuite uses storj.io/uplink@multipart-upload
-// however, storj.io/uplink@master is the only place where
-// "storj.io/storj/cmd/uplink/cmd".RegisterAccess() is defined
-// so this function is just a temporary hack
-func registerAccess(t *testing.T, authService string, access *uplink.Access) (accessKey, secretKey, endpoint string, err error) {
-	accesssSerialized, err := access.Serialize()
-	require.NoError(t, err)
-	postData, err := json.Marshal(map[string]interface{}{
-		"access_grant": accesssSerialized,
-		"public":       true,
-	})
-	require.NoError(t, err)
-	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
-	require.NoError(t, err)
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	respBody := make(map[string]string)
-	err = json.Unmarshal(body, &respBody)
-	require.NoError(t, err)
-	return respBody["access_key_id"], respBody["secret_key"], respBody["endpoint"], nil
-}
 
 func compileAt(t *testing.T, ctx *testcontext.Context, workDir string, pkg string) string {
 	t.Helper()
@@ -129,7 +101,7 @@ func TestUploadDownload(t *testing.T) {
 		defer func() { processgroup.Kill(authSvc) }()
 
 		// todo: use the unused endpoint below
-		accessKey, secretKey, _, err := registerAccess(t, "http://"+authSvcAddr, access)
+		accessKey, secretKey, _, err := cmd.RegisterAccess(access, "http://"+authSvcAddr, false, 15*time.Second)
 		require.NoError(t, err)
 
 		client, err := minioclient.NewMinio(minioclient.Config{
