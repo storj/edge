@@ -18,6 +18,7 @@ import (
 	"gopkg.in/webhelp.v1/whlog"
 
 	"storj.io/common/errs2"
+	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
 var (
@@ -55,7 +56,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 
 	pathStyle := r.Host(config.DomainName).Subrouter()
 	s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-	// this routes was tested, but we have them commented out because they're currently not implemented
+	// this route was tested, but we have them commented out because they're currently not implemented
 	// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
 	virtualHostStyle := r.Host("{bucket:.+}." + config.DomainName).Subrouter()
@@ -64,6 +65,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	// Gorilla matches in the order things are defined, so fall back
 	// to minio implementations if we haven't handled something
 	minio.RegisterAPIRouter(r)
+	r.Use(middleware.Metrics)
 	r.Use(minio.RegisterMiddlewares)
 
 	s.http.Handler = minio.CriticalErrorHandler{

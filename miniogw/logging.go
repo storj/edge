@@ -72,6 +72,10 @@ func (log *layerLogging) logErr(err error) error {
 
 	if err != nil && !minioError(err) {
 		log.logger.Error("gateway error:", zap.Error(err))
+		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
+		// This event should allow us to correlate with the logs to gradually add more
+		// error mappings and reduce number of unmapped errors we return.
+		mon.Event("unmapped_error")
 	}
 	return err
 }

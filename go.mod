@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.10
+	github.com/spacemonkeygo/monkit/v3 v3.0.11-0.20210401165229-87c388352ef7
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/storj/minio v0.0.0-20210330111527-04e6dc87c349
