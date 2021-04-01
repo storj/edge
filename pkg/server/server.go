@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/webhelp.v1/whlog"
 
 	"storj.io/common/errs2"
 )
@@ -68,6 +69,9 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	s.http.Handler = minio.CriticalErrorHandler{
 		Handler: minio.CorsHandler(r),
 	}
+
+	s.http.Handler = whlog.LogRequests(s.log.Sugar().Infof, s.http.Handler)
+	s.http.Handler = whlog.LogResponses(s.log.Sugar().Infof, s.http.Handler)
 
 	return s
 }
