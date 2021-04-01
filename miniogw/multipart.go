@@ -54,11 +54,45 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 }
 
 func (layer *gatewayLayer) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
+	if bucket == "" {
+		return minio.MultipartInfo{}, minio.BucketNameInvalid{}
+	}
+
+	if object == "" {
+		return minio.MultipartInfo{}, minio.ObjectNameInvalid{}
+	}
+
+	if uploadID == "" {
+		return minio.MultipartInfo{}, minio.InvalidUploadID{}
+	}
+
+	project, err := layer.openProjectMultipart(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return minio.MultipartInfo{}, err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
 	info.Bucket = bucket
 	info.Object = object
 	info.UploadID = uploadID
-	// TODO: We need an uplink API for this
-	return info, nil
+
+	list := multipart.ListPendingObjectStreams(ctx, project, bucket, object, &multipart.ListMultipartUploadsOptions{
+		System: true,
+		Custom: true,
+	})
+
+	for list.Next() {
+		obj := list.Item()
+		if obj.StreamID == uploadID {
+			return minioMultipartInfo(bucket, obj), nil
+		}
+	}
+	if list.Err() != nil {
+		return minio.MultipartInfo{}, convertError(list.Err(), bucket, object)
+	}
+	return minio.MultipartInfo{}, minio.ObjectNotFound{Bucket: bucket, Object: object}
 }
 
 type etagReader struct {
