@@ -215,12 +215,15 @@ func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objec
 	}
 
 	object := download.Info()
-	if startOffset < 0 || length < -1 || startOffset+length > object.System.ContentLength {
-		return nil, minio.InvalidRange{
-			OffsetBegin:  startOffset,
-			OffsetEnd:    startOffset + length - 1,
-			ResourceSize: object.System.ContentLength,
-		}
+	if startOffset < 0 || length < -1 {
+		return nil, errs.Combine(
+			minio.InvalidRange{
+				OffsetBegin:  startOffset,
+				OffsetEnd:    startOffset + length - 1,
+				ResourceSize: object.System.ContentLength,
+			},
+			download.Close(),
+		)
 	}
 
 	objectInfo := minioObjectInfo(bucketName, "", object)
@@ -252,7 +255,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	object := download.Info()
-	if startOffset < 0 || length < -1 || startOffset+length > object.System.ContentLength {
+	if startOffset < 0 || length < -1 {
 		return minio.InvalidRange{
 			OffsetBegin:  startOffset,
 			OffsetEnd:    startOffset + length,

@@ -352,7 +352,9 @@ func TestGetObjectNInfo(t *testing.T) {
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 0}, substr: "a"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 3, End: 3}, substr: "d"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: -1}, substr: "abcdef"},
+			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 100}, substr: "abcdef"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 3, End: -1}, substr: "def"},
+			{rangeSpec: &minio.HTTPRangeSpec{Start: 3, End: 100}, substr: "def"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 5}, substr: "abcdef"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 4}, substr: "abcde"},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 3}, substr: "abcd"},
@@ -361,7 +363,6 @@ func TestGetObjectNInfo(t *testing.T) {
 			{rangeSpec: &minio.HTTPRangeSpec{IsSuffixLength: true, Start: 0}, substr: ""},
 			{rangeSpec: &minio.HTTPRangeSpec{IsSuffixLength: true, Start: -2}, substr: "ef"},
 			{rangeSpec: &minio.HTTPRangeSpec{IsSuffixLength: true, Start: -100}, substr: "abcdef"},
-			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: 7}, substr: "", err: minio.InvalidRange{OffsetBegin: 0, OffsetEnd: 7, ResourceSize: 6}},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: -1, End: 3}, substr: "", err: minio.InvalidRange{OffsetBegin: -1, OffsetEnd: 3, ResourceSize: 6}},
 			{rangeSpec: &minio.HTTPRangeSpec{Start: 0, End: -2}, substr: "", err: errs.New("Unexpected range specification case")},
 			{rangeSpec: &minio.HTTPRangeSpec{IsSuffixLength: true, Start: 1}, substr: "", err: errs.New("Unexpected range specification case")},
@@ -423,14 +424,16 @@ func TestGetObject(t *testing.T) {
 			err            error
 		}{
 			{offset: 0, length: 0, substr: ""},
-			{offset: 3, length: 0, substr: ""},
 			{offset: 0, length: -1, substr: "abcdef"},
+			{offset: 0, length: 100, substr: "abcdef"},
+			{offset: 3, length: 0, substr: ""},
+			{offset: 3, length: -1, substr: "def"},
+			{offset: 3, length: 100, substr: "def"},
 			{offset: 0, length: 6, substr: "abcdef"},
 			{offset: 0, length: 5, substr: "abcde"},
 			{offset: 0, length: 4, substr: "abcd"},
 			{offset: 1, length: 4, substr: "bcde"},
 			{offset: 2, length: 4, substr: "cdef"},
-			{offset: 0, length: 7, substr: "", err: minio.InvalidRange{OffsetBegin: 0, OffsetEnd: 7, ResourceSize: 6}},
 			{offset: -1, length: 7, substr: "", err: minio.InvalidRange{OffsetBegin: -1, OffsetEnd: 6, ResourceSize: 6}},
 			{offset: 0, length: -2, substr: "", err: minio.InvalidRange{OffsetBegin: 0, OffsetEnd: -2, ResourceSize: 6}},
 		} {
@@ -1395,12 +1398,12 @@ func TestProjectUsageLimit(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// We'll be able to download 5X before reach the limit.
 		for i := 0; i < 5; i++ {
-			err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+			err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 			require.NoError(t, err)
 		}
 
 		// An extra download should return 'Exceeded Usage Limit' error
-		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 		require.Error(t, err)
 		require.EqualError(t, err, minio.ProjectUsageLimit{}.Error())
 
@@ -1410,7 +1413,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		})
 
 		// Should not return an error since it's a new month
-		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, 0, nil, "", minio.ObjectOptions{})
+		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 		require.NoError(t, err)
 	})
 }

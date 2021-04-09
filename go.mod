@@ -19,7 +19,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210406151410-a1147267017f
-	storj.io/private v0.0.0-20210225200021-48b617cbe817
-	storj.io/uplink v1.4.6-0.20210408091458-460c63232849
+	storj.io/common v0.0.0-20210408063549-b10b43cba35a
+	storj.io/private v0.0.0-20210403210935-5fd57695864c
+	storj.io/uplink v1.4.6-0.20210409140224-ad6bc2e5b2ee
 )
