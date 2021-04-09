@@ -11,8 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/acme/autocert"
-
-	"storj.io/gateway-mt/pkg/server"
 )
 
 // TLSInfo is a struct to handle the preferred/configured TLS options.
@@ -44,9 +42,9 @@ func configureTLS(config *TLSInfo, handler http.Handler) (*tls.Config, http.Hand
 		return nil, nil, errs.New("unable to load server keypair: %v", err)
 	}
 
-	tlsConfig := server.BaseTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{cert}
-	return tlsConfig, handler, nil
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}, handler, nil
 }
 
 func configureLetsEncrypt(config *TLSInfo, handler http.Handler) (*tls.Config, http.Handler, error) {
@@ -60,8 +58,9 @@ func configureLetsEncrypt(config *TLSInfo, handler http.Handler) (*tls.Config, h
 		Cache:      autocert.DirCache(filepath.Join(config.ConfigDir, ".certs")),
 	}
 
-	tlsConfig := server.BaseTLSConfig()
-	tlsConfig.GetCertificate = certManager.GetCertificate
+	tlsConfig := &tls.Config{
+		GetCertificate: certManager.GetCertificate,
+	}
 
 	return tlsConfig, certManager.HTTPHandler(handler), nil
 }
