@@ -91,12 +91,12 @@ func TestUploadDownload(t *testing.T) {
 		// may conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		satelliteAddr := planet.Satellites[0].Addr()
+		satelliteURL := planet.Satellites[0].URL()
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
 		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
 
-		authSvc, err := startAuthSvc(t, authSvcExe, authSvcAddr, gatewayAddr, satelliteAddr)
+		authSvc, err := startAuthSvc(t, authSvcExe, authSvcAddr, gatewayAddr, satelliteURL)
 		require.NoError(t, err)
 		defer func() { processgroup.Kill(authSvc) }()
 
@@ -114,7 +114,7 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		gateway, err := startGateway(t, client, gatewayExe, accessStr, gatewayAddr, authSvcAddr, satelliteAddr)
+		gateway, err := startGateway(t, client, gatewayExe, accessStr, gatewayAddr, authSvcAddr)
 		require.NoError(t, err)
 		defer func() { processgroup.Kill(gateway) }()
 
@@ -224,10 +224,10 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
-func startAuthSvc(t *testing.T, exe, authSvcAddress, gatewayAddress, satelliteAddress string, moreFlags ...string) (*exec.Cmd, error) {
+func startAuthSvc(t *testing.T, exe, authSvcAddress, gatewayAddress, satelliteURL string, moreFlags ...string) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--auth-token", "super-secret",
-		"--allowed-satellites", satelliteAddress,
+		"--allowed-satellites", satelliteURL,
 		"--endpoint", "http://" + gatewayAddress,
 		"--listen-addr", authSvcAddress,
 	}, moreFlags...)
@@ -299,10 +299,9 @@ func tryConnectAuthSvc(authSvcAddress string) bool {
 }
 
 func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayAddress,
-	authSvcAddress, satelliteAddr string, moreFlags ...string) (*exec.Cmd, error) {
+	authSvcAddress string, moreFlags ...string) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--server.address", gatewayAddress,
-		"--multipart-upload-satellites", satelliteAddr,
 		"--auth-token", "super-secret",
 		"--auth-url", "http://" + authSvcAddress,
 		"--domain-name", "localhost",

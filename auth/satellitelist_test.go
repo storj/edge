@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 )
 
@@ -28,14 +29,6 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 		"12rfG3sh9NCWiX3ivPjq2HtdLmbqCrvHVEzJubnzFzosMuawymB@europe-north-1.tardigrade.io:7777",
 		"12tRQrMTWUWwzwGh18i7Fqs67kmdhH9t6aToeiwbo5mfS2rUmo@35.192.11.148:7777",
 	}
-	withoutIds := []string{
-		"us-central-1.tardigrade.io:7777",
-		"europe-west-1.tardigrade.io:7777",
-		"asia-east-1.tardigrade.io:7777",
-		"saltlake.tardigrade.io:7777",
-		"europe-north-1.tardigrade.io:7777",
-		"35.192.11.148:7777", // IP-based address for good measure
-	}
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, line := range withIds {
@@ -45,7 +38,7 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 	defer testServer.Close()
 
 	testFile := ctx.File("tempSatFile")
-	require.NoError(t, ioutil.WriteFile(testFile, []byte(strings.Join(withoutIds, "\r\n")), 0644))
+	require.NoError(t, ioutil.WriteFile(testFile, []byte(strings.Join(withIds, "\r\n")), 0644))
 
 	tests := []struct {
 		input     []string
@@ -53,21 +46,22 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 		hasErr    bool
 	}{
 		{withIds, false, false},
-		{withoutIds, false, false},
 		{[]string{testServer.URL}, true, false},
 		{[]string{testFile}, true, false},
-		{append(append(withIds, withoutIds...), testServer.URL), true, false},
+		{append(withIds, testServer.URL), true, false},
 		{[]string{"nonsense"}, false, true},
 		{[]string{"garbage:input"}, false, true},
 	}
 
-	expected := make(map[string]struct{})
-	for _, a := range withoutIds {
-		expected[a] = struct{}{}
+	expected := make(map[storj.NodeID]struct{})
+	for _, a := range withIds {
+		url, err := storj.ParseNodeURL(a)
+		require.NoError(t, err)
+		expected[url.ID] = struct{}{}
 	}
 
 	for i, tc := range tests {
-		satList, isDynamic, err := LoadSatelliteAddresses(ctx, tc.input)
+		satList, isDynamic, err := LoadSatelliteIDs(ctx, tc.input)
 		require.Equal(t, tc.hasErr, err != nil, i)
 		if !tc.hasErr {
 			require.Equal(t, expected, satList, i)

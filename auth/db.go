@@ -89,26 +89,24 @@ func ToBase32(versionByte byte, k []byte) string {
 type Database struct {
 	kv KV
 
-	mu                        sync.Mutex
-	allowedSatelliteAddresses map[string]struct{}
+	mu                  sync.Mutex
+	allowedSatelliteIDs map[storj.NodeID]struct{}
 }
 
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (without a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(kv KV, allowedSatelliteAddresses map[string]struct{}) *Database {
+func NewDatabase(kv KV, allowedSatelliteIDs map[storj.NodeID]struct{}) *Database {
 	return &Database{
-		kv:                        kv,
-		allowedSatelliteAddresses: allowedSatelliteAddresses,
+		kv:                  kv,
+		allowedSatelliteIDs: allowedSatelliteIDs,
 	}
 }
 
 // SetAllowedSatellites updates the allowed satellites list from configuration values.
-// AllowedSatelliteAddresses should contain the full URL (without a node ID), including port,
-// for each satellite we allow for incoming access grants.
-func (db *Database) SetAllowedSatellites(allowedSatelliteAddresses map[string]struct{}) {
+func (db *Database) SetAllowedSatellites(allowedSatelliteIDs map[storj.NodeID]struct{}) {
 	db.mu.Lock()
-	db.allowedSatelliteAddresses = allowedSatelliteAddresses
+	db.allowedSatelliteIDs = allowedSatelliteIDs
 	db.mu.Unlock()
 }
 
@@ -126,15 +124,16 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	url, err := storj.ParseNodeURL(satelliteAddr)
+	nodeID, err := ParseSatelliteID(satelliteAddr)
 	if err != nil {
 		return secretKey, err
 	}
+
 	db.mu.Lock()
-	_, ok := db.allowedSatelliteAddresses[url.Address]
+	_, ok := db.allowedSatelliteIDs[nodeID]
 	db.mu.Unlock()
 	if !ok {
-		return secretKey, errs.New("access grant contains disallowed satellite '%s'", satelliteAddr)
+		return secretKey, errs.New("access grant contains disallowed satellite %q", satelliteAddr)
 	}
 
 	if _, err := rand.Read(secretKey[:]); err != nil {
@@ -153,7 +152,6 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return secretKey, err
 	}
 
-	// TODO: Verify access with satellite.
 	record := &Record{
 		SatelliteAddress:     satelliteAddr,
 		MacaroonHead:         access.APIKey.Head(),

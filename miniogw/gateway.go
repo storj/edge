@@ -38,23 +38,17 @@ var (
 )
 
 // NewStorjGateway creates a new Storj S3 gateway.
-func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool, multipartSatAddrs []string) *Gateway {
-	m := make(map[string]struct{}, len(multipartSatAddrs))
-	for _, sat := range multipartSatAddrs {
-		m[sat] = struct{}{}
-	}
+func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool) *Gateway {
 	return &Gateway{
-		config:            config,
-		connectionPool:    connectionPool,
-		multipartSatAddrs: m,
+		config:         config,
+		connectionPool: connectionPool,
 	}
 }
 
 // Gateway is the implementation of a minio cmd.Gateway.
 type Gateway struct {
-	config            uplink.Config
-	connectionPool    *rpcpool.Pool
-	multipartSatAddrs map[string]struct{}
+	config         uplink.Config
+	connectionPool *rpcpool.Pool
 }
 
 // Name implements cmd.Gateway.
@@ -811,20 +805,6 @@ func (layer *gatewayLayer) openProjectMultipart(ctx context.Context, accessKey s
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
 		return nil, err
-	}
-
-	nodeURL, err := storj.ParseNodeURL(access.SatelliteAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	reqInfo := logger.GetReqInfo(ctx)
-	if reqInfo == nil {
-		return nil, err
-	}
-
-	if _, ok := layer.gateway.multipartSatAddrs[nodeURL.Address]; !ok {
-		return nil, minio.NotImplemented{API: reqInfo.API}
 	}
 
 	return layer.setupProject(ctx, access)

@@ -81,7 +81,7 @@ fi
 
 echo "Found access grant: ${access_grant}"
 
-satellite_node_url=$(storj-sim network env SATELLITE_0_ADDR)
+satellite_node_url=$(storj-sim network env SATELLITE_0_ID)@$(storj-sim network env SATELLITE_0_ADDR)
 
 if [ -z "${satellite_node_url}" ]; then
     echo "satellite_node_url is empty"
@@ -93,7 +93,7 @@ authservice_address="127.0.0.1:9191"
 minio_url="http://127.0.0.1:7777/"
 
 authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" &
-gateway-mt run --multipart-upload-satellites "${satellite_node_url}" --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" &
+gateway-mt run --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"

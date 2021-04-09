@@ -17,15 +17,24 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/uplink/private/access2"
 )
 
-const minimalAccess = "138CV9Drxrw8ir1XpxcZhk2wnHjhzVjuSZe6yDsNiMZDP8cow9V6sHDYdwgvYoQGgqVvoMnxdWDbpBiEPW5oP7DtPJ5sZx2MVxFrUoZYFfVAgxidW"
+const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
 
 // This is the satellite address embedded in the access above.
-const minimalAccessSatelliteAddr = "s"
+const minimalAccessSatelliteURL = "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"
+
+var minimalAccessSatelliteID = func() storj.NodeID {
+	url, err := storj.ParseNodeURL(minimalAccessSatelliteURL)
+	if err != nil {
+		panic(err)
+	}
+	return url.ID
+}()
 
 func TestResources_URLs(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
@@ -88,7 +97,7 @@ func TestResources_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("CRUD", func(t *testing.T) {
-		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
@@ -114,8 +123,10 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 	})
 
-	t.Run("ApprovedSatelliteAddr", func(t *testing.T) {
-		allowed := map[string]struct{}{"a": {}, "b": {}, "c": {}}
+	t.Run("ApprovedSatelliteID", func(t *testing.T) {
+		var unknownSatelliteID storj.NodeID
+		unknownSatelliteID[4] = 7
+		allowed := map[storj.NodeID]struct{}{unknownSatelliteID: {}}
 		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
@@ -123,7 +134,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		allowed = map[string]struct{}{"a": {}, "s": {}, "b": {}, "c": {}}
+		allowed = map[storj.NodeID]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
 		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
@@ -131,7 +142,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowed, _, err := auth.LoadSatelliteAddresses(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
+		allowed, _, err := auth.LoadSatelliteIDs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
 		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 		mac, err := macaroon.NewAPIKey(nil)
@@ -152,7 +163,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Invalidate", func(t *testing.T) {
-		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
@@ -178,7 +189,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create a public access
@@ -200,7 +211,7 @@ func TestResources_Authorization(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
-	allowed := map[string]struct{}{minimalAccessSatelliteAddr: {}}
+	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 	// create an access grant and base url

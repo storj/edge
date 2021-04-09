@@ -1303,39 +1303,6 @@ func TestDeleteObjectTags(t *testing.T) {
 	})
 }
 
-func TestNoMultipartSatellites(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		NonParallel: true,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), []string{})
-		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
-		require.NoError(t, err)
-
-		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
-		require.NoError(t, err)
-
-		accessString, err := access.Serialize()
-		require.NoError(t, err)
-
-		// Set the Access Grant as the S3 Access Key in the Context
-		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
-
-		project, err := uplink.OpenProject(ctx, access)
-		require.NoError(t, err)
-
-		bucket, err := project.CreateBucket(ctx, TestBucket)
-		require.NoError(t, err)
-		require.Equal(t, bucket.Name, TestBucket)
-
-		_, err = layer.ListMultipartUploads(ctx, TestBucket, "", "", "", "", 1)
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
-
-		_, err = layer.NewMultipartUpload(ctx, TestBucket, TestFile, minio.ObjectOptions{})
-		require.EqualError(t, err, minio.NotImplemented{}.Error())
-	})
-}
-
 // md5Hex returns MD5 hash in hex encoding of given data.
 func md5Hex(data []byte) string {
 	sum := md5.Sum(data)
@@ -1366,7 +1333,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		dataSize := 100 * memory.KiB
 		data := testrand.Bytes(dataSize)
 
-		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), []string{planet.Satellites[0].Addr()})
+		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
 		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 		require.NoError(t, err)
 
@@ -1427,7 +1394,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), []string{planet.Satellites[0].Addr()})
+		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
 		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 		require.NoError(t, err)
 

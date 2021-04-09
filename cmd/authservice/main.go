@@ -51,7 +51,7 @@ var (
 type Config struct {
 	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
 	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
-	AllowedSatellites []string      `help:"list of satellite addresses allowed for incoming access grants" default:"https://tardigrade.io/trusted-satellites"`
+	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://tardigrade.io/trusted-satellites"`
 	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
@@ -99,7 +99,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
-	allowedSats, areSatsDynamic, err := auth.LoadSatelliteAddresses(ctx, config.AllowedSatellites)
+	allowedSats, areSatsDynamic, err := auth.LoadSatelliteIDs(ctx, config.AllowedSatellites)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -153,11 +153,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		launch(func() error {
 			return sync2.NewCycle(config.CacheExpiration).Run(ctx, func(ctx context.Context) error {
 				log.Debug("Reloading allowed satellite list")
-				allowedSatelliteAddresses, _, err := auth.LoadSatelliteAddresses(ctx, config.AllowedSatellites)
+				allowedSatelliteIDs, _, err := auth.LoadSatelliteIDs(ctx, config.AllowedSatellites)
 				if err != nil {
 					log.Warn("Error reloading allowed satellite list", zap.Error(err))
 				} else {
-					db.SetAllowedSatellites(allowedSatelliteAddresses)
+					db.SetAllowedSatellites(allowedSatelliteIDs)
 				}
 				return nil
 			})

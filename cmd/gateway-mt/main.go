@@ -37,12 +37,11 @@ type GatewayFlags struct {
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
 
-	MultipartUploadSatellites []string `help:"satellite addresses that has multipart-upload enabled" default:"" basic-help:"true"`
-	AuthURL                   string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
-	AuthToken                 string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
-	CertDir                   string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
-	InsecureDisableTLS        bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName                string   `help:"domain suffix used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	AuthURL            string `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
+	AuthToken          string `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
+	CertDir            string `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
+	InsecureDisableTLS bool   `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
+	DomainName         string `help:"domain suffix used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
 
 	Config
 }
@@ -214,18 +213,13 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 // NewGateway creates a new minio Gateway.
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
 	config := flags.newUplinkConfig(ctx)
-	multipartSatAddrs := flags.MultipartUploadSatellites
-	addrs, err := miniogw.RemoveNodeIDs(multipartSatAddrs)
-	if err != nil {
-		return nil, err
-	}
 	pool := rpcpool.New(rpcpool.Options{
 		Capacity:       10000,
 		KeyCapacity:    2,
 		IdleExpiration: 30 * time.Second,
 	})
 
-	return miniogw.NewStorjGateway(config, pool, addrs), nil
+	return miniogw.NewStorjGateway(config, pool), nil
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {
