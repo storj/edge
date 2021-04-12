@@ -41,7 +41,7 @@ type GatewayFlags struct {
 	AuthToken          string `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
 	CertDir            string `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
 	InsecureDisableTLS bool   `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName         string `help:"domain suffix used in TLS certificates" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	DomainName         string `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
 
 	Config
 }
@@ -146,7 +146,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	validate(runCfg.AuthToken, "auth-token")
 	validate(runCfg.AuthURL, "auth-url")
 	validate(runCfg.DomainName, "domain-name")
-	set(runCfg.DomainName, "MINIO_DOMAIN")
+	set(runCfg.DomainName, "MINIO_DOMAIN") // MINIO_DOMAIN supports comma-separated domains.
 	set("enable", "STORJ_AUTH_ENABLED")
 	set("off", "MINIO_BROWSER")
 	set("dummy-key-to-satisfy-minio", "MINIO_ACCESS_KEY")
@@ -196,7 +196,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 
 	// because existing configs contain most of these values, we don't have separate
 	// parameter bindings for the non-Minio server
-	serverConfig := server.Config{Address: address, DomainName: runCfg.DomainName}
+	serverConfig := server.Config{Address: address, DomainNames: strings.Split(runCfg.DomainName, ",")}
 	var tlsConfig *tls.Config
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig, err = server.LoadTLSConfigFromDir(runCfg.CertDir)

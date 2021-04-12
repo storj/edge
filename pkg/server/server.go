@@ -28,8 +28,8 @@ var (
 
 // Config contains configuration for an S3 compatible http server.
 type Config struct {
-	Address    string
-	DomainName string
+	Address     string
+	DomainNames []string
 }
 
 // Server represents an S3 compatible http server.
@@ -54,13 +54,15 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	publicServices := r.PathPrefix("/-/").Subrouter()
 	publicServices.HandleFunc("/health", s.healthCheck)
 
-	pathStyle := r.Host(config.DomainName).Subrouter()
-	s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-	// this route was tested, but we have them commented out because they're currently not implemented
-	// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
+	for _, domainName := range config.DomainNames {
+		pathStyle := r.Host(domainName).Subrouter()
+		s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
+		// this route was tested, but we have them commented out because they're currently not implemented
+		// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
-	virtualHostStyle := r.Host("{bucket:.+}." + config.DomainName).Subrouter()
-	s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
+		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
+		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
+	}
 
 	// Gorilla matches in the order things are defined, so fall back
 	// to minio implementations if we haven't handled something

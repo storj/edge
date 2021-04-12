@@ -52,7 +52,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	// create server
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-	config := server.Config{DomainName: "localhost", Address: "127.0.0.1:0"}
+	config := server.Config{DomainNames: []string{"localhost"}, Address: "127.0.0.1:0"}
 	var tlsConfig *tls.Config
 	if useTLS {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
