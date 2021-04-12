@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/gateway-mt/internal/wizard"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/private/cfgstruct"
@@ -66,19 +64,12 @@ var (
 		Short: "The Storj client-side S3 gateway",
 		Args:  cobra.OnlyValidArgs,
 	}
-	setupCmd = &cobra.Command{
-		Use:         "setup",
-		Short:       "Create a gateway config file",
-		RunE:        cmdSetup,
-		Annotations: map[string]string{"type": "setup"},
-	}
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run the classic S3-compatible gateway",
 		RunE:  cmdRun,
 	}
-	setupCfg GatewayFlags
-	runCfg   GatewayFlags
+	runCfg GatewayFlags
 
 	confDir string
 )
@@ -89,33 +80,12 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(setupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 
 	rootCmd.PersistentFlags().BoolVar(new(bool), "advanced", false, "if used in with -h, print advanced flags help")
 	cfgstruct.SetBoolAnnotation(rootCmd.PersistentFlags(), "advanced", cfgstruct.BasicHelpAnnotationName, true)
 	cfgstruct.SetBoolAnnotation(rootCmd.PersistentFlags(), "config-dir", cfgstruct.BasicHelpAnnotationName, true)
 	setUsageFunc(rootCmd)
-}
-
-func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(confDir)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !valid {
-		return Error.New("gateway configuration already exists (%v)", setupDir)
-	}
-
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return setupCfg.interactive(cmd, setupDir)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -227,37 +197,6 @@ func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {
 	config := uplink.Config{}
 	config.DialTimeout = flags.Client.DialTimeout
 	return config
-}
-
-// interactive creates the configuration of the gateway interactively.
-func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string) error {
-	overrides := make(map[string]interface{})
-
-	tracingEnabled, err := wizard.PromptForTracing()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if tracingEnabled {
-		overrides["tracing.enabled"] = true
-		overrides["tracing.sample"] = 0.1
-		overrides["tracing.interval"] = 30 * time.Second
-	}
-
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
-		process.SaveConfigWithOverrides(overrides),
-		process.SaveConfigRemovingDeprecated())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	fmt.Println(`
-Your S3 Gateway is configured and ready to use!
-
-Some things to try next:
-
-* See https://documentation.tardigrade.io/api-reference/s3-gateway for some example commands`)
-
-	return nil
 }
 
 /*	`setUsageFunc` is a bit unconventional but cobra didn't leave much room for
