@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -83,6 +84,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	}
 
 	testHealthCheck(t, urlBase+"-/health", client)
+	logs.TakeAll()
 	testRouting(t, logs, urlBase, bucket, object, vHostStyle, client)
 	// testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, false, false, client)
 }
@@ -119,6 +121,7 @@ func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, obj
 	// testRoute(t, logs, "DeleteBucketTagging", bucket+"?tagging", http.MethodDelete, false, vHostStyle, client)
 	// testRoute(t, logs, "GetBucketTagging", bucket+"?tagging", http.MethodGet, false, vHostStyle, client)
 	// testRoute(t, logs, "PutBucketTagging", bucket+"?tagging", http.MethodPut, false, vHostStyle, client)
+	testRoute(t, logs, "GetBucketVersioning", bucket+"?versioning", http.MethodGet, false, vHostStyle, client)
 
 	// testRoute(t, logs, "DeleteObjects", bucket+"?delete", http.MethodPost, false, vHostStyle, client)
 	// testRoute(t, logs, "ListMultipartUploads", bucket+"?uploads", http.MethodGet, false, vHostStyle, client)
@@ -130,25 +133,31 @@ func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, obj
 	// testRoute(t, logs, "HeadBucket", bucket, http.MethodHead, false, vHostStyle, client)
 }
 
-// func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, vHostStyle bool, client *http.Client) {
-// 	req, err := http.NewRequest(httpMethod, url, nil)
-// 	require.NoError(t, err)
-// 	if addAmzCopyHeader {
-// 		req.Header.Set("x-amz-copy-source", "any value currently works for testing")
-// 	}
-// 	if vHostStyle {
-// 		req.Host = "bucket.localhost"
-// 	} else {
-// 		// not every machine might have a localhost mapping
-// 		// so this will set the HTTP host header as desired
-// 		req.Host = "localhost"
-// 	}
-// 	response, err := client.Do(req)
-// 	require.NoError(t, err)
-// 	defer func() { _ = response.Body.Close() }()
-// 	require.Equal(t, 1, len(logs.All()), expectedLog)
-// 	assert.Equal(t, expectedLog, logs.TakeAll()[0].Message)
-// }
+func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, vHostStyle bool, client *http.Client) {
+	req, err := http.NewRequest(httpMethod, url, nil)
+	require.NoError(t, err)
+	if addAmzCopyHeader {
+		req.Header.Set("x-amz-copy-source", "any value currently works for testing")
+	}
+	if vHostStyle {
+		req.Host = "bucket.localhost"
+	} else {
+		// not every machine might have a localhost mapping
+		// so this will set the HTTP host header as desired
+		req.Host = "localhost"
+	}
+	response, err := client.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = response.Body.Close() }()
+
+	foundLog := false
+	for _, log := range logs.TakeAll() {
+		if log.Message == expectedLog {
+			foundLog = true
+		}
+	}
+	assert.True(t, foundLog, "Didn't find log", expectedLog)
+}
 
 func createCert(t *testing.T, host string) tls.Certificate {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)

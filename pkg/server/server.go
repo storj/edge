@@ -110,6 +110,7 @@ func (s *Server) AddRoutes(r *mux.Router, bucketPath, objectPath string) {
 	// r.HandleFunc(bucketPath, s.DeleteBucketTagging).Methods(http.MethodDelete).Queries("tagging", "")
 	// r.HandleFunc(bucketPath, s.GetBucketTagging).Methods(http.MethodGet).Queries("tagging", "")
 	// r.HandleFunc(bucketPath, s.PutBucketTagging).Methods(http.MethodPut).Queries("tagging", "")
+	r.HandleFunc(bucketPath, s.GetBucketVersioning).Methods(http.MethodGet).Queries("versioning", "")
 
 	// r.HandleFunc(bucketPath, s.DeleteObjects).Methods(http.MethodPost).Queries("delete", "")
 	// r.HandleFunc(bucketPath, s.ListMultipartUploads).Methods(http.MethodGet).Queries("uploads", "")
@@ -197,6 +198,16 @@ func (s *Server) DeleteObjects(w http.ResponseWriter, r *http.Request) {
 // GetBucketTagging deletes the tagging of a bucket.
 func (s *Server) GetBucketTagging(w http.ResponseWriter, r *http.Request) {
 	s.log.Debug("GetBucketTagging")
+}
+
+// GetBucketVersioning returns the versioning state of a bucket.
+func (s *Server) GetBucketVersioning(w http.ResponseWriter, r *http.Request) {
+	s.log.Debug("GetBucketVersioning")
+	// todo:  consider if <Status>Suspended</Status> is better
+	_, err := w.Write([]byte(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>`))
+	if err != nil {
+		s.log.Error("GetBucketVersioning", zap.Error(err))
+	}
 }
 
 // GetObject returns an object.
