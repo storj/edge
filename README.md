@@ -21,7 +21,7 @@ retrieve those files!
 
 # Documentation
 
-* [Using the S3 Gateway](https://documentation.tardigrade.io/api-reference/s3-gateway)
+* [Using the S3 Gateway](https://docs.storj.io/api-reference/s3-gateway)
 
 # How to run gateway-mt with auth service
 
@@ -304,4 +304,4 @@ This software is distributed under the
 
 If you have any questions or suggestions please reach out to us on
 [our community forum](https://forum.storj.io/) or
-email us at support@tardigrade.io.
+email us at support@storj.io.
