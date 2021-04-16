@@ -30,8 +30,9 @@ retrieve those files!
 ## Run auth service
 
     - `--auth-token` is used to authenticate `GET` request. We will need to pass the same value into `gateway-mt` so it can talk to the `authservice` instance.
-    - `--allowed-satellites` is the satellite node url.
+    - `--allowed-satellites` is the satellite node url (this must include the identity for non-DCS satellites).
         - we can use uplink cli to get the satellite node url that's associated with a given access grant
+        - allowed-satellites may alternatively include lists of satellites, such as https://www.storj.io/dcs-satellites
         ```
         uplink access inspect "my-access-grant"
         ```
@@ -281,7 +282,7 @@ storj-sim network run
 ```
 
 ```
-authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ADDR)" --endpoint=http://localhost:8000
+authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ID)@" --endpoint=http://localhost:7777
 ```
 
 ```
