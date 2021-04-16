@@ -18,7 +18,7 @@ require (
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210413145726-6095a5c22253
+	storj.io/common v0.0.0-20210412024514-5bcb1fff421e
 	storj.io/private v0.0.0-20210403210935-5fd57695864c
-	storj.io/uplink v1.4.6-0.20210413225639-818b428249a1
+	storj.io/uplink v1.4.6
 )
