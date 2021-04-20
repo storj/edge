@@ -10,14 +10,15 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	minio "github.com/storj/minio/cmd"
 	"github.com/storj/minio/cmd/logger"
-	"github.com/storj/minio/pkg/auth"
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
@@ -38,46 +39,27 @@ var (
 	Error = errs.Class("Storj Gateway error")
 )
 
-// NewStorjGateway creates a new Storj S3 gateway.
-func NewStorjGateway(config uplink.Config, connectionPool *rpcpool.Pool) *Gateway {
-	return &Gateway{
+// NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, log *zap.Logger) (minio.ObjectLayer, error) {
+	return &gateway{
 		config:         config,
 		connectionPool: connectionPool,
-	}
-}
-
-// Gateway is the implementation of a minio cmd.Gateway.
-type Gateway struct {
-	config         uplink.Config
-	connectionPool *rpcpool.Pool
-}
-
-// Name implements cmd.Gateway.
-func (gateway *Gateway) Name() string {
-	return "storj"
-}
-
-// NewGatewayLayer implements cmd.Gateway.
-func (gateway *Gateway) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) {
-	return &gatewayLayer{
-		gateway: gateway,
+		logger:         log,
 	}, nil
 }
 
-// Production implements cmd.Gateway.
-func (gateway *Gateway) Production() bool {
-	return version.Build.Release
-}
-
-type gatewayLayer struct {
+type gateway struct {
 	minio.GatewayUnsupported
-	gateway *Gateway
+	config         uplink.Config
+	connectionPool *rpcpool.Pool
+	logger         *zap.Logger
 }
 
-func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
+func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return convertError(err, bucketName, "")
 	}
@@ -94,10 +76,11 @@ func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string, 
 	return convertError(err, bucketName, "")
 }
 
-func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (gateway *gateway) DeleteObject(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -122,12 +105,17 @@ func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectP
 	return minioObjectInfo(bucketName, "", object), nil
 }
 
-func (layer *gatewayLayer) DeleteObjects(ctx context.Context, bucketName string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, errs []error) {
+func (gateway *gateway) DeleteObjects(ctx context.Context, bucketName string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, errs []error) {
+	defer func() {
+		for _, err := range errs {
+			gateway.log(ctx, err)
+		}
+	}()
 	// TODO: implement multiple object deletion in libuplink API
 	errs = make([]error, len(objects))
 	deleted = make([]minio.DeletedObject, len(objects))
 	for i, object := range objects {
-		_, deleteErr := layer.DeleteObject(ctx, bucketName, object.ObjectName, opts)
+		_, deleteErr := gateway.DeleteObject(ctx, bucketName, object.ObjectName, opts)
 		if deleteErr != nil && !errors.As(deleteErr, &minio.ObjectNotFound{}) {
 			errs[i] = convertError(deleteErr, bucketName, object.ObjectName)
 			continue
@@ -137,10 +125,11 @@ func (layer *gatewayLayer) DeleteObjects(ctx context.Context, bucketName string,
 	return deleted, errs
 }
 
-func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string) (bucketInfo minio.BucketInfo, err error) {
+func (gateway *gateway) GetBucketInfo(ctx context.Context, bucketName string) (bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}
@@ -159,10 +148,11 @@ func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string)
 	}, nil
 }
 
-func (layer *gatewayLayer) GetObjectNInfo(ctx context.Context, bucketName, objectPath string, rangeSpec *minio.HTTPRangeSpec, header http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
+func (gateway *gateway) GetObjectNInfo(ctx context.Context, bucketName, objectPath string, rangeSpec *minio.HTTPRangeSpec, header http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -222,10 +212,11 @@ func rangeSpecToDownloadOptions(spec *minio.HTTPRangeSpec) (opts *uplink.Downloa
 	}
 }
 
-func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
+func (gateway *gateway) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return convertError(err, bucketName, objectPath)
 	}
@@ -258,10 +249,11 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 	return convertError(err, bucketName, objectPath)
 }
 
-func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (gateway *gateway) GetObjectInfo(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -279,10 +271,11 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, object
 	return minioObjectInfo(bucketName, "", object), nil
 }
 
-func (layer *gatewayLayer) ListBuckets(ctx context.Context) (items []minio.BucketInfo, err error) {
+func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +297,9 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (items []minio.Bucke
 	return items, nil
 }
 
-func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
 	// TODO maybe this should be checked by project.ListObjects
 	if bucketName == "" {
@@ -316,7 +310,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return result, err
 	}
@@ -437,14 +431,15 @@ func listSingleObject(ctx context.Context, project *uplink.Project, bucketName, 
 	}, nil
 }
 
-func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
+func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return result, err
 	}
@@ -572,10 +567,11 @@ func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName
 	}, nil
 }
 
-func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketName string, opts minio.BucketOptions) (err error) {
+func (gateway *gateway) MakeBucketWithLocation(ctx context.Context, bucketName string, opts minio.BucketOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return convertError(err, bucketName, "")
 	}
@@ -588,8 +584,9 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 	return convertError(err, bucketName, "")
 }
 
-func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
 	// Scenario: if a client starts uploading an object and then dies, when
 	// is it safe to restart uploading?
@@ -616,7 +613,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
 	// }
 
-	// project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	// project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	// if err != nil {
 	// 	return minio.ObjectInfo{}, err
 	// }
@@ -686,8 +683,9 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 	// return minioObjectInfo(destBucket, hex.EncodeToString(reader.MD5Current()), upload.Info()), nil
 }
 
-func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
 	// Scenario: if a client starts uploading an object and then dies, when
 	// is it safe to restart uploading?
@@ -704,7 +702,7 @@ func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath
 	// The following line currently only impacts UploadObject calls.
 	ctx = streams.DisableDeleteOnCancel(ctx)
 
-	project, err := layer.openProject(ctx, getAccessGrant(ctx))
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -753,26 +751,27 @@ func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath
 	return minioObjectInfo(bucketName, opts.UserDefined["s3:etag"], upload.Info()), nil
 }
 
-func (layer *gatewayLayer) Shutdown(ctx context.Context) (err error) {
+func (gateway *gateway) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer gateway.log(ctx, err)
 
-	return layer.gateway.connectionPool.Close()
+	return gateway.connectionPool.Close()
 }
 
-func (layer *gatewayLayer) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
+func (gateway *gateway) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
 	info := minio.StorageInfo{}
 	info.Backend.Type = minio.BackendGateway
 	info.Backend.GatewayOnline = true
 	return info, nil
 }
 
-func (layer *gatewayLayer) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
+func (gateway *gateway) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	config := layer.gateway.config
+	config := gateway.config
 	config.UserAgent = getUserAgent(ctx)
 
-	err = transport.SetConnectionPool(ctx, &config, layer.gateway.connectionPool)
+	err = transport.SetConnectionPool(ctx, &config, gateway.connectionPool)
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +779,7 @@ func (layer *gatewayLayer) setupProject(ctx context.Context, access *uplink.Acce
 	return config.OpenProject(ctx, access)
 }
 
-func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+func (gateway *gateway) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if accessKey == "" {
@@ -792,10 +791,10 @@ func (layer *gatewayLayer) openProject(ctx context.Context, accessKey string) (_
 		return nil, err
 	}
 
-	return layer.setupProject(ctx, access)
+	return gateway.setupProject(ctx, access)
 }
 
-func (layer *gatewayLayer) openProjectMultipart(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+func (gateway *gateway) openProjectMultipart(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	access, err := uplink.ParseAccess(accessKey)
@@ -803,7 +802,7 @@ func (layer *gatewayLayer) openProjectMultipart(ctx context.Context, accessKey s
 		return nil, err
 	}
 
-	return layer.setupProject(ctx, access)
+	return gateway.setupProject(ctx, access)
 }
 
 // checkBucketError will stat the bucket if the provided error is not nil, in
@@ -901,4 +900,38 @@ func getUserAgent(ctx context.Context) string {
 		userAgent = reqInfo.UserAgent + " " + userAgent
 	}
 	return userAgent
+}
+
+// minioError checks if the given error is a minio error.
+func minioError(err error) bool {
+	return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
+}
+
+// log logs non-minio erros and request info.
+func (gateway *gateway) log(ctx context.Context, err error) {
+	gateway.logErr(err)
+	req := logger.GetReqInfo(ctx)
+	if req == nil {
+		gateway.logger.Error("gateway error:", zap.Error(errs.New("empty request")))
+	} else {
+		gateway.logger.Debug("gateway", zap.String("operation", req.API), zap.String("user agent", req.UserAgent))
+	}
+}
+
+// logErr logs unexpected errors, i.e. non-minio errors. It will return the given error
+// to allow method chaining.
+func (gateway *gateway) logErr(err error) {
+	// most of the time context canceled is intentionally caused by the client
+	// to keep log message clean, we will only log it on debug level
+	if errs2.IsCanceled(err) {
+		gateway.logger.Debug("gateway error:", zap.Error(err))
+	}
+
+	if err != nil && !minioError(err) {
+		gateway.logger.Error("gateway error:", zap.Error(err))
+		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
+		// This event should allow us to correlate with the logs to gradually add more
+		// error mappings and reduce number of unmapped errors we return.
+		mon.Event("unmapped_error")
+	}
 }

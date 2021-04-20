@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	minio "github.com/storj/minio/cmd"
-	"github.com/storj/minio/pkg/auth"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -136,12 +135,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 // Run starts a Minio Gateway given proper config.
 func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 	// set object API handler
-	gw, err := flags.NewGateway(ctx)
-	if err != nil {
-		return err
-	}
-	gw = miniogw.Logging(gw, zap.L())
-	newObject, err := gw.NewGatewayLayer(auth.Credentials{})
+	gatewayLayer, err := flags.NewGateway(ctx)
 	if err != nil {
 		return err
 	}
@@ -150,8 +144,8 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 	minio.HandleCommonEnvVars()
 	// make Minio not use random ETags
 	minio.SetGlobalCLI(false, true, false, address, true)
-	store := minio.NewIAMStorjAuthStore(newObject, runCfg.AuthURL, runCfg.AuthToken)
-	minio.SetObjectLayer(newObject)
+	store := minio.NewIAMStorjAuthStore(gatewayLayer, runCfg.AuthURL, runCfg.AuthToken)
+	minio.SetObjectLayer(gatewayLayer)
 	minio.InitCustomStore(store, "StorjAuthSys")
 
 	listener, err := net.Listen("tcp", address)
@@ -181,7 +175,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 }
 
 // NewGateway creates a new minio Gateway.
-func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
+func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer, err error) {
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options{
 		Capacity:       10000,
@@ -189,7 +183,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 		IdleExpiration: 30 * time.Second,
 	})
 
-	return miniogw.NewStorjGateway(config, pool), nil
+	return miniogw.NewGateway(config, pool, zap.L())
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

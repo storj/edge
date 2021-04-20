@@ -21,10 +21,10 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	minio "github.com/storj/minio/cmd"
 	"github.com/storj/minio/cmd/logger"
-	"github.com/storj/minio/pkg/auth"
 	"github.com/storj/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -1332,8 +1332,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		dataSize := 100 * memory.KiB
 		data := testrand.Bytes(dataSize)
 
-		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
-		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), zap.L())
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
@@ -1393,8 +1392,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		gateway := miniogw.NewStorjGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
-		layer, err := gateway.NewGatewayLayer(auth.Credentials{})
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), zap.L())
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, pathCipher, uplink.FullPermission())
