@@ -23,6 +23,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/common/useragent"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/storage/streams"
@@ -893,8 +894,11 @@ func getUserAgent(ctx context.Context) string {
 	}
 
 	if reqInfo.UserAgent != "" {
+		_, err := useragent.ParseEntries([]byte(reqInfo.UserAgent))
+		if err != nil {
+			return userAgent
+		}
 		userAgent = reqInfo.UserAgent + " " + userAgent
 	}
-
 	return userAgent
 }
