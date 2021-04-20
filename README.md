@@ -1,6 +1,8 @@
-# S3 Gateway Multitenant
+# Multitenant S3 Gateway
 
 S3-compatible gateway for Storj V3 Network, based on [MinIO](https://github.com/minio/minio).
+
+If you're looking for the easier-to-setup Single Tenant Gateway, check out [Gateway-ST](https://github.com/storj/gateway-st).
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/gateway-mt)](https://goreportcard.com/report/storj.io/gateway-mt)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/gateway-mt)
