@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
+	"storj.io/common/grant"
 	"storj.io/common/storj"
-	"storj.io/uplink/private/access2"
 )
 
 // NotFound is returned when a record is not found.
@@ -116,7 +116,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	access, err := access2.ParseAccess(accessGrant)
+	access, err := grant.ParseAccess(accessGrant)
 	if err != nil {
 		return secretKey, err
 	}

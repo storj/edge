@@ -22,7 +22,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/private/version"
@@ -844,7 +843,7 @@ func convertError(err error, bucket, object string) error {
 		return minio.ObjectNotFound{Bucket: bucket, Object: object}
 	}
 
-	if errs2.IsRPC(err, rpcstatus.ResourceExhausted) {
+	if errors.Is(err, uplink.ErrBandwidthLimitExceeded) {
 		return minio.ProjectUsageLimit{}
 	}
 

@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
-	"storj.io/uplink/private/access2"
 )
 
 const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
@@ -147,10 +147,10 @@ func TestResources_CRUD(t *testing.T) {
 		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
-		access := access2.Access{
+		access := grant.Access{
 			SatelliteAddress: "us-central-1.tardigrade.io:7777",
 			APIKey:           mac,
-			EncAccess:        access2.NewEncryptionAccess(),
+			EncAccess:        grant.NewEncryptionAccess(),
 		}
 
 		noNodeID, err := access.Serialize()
