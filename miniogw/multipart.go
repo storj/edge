@@ -8,6 +8,7 @@ import (
 	"crypto/md5" /* #nosec G501 */ // Is only used for calculating a hash of the ETags of the all the parts of a multipart upload.
 	"encoding/hex"
 	"errors"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,8 +16,8 @@ import (
 	minio "github.com/storj/minio/cmd"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/sync2"
 	"storj.io/uplink"
-	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/storage/streams"
 )
 
@@ -47,11 +48,11 @@ func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object s
 		err = errs.Combine(err, project.Close())
 	}()
 
-	info, err := multipart.NewMultipartUpload(ctx, project, bucket, object, nil)
+	info, err := project.BeginUpload(ctx, bucket, object, nil)
 	if err != nil {
 		return "", convertMultipartError(err, bucket, object, "")
 	}
-	return info.StreamID, nil
+	return info.UploadID, nil
 }
 
 func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
@@ -82,14 +83,15 @@ func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, obj
 	info.Object = object
 	info.UploadID = uploadID
 
-	list := multipart.ListPendingObjectStreams(ctx, project, bucket, object, &multipart.ListMultipartUploadsOptions{
+	list := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+		Prefix: object,
 		System: true,
 		Custom: true,
 	})
 
 	for list.Next() {
 		obj := list.Item()
-		if obj.StreamID == uploadID {
+		if obj.UploadID == uploadID {
 			return minioMultipartInfo(bucket, obj), nil
 		}
 	}
@@ -99,21 +101,17 @@ func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, obj
 	return minio.MultipartInfo{}, minio.ObjectNotFound{Bucket: bucket, Object: object}
 }
 
-type etagReader struct {
-	*minio.PutObjReader
-}
-
-func newETagReader(reader *minio.PutObjReader) *etagReader {
-	return &etagReader{PutObjReader: reader}
-}
-
-func (r *etagReader) CurrentETag() []byte {
-	return []byte(r.MD5CurrentHexString())
-}
-
 func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer gateway.log(ctx, err)
+
+	if partID < 1 || partID > math.MaxUint32 {
+		return minio.PartInfo{}, minio.InvalidArgument{
+			Bucket: bucket,
+			Object: object,
+			Err:    errs.New("partID is out of range."),
+		}
+	}
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -123,17 +121,37 @@ func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploa
 		err = errs.Combine(err, project.Close())
 	}()
 
-	partInfo, err := multipart.PutObjectPart(ctx, project, bucket, object, uploadID, partID-1, newETagReader(data))
+	partUpload, err := project.UploadPart(ctx, bucket, object, uploadID, uint32(partID-1))
 	if err != nil {
 		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
 
+	_, err = sync2.Copy(ctx, partUpload, data)
+	if err != nil {
+		abortErr := partUpload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
+	}
+
+	err = partUpload.SetETag([]byte(data.MD5CurrentHexString())) // TODO is MD5CurrentHexString correct?
+	if err != nil {
+		abortErr := partUpload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
+	}
+
+	err = partUpload.Commit()
+	if err != nil {
+		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
+	}
+
+	part := partUpload.Info()
 	return minio.PartInfo{
-		PartNumber: partID,
-		Size:       partInfo.Size,
-		ActualSize: partInfo.Size,
-		ETag:       string(partInfo.ETag),
-		// TODO: should we return LastModified here?
+		PartNumber:   int(part.PartNumber + 1),
+		Size:         part.Size,
+		ActualSize:   part.Size,
+		ETag:         string(part.ETag),
+		LastModified: part.Modified,
 	}, nil
 }
 
@@ -149,7 +167,7 @@ func (gateway *gateway) AbortMultipartUpload(ctx context.Context, bucket, object
 		err = errs.Combine(err, project.Close())
 	}()
 
-	err = multipart.AbortMultipartUpload(ctx, project, bucket, object, uploadID)
+	err = project.AbortUpload(ctx, bucket, object, uploadID)
 	if err != nil {
 		return convertMultipartError(err, bucket, object, uploadID)
 	}
@@ -178,7 +196,7 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 	metadata := uplink.CustomMetadata(opts.UserDefined).Clone()
 	metadata["s3:etag"] = etag
 
-	obj, err := multipart.CompleteMultipartUpload(ctx, project, bucket, object, uploadID, &multipart.ObjectOptions{
+	obj, err := project.CommitUpload(ctx, bucket, object, uploadID, &uplink.CommitUploadOptions{
 		CustomMetadata: metadata,
 	})
 	if err != nil {
@@ -200,21 +218,33 @@ func (gateway *gateway) ListObjectParts(ctx context.Context, bucket, object, upl
 		err = errs.Combine(err, project.Close())
 	}()
 
-	list, err := multipart.ListObjectParts(ctx, project, bucket, object, uploadID, partNumberMarker-1, maxParts)
-	if err != nil {
-		return minio.ListPartsInfo{}, convertMultipartError(err, bucket, object, uploadID)
-	}
+	list := project.ListUploadParts(ctx, bucket, object, uploadID, &uplink.ListUploadPartsOptions{
+		Cursor: uint32(partNumberMarker - 1),
+	})
 
-	parts := make([]minio.PartInfo, 0, len(list.Items))
-	for _, item := range list.Items {
+	parts := make([]minio.PartInfo, 0, maxParts)
+
+	limit := maxParts
+	for (limit > 0 || maxParts == 0) && list.Next() {
+		limit--
+		part := list.Item()
 		parts = append(parts, minio.PartInfo{
-			PartNumber:   item.PartNumber + 1,
-			LastModified: item.LastModified,
-			ETag:         string(item.ETag), // Entity tag returned when the part was initially uploaded.
-			Size:         item.Size,         // Size in bytes of the part.
-			ActualSize:   item.Size,         // Decompressed Size.
+			PartNumber:   int(part.PartNumber + 1),
+			LastModified: part.Modified,
+			ETag:         string(part.ETag), // Entity tag returned when the part was initially uploaded.
+			Size:         part.Size,         // Size in bytes of the part.
+			ActualSize:   part.Size,         // Decompressed Size.
 		})
 	}
+	if list.Err() != nil {
+		return result, convertMultipartError(list.Err(), bucket, object, uploadID)
+	}
+
+	more := list.Next()
+	if list.Err() != nil {
+		return result, convertMultipartError(list.Err(), bucket, object, uploadID)
+	}
+
 	sort.Slice(parts, func(i, k int) bool {
 		return parts[i].PartNumber < parts[k].PartNumber
 	})
@@ -226,7 +256,7 @@ func (gateway *gateway) ListObjectParts(ctx context.Context, bucket, object, upl
 		PartNumberMarker:     partNumberMarker, // Part number after which listing begins.
 		NextPartNumberMarker: partNumberMarker, // TODO Next part number marker to be used if list is truncated
 		MaxParts:             maxParts,
-		IsTruncated:          list.More,
+		IsTruncated:          more,
 		Parts:                parts,
 		// also available: UserDefined map[string]string
 	}, nil
@@ -260,22 +290,13 @@ func (gateway *gateway) ListMultipartUploads(ctx context.Context, bucket string,
 	}()
 	recursive := delimiter == ""
 
-	var list *multipart.UploadIterator
-
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		list = multipart.ListPendingObjectStreams(ctx, project, bucket, prefix, &multipart.ListMultipartUploadsOptions{
-			System: true,
-			Custom: true,
-		})
-	} else {
-		list = multipart.ListMultipartUploads(ctx, project, bucket, &multipart.ListMultipartUploadsOptions{
-			Prefix:    prefix,
-			Cursor:    keyMarker,
-			Recursive: recursive,
-			System:    true,
-			Custom:    true,
-		})
-	}
+	list := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+		Prefix:    prefix,
+		Cursor:    keyMarker,
+		Recursive: recursive,
+		System:    true,
+		Custom:    true,
+	})
 
 	startAfter := keyMarker
 	var uploads []minio.MultipartInfo
@@ -322,16 +343,16 @@ func (gateway *gateway) ListMultipartUploads(ctx context.Context, bucket string,
 	return result, nil
 }
 
-func minioMultipartInfo(bucket string, object *multipart.Object) minio.MultipartInfo {
+func minioMultipartInfo(bucket string, object *uplink.UploadInfo) minio.MultipartInfo {
 	if object == nil {
-		object = &multipart.Object{}
+		object = &uplink.UploadInfo{}
 	}
 
 	return minio.MultipartInfo{
 		Bucket:      bucket,
 		Object:      object.Key,
 		Initiated:   object.System.Created,
-		UploadID:    object.StreamID,
+		UploadID:    object.UploadID,
 		UserDefined: object.Custom,
 	}
 }
@@ -362,7 +383,7 @@ func canonicalEtag(etag string) string {
 }
 
 func convertMultipartError(err error, bucket, object, uploadID string) error {
-	if errors.Is(err, multipart.ErrStreamIDInvalid) {
+	if errors.Is(err, uplink.ErrUploadIDInvalid) {
 		return minio.InvalidUploadID{Bucket: bucket, Object: object, UploadID: uploadID}
 	}
 
