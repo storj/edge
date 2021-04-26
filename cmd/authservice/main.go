@@ -96,6 +96,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	log := zap.L()
 
+	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+	}
+
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
