@@ -13,7 +13,7 @@ import (
 )
 
 // MinioError is class for minio errors.
-var MinioError = errs.Class("minio error")
+var MinioError = errs.Class("minio")
 
 // Config is the setup for a particular client.
 type Config struct {

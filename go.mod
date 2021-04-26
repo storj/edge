@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/storj/minio v0.0.0-20210330111527-04e6dc87c349
+	github.com/storj/minio/pkg/storj v0.0.0-20210330111527-04e6dc87c349
 	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0

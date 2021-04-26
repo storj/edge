@@ -56,7 +56,7 @@ type Config struct {
 
 var (
 	// Error is the default gateway setup errs class.
-	Error = errs.Class("gateway setup error")
+	Error = errs.Class("gateway setup")
 	// rootCmd represents the base gateway command when called without any subcommands.
 	rootCmd = &cobra.Command{
 		Use:   "gateway",
@@ -160,7 +160,6 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 
 	// because existing configs contain most of these values, we don't have separate
 	// parameter bindings for the non-Minio server
-	serverConfig := server.Config{Address: address, DomainNames: strings.Split(runCfg.DomainName, ",")}
 	var tlsConfig *tls.Config
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig, err = server.LoadTLSConfigFromDir(runCfg.CertDir)
@@ -168,7 +167,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 			return err
 		}
 	}
-	s3 := server.New(listener, zap.L(), tlsConfig, serverConfig)
+	s3 := server.New(listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","))
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)

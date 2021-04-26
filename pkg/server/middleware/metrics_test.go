@@ -31,8 +31,8 @@ func TestMetrics(t *testing.T) {
 	Metrics(status(500)).ServeHTTP(rr, req)
 
 	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
-	assert.Equal(t, 1.0, c["request_times,status_code=200 count"])
-	assert.Equal(t, 2.0, c["request_times,status_code=400 count"])
-	assert.Equal(t, 3.0, c["request_times,status_code=500 count"])
+	assert.Equal(t, 1.0, c["gmt_request_times,status_code=200 count"])
+	assert.Equal(t, 2.0, c["gmt_request_times,status_code=400 count"])
+	assert.Equal(t, 3.0, c["gmt_request_times,status_code=500 count"])
 
 }

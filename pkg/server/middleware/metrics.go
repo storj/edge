@@ -46,6 +46,6 @@ func Metrics(next http.Handler) http.Handler {
 		start := time.Now()
 		recorder := &StatusRecorder{ResponseWriter: w}
 		next.ServeHTTP(recorder, r)
-		mon.DurationVal("request_times", monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status))).Observe(time.Since(start))
+		mon.DurationVal("gmt_request_times", monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status))).Observe(time.Since(start))
 	})
 }

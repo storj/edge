@@ -12,39 +12,44 @@ import (
 
 	"github.com/gorilla/mux"
 	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/pkg/storj/middleware/signature"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/webhelp.v1/whlog"
 
 	"storj.io/common/errs2"
+	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/private/version"
+	"storj.io/uplink"
+	"storj.io/uplink/private/transport"
 )
 
 var (
 	// Error is an error class for internal Multinode Dashboard http server error.
-	Error = errs.Class("S3 compatible server error")
+	Error = errs.Class("gateway")
 )
-
-// Config contains configuration for an S3 compatible http server.
-type Config struct {
-	Address     string
-	DomainNames []string
-}
 
 // Server represents an S3 compatible http server.
 type Server struct {
-	http     http.Server
-	listener net.Listener
-	log      *zap.Logger
+	http         http.Server
+	listener     net.Listener
+	log          *zap.Logger
+	Address      string
+	DomainNames  []string
+	RPCPool      *rpcpool.Pool
+	AuthClient   *AuthClient
+	UplinkConfig *uplink.Config
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config Config) *Server {
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string, domainNames []string) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
-	s := &Server{listener: listener, log: log, http: http.Server{Handler: r, Addr: config.Address}}
+	s := &Server{listener: listener, log: log, http: http.Server{Handler: r, Addr: address}}
 
 	if tlsConfig != nil {
 		s.listener = tls.NewListener(listener, tlsConfig)
@@ -54,11 +59,10 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, config C
 	publicServices := r.PathPrefix("/-/").Subrouter()
 	publicServices.HandleFunc("/health", s.healthCheck)
 
-	for _, domainName := range config.DomainNames {
+	for _, domainName := range domainNames {
 		pathStyle := r.Host(domainName).Subrouter()
 		s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-		// this route was tested, but we have them commented out because they're currently not implemented
-		// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
+		pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
 		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
 		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
@@ -145,137 +149,54 @@ func (s *Server) Close() error {
 	return Error.Wrap(s.http.Close())
 }
 
-// AbortMultipartUpload aborts a multipart upload.
-func (s *Server) AbortMultipartUpload(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("AbortMultipartUpload")
-}
-
-// CompleteMultipartUpload completes a multipart upload.
-func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("CompleteMultipartUpload")
-}
-
-// CopyObject copies and object.
-func (s *Server) CopyObject(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("CopyObject")
-}
-
-// CreateBucket creates a bucket.
-func (s *Server) CreateBucket(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("CreateBucket")
-}
-
-// CreateMultipartUpload creates a multipart upload.
-func (s *Server) CreateMultipartUpload(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("CreateMultipartUpload")
-}
-
-// DeleteBucket deletes a bucket.
-func (s *Server) DeleteBucket(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("DeleteBucket")
-}
-
-// DeleteBucketTagging deletes the tagging of a bucket.
-func (s *Server) DeleteBucketTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("DeleteBucketTagging")
-}
-
-// DeleteObject deletes an object.
-func (s *Server) DeleteObject(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("DeleteObject")
-}
-
-// DeleteObjectTagging deletes the tagging of an object.
-func (s *Server) DeleteObjectTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("DeleteObjectTagging")
-}
-
-// DeleteObjects deletes objects.
-func (s *Server) DeleteObjects(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("DeleteObjects")
-}
-
-// GetBucketTagging deletes the tagging of a bucket.
-func (s *Server) GetBucketTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("GetBucketTagging")
-}
-
-// GetBucketVersioning returns the versioning state of a bucket.
-func (s *Server) GetBucketVersioning(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("GetBucketVersioning")
-	// todo:  consider if <Status>Suspended</Status> is better
-	_, err := w.Write([]byte(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>`))
+// WithProject handles opening and closing a project within a request handler.
+func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(context.Context, *uplink.Project) error) {
+	ctx := r.Context()
+	creds := signature.GetCredentials(ctx)
+	authAccess, err := s.AuthClient.GetAccess(ctx, creds.AccessKeyID)
 	if err != nil {
-		s.log.Error("GetBucketVersioning", zap.Error(err))
+		s.WriteError(ctx, w, err, r.URL)
+		return
+	}
+	accessGrant, err := uplink.ParseAccess(authAccess.AccessGrant)
+	if err != nil {
+		s.WriteError(ctx, w, err, r.URL)
+		return
+	}
+	uplinkConfig := s.UplinkConfig
+	uplinkConfig.UserAgent = getUserAgent(r.UserAgent())
+	err = transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
+	if err != nil {
+		s.WriteError(ctx, w, err, r.URL)
+		return
+	}
+
+	project, err := uplinkConfig.OpenProject(ctx, accessGrant)
+	if err != nil {
+		s.WriteError(ctx, w, err, r.URL)
+		return
+	}
+	defer func() {
+		if err := project.Close(); err != nil {
+			s.log.Warn("Failed to close project", zap.Error(err))
+		}
+	}()
+	err = h(ctx, project)
+	if err != nil {
+		s.WriteError(ctx, w, err, r.URL)
+		return
 	}
 }
 
-// GetObject returns an object.
-func (s *Server) GetObject(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("GetObject")
-}
+var gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
 
-// GetObjectTagging returns the tagging of an object.
-func (s *Server) GetObjectTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("GetObjectTagging")
-}
-
-// HeadBucket returns http headers about a bucket.
-func (s *Server) HeadBucket(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("HeadBucket")
-}
-
-// HeadObject returns http headers about an object.
-func (s *Server) HeadObject(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("HeadObject")
-}
-
-// ListBuckets returns a list of buckets.
-func (s *Server) ListBuckets(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("ListBuckets")
-}
-
-// ListMultipartUploads returns a list of multipart uploads.
-func (s *Server) ListMultipartUploads(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("ListMultipartUploads")
-}
-
-// ListObjects returns a list of objects.
-func (s *Server) ListObjects(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("ListObjects")
-}
-
-// ListObjectsV2 returns a list of objects.
-func (s *Server) ListObjectsV2(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("ListObjectsV2")
-}
-
-// ListParts returns a list of parts of a multipart upload.
-func (s *Server) ListParts(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("ListParts")
-}
-
-// PutBucketTagging adds tagging to a bucket.
-func (s *Server) PutBucketTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("PutBucketTagging")
-}
-
-// PutObject uploads an objects.
-func (s *Server) PutObject(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("PutObject")
-}
-
-// PutObjectTagging adds tagging to an object.
-func (s *Server) PutObjectTagging(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("PutObjectTagging")
-}
-
-// UploadPart uploads part of a multipart upload.
-func (s *Server) UploadPart(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("UploadPart")
-}
-
-// UploadPartCopy copies part of a multipart upload to another object.
-func (s *Server) UploadPartCopy(w http.ResponseWriter, r *http.Request) {
-	s.log.Debug("UploadPartCopy")
+func getUserAgent(clientAgent string) string {
+	if clientAgent == "" {
+		return gatewayUserAgent
+	}
+	_, err := useragent.ParseEntries([]byte(clientAgent))
+	if err != nil {
+		return gatewayUserAgent
+	}
+	return gatewayUserAgent + " " + clientAgent
 }

@@ -35,7 +35,7 @@ var (
 	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
 
 	// Error is the errs class of standard End User Client errors.
-	Error = errs.Class("Storj Gateway error")
+	Error = errs.Class("Storj Gateway")
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
@@ -931,6 +931,6 @@ func (gateway *gateway) logErr(err error) {
 		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
 		// This event should allow us to correlate with the logs to gradually add more
 		// error mappings and reduce number of unmapped errors we return.
-		mon.Event("unmapped_error")
+		mon.Event("gmt_unmapped_error")
 	}
 }
