@@ -105,7 +105,7 @@ func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploa
 	defer mon.Task()(&ctx)(&err)
 	defer gateway.log(ctx, err)
 
-	if partID < 1 || partID > math.MaxUint32 {
+	if partID < 1 || int64(partID) > math.MaxUint32 {
 		return minio.PartInfo{}, minio.InvalidArgument{
 			Bucket: bucket,
 			Object: object,
