@@ -90,33 +90,46 @@ timeout(time: 26, unit: 'MINUTES') {
 							}
 						}
 
-					   branchedStages["Testsuite"] = {
-						   stage("Testsuite") {
-							   withEnv([
-								   "STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
-								   "STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
-								   "COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
-							   ]){
-								  try {
-									  sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-									  sh 'psql -U postgres -c \'create database teststorj;\''
-									  sh 'use-ports -from 1024 -to 10000 &'
-									  dir('testsuite') {
-										 sh 'go vet ./...'
-										 sh 'go test -parallel 4 -p 6 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
-									  }
-								  }
-								  catch(err) {
-									 throw err
-								  }
-								  finally {
-									  sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
-									  archiveArtifacts artifacts: '.build/testsuite.json'
-									  junit '.build/testsuite.xml'
-								  }
-							  }
-						  }
-					  }
+						branchedStages["Testsuite"] = {
+							stage("Testsuite") {
+								withEnv([
+									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
+									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
+									"COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
+								]){
+									try {
+										sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+										sh 'psql -U postgres -c \'create database teststorj;\''
+										sh 'use-ports -from 1024 -to 10000 &'
+										dir('testsuite') {
+											sh 'go vet ./...'
+											sh 'go test -parallel 4 -p 6 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
+										}
+									}
+									catch(err) {
+										throw err
+									}
+									finally {
+										sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
+										archiveArtifacts artifacts: '.build/testsuite.json'
+										junit '.build/testsuite.xml'
+									}
+								}
+							}
+						}
+
+						branchedStages["Go Compatibility"] = {
+							stage("Go Compatibility") {
+								sh 'GOOS=linux   GOARCH=amd64 go vet ./...'
+								sh 'GOOS=linux   GOARCH=386   go vet ./...'
+								sh 'GOOS=linux   GOARCH=arm64 go vet ./...'
+								sh 'GOOS=linux   GOARCH=arm   go vet ./...'
+								sh 'GOOS=windows GOARCH=amd64 go vet ./...'
+								sh 'GOOS=windows GOARCH=386   go vet ./...'
+								// Use kqueue to avoid needing cgo for verification.
+								sh 'GOOS=darwin  GOARCH=amd64 go vet -tags kqueue ./...'
+							}
+						}
 						parallel branchedStages
 					}
 				}
