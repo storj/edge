@@ -19,3 +19,5 @@ ENTRYPOINT ["/entrypoint"]
 
 ENV STORJ_CONFIG_DIR=/root/.local/share/storj/gateway-mt
 ENV STORJ_SERVER_ADDRESS=0.0.0.0:7777
+
+# Healthcheck URL: http://<host>:7777/-/health

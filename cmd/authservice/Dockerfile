@@ -11,9 +11,6 @@ WORKDIR /app
 
 VOLUME /root/.local/share/storj/authservice
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s \
-  CMD ["/app/authservice", "--log.level=error", "health-check"]
-
 COPY cmd/authservice/etc/nsswitch.conf /etc/nsswitch.conf
 COPY release/${TAG}/authservice_linux_${GOARCH:-amd64} /app/authservice
 COPY cmd/authservice/entrypoint /entrypoint
@@ -22,3 +19,7 @@ ENTRYPOINT ["/entrypoint"]
 
 ENV STORJ_CONFIG_DIR=/root/.local/share/storj/authservice
 ENV STORJ_LISTEN_ADDR=0.0.0.0:8000
+
+# Healthcheck URLs:
+#  * Startup successful: https://<host>:8000/v1/health/startup
+#  * Able to hit DB: https://<host>:8000/v1/health/live
