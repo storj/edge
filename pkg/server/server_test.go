@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
@@ -83,6 +84,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	}
 
 	testHealthCheck(t, urlBase+"-/health", client)
+	testVersionInfo(t, urlBase+"-/version", client)
 	logs.TakeAll()
 	testRouting(t, logs, urlBase, bucket, object, vHostStyle, client)
 	// testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, false, false, client)
@@ -95,6 +97,18 @@ func testHealthCheck(t *testing.T, url string, client *http.Client) {
 	require.NoError(t, err)
 	require.Equal(t, 200, response.StatusCode)
 	defer func() { _ = response.Body.Close() }()
+}
+
+func testVersionInfo(t *testing.T, url string, client *http.Client) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	require.NoError(t, err)
+	response, err := client.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = response.Body.Close() }()
+	require.Equal(t, 200, response.StatusCode)
+	body, err := ioutil.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.Equal(t, "v0.0.0", string(body))
 }
 
 func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, vHostStyle bool, client *http.Client) {
