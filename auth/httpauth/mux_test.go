@@ -23,12 +23,34 @@ func TestShift(t *testing.T) {
 		{"//", "/", "/"},
 		{"//bar", "/", "/bar"},
 		{"", "", ""},
+		{"foo/bar", "foo/", "bar"},
+		{"bar", "bar", ""},
 	}
 
 	for _, tc := range cases {
 		dir, rem := shift(tc.In)
 		require.Equal(t, tc.Dir, dir)
 		require.Equal(t, tc.Rem, rem)
+	}
+}
+
+func TestTrim(t *testing.T) {
+	cases := []struct {
+		In  string
+		Out string
+	}{
+		{"/foo/bar", "foo/bar"},
+		{"/foo", "foo"},
+		{"/", ""},
+		{"//", "/"},
+		{"//bar", "/bar"},
+		{"", ""},
+		{"foo/bar", "foo/bar"},
+		{"bar", "bar"},
+	}
+
+	for _, tc := range cases {
+		require.Equal(t, tc.Out, trim(tc.In))
 	}
 }
 

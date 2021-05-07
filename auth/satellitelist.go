@@ -77,6 +77,8 @@ func readSatelliteList(input []byte, satellites map[storj.NodeID]struct{}) (err 
 	return nil
 }
 
+// getHTTPList downloads and returns bytes served under url and any error
+// encountered.
 func getHTTPList(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

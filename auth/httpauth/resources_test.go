@@ -88,13 +88,33 @@ func TestResources_CRUD(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			return nil, false
 		}
-		var out map[string]interface{}
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-		return out, true
+		if rec.Header().Get("Content-Type") == "application/json" {
+			var out map[string]interface{}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+			return out, true
+		}
+		return nil, true
 	}
 
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
+
+	t.Run("Availability after startup", func(t *testing.T) {
+		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+
+		const path = "/v1/health/startup"
+
+		_, ok := exec(res, "GET", path, "")
+		require.False(t, ok)
+		_, ok = exec(res, "GET", "/v1/health/live", "")
+		require.False(t, ok)
+
+		res.SetStartupDone()
+
+		_, ok = exec(res, "GET", path, "")
+		require.True(t, ok)
+	})
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
