@@ -3,8 +3,7 @@ set -Eueo pipefail
 trap 'rc=$?; echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"; exit $rc' ERR
 [ -n "${AWS_ACCESS_KEY_ID}" ]
 [ -n "${AWS_SECRET_ACCESS_KEY}" ]
-[ -n "${SERVER_IP}" ]
-[ -n "${SERVER_PORT}" ]
+[ -n "${AWS_ENDPOINT}" ]
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -38,13 +37,12 @@ random_bytes_file 9  1024x1024 "$SRC_DIR/big-upload-testfile"       # create 9mb
 # random_bytes_file 64 1024x1024 "$SRC_DIR/multipart-upload-testfile"
 
 echo "Creating Bucket"
-SERVER_ENDPOINT="$SERVER_IP:$SERVER_PORT"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" mb s3://bucket
+aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket
 
 echo "Uploading Files"
 aws configure set default.s3.multipart_threshold 1TB
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp "$SRC_DIR/small-upload-testfile" s3://bucket/small-testfile
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp "$SRC_DIR/big-upload-testfile"   s3://bucket/big-testfile
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/small-upload-testfile" s3://bucket/small-testfile
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/big-upload-testfile"   s3://bucket/big-testfile
 
 # Wait 5 seconds to trigger any error related to one of the different intervals
 sleep 5
@@ -52,34 +50,34 @@ sleep 5
 # TODO: activate when we implement multipart upload again
 # echo "Uploading Multipart File"
 # aws configure set default.s3.multipart_threshold 4KB
-# aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" s3://bucket/multipart-testfile
+# aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" s3://bucket/multipart-testfile
 
 echo "Downloading Files"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" ls s3://bucket
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp s3://bucket/small-testfile     "$DST_DIR/small-download-testfile"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp s3://bucket/big-testfile       "$DST_DIR/big-download-testfile"
-# aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp s3://bucket/multipart-testfile "$DST_DIR/multipart-download-testfile"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" rb s3://bucket --force
+aws s3 --endpoint "$AWS_ENDPOINT" ls s3://bucket
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/small-testfile     "$DST_DIR/small-download-testfile"
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/big-testfile       "$DST_DIR/big-download-testfile"
+# aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/multipart-testfile "$DST_DIR/multipart-download-testfile"
+aws s3 --endpoint "$AWS_ENDPOINT" rb s3://bucket --force
 
 require_equal_files_content "$SRC_DIR/small-upload-testfile"     "$DST_DIR/small-download-testfile"
 require_equal_files_content "$SRC_DIR/big-upload-testfile"       "$DST_DIR/big-download-testfile"
 # require_equal_files_content "$SRC_DIR/multipart-upload-testfile" "$DST_DIR/multipart-download-testfile"
 
 echo "Creating Bucket for sync test"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" mb s3://bucket-sync
+aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket-sync
 
 echo "Sync Files"
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress sync "$SRC_DIR" s3://bucket-sync
-aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress sync s3://bucket-sync "$SYNC_DST_DIR"
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress sync "$SRC_DIR" s3://bucket-sync
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress sync s3://bucket-sync "$SYNC_DST_DIR"
 
-aws s3 --endpoint="http://$SERVER_ENDPOINT" rb s3://bucket-sync --force
+aws s3 --endpoint "$AWS_ENDPOINT" rb s3://bucket-sync --force
 
 echo "Compare sync directories"
 diff "$SRC_DIR" "$SYNC_DST_DIR"
 
 echo "Deleting Files"
 
-aws s3 --endpoint="http://$SERVER_ENDPOINT" mb s3://bucket
+aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket
 
 # TODO: check for "Key": "data/multipart-download-testfile" when mutlipart upload is back
 cat > "$TMPDIR/all-exist.json" << EOF
@@ -126,8 +124,8 @@ cat > "$TMPDIR/none-exist.json" << EOF
 EOF
 
 for delete_set in all-exist.json some-exist.json none-exist.json; do
-  aws s3 --endpoint="http://$SERVER_ENDPOINT" --no-progress cp --recursive "$SRC_DIR" s3://bucket/data
-  aws s3api --endpoint="http://$SERVER_ENDPOINT" \
+  aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp --recursive "$SRC_DIR" s3://bucket/data
+  aws s3api --endpoint "$AWS_ENDPOINT" \
     delete-objects --bucket 'bucket' --delete "file://$TMPDIR/$delete_set" > "$TMPDIR/$delete_set.result"
 
   grep 'Key' "$TMPDIR/$delete_set" | sort > "$TMPDIR/$delete_set.sorted"
@@ -139,4 +137,4 @@ for delete_set in all-exist.json some-exist.json none-exist.json; do
   require_equal_files_content "$TMPDIR/$delete_set.sorted" "$TMPDIR/$delete_set.result.sorted"
 done
 
-aws s3 --endpoint="http://$SERVER_ENDPOINT" rb s3://bucket --force
+aws s3 --endpoint "$AWS_ENDPOINT" rb s3://bucket --force
