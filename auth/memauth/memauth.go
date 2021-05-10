@@ -94,8 +94,5 @@ func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string
 func (d *KV) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	return nil
 }
