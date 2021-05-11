@@ -17,7 +17,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/webhelp.v1/whlog"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
@@ -80,8 +79,10 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 		Handler: minio.CorsHandler(r),
 	}
 
-	s.http.Handler = whlog.LogRequests(s.log.Sugar().Infof, s.http.Handler)
-	s.http.Handler = whlog.LogResponses(s.log.Sugar().Infof, s.http.Handler)
+	// we deliberately don't log paths for this service because they have
+	// sensitive information.
+	s.http.Handler = LogRequestsNoPaths(s.log, s.http.Handler)
+	s.http.Handler = LogResponsesNoPaths(s.log, s.http.Handler)
 
 	return s
 }

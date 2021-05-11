@@ -17,6 +17,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/httpauth"
+	"storj.io/gateway-mt/pkg/server"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )
@@ -142,6 +143,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// logging. do not log paths - paths have access keys in them.
+	handler = server.LogResponsesNoPaths(log,
+		server.LogRequestsNoPaths(log, handler))
 
 	errors := make(chan error, 2)
 	launch := func(fn func() error) {
