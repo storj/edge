@@ -5,7 +5,6 @@ package memauth
 
 import (
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -73,75 +72,59 @@ func TestKVParallel(t *testing.T) {
 
 	kv := New()
 
-	var (
-		end   sync.WaitGroup // to coordinate when finished
-		start sync.WaitGroup // to coordinate when to start
-	)
-
-	end.Add(5)
-	start.Add(5)
-
-	go func() { // Put
-		defer end.Done()
-
+	ctx.Go(func() error { // Put
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-		start.Done()
-		start.Wait()
 
 		for i := 0; i < 10000; i++ {
 			_ = kv.Put(ctx, auth.KeyHash{byte(r.Intn(100))}, nil)
 		}
-	}()
 
-	go func() { // Get
-		defer end.Done()
+		return nil
+	})
 
+	ctx.Go(func() error { // Get
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-		start.Done()
-		start.Wait()
 
 		for i := 0; i < 10000; i++ {
 			_, _ = kv.Get(ctx, auth.KeyHash{byte(r.Intn(100))})
 		}
-	}()
 
-	go func() { // Delete
-		defer end.Done()
+		return nil
+	})
 
+	ctx.Go(func() error { // Delete
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		start.Done()
-		start.Wait()
-
 		for i := 0; i < 10000; i++ {
-			require.NoError(t, kv.Delete(ctx, auth.KeyHash{byte(r.Intn(100))}))
+			if err := kv.Delete(ctx, auth.KeyHash{byte(r.Intn(100))}); err != nil {
+				return err
+			}
 		}
-	}()
 
-	go func() { // Invalidate
-		defer end.Done()
+		return nil
+	})
 
+	ctx.Go(func() error { // Invalidate
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		start.Done()
-		start.Wait()
-
 		for i := 0; i < 10000; i++ {
-			require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{byte(r.Intn(100))}, ""))
+			if err := kv.Invalidate(ctx, auth.KeyHash{byte(r.Intn(100))}, ""); err != nil {
+				return err
+			}
 		}
-	}()
 
-	go func() { // Ping
-		defer end.Done()
-		start.Done()
-		start.Wait()
+		return nil
+	})
 
+	ctx.Go(func() error { // Ping
 		for i := 0; i < 10000; i++ {
-			require.NoError(t, kv.Ping(ctx))
+			if err := kv.Ping(ctx); err != nil {
+				return err
+			}
 		}
-	}()
 
-	end.Wait()
+		return nil
+	})
+
+	ctx.Wait()
 }

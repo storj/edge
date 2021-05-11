@@ -43,14 +43,11 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 	tests := []struct {
 		input     []string
 		isDynamic bool
-		hasErr    bool
 	}{
-		{withIds, false, false},
-		{[]string{testServer.URL}, true, false},
-		{[]string{testFile}, true, false},
-		{append(withIds, testServer.URL), true, false},
-		{[]string{"nonsense"}, false, true},
-		{[]string{"garbage:input"}, false, true},
+		{withIds, false},
+		{[]string{testServer.URL}, true},
+		{[]string{testFile}, true},
+		{append(withIds, testServer.URL), true},
 	}
 
 	expected := make(map[storj.NodeID]struct{})
@@ -62,11 +59,22 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 
 	for i, tc := range tests {
 		satList, isDynamic, err := LoadSatelliteIDs(ctx, tc.input)
-		require.Equal(t, tc.hasErr, err != nil, i)
-		if !tc.hasErr {
-			require.Equal(t, expected, satList, i)
-			require.Equal(t, tc.isDynamic, isDynamic, i)
-		}
+		require.NoError(t, err, i)
+		require.Equal(t, expected, satList, i)
+		require.Equal(t, tc.isDynamic, isDynamic, i)
+	}
+}
+
+func TestLoadSatelliteAddresses_Invalid(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	for i, v := range []string{
+		"nonsense",
+		"garbage:input",
+	} {
+		_, _, err := LoadSatelliteIDs(ctx, []string{v})
+		require.Error(t, err, i)
 	}
 }
 
@@ -87,7 +95,6 @@ func TestReadSatelliteList(t *testing.T) {
 		input              []byte
 		satellites         map[storj.NodeID]struct{}
 		expectedSatellites map[storj.NodeID]struct{}
-		wantErr            bool
 	}{
 		{
 			name:               "empty",
@@ -164,33 +171,26 @@ func TestReadSatelliteList(t *testing.T) {
 				validNodeURLs[6].ID: {},
 			},
 		},
-		{
-			name: "invalid",
-			input: []byte("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA" +
-				"6@ap1.storj.io:7777\n# 1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5Dp" +
-				"Sxcs8EjT69tGE@saltlake.tardigrade.io:7777\nthere should be a" +
-				"n other satellite..."),
-			satellites: make(map[storj.NodeID]struct{}),
-			wantErr:    true,
-		},
-		{
-			name: "invalid 2",
-			input: []byte("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA" +
-				"6@ap1.storj.io:77771wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs" +
-				"8EjT69tGE@saltlake.tardigrade.io:7777\n"),
-			satellites: make(map[storj.NodeID]struct{}),
-			wantErr:    true,
-		},
 	}
 
-	for _, tc := range tests {
+	for i, tc := range tests {
 		satellites := make(map[storj.NodeID]struct{})
 		err = readSatelliteList(tc.input, satellites)
-		if tc.wantErr {
-			require.Error(t, err, tc.name)
-		} else {
-			require.Equal(t, tc.expectedSatellites, satellites, tc.name)
-		}
+		require.NoError(t, err, tc.name)
+		require.Equal(t, tc.expectedSatellites, satellites, i, tc.name)
+	}
+}
+
+func TestReadSatelliteList_Invalid(t *testing.T) {
+	for i, input := range []string{
+		"121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:777" +
+			"7\n# 1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake" +
+			".tardigrade.io:7777\nthere should be another satellite...",
+		"121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:777" +
+			"71wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake.tar" +
+			"digrade.io:7777\n",
+	} {
+		require.Error(t, readSatelliteList([]byte(input), make(map[storj.NodeID]struct{})), i)
 	}
 }
 
@@ -204,92 +204,59 @@ func TestGetHTTPList(t *testing.T) {
 		fmt.Fprint(w, test)
 	}))
 	defer ts1.Close()
+
+	b, err := getHTTPList(ctx, ts1.URL)
+	require.NoError(t, err)
+	require.Equal(t, test, string(b))
+}
+
+func TestGetHTTPList_Invalid(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 	}))
 	defer ts2.Close()
 
-	tests := []struct {
-		name     string
-		url      string
-		response string
-		wantErr  bool
-	}{
-		{
-			name:     "ok",
-			url:      ts1.URL,
-			response: test,
-		},
-		{
-			name:    "server returned non-2xx response",
-			url:     ts2.URL,
-			wantErr: true,
-		},
-		{
-			name:    "unreachable url",
-			url:     "jane@computer.local",
-			wantErr: true,
-		},
-		{
-			name:    "invalid url",
-			url:     "ftp://ab:cd",
-			wantErr: true,
-		},
+	for i, url := range []string{
+		ts2.URL,
+		"jane@computer.local",
+		"ftp://ab:cd",
+	} {
+		_, err := getHTTPList(ctx, url)
+		require.Error(t, err, i)
 	}
-
-	for _, tc := range tests {
-		b, err := getHTTPList(ctx, tc.url)
-		if tc.wantErr {
-			require.Error(t, err, tc.name)
-		} else {
-			require.Equal(t, tc.response, string(b), tc.name)
-		}
-	}
-}
-
-func mustNodeIDFromString(s string) storj.NodeID {
-	id, err := storj.NodeIDFromString(s)
-	if err != nil {
-		panic(err)
-	}
-	return id
 }
 
 func TestParseSatelliteID(t *testing.T) {
-	tests := []struct {
-		name       string
-		id         string
-		expectedID storj.NodeID
-		wantErr    bool
+	for i, tc := range []struct {
+		s        string
+		expected string
 	}{
 		{
-			name:       "ID + URL",
-			id:         "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777",
-			expectedID: mustNodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW"),
+			s:        "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777",
+			expected: "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW",
 		},
 		{
-			name:       "URL only (known)",
-			id:         "saltlake.tardigrade.io:7777",
-			expectedID: mustNodeIDFromString("1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE"),
+			s:        "saltlake.tardigrade.io:7777",
+			expected: "1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE",
 		},
-		{
-			name:    "URL only (unknown)",
-			id:      "10.0.0.1:7777",
-			wantErr: true,
-		},
-		{
-			name:    "garbage input",
-			id:      "8c\x8d\x6a\x4f\x05\x02\x23\xa4\x07\x56",
-			wantErr: true,
-		},
+	} {
+		expected, err := storj.NodeIDFromString(tc.expected)
+		require.NoError(t, err, i)
+		id, err := ParseSatelliteID(tc.s)
+		require.NoError(t, err, i)
+		require.Equal(t, expected, id, i)
 	}
+}
 
-	for _, tc := range tests {
-		id, err := ParseSatelliteID(tc.id)
-		if tc.wantErr {
-			require.Error(t, err, tc.name)
-		} else {
-			require.Equal(t, tc.expectedID, id, tc.name)
-		}
+func TestParseSatelliteID_Invalid(t *testing.T) {
+	for i, s := range []string{
+		"10.0.0.1:7777",
+		"\x8c\x8d\x6a\x4f\x05\x02\x23\xa4\x07\x56",
+	} {
+		_, err := ParseSatelliteID(s)
+		require.Error(t, err, i)
 	}
 }
