@@ -124,9 +124,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	zap.S().Info("Starting Tardigrade S3 Gateway\n\n")
+	zap.S().Info("Starting Storj DCS S3 Gateway\n\n")
 	zap.S().Infof("Endpoint: %s\n", address)
-	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
+	zap.S().Info("Access key: use your Storj DCS Access Grant\n")
 	zap.S().Info("Secret key: anything would work\n")
 
 	return runCfg.Run(ctx, address)
@@ -153,9 +153,9 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	zap.S().Info("Starting Tardigrade S3 Gateway\n\n")
+	zap.S().Info("Starting Storj DCS S3 Gateway\n\n")
 	zap.S().Infof("Endpoint: %s\n", address)
-	zap.S().Info("Access key: use your Tardigrade Access Grant\n")
+	zap.S().Info("Access key: use your Storj DCS Access Grant\n")
 	zap.S().Info("Secret key: anything would work\n")
 
 	// because existing configs contain most of these values, we don't have separate

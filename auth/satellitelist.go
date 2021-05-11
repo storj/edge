@@ -25,7 +25,7 @@ var ErrAllowedSatelliteList = errs.Class("allowed satellite list")
 // satellites IDs suitable for calling ("*Database).SetAllowedSatellites().
 // ConfigValues may be satellite address URLs with a node id.  Alternatively,
 // ConfigValues may be local or HTTP(S) files which contain one satellite address per line,
-// the same format as https://tardigrade.io/trusted-satellites.  HasNodeList indicates
+// the same format as https://www.storj.io/dcs-satellites.  HasNodeList indicates
 // if any configValue is a node address list, indicating it should be polled for updates.
 func LoadSatelliteIDs(ctx context.Context, configValues []string) (satMap map[storj.NodeID]struct{}, hasNodeList bool, err error) {
 	satMap = make(map[storj.NodeID]struct{})

@@ -51,7 +51,7 @@ var (
 type Config struct {
 	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
 	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
-	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://tardigrade.io/trusted-satellites"`
+	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
 	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 
 	KVBackend string `help:"key/value store backend url" default:"memory://"`
