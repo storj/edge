@@ -64,7 +64,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 	for _, domainName := range domainNames {
 		pathStyle := r.Host(domainName).Subrouter()
 		s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-		pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
+		// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
 
 		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
 		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
