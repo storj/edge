@@ -20,14 +20,14 @@ var mon = monkit.Package()
 
 // WriteError takes a Storj error and maps its to a Minio API Error, this enabling
 // reuse of Minio's ability to write S3 XML error responses.
-func (s *Server) WriteError(ctx context.Context, w http.ResponseWriter, err error, reqURL *url.URL) {
-	apiError := s.mapToAPIErrorCode(ctx, err)
+func WriteError(ctx context.Context, w http.ResponseWriter, err error, reqURL *url.URL) {
+	apiError := mapToAPIErrorCode(ctx, err)
 
 	minio.WriteErrorResponse(ctx, w, minio.GetAPIError(apiError), reqURL)
 }
 
 // mapToAPIErrorCode takes a Storj error and returns a Minio APIErrorCode.
-func (s *Server) mapToAPIErrorCode(ctx context.Context, err error) cmd.APIErrorCode {
+func mapToAPIErrorCode(ctx context.Context, err error) cmd.APIErrorCode {
 	if err == nil {
 		return cmd.ErrNone
 	}
@@ -35,7 +35,7 @@ func (s *Server) mapToAPIErrorCode(ctx context.Context, err error) cmd.APIErrorC
 	// most of the time context canceled is intentionally caused by the client
 	// to keep log message clean, we will only log it on debug level
 	if errs2.IsCanceled(err) {
-		s.log.Debug("gateway error:", zap.Error(err))
+		zap.L().Debug("gateway error:", zap.Error(err))
 		return cmd.ErrClientDisconnected
 	}
 

@@ -135,25 +135,25 @@ func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(cont
 	creds := signature.GetCredentials(ctx)
 	authAccess, err := s.AuthClient.GetAccess(ctx, creds.AccessKeyID)
 	if err != nil {
-		s.WriteError(ctx, w, err, r.URL)
+		WriteError(ctx, w, err, r.URL)
 		return
 	}
 	accessGrant, err := uplink.ParseAccess(authAccess.AccessGrant)
 	if err != nil {
-		s.WriteError(ctx, w, err, r.URL)
+		WriteError(ctx, w, err, r.URL)
 		return
 	}
 	uplinkConfig := s.UplinkConfig
 	uplinkConfig.UserAgent = getUserAgent(r.UserAgent())
 	err = transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
 	if err != nil {
-		s.WriteError(ctx, w, err, r.URL)
+		WriteError(ctx, w, err, r.URL)
 		return
 	}
 
 	project, err := uplinkConfig.OpenProject(ctx, accessGrant)
 	if err != nil {
-		s.WriteError(ctx, w, err, r.URL)
+		WriteError(ctx, w, err, r.URL)
 		return
 	}
 	defer func() {
@@ -163,7 +163,7 @@ func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(cont
 	}()
 	err = h(ctx, project)
 	if err != nil {
-		s.WriteError(ctx, w, err, r.URL)
+		WriteError(ctx, w, err, r.URL)
 		return
 	}
 }
