@@ -101,35 +101,7 @@ func (s *Server) versionInfo(w http.ResponseWriter, r *http.Request) {
 func (s *Server) AddRoutes(r *mux.Router, bucketPath, objectPath string) {
 	// these routes were tested, but we have them commented out because they're currently not implemented
 	// when implementing one of these, please also uncomment its test in server_test.go
-	// r.HandleFunc(objectPath, s.DeleteObjectTagging).Methods(http.MethodDelete).Queries("tagging", "")
-	// r.HandleFunc(objectPath, s.GetObjectTagging).Methods(http.MethodGet).Queries("tagging", "")
-	// r.HandleFunc(objectPath, s.PutObjectTagging).Methods(http.MethodPut).Queries("tagging", "")
-
-	// r.HandleFunc(objectPath, s.AbortMultipartUpload).Methods(http.MethodDelete).Queries("uploadId", "{UploadId:.+}")
-	// r.HandleFunc(objectPath, s.ListParts).Methods(http.MethodGet).Queries("uploadId", "{UploadId:.+}")
-	// r.HandleFunc(objectPath, s.CreateMultipartUpload).Methods(http.MethodPost).Queries("uploads", "")
-	// r.HandleFunc(objectPath, s.CompleteMultipartUpload).Methods(http.MethodPost).Queries("uploadId", "{UploadId:.+}")
-	// r.HandleFunc(objectPath, s.UploadPartCopy).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}").HeadersRegexp("x-amz-copy-source", ".+")
-	// r.HandleFunc(objectPath, s.UploadPart).Methods(http.MethodPut).Queries("uploadId", "{UploadId:.+}", "partNumber", "{partNumber:.+}")
-
-	// r.HandleFunc(objectPath, s.GetObject).Methods(http.MethodGet)
-	// r.HandleFunc(objectPath, s.CopyObject).Methods(http.MethodPut).HeadersRegexp("x-amz-copy-source", ".+")
-	// r.HandleFunc(objectPath, s.PutObject).Methods(http.MethodPut)
-	// r.HandleFunc(objectPath, s.DeleteObject).Methods(http.MethodDelete)
-	// r.HandleFunc(objectPath, s.HeadObject).Methods(http.MethodHead)
-
-	// r.HandleFunc(bucketPath, s.DeleteBucketTagging).Methods(http.MethodDelete).Queries("tagging", "")
-	// r.HandleFunc(bucketPath, s.GetBucketTagging).Methods(http.MethodGet).Queries("tagging", "")
-	// r.HandleFunc(bucketPath, s.PutBucketTagging).Methods(http.MethodPut).Queries("tagging", "")
 	r.HandleFunc(bucketPath, s.GetBucketVersioning).Methods(http.MethodGet).Queries("versioning", "")
-
-	// r.HandleFunc(bucketPath, s.DeleteObjects).Methods(http.MethodPost).Queries("delete", "")
-	// r.HandleFunc(bucketPath, s.ListMultipartUploads).Methods(http.MethodGet).Queries("uploads", "")
-	// r.HandleFunc(bucketPath, s.ListObjectsV2).Methods(http.MethodGet).Queries("list-type", "2")
-	// r.HandleFunc(bucketPath, s.ListObjects).Methods(http.MethodGet)
-	// r.HandleFunc(bucketPath, s.CreateBucket).Methods(http.MethodPut)
-	// r.HandleFunc(bucketPath, s.DeleteBucket).Methods(http.MethodDelete)
-	// r.HandleFunc(bucketPath, s.HeadBucket).Methods(http.MethodHead)
 }
 
 // Run starts the S3 compatible http server.

@@ -113,37 +113,7 @@ func testVersionInfo(t *testing.T, url string, client *http.Client) {
 
 func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, vHostStyle bool, client *http.Client) {
 	// Trust the augmented cert pool in our client
-
-	// testRoute(t, logs, "DeleteObjectTagging", object+"?tagging", http.MethodDelete, false, vHostStyle, client)
-	// testRoute(t, logs, "GetObjectTagging", object+"?tagging", http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "PutObjectTagging", object+"?tagging", http.MethodPut, false, vHostStyle, client)
-
-	// testRoute(t, logs, "CreateMultipartUpload", object+"?uploads", http.MethodPost, false, vHostStyle, client)
-	// testRoute(t, logs, "AbortMultipartUpload", object+"?uploadId=UploadId", http.MethodDelete, false, vHostStyle, client)
-	// testRoute(t, logs, "ListParts", object+"?uploadId=UploadId", http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "CompleteMultipartUpload", object+"?uploadId=UploadId", http.MethodPost, false, vHostStyle, client)
-	// testRoute(t, logs, "UploadPartCopy", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, true, vHostStyle, client)
-	// testRoute(t, logs, "UploadPart", object+"?uploadId=UploadId&partNumber=PartNumber", http.MethodPut, false, vHostStyle, client)
-
-	// testRoute(t, logs, "GetObject", object, http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "CopyObject", object, http.MethodPut, true, vHostStyle, client)
-	// testRoute(t, logs, "PutObject", object, http.MethodPut, false, vHostStyle, client)
-	// testRoute(t, logs, "DeleteObject", object, http.MethodDelete, false, vHostStyle, client)
-	// testRoute(t, logs, "HeadObject", object, http.MethodHead, false, vHostStyle, client)
-
-	// testRoute(t, logs, "DeleteBucketTagging", bucket+"?tagging", http.MethodDelete, false, vHostStyle, client)
-	// testRoute(t, logs, "GetBucketTagging", bucket+"?tagging", http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "PutBucketTagging", bucket+"?tagging", http.MethodPut, false, vHostStyle, client)
 	testRoute(t, logs, "GetBucketVersioning", bucket+"?versioning", http.MethodGet, false, vHostStyle, client)
-
-	// testRoute(t, logs, "DeleteObjects", bucket+"?delete", http.MethodPost, false, vHostStyle, client)
-	// testRoute(t, logs, "ListMultipartUploads", bucket+"?uploads", http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "ListObjectsV2", bucket+"?list-type=2", http.MethodGet, false, vHostStyle, client)
-
-	// testRoute(t, logs, "ListObjects", bucket, http.MethodGet, false, vHostStyle, client)
-	// testRoute(t, logs, "CreateBucket", bucket, http.MethodPut, false, vHostStyle, client)
-	// testRoute(t, logs, "DeleteBucket", bucket, http.MethodDelete, false, vHostStyle, client)
-	// testRoute(t, logs, "HeadBucket", bucket, http.MethodHead, false, vHostStyle, client)
 }
 
 func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, vHostStyle bool, client *http.Client) {
