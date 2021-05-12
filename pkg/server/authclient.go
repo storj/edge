@@ -46,8 +46,7 @@ func NewAuthClient(baseURL *url.URL, token string) (*AuthClient, error) {
 		client: &http.Client{
 			Timeout: clientTimeout,
 		},
-		token: token,
-
+		token:         token,
 		accessURL:     accessURL,
 		healthLiveURL: healthLiveURL,
 	}, nil
@@ -57,7 +56,7 @@ func NewAuthClient(baseURL *url.URL, token string) (*AuthClient, error) {
 type GetAccessResponse struct {
 	AccessGrant string `json:"access_grant"`
 	SecretKey   string `json:"secret_key"`
-	Public      bool   `json:"public"`
+	IsPublic    bool   `json:"public"`
 }
 
 // GetAccess returns the auth service access data for the give access key ID.

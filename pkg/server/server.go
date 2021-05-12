@@ -13,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	minio "github.com/storj/minio/cmd"
-	"github.com/storj/minio/pkg/storj/middleware/signature"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -40,7 +39,6 @@ type Server struct {
 	Address      string
 	DomainNames  []string
 	RPCPool      *rpcpool.Pool
-	AuthClient   *AuthClient
 	UplinkConfig *uplink.Config
 }
 
@@ -132,20 +130,11 @@ func (s *Server) Close() error {
 // WithProject handles opening and closing a project within a request handler.
 func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(context.Context, *uplink.Project) error) {
 	ctx := r.Context()
-	creds := signature.GetCredentials(ctx)
-	authAccess, err := s.AuthClient.GetAccess(ctx, creds.AccessKeyID)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-	accessGrant, err := uplink.ParseAccess(authAccess.AccessGrant)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
+	accessGrant := GetAcessGrant(ctx)
+
 	uplinkConfig := s.UplinkConfig
 	uplinkConfig.UserAgent = getUserAgent(r.UserAgent())
-	err = transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
+	err := transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
 	if err != nil {
 		WriteError(ctx, w, err, r.URL)
 		return

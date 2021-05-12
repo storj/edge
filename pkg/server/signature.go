@@ -20,70 +20,68 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/zeebo/errs"
+
+	"storj.io/uplink"
 )
+
+type contextValue string
 
 const (
-	iso8601Format = "20060102T150405Z"
-	yyyymmdd      = "20060102"
+	iso8601Format              = "20060102T150405Z"
+	yyyymmdd                   = "20060102"
+	accessGrant   contextValue = "AccessGrant"
 )
-
-type contextKey struct{}
-
-// Credentials are the key and secret associated with this request.
-type Credentials struct {
-	AccessKeyID string
-	SecretKey   string
-}
-
-// SecretKeyGetter returns a secret key from an access key.
-type SecretKeyGetter interface {
-	Get(ctx context.Context, accessKeyID string) (secretKey string, err error)
-}
 
 // Signature middleware handles authorization without Minio.
 type Signature struct {
-	SecretKey SecretKeyGetter
+	AuthClient func() (*AuthClient, error)
 }
 
 // Middleware implements mux.Middlware.
 func (s *Signature) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-
-		accessKeyID, checker, err := GetAccessKeyIDWithChecker(r)
+		// extract the access key id from the HTTP headers
+		accessKeyID, validator, err := GetAccessKeyIDWithValidator(r)
 		if err != nil {
 			WriteError(ctx, w, err, r.URL)
 			return
 		}
-
-		secretKey, err := s.SecretKey.Get(ctx, accessKeyID)
+		// lookup access grant and secret key from the auth service
+		authClient, err := s.AuthClient()
 		if err != nil {
 			WriteError(ctx, w, err, r.URL)
 			return
 		}
-
-		err = checker.Ok(r, secretKey)
+		authResponse, err := authClient.GetAccess(ctx, accessKeyID)
 		if err != nil {
 			WriteError(ctx, w, err, r.URL)
 			return
 		}
-
-		c := &Credentials{
-			AccessKeyID: accessKeyID,
-			SecretKey:   secretKey,
+		// validate request using the secret key
+		err = validator.IsRequestValid(r, authResponse.SecretKey)
+		if err != nil {
+			WriteError(ctx, w, err, r.URL)
+			return
 		}
-
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, contextKey{}, c)))
+		// if we reach here, the request is validated.  parse the access grant.
+		accessGrant, err := uplink.ParseAccess(authResponse.AccessGrant)
+		if err != nil {
+			WriteError(ctx, w, err, r.URL)
+			return
+		}
+		// return a new context that contains the access grant
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, accessGrant, accessGrant)))
 	})
 }
 
-// GetCredentials returns the credentials.
-func GetCredentials(ctx context.Context) *Credentials {
-	return ctx.Value(contextKey{}).(*Credentials)
+// GetAcessGrant returns the credentials.
+func GetAcessGrant(ctx context.Context) *uplink.Access {
+	return ctx.Value(accessGrant).(*uplink.Access)
 }
 
-// GetAccessKeyIDWithChecker returns the access key ID from the request and a signature checker.
-func GetAccessKeyIDWithChecker(r *http.Request) (string, Checker, error) {
+// GetAccessKeyIDWithValidator returns the access key ID from the request and a signature validator.
+func GetAccessKeyIDWithValidator(r *http.Request) (string, Validator, error) {
 	// Speculatively parse for V4 and then V2.
 	v4, err1 := ParseV4(r)
 	if err1 == nil {
@@ -131,10 +129,10 @@ func ParseV4Credential(data string) (*V4Credential, error) {
 	}, nil
 }
 
-// Checker implements the Ok interface for validating signatures against a
+// Validator implements the Ok interface for validating signatures against a
 // given request and secret.
-type Checker interface {
-	Ok(r *http.Request, secretKey string) (err error)
+type Validator interface {
+	IsRequestValid(r *http.Request, secretKey string) (err error)
 }
 
 // V4 represents S3 V4 all security related data.
@@ -174,8 +172,8 @@ func (v4 *V4) valid() bool {
 	return true
 }
 
-// Ok validates the v4 signature against a given request.
-func (v4 *V4) Ok(r *http.Request, secretKey string) (err error) {
+// IsRequestValid validates the v4 signature against a given request.
+func (v4 *V4) IsRequestValid(r *http.Request, secretKey string) (err error) {
 	ctx := r.Context()
 
 	// Clone the original request and reset the clone headers to just the
@@ -401,8 +399,8 @@ func (v2 *V2) valid() bool {
 	return true
 }
 
-// Ok validates the v2 signature against a given request.
-func (v2 *V2) Ok(r *http.Request, secretKey string) (err error) {
+// IsRequestValid validates the v2 signature against a given request.
+func (v2 *V2) IsRequestValid(r *http.Request, secretKey string) (err error) {
 	// TODO: See if we can't do the same thing we did with v4 and reuse the
 	// official AWS signer. The difficulty is that AWS's Go SDKs don't
 	// expose a v2 signer. However, there is one in

@@ -892,7 +892,6 @@ github.com/spf13/viper v1.7.1 h1:pM5oEahlgWv/WnHXpgbKz7iLIxRf65tye2Ci+XFK5sk=
 github.com/spf13/viper v1.7.1/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5qpdg=
 github.com/storj/minio v0.0.0-20210507172446-1458d31a273b h1:a6f/Pbf4PHPHFHuZjwZD2Py1wIDEIMj0zvg9PuzLqNs=
 github.com/storj/minio v0.0.0-20210507172446-1458d31a273b/go.mod h1:8Q1Nt/4dsHFQ8dElyYlm6nBq3BP5IEYob/bUAUnqdYc=
-github.com/storj/minio/pkg/storj v0.0.0-20210330111527-04e6dc87c349/go.mod h1:4XLAMOIMq7fpq5g6p7aivVnpCYJ0JdDP4XZO6da9Agc=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0 h1:kuuDrUJFZL1QYL9hUNuCxNObNzB0bV/ZG5jV3RWAQgo=
