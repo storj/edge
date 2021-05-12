@@ -129,8 +129,10 @@ func ParseV4Credential(data string) (*V4Credential, error) {
 	}, nil
 }
 
-// Validator implements the Ok interface for validating signatures against a
-// given request and secret.
+// Validator wraps basic IsRequestValid method.
+//
+// IsRequestValid validates the request's signature using secretKey and returns any error encountered.
+// Implementations should use a constant-time comparison for security reasons.
 type Validator interface {
 	IsRequestValid(r *http.Request, secretKey string) (err error)
 }
