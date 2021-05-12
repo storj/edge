@@ -35,6 +35,7 @@ services:
       - localgopath:/go/storjpath
       - ${GATEWAY_SRC_DIR}:/code
       - ./start-auth-service.sh:/scripts/start-auth-service.sh
+      - storjsimconfig:/config
     ports:
       - "8000:8000"
     depends_on:
