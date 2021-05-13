@@ -112,7 +112,7 @@ binary:
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt and authservice binaries (jenkins)
 	for C in ${COMPONENTLIST}; do\
-		$(MAKE) binary COMPONENT=$$C \
+		$(MAKE) binary COMPONENT=$$C || exit $$? \
 	; done
 
 ##@ Deploy
