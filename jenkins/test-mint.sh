@@ -36,6 +36,7 @@ build_binary "/home/storj" "storj.io/storj/cmd/versioncontrol"
 build_binary "/home/storj" "storj.io/storj/cmd/uplink"
 build_binary "/home/storj" "storj.io/storj/cmd/identity"
 build_binary "/home/storj" "storj.io/storj/cmd/certificates"
+build_binary "/home/storj" "storj.io/storj/cmd/multinode"
 build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/gateway-mt"
 build_binary "$SCRIPTDIR" "storj.io/gateway-mt/cmd/authservice"
 
