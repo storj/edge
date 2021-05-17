@@ -239,6 +239,10 @@ func TestParseSatelliteID(t *testing.T) {
 			expected: "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW",
 		},
 		{
+			s:        "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@",
+			expected: "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW",
+		},
+		{
 			s:        "saltlake.tardigrade.io:7777",
 			expected: "1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE",
 		},
