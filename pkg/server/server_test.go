@@ -4,6 +4,7 @@
 package server_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -86,7 +87,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	testHealthCheck(t, urlBase+"-/health", client)
 	testVersionInfo(t, urlBase+"-/version", client)
 	logs.TakeAll()
-	testRouting(t, logs, urlBase, bucket, object, vHostStyle, client)
+	testRouting(ctx, t, logs, urlBase, bucket, object, vHostStyle, client)
 	// testRoute(t, logs, "ListBuckets", urlBase, http.MethodGet, false, false, client)
 }
 
@@ -111,13 +112,13 @@ func testVersionInfo(t *testing.T, url string, client *http.Client) {
 	require.Equal(t, "v0.0.0", string(body))
 }
 
-func testRouting(t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, vHostStyle bool, client *http.Client) {
+func testRouting(ctx context.Context, t *testing.T, logs *observer.ObservedLogs, urlBase, bucket, object string, vHostStyle bool, client *http.Client) {
 	// Trust the augmented cert pool in our client
-	testRoute(t, logs, "GetBucketVersioning", bucket+"?versioning", http.MethodGet, false, vHostStyle, client)
+	testRoute(ctx, t, logs, "GetBucketVersioning", bucket+"?versioning", http.MethodGet, false, vHostStyle, client)
 }
 
-func testRoute(t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, vHostStyle bool, client *http.Client) {
-	req, err := http.NewRequest(httpMethod, url, nil)
+func testRoute(ctx context.Context, t *testing.T, logs *observer.ObservedLogs, expectedLog, url, httpMethod string, addAmzCopyHeader, vHostStyle bool, client *http.Client) {
+	req, err := http.NewRequestWithContext(ctx, httpMethod, url, nil)
 	require.NoError(t, err)
 	if addAmzCopyHeader {
 		req.Header.Set("x-amz-copy-source", "any value currently works for testing")

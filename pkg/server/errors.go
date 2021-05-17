@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -39,14 +40,11 @@ func mapToAPIErrorCode(ctx context.Context, err error) cmd.APIErrorCode {
 		return cmd.ErrClientDisconnected
 	}
 
-	switch err {
-	case context.Canceled, context.DeadlineExceeded:
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return cmd.ErrOperationTimedOut
-
-	default:
-		mon.Event("gmt_unmapped_error")
-		minioMapping := minio.ToAPIErrorCode(ctx, err)
-		return minioMapping
 	}
 
+	mon.Event("gmt_unmapped_error")
+	minioMapping := minio.ToAPIErrorCode(ctx, err)
+	return minioMapping
 }
