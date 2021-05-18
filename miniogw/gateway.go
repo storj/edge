@@ -56,7 +56,7 @@ type gateway struct {
 
 func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -77,7 +77,7 @@ func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, for
 
 func (gateway *gateway) DeleteObject(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -126,7 +126,7 @@ func (gateway *gateway) DeleteObjects(ctx context.Context, bucketName string, ob
 
 func (gateway *gateway) GetBucketInfo(ctx context.Context, bucketName string) (bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -149,7 +149,7 @@ func (gateway *gateway) GetBucketInfo(ctx context.Context, bucketName string) (b
 
 func (gateway *gateway) GetObjectNInfo(ctx context.Context, bucketName, objectPath string, rangeSpec *minio.HTTPRangeSpec, header http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -213,7 +213,7 @@ func rangeSpecToDownloadOptions(spec *minio.HTTPRangeSpec) (opts *uplink.Downloa
 
 func (gateway *gateway) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -250,7 +250,7 @@ func (gateway *gateway) GetObject(ctx context.Context, bucketName, objectPath st
 
 func (gateway *gateway) GetObjectInfo(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -272,7 +272,7 @@ func (gateway *gateway) GetObjectInfo(ctx context.Context, bucketName, objectPat
 
 func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -298,7 +298,7 @@ func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketIn
 
 func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	// TODO maybe this should be checked by project.ListObjects
 	if bucketName == "" {
@@ -432,7 +432,7 @@ func listSingleObject(ctx context.Context, project *uplink.Project, bucketName, 
 
 func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
@@ -568,7 +568,7 @@ func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName
 
 func (gateway *gateway) MakeBucketWithLocation(ctx context.Context, bucketName string, opts minio.BucketOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -585,7 +585,7 @@ func (gateway *gateway) MakeBucketWithLocation(ctx context.Context, bucketName s
 
 func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	// Scenario: if a client starts uploading an object and then dies, when
 	// is it safe to restart uploading?
@@ -684,7 +684,7 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 
 func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	// Scenario: if a client starts uploading an object and then dies, when
 	// is it safe to restart uploading?
@@ -752,7 +752,7 @@ func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath st
 
 func (gateway *gateway) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	return gateway.connectionPool.Close()
 }

@@ -23,7 +23,7 @@ import (
 
 func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	// Scenario: if a client starts uploading an object and then dies, when
 	// is it safe to restart uploading?
@@ -57,7 +57,7 @@ func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object s
 
 func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	if bucket == "" {
 		return minio.MultipartInfo{}, minio.BucketNameInvalid{}
@@ -103,7 +103,7 @@ func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, obj
 
 func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	if partID < 1 || int64(partID) > math.MaxUint32 {
 		return minio.PartInfo{}, minio.InvalidArgument{
@@ -157,7 +157,7 @@ func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploa
 
 func (gateway *gateway) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, _ minio.ObjectOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -176,7 +176,7 @@ func (gateway *gateway) AbortMultipartUpload(ctx context.Context, bucket, object
 
 func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -208,7 +208,7 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 
 func (gateway *gateway) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int, opts minio.ObjectOptions) (result minio.ListPartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -265,7 +265,7 @@ func (gateway *gateway) ListObjectParts(ctx context.Context, bucket, object, upl
 // ListMultipartUploads lists all multipart uploads.
 func (gateway *gateway) ListMultipartUploads(ctx context.Context, bucket string, prefix string, keyMarker string, uploadIDMarker string, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer gateway.log(ctx, err)
+	defer func() { gateway.log(ctx, err) }()
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
