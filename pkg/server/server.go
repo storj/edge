@@ -43,7 +43,7 @@ type Server struct {
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string, domainNames []string) *Server {
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string, domainNames []string, useSetInMemoryMiddleware bool) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
@@ -65,6 +65,10 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 
 		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
 		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
+	}
+
+	if useSetInMemoryMiddleware {
+		r.Use(middleware.SetInMemory)
 	}
 
 	// Gorilla matches in the order things are defined, so fall back

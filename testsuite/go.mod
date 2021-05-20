@@ -11,8 +11,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
-	storj.io/common v0.0.0-20210412024514-5bcb1fff421e
+	storj.io/common v0.0.0-20210526153251-5d1c183ca6ac
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/storj v0.12.1-0.20210416003154-f9a6fbea50da
-	storj.io/uplink v1.4.7-0.20210422134834-21140a50fee2
+	storj.io/storj v1.30.3
+	storj.io/uplink v1.5.0-rc.1.0.20210527065710-eb24c87c9e9e
 )

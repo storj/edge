@@ -101,7 +101,7 @@ func TestUploadDownload(t *testing.T) {
 		defer func() { processgroup.Kill(authSvc) }()
 
 		// todo: use the unused endpoint below
-		accessKey, secretKey, _, err := cmd.RegisterAccess(access, "http://"+authSvcAddr, false, 15*time.Second)
+		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
 		require.NoError(t, err)
 
 		client, err := minioclient.NewMinio(minioclient.Config{

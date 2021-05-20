@@ -16,10 +16,10 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210412024514-5bcb1fff421e
+	storj.io/common v0.0.0-20210526153251-5d1c183ca6ac
 	storj.io/private v0.0.0-20210403210935-5fd57695864c
-	storj.io/uplink v1.4.7-0.20210422134834-21140a50fee2
+	storj.io/uplink v1.5.0-rc.1.0.20210527065710-eb24c87c9e9e
 )

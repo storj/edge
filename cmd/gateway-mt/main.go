@@ -39,6 +39,7 @@ type GatewayFlags struct {
 	CertDir            string `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
 	InsecureDisableTLS bool   `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
 	DomainName         string `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	EncodeInMemory     bool   `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
 
 	Config
 }
@@ -160,7 +161,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 			return err
 		}
 	}
-	s3 := server.New(listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","))
+	s3 := server.New(listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","), runCfg.EncodeInMemory)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
