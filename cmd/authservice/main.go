@@ -123,7 +123,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
-	kv, err := openKV(config.KVBackend)
+	kv, err := openKV(ctx, config.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -204,7 +204,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	kv, err := openKV(config.KVBackend)
+	kv, err := openKV(ctx, config.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
 	}

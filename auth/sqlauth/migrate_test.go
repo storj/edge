@@ -46,7 +46,7 @@ func benchmarkSetup(b *testing.B, connStr string) {
 			tempDB, err := OpenUnique(ctx, connStr, "migrate")
 			require.NoError(b, err)
 			defer func() { require.NoError(b, tempDB.Close()) }()
-			kv := New(tempDB)
+			kv := &KV{db: tempDB}
 
 			err = kv.MigrateToLatest(ctx)
 			require.NoError(b, err)
@@ -97,7 +97,7 @@ func migrateTest(t *testing.T, connStr string) {
 	db, err := OpenUnique(ctx, connStr, "load-schema")
 	defer func() { require.NoError(t, db.Close()) }()
 	require.NoError(t, err)
-	kv := New(db)
+	kv := &KV{db: db}
 
 	dbxSchema, err := LoadSchemaFromSQL(ctx, connStr, db.Schema())
 	require.NoError(t, err)

@@ -5,6 +5,9 @@ package sqlauth
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"net/url"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -12,20 +15,52 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/auth"
+	"storj.io/private/dbutil"
 )
 
 var mon = monkit.Package()
 
 //go:generate sh gen.sh
 
-// KV is a key/value store backed by a sql database.
+// KV is a key/value store backed by a SQL database.
 type KV struct {
-	db *DB // DBX
+	db   *DB // DBX
+	impl dbutil.Implementation
 }
 
-// New returns a SQL implementation of a key-value store.
-func New(db *DB) *KV {
-	return &KV{db: db}
+// OpenKV opens a DB connection to the key/value store.
+// It returns an error  if the dbURL is not valid, the DB implementation isn't
+// supported or if it isn't possible to establish a connection with the DB.
+func OpenKV(ctx context.Context, dbURL string) (*KV, error) {
+	parsed, err := url.Parse(dbURL)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	var (
+		impl = dbutil.Cockroach
+		db   *DB
+	)
+	switch parsed.Scheme {
+	case "postgres", "pgx":
+		impl = dbutil.Postgres
+		fallthrough
+	case "pgxcockroach", "cockroach":
+		parsed.Scheme = "postgres"
+		db, err = Open("pgxcockroach", parsed.String())
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	default:
+		return nil, errs.New("unknown scheme: %q", dbURL)
+	}
+
+	kv := &KV{db: db, impl: impl}
+	if err := kv.Ping(ctx); err != nil {
+		return nil, err
+	}
+
+	return kv, nil
 }
 
 // MigrateToLatest migrates the kv store to the latest version of the schema.
@@ -58,25 +93,48 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 }
 
 // Get retrieves the record from the key/value store.
-func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record, err error) {
+func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (_ *auth.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbRecord, err := d.db.Find_Record_By_EncryptionKeyHash(ctx,
-		Record_EncryptionKeyHash(keyHash[:]))
+	query := `SELECT
+			satellite_address,
+			macaroon_head,
+			encrypted_secret_key,
+			encrypted_access_grant,
+			public,
+			invalid_reason ` + d.impl.AsOfSystemInterval(10*time.Second) +
+		`FROM records
+		WHERE
+			encryption_key_hash = $1`
+	row := d.db.DB.QueryRowContext(ctx, query, keyHash[:])
+
+	var (
+		satelliteAddr  string
+		mhead          []byte
+		encSecretKey   []byte
+		encAccessGrant []byte
+		isPublic       bool
+		invalidReason  sql.NullString
+	)
+	err = row.Scan(&satelliteAddr, &mhead, &encSecretKey, &encAccessGrant, &isPublic, &invalidReason)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
 		return nil, errs.Wrap(err)
-	} else if dbRecord == nil {
-		return nil, nil
-	} else if dbRecord.InvalidReason != nil {
-		return nil, auth.Invalid.New("%s", *dbRecord.InvalidReason)
+	}
+
+	if invalidReason.Valid {
+		return nil, auth.Invalid.New("%s", invalidReason.String)
 	}
 
 	return &auth.Record{
-		SatelliteAddress:     dbRecord.SatelliteAddress,
-		MacaroonHead:         dbRecord.MacaroonHead,
-		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
-		EncryptedAccessGrant: dbRecord.EncryptedAccessGrant,
-		Public:               dbRecord.Public,
+		SatelliteAddress:     satelliteAddr,
+		MacaroonHead:         mhead,
+		EncryptedSecretKey:   encSecretKey,
+		EncryptedAccessGrant: encAccessGrant,
+		Public:               isPublic,
 	}, nil
 }
 

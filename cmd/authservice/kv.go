@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/zeebo/errs"
@@ -14,7 +15,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 )
 
-func openKV(kvurl string) (auth.KV, error) {
+func openKV(ctx context.Context, kvurl string) (auth.KV, error) {
 	// ensure connection string is present for monkit / tagsql
 	kvurl, err := pgutil.CheckApplicationName(kvurl, "authservice")
 	if err != nil {
@@ -26,18 +27,9 @@ func openKV(kvurl string) (auth.KV, error) {
 		return nil, errs.Wrap(err)
 	}
 
-	switch parsed.Scheme {
-	case "memory":
+	if parsed.Scheme == "memory" {
 		return memauth.New(), nil
-
-	case "pgxcockroach", "postgres", "cockroach", "pgx":
-		parsed.Scheme = "postgres"
-		db, err := sqlauth.Open("pgxcockroach", parsed.String())
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		return sqlauth.New(db), nil
-	default:
-		return nil, errs.New("unknown scheme: %q", kvurl)
 	}
+
+	return sqlauth.OpenKV(ctx, kvurl)
 }
