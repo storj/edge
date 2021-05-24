@@ -936,6 +936,7 @@ func (gateway *gateway) logErr(err error) {
 	// to keep log message clean, we will only log it on debug level
 	if errs2.IsCanceled(err) {
 		gateway.logger.Debug("gateway error:", zap.Error(err))
+		return
 	}
 
 	if err != nil && !minioError(err) {
