@@ -847,6 +847,18 @@ func convertError(err error, bucket, object string) error {
 		return minio.ProjectUsageLimit{}
 	}
 
+	if errors.Is(err, uplink.ErrPermissionDenied) {
+		return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
+	}
+
+	if errors.Is(err, uplink.ErrTooManyRequests) {
+		return minio.SlowDown{}
+	}
+
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return minio.IncompleteBody{Bucket: bucket, Object: object}
+	}
+
 	return err
 }
 
