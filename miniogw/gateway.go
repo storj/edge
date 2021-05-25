@@ -36,6 +36,9 @@ var (
 
 	// Error is the errs class of standard End User Client errors.
 	Error = errs.Class("Storj Gateway")
+
+	// ErrAccessGrant occurs when failing to parse the access grant from the request.
+	ErrAccessGrant = errs.Class("access grant")
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
@@ -781,13 +784,14 @@ func (gateway *gateway) setupProject(ctx context.Context, access *uplink.Access)
 func (gateway *gateway) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// this happens when an anonymous request hits the gateway endpoint, e.g. accessing http://localhost:7777 directly.
 	if accessKey == "" {
-		return nil, errs.New("Access key is empty")
+		return nil, convertError(ErrAccessGrant.New("access key is empty"), "", "")
 	}
 
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
-		return nil, err
+		return nil, convertError(ErrAccessGrant.Wrap(err), "", "")
 	}
 
 	return gateway.setupProject(ctx, access)
@@ -798,7 +802,7 @@ func (gateway *gateway) openProjectMultipart(ctx context.Context, accessKey stri
 
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
-		return nil, err
+		return nil, convertError(ErrAccessGrant.Wrap(err), "", "")
 	}
 
 	return gateway.setupProject(ctx, access)
@@ -819,6 +823,17 @@ func checkBucketError(ctx context.Context, project *uplink.Project, bucketName, 
 }
 
 func convertError(err error, bucket, object string) error {
+	// convert any errors parsing an access grant into InvalidArgument minio error type.
+	// InvalidArgument seems to be the closest minio error to map access grant errors to, and
+	// will respond with 400 Bad Request status.
+	// we could create our own type from a minio.GenericError, but minio won't know what API
+	// status code to map that to and default to a 500 (see api-errors.go toAPIErrorCode())
+	// The other way would be to modify our minio fork directly, which is something already done
+	// with the ProjectUsageLimit error type, but we're trying to avoid that as much as possible.
+	if ErrAccessGrant.Has(err) {
+		return minio.InvalidArgument{Err: err}
+	}
+
 	if errors.Is(err, uplink.ErrBucketNameInvalid) {
 		return minio.BucketNameInvalid{Bucket: bucket}
 	}
