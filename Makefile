@@ -107,7 +107,8 @@ authservice-image: ## Build authservice Docker image
 binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
-	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}"
+	# freebsd/amd64 target is currently skipped until https://storjlabs.atlassian.net/browse/GMT-302
+	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}" --skip-osarches="freebsd/amd64"
 
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt and authservice binaries (jenkins)
