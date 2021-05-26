@@ -44,7 +44,7 @@ func mapToAPIErrorCode(ctx context.Context, err error) cmd.APIErrorCode {
 		return cmd.ErrOperationTimedOut
 	}
 
-	mon.Event("gmt_unmapped_error")
+	mon.Event("gmt_unmapped_error", monkit.NewSeriesTag("error", err.Error()))
 	minioMapping := minio.ToAPIErrorCode(ctx, err)
 	return minioMapping
 }

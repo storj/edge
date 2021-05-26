@@ -959,6 +959,16 @@ func (gateway *gateway) logErr(ctx context.Context, err error) {
 		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
 		// This event should allow us to correlate with the logs to gradually add more
 		// error mappings and reduce number of unmapped errors we return.
-		mon.Event("gmt_unmapped_error")
+
+		req := logger.GetReqInfo(ctx)
+		var apiName string
+		if req != nil {
+			apiName = req.API
+		}
+
+		mon.Event("gmt_unmapped_error",
+			monkit.NewSeriesTag("api", apiName),
+			monkit.NewSeriesTag("error", err.Error()),
+		)
 	}
 }
