@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+ main
 
-import (
+ (
 	"net/url"
 
 	"github.com/zeebo/errs"
@@ -14,30 +14,30 @@ import (
 	"storj.io/private/dbutil/pgutil"
 )
 
-func openKV(kvurl string) (store.KV, error) {
+ openKV(kvurl string) (store.KV, error) {
 	// ensure connection string is present for monkit / tagsql
 	kvurl, err := pgutil.CheckApplicationName(kvurl, "authservice")
-	if err != nil {
-		return nil, err
+	 err != nil {
+		 nil, err
 	}
 
 	parsed, err := url.Parse(kvurl)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	 err != nil {
+		 nil, errs.Wrap(err)
 	}
 
-	switch parsed.Scheme {
-	case "memory":
-		return memauth.New(), nil
+	 parsed.Scheme {
+	 "memory":
+		 memauth.New(), nil
 
-	case "pgxcockroach", "postgres", "cockroach", "pgx":
+	 "pgxcockroach", "postgres", "cockroach", "pgx":
 		parsed.Scheme = "postgres"
 		db, err := sqlauth.Open("pgxcockroach", parsed.String())
-		if err != nil {
+		err != nil {
 			return nil, errs.Wrap(err)
 		}
-		return sqlauth.New(db), nil
+		 sqlauth.New(db), nil
 	default:
-		return nil, errs.New("unknown scheme: %q", kvurl)
+		 nil, errs.New("unknown scheme: %q", kvurl)
 	}
 }
