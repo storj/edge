@@ -920,7 +920,7 @@ func minioError(err error) bool {
 
 // log logs non-minio erros and request info.
 func (gateway *gateway) log(ctx context.Context, err error) {
-	gateway.logErr(err)
+	gateway.logErr(ctx, err)
 	req := logger.GetReqInfo(ctx)
 	if req == nil {
 		gateway.logger.Error("gateway error:", zap.Error(errs.New("empty request")))
@@ -931,10 +931,10 @@ func (gateway *gateway) log(ctx context.Context, err error) {
 
 // logErr logs unexpected errors, i.e. non-minio errors. It will return the given error
 // to allow method chaining.
-func (gateway *gateway) logErr(err error) {
+func (gateway *gateway) logErr(ctx context.Context, err error) {
 	// most of the time context canceled is intentionally caused by the client
 	// to keep log message clean, we will only log it on debug level
-	if errs2.IsCanceled(err) {
+	if errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err) {
 		gateway.logger.Debug("gateway error:", zap.Error(err))
 		return
 	}
