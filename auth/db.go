@@ -16,7 +16,6 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/auth/store"
 )
 
 // NotFound is returned when a record is not found.
@@ -42,9 +41,9 @@ func NewEncryptionKey() (EncryptionKey, error) {
 	return key, nil
 }
 
-// Hash returns the store.KeyHash for the EncryptionKey.
-func (k EncryptionKey) Hash() store.KeyHash {
-	return store.KeyHash(sha256.Sum256(k[:]))
+// Hash returns the KeyHash for the EncryptionKey.
+func (k EncryptionKey) Hash() KeyHash {
+	return KeyHash(sha256.Sum256(k[:]))
 }
 
 // FromBase32 loads the EncryptionKey from a lowercase RFC 4648 base32 string.
@@ -88,7 +87,7 @@ func ToBase32(versionByte byte, k []byte) string {
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
 type Database struct {
-	kv store.KV
+	kv KV
 
 	mu                  sync.Mutex
 	allowedSatelliteIDs map[storj.NodeID]struct{}
@@ -97,7 +96,7 @@ type Database struct {
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (without a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(kv store.KV, allowedSatelliteIDs map[storj.NodeID]struct{}) *Database {
+func NewDatabase(kv KV, allowedSatelliteIDs map[storj.NodeID]struct{}) *Database {
 	return &Database{
 		kv:                  kv,
 		allowedSatelliteIDs: allowedSatelliteIDs,
@@ -153,7 +152,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return secretKey, err
 	}
 
-	record := &store.Record{
+	record := &Record{
 		SatelliteAddress:     satelliteAddr,
 		MacaroonHead:         access.APIKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,

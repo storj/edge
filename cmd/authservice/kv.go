@@ -8,13 +8,13 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/gateway-mt/auth/sqlauth"
-	"storj.io/gateway-mt/auth/store"
 	"storj.io/private/dbutil/pgutil"
 )
 
-func openKV(kvurl string) (store.KV, error) {
+func openKV(kvurl string) (auth.KV, error) {
 	// ensure connection string is present for monkit / tagsql
 	kvurl, err := pgutil.CheckApplicationName(kvurl, "authservice")
 	if err != nil {
