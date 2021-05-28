@@ -51,6 +51,7 @@ func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 			level("response", zap.String("method", method),
 				zap.String("host", host),
 				zap.Int("code", code),
+				zap.String("user-agent", r.UserAgent()),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),
 				zap.Duration("duration", time.Since(start)))
