@@ -823,58 +823,39 @@ func checkBucketError(ctx context.Context, project *uplink.Project, bucketName, 
 }
 
 func convertError(err error, bucket, object string) error {
-	// convert any errors parsing an access grant into InvalidArgument minio error type.
-	// InvalidArgument seems to be the closest minio error to map access grant errors to, and
-	// will respond with 400 Bad Request status.
-	// we could create our own type from a minio.GenericError, but minio won't know what API
-	// status code to map that to and default to a 500 (see api-errors.go toAPIErrorCode())
-	// The other way would be to modify our minio fork directly, which is something already done
-	// with the ProjectUsageLimit error type, but we're trying to avoid that as much as possible.
-	if ErrAccessGrant.Has(err) {
+	switch {
+	case ErrAccessGrant.Has(err):
+		// convert any errors parsing an access grant into InvalidArgument minio error type.
+		// InvalidArgument seems to be the closest minio error to map access grant errors to, and
+		// will respond with 400 Bad Request status.
+		// we could create our own type from a minio.GenericError, but minio won't know what API
+		// status code to map that to and default to a 500 (see api-errors.go toAPIErrorCode())
+		// The other way would be to modify our minio fork directly, which is something already done
+		// with the ProjectUsageLimit error type, but we're trying to avoid that as much as possible.
 		return minio.InvalidArgument{Err: err}
-	}
-
-	if errors.Is(err, uplink.ErrBucketNameInvalid) {
+	case errors.Is(err, uplink.ErrBucketNameInvalid):
 		return minio.BucketNameInvalid{Bucket: bucket}
-	}
-
-	if errors.Is(err, uplink.ErrBucketAlreadyExists) {
+	case errors.Is(err, uplink.ErrBucketAlreadyExists):
 		return minio.BucketAlreadyExists{Bucket: bucket}
-	}
-
-	if errors.Is(err, uplink.ErrBucketNotFound) {
+	case errors.Is(err, uplink.ErrBucketNotFound):
 		return minio.BucketNotFound{Bucket: bucket}
-	}
-
-	if errors.Is(err, uplink.ErrBucketNotEmpty) {
+	case errors.Is(err, uplink.ErrBucketNotEmpty):
 		return minio.BucketNotEmpty{Bucket: bucket}
-	}
-
-	if errors.Is(err, uplink.ErrObjectKeyInvalid) {
+	case errors.Is(err, uplink.ErrObjectKeyInvalid):
 		return minio.ObjectNameInvalid{Bucket: bucket, Object: object}
-	}
-
-	if errors.Is(err, uplink.ErrObjectNotFound) {
+	case errors.Is(err, uplink.ErrObjectNotFound):
 		return minio.ObjectNotFound{Bucket: bucket, Object: object}
-	}
-
-	if errors.Is(err, uplink.ErrBandwidthLimitExceeded) {
+	case errors.Is(err, uplink.ErrBandwidthLimitExceeded):
 		return minio.ProjectUsageLimit{}
-	}
-
-	if errors.Is(err, uplink.ErrPermissionDenied) {
+	case errors.Is(err, uplink.ErrPermissionDenied):
 		return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
-	}
-
-	if errors.Is(err, uplink.ErrTooManyRequests) {
+	case errors.Is(err, uplink.ErrTooManyRequests):
 		return minio.SlowDown{}
-	}
-
-	if errors.Is(err, io.ErrUnexpectedEOF) {
+	case errors.Is(err, io.ErrUnexpectedEOF):
 		return minio.IncompleteBody{Bucket: bucket, Object: object}
+	default:
+		return err
 	}
-
-	return err
 }
 
 func minioObjectInfo(bucket, etag string, object *uplink.Object) minio.ObjectInfo {
