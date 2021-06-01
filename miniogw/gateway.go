@@ -6,8 +6,10 @@ package miniogw
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -19,6 +21,7 @@ import (
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
@@ -914,33 +917,28 @@ func minioError(err error) bool {
 	return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
 }
 
-// log logs non-minio erros and request info.
+// log all errors and relevant request information.
 func (gateway *gateway) log(ctx context.Context, err error) {
-	gateway.logErr(ctx, err)
-	req := logger.GetReqInfo(ctx)
-	if req == nil {
+	reqInfo := logger.GetReqInfo(ctx)
+	if reqInfo == nil {
 		gateway.logger.Error("gateway error:", zap.Error(errs.New("empty request")))
-	} else {
-		gateway.logger.Debug("gateway", zap.String("operation", req.API), zap.String("user agent", req.UserAgent))
+		return
 	}
-}
 
-// logErr logs unexpected errors, i.e. non-minio errors. It will return the given error
-// to allow method chaining.
-func (gateway *gateway) logErr(ctx context.Context, err error) {
+	writeLog(gateway.logger, zapcore.DebugLevel, reqInfo, err)
+
 	// most of the time context canceled is intentionally caused by the client
 	// to keep log message clean, we will only log it on debug level
 	if errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err) {
-		gateway.logger.Debug("gateway error:", zap.Error(err))
 		return
 	}
 
 	if err != nil && !minioError(err) {
-		gateway.logger.Error("gateway error:", zap.Error(err))
+		writeLog(gateway.logger, zapcore.ErrorLevel, reqInfo, err)
+
 		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
 		// This event should allow us to correlate with the logs to gradually add more
 		// error mappings and reduce number of unmapped errors we return.
-
 		req := logger.GetReqInfo(ctx)
 		var apiName string
 		if req != nil {
@@ -952,4 +950,24 @@ func (gateway *gateway) logErr(ctx context.Context, err error) {
 			monkit.NewSeriesTag("error", err.Error()),
 		)
 	}
+}
+
+func writeLog(logger *zap.Logger, lvl zapcore.Level, reqInfo *logger.ReqInfo, err error) {
+	if ce := logger.Check(lvl, fmt.Sprintf("gateway %s:", lvl.String())); ce != nil {
+		ce.Write(zap.String("request-id", reqInfo.RequestID),
+			zap.String("access-key-sha256", getAccessKeyHash(reqInfo)),
+			zap.String("operation", reqInfo.API),
+			zap.String("user-agent", reqInfo.UserAgent),
+			zap.Error(err))
+	}
+}
+
+func getAccessKeyHash(reqInfo *logger.ReqInfo) string {
+	if reqInfo.AccessKey == "" {
+		return ""
+	}
+
+	h := sha256.New()
+	h.Write([]byte(reqInfo.AccessKey))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
