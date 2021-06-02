@@ -53,8 +53,9 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 		Record_MacaroonHead(record.MacaroonHead),
 		Record_EncryptedSecretKey(record.EncryptedSecretKey),
 		Record_EncryptedAccessGrant(record.EncryptedAccessGrant),
-		Record_Create_Fields{},
-	))
+		Record_Create_Fields{
+			ExpiresAt: Record_ExpiresAt_Raw(record.ExpiresAt),
+		}))
 }
 
 // Get retrieves the record from the key/value store.
@@ -76,6 +77,7 @@ func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record
 		MacaroonHead:         dbRecord.MacaroonHead,
 		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
 		EncryptedAccessGrant: dbRecord.EncryptedAccessGrant,
+		ExpiresAt:            dbRecord.ExpiresAt,
 		Public:               dbRecord.Public,
 	}, nil
 }

@@ -5,6 +5,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -18,6 +19,7 @@ type Record struct {
 	MacaroonHead         []byte // 32 bytes probably
 	EncryptedSecretKey   []byte
 	EncryptedAccessGrant []byte
+	ExpiresAt            *time.Time
 	Public               bool // if true, knowledge of secret key is not required
 }
 

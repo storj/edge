@@ -10,11 +10,14 @@ import (
 	"encoding/base32"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
@@ -152,12 +155,18 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return secretKey, err
 	}
 
+	expiration, err := apiKeyExpiration(access.APIKey)
+	if err != nil {
+		return secretKey, err
+	}
+
 	record := &Record{
 		SatelliteAddress:     satelliteAddr,
 		MacaroonHead:         access.APIKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,
 		Public:               public,
+		ExpiresAt:            expiration,
 	}
 
 	if err := db.kv.Put(ctx, key.Hash(), record); err != nil {
@@ -215,4 +224,32 @@ func (db *Database) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return errs.Wrap(db.kv.Ping(ctx))
+}
+
+// apiKeyExpiration returns the expiration time of apiKey, and any error
+// encountered.
+//
+// TODO: we should expose this functionality in the API Key type natively.
+func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
+	mac, err := macaroon.ParseMacaroon(apiKey.SerializeRaw())
+	if err != nil {
+		return nil, err
+	}
+
+	var expiration *time.Time
+	for _, cavbuf := range mac.Caveats() {
+		var cav macaroon.Caveat
+		err := pb.Unmarshal(cavbuf, &cav)
+		if err != nil {
+			return nil, err
+		}
+		if cav.NotAfter != nil {
+			cavExpiration := *cav.NotAfter
+			if expiration == nil || expiration.After(cavExpiration) {
+				expiration = &cavExpiration
+			}
+		}
+	}
+
+	return expiration, nil
 }
