@@ -42,9 +42,14 @@ type GatewayFlags struct {
 	EncodeInMemory     bool   `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
 
 	Config
-	ConnectionPoolCapacity       int           `help:"RPC connection pool capacity" default:"100"`
-	ConnectionPoolKeyCapacity    int           `help:"RPC connection pool key capacity" default:"5"`
-	ConnectionPoolIdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
+	ConnectionPool ConnectionPoolConfig
+}
+
+// ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
+type ConnectionPoolConfig struct {
+	Capacity       int           `help:"RPC connection pool capacity" default:"100"`
+	KeyCapacity    int           `help:"RPC connection pool key capacity" default:"5"`
+	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -173,11 +178,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 // NewGateway creates a new minio Gateway.
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer, err error) {
 	config := flags.newUplinkConfig(ctx)
-	pool := rpcpool.New(rpcpool.Options{
-		Capacity:       flags.ConnectionPoolCapacity,
-		KeyCapacity:    flags.ConnectionPoolKeyCapacity,
-		IdleExpiration: flags.ConnectionPoolIdleExpiration,
-	})
+	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
 	return miniogw.NewGateway(config, pool, zap.L())
 }
