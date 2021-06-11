@@ -62,8 +62,8 @@ type Config struct {
 	ListenAddrTLS string `user:"true" help:"public tls address to listen on" default:":8443"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
-	CertFile    string `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
-	KeyFile     string `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
+	CertFile    string `user:"true" help:"server certificate file" default:""`
+	KeyFile     string `user:"true" help:"server key file" default:""`
 	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:8080" releaseDefault:""`
 }
 
