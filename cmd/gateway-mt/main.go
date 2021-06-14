@@ -56,6 +56,7 @@ type ConnectionPoolConfig struct {
 // to talk to the rest of the network.
 type ClientConfig struct {
 	DialTimeout time.Duration `help:"timeout for dials" default:"0h2m00s"`
+	UseQosAndCC bool          `help:"use congestion control and QOS settings" default:"true"`
 }
 
 // Config uplink configuration.
@@ -187,6 +188,10 @@ func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {
 	// Transform the gateway config flags to the uplink config object
 	config := uplink.Config{}
 	config.DialTimeout = flags.Client.DialTimeout
+	if !flags.Client.UseQosAndCC {
+		// an unset DialContext defaults to BackgroundDialer's CC and QOS settings
+		config.DialContext = (&net.Dialer{}).DialContext
+	}
 	return config
 }
 
