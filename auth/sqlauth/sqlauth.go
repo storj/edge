@@ -5,6 +5,8 @@ package sqlauth
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -15,6 +17,7 @@ import (
 	"storj.io/gateway-mt/auth/sqlauth/dbx"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/tagsql"
 )
 
@@ -112,8 +115,57 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 }
 
 // Get retrieves the record from the key/value store.
-func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record, err error) {
+func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (_ *auth.Record, err error) {
+	return d.GetWithNonDefaultAsOfInterval(ctx, keyHash, -10*time.Second)
+}
+
+// GetWithNonDefaultAsOfInterval retrieves the record from the key/value store
+// using the specific asOfSystemInterval.
+func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.KeyHash, asOfSystemInterval time.Duration) (record *auth.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if d.impl == dbutil.Cockroach {
+		query := `SELECT
+					satellite_address,
+					macaroon_head,
+					encrypted_secret_key,
+					encrypted_access_grant,
+					expires_at,
+					public,
+					invalid_reason
+		 	  FROM records ` + d.impl.AsOfSystemInterval(asOfSystemInterval) +
+			` WHERE encryption_key_hash = $1`
+		row := d.db.DB.QueryRowContext(ctx, query, keyHash[:])
+
+		var (
+			record        auth.Record
+			invalidReason sql.NullString
+		)
+		err = row.Scan(
+			&record.SatelliteAddress, &record.MacaroonHead,
+			&record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.ExpiresAt,
+			&record.Public, &invalidReason,
+		)
+		if err == nil {
+			if invalidReason.Valid {
+				return nil, auth.Invalid.New("%s", invalidReason.String)
+			}
+
+			return &record, nil
+		}
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			// Check that the error isn't about that the table isn't defined which can
+			// happen if the service runs just after the DB migration which creates
+			// the table and it starts to serve requests before the
+			// 'AS OF SYSTEM TIME' has passed since the migrations has ended.
+			if code := pgerrcode.FromError(err); code != "42P01" {
+				return nil, errs.Wrap(err)
+			}
+		}
+
+		// No results, then run a query without 'AS OF SYSTEM TIME' clause
+	}
 
 	dbRecord, err := d.db.Find_Record_By_EncryptionKeyHash(ctx,
 		dbx.Record_EncryptionKeyHash(keyHash[:]))
