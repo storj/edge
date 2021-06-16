@@ -123,10 +123,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
-	kv, err := openKV(config.KVBackend)
+	kv, err := openKV(ctx, log.Named("db"), config.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, kv.Close()) }()
 
 	db := auth.NewDatabase(kv, allowedSats)
 	res := httpauth.New(log.Named("resources"), db, endpoint, config.AuthToken)
@@ -204,10 +205,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	kv, err := openKV(config.KVBackend)
+	kv, err := openKV(ctx, zap.L().Named("migration"), config.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, kv.Close()) }()
 
 	migrator, ok := kv.(interface {
 		MigrateToLatest(ctx context.Context) error

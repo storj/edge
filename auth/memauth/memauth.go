@@ -96,3 +96,6 @@ func (d *KV) Ping(ctx context.Context) (err error) {
 
 	return nil
 }
+
+// Close closes the database.
+func (d *KV) Close() error { return nil }

@@ -4,39 +4,32 @@
 package main
 
 import (
-	"net/url"
+	"context"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/memauth"
 	"storj.io/gateway-mt/auth/sqlauth"
-	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
 )
 
-func openKV(kvurl string) (auth.KV, error) {
-	// ensure connection string is present for monkit / tagsql
-	kvurl, err := pgutil.CheckApplicationName(kvurl, "authservice")
+func openKV(ctx context.Context, log *zap.Logger, kvurl string) (auth.KV, error) {
+	driver, _, _, err := dbutil.SplitConnStr(kvurl)
 	if err != nil {
 		return nil, err
 	}
 
-	parsed, err := url.Parse(kvurl)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	switch parsed.Scheme {
+	switch driver {
 	case "memory":
 		return memauth.New(), nil
 
 	case "pgxcockroach", "postgres", "cockroach", "pgx":
-		parsed.Scheme = "postgres"
-		db, err := sqlauth.Open("pgxcockroach", parsed.String())
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		return sqlauth.New(db), nil
+		kv, err := sqlauth.Open(ctx, log, kvurl, sqlauth.Options{
+			ApplicationName: "authservice",
+		})
+		return kv, err
 	default:
 		return nil, errs.New("unknown scheme: %q", kvurl)
 	}

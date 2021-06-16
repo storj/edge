@@ -49,4 +49,7 @@ type KV interface {
 	// Ping attempts to do a DB roundtrip. If it can't it will return an
 	// error.
 	Ping(ctx context.Context) error
+
+	// Close closes the database.
+	Close() error
 }

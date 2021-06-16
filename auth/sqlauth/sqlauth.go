@@ -12,20 +12,73 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/sqlauth/dbx"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 )
 
 var mon = monkit.Package()
 
-//go:generate sh gen.sh
+// Error is default error class for sqlauth package.
+var Error = errs.Class("sqlauth")
 
 // KV is a key/value store backed by a sql database.
 type KV struct {
-	db *DB // DBX
+	db          *dbx.DB // DBX
+	impl        dbutil.Implementation
+	testCleanup func() error
 }
 
-// New returns a SQL implementation of a key-value store.
-func New(db *DB) *KV {
-	return &KV{db: db}
+// Options includes options for how a connection is made.
+type Options struct {
+	ApplicationName string
+}
+
+// Open creates instance of KV.
+func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (*KV, error) {
+	driver, source, impl, err := dbutil.SplitConnStr(connstr)
+	if err != nil {
+		return nil, err
+	}
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
+		return nil, Error.New("unsupported driver %q", driver)
+	}
+
+	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+	if err != nil {
+		return nil, err
+	}
+
+	dbxDB, err := dbx.Open(driver, source)
+	if err != nil {
+		return nil, Error.New("failed opening database via DBX at %q: %v", source, err)
+	}
+	log.Debug("Connected to:", zap.String("db source", source))
+
+	dbutil.Configure(ctx, dbxDB.DB, "sqlauth", mon)
+
+	return &KV{
+		db:          dbxDB,
+		impl:        impl,
+		testCleanup: func() error { return nil },
+	}, nil
+}
+
+// TestingSchema returns the underlying database schema.
+func (d *KV) TestingSchema() string { return d.db.Schema() }
+
+// TestingTagSQL returns *tagsql.DB.
+func (d *KV) TestingTagSQL() tagsql.DB { return d.db.DB }
+
+// Close closes the connection to database.
+func (d *KV) Close() error {
+	return errs.Combine(Error.Wrap(d.db.Close()), Error.Wrap(d.testCleanup()))
+}
+
+// TestingSetCleanup is used to set the callback for cleaning up test database.
+func (d *KV) TestingSetCleanup(cleanup func() error) {
+	d.testCleanup = cleanup
 }
 
 // MigrateToLatest migrates the kv store to the latest version of the schema.
@@ -46,15 +99,15 @@ func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(d.db.CreateNoReturn_Record(ctx,
-		Record_EncryptionKeyHash(keyHash[:]),
-		Record_Public(record.Public),
-		Record_SatelliteAddress(record.SatelliteAddress),
-		Record_MacaroonHead(record.MacaroonHead),
-		Record_EncryptedSecretKey(record.EncryptedSecretKey),
-		Record_EncryptedAccessGrant(record.EncryptedAccessGrant),
-		Record_Create_Fields{
-			ExpiresAt: Record_ExpiresAt_Raw(record.ExpiresAt),
+	return Error.Wrap(d.db.CreateNoReturn_Record(ctx,
+		dbx.Record_EncryptionKeyHash(keyHash[:]),
+		dbx.Record_Public(record.Public),
+		dbx.Record_SatelliteAddress(record.SatelliteAddress),
+		dbx.Record_MacaroonHead(record.MacaroonHead),
+		dbx.Record_EncryptedSecretKey(record.EncryptedSecretKey),
+		dbx.Record_EncryptedAccessGrant(record.EncryptedAccessGrant),
+		dbx.Record_Create_Fields{
+			ExpiresAt: dbx.Record_ExpiresAt_Raw(record.ExpiresAt),
 		}))
 }
 
@@ -63,9 +116,9 @@ func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (record *auth.Record
 	defer mon.Task()(&ctx)(&err)
 
 	dbRecord, err := d.db.Find_Record_By_EncryptionKeyHash(ctx,
-		Record_EncryptionKeyHash(keyHash[:]))
+		dbx.Record_EncryptionKeyHash(keyHash[:]))
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	} else if dbRecord == nil {
 		return nil, nil
 	} else if dbRecord.InvalidReason != nil {
@@ -88,8 +141,8 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = d.db.Delete_Record_By_EncryptionKeyHash(ctx,
-		Record_EncryptionKeyHash(keyHash[:]))
-	return errs.Wrap(err)
+		dbx.Record_EncryptionKeyHash(keyHash[:]))
+	return Error.Wrap(err)
 }
 
 // Invalidate causes the record to become invalid.
@@ -98,11 +151,11 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(d.db.UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx,
-		Record_EncryptionKeyHash(keyHash[:]),
-		Record_Update_Fields{
-			InvalidReason: Record_InvalidReason(reason),
-			InvalidAt:     Record_InvalidAt(time.Now()),
+	return Error.Wrap(d.db.UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx,
+		dbx.Record_EncryptionKeyHash(keyHash[:]),
+		dbx.Record_Update_Fields{
+			InvalidReason: dbx.Record_InvalidReason(reason),
+			InvalidAt:     dbx.Record_InvalidAt(time.Now()),
 		}))
 }
 
@@ -110,5 +163,5 @@ func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string
 func (d *KV) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(d.db.PingContext(ctx))
+	return Error.Wrap(d.db.PingContext(ctx))
 }

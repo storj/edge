@@ -1,23 +1,21 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package sqlauth
+package sqlauth_test
 
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/auth/sqlauth"
 	"storj.io/gateway-mt/auth/sqlauth/testdata"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/cockroachutil"
 	"storj.io/private/dbutil/dbschema"
 	"storj.io/private/dbutil/pgtest"
 	"storj.io/private/dbutil/pgutil"
@@ -43,10 +41,9 @@ func benchmarkSetup(b *testing.B, connStr string) {
 		func() {
 			ctx := context.Background()
 
-			tempDB, err := OpenUnique(ctx, connStr, "migrate")
+			kv, err := OpenTest(ctx, zap.NewNop(), b.Name(), connStr)
 			require.NoError(b, err)
-			defer func() { require.NoError(b, tempDB.Close()) }()
-			kv := New(tempDB)
+			defer func() { require.NoError(b, kv.Close()) }()
 
 			err = kv.MigrateToLatest(ctx)
 			require.NoError(b, err)
@@ -54,38 +51,18 @@ func benchmarkSetup(b *testing.B, connStr string) {
 	}
 }
 
-// OpenUnique opens a temporary, uniquely named database (or isolated database schema)
-// for scratch work. When closed, this database or schema will be cleaned up and destroyed.
-// This function is a hybrid of dbutil.OpenUnique() and sqlauth.Open().
-func OpenUnique(ctx context.Context, connURL string, namePrefix string) (db *DB, err error) {
-	// ensure connection string is present for monkit / tagsql
-	connURL, err = pgutil.CheckApplicationName(connURL, "gateway-mt-migration-test")
+func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*sqlauth.KV, error) {
+	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
 	if err != nil {
 		return nil, err
-	}
-	var tempDB *dbutil.TempDatabase
-	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") {
-		tempDB, err = pgutil.OpenUnique(ctx, connURL, namePrefix)
-	} else if strings.HasPrefix(connURL, "cockroach://") {
-		tempDB, err = cockroachutil.OpenUnique(ctx, connURL, namePrefix)
-	} else {
-		return nil, unsupportedDriver(connURL)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := tempDB.Ping(ctx); err != nil {
-		return nil, makeErr(err)
 	}
 
-	db = &DB{DB: tempDB.DB}
-	db.Hooks.Now = time.Now
-	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") || strings.HasPrefix(connURL, "cockroach://") {
-		db.dbMethods = newpgxcockroach(db)
-	} else {
-		return nil, unsupportedDriver(connURL)
+	kv, err := sqlauth.Open(ctx, log, tempDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	if err != nil {
+		return nil, err
 	}
-	return db, nil
+	kv.TestingSetCleanup(tempDB.Close)
+	return kv, nil
 }
 
 func migrateTest(t *testing.T, connStr string) {
@@ -94,12 +71,13 @@ func migrateTest(t *testing.T, connStr string) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 
-	db, err := OpenUnique(ctx, connStr, "load-schema")
-	defer func() { require.NoError(t, db.Close()) }()
+	kv, err := OpenTest(ctx, log, t.Name(), connStr)
 	require.NoError(t, err)
-	kv := New(db)
+	defer func() { require.NoError(t, kv.Close()) }()
 
-	dbxSchema, err := LoadSchemaFromSQL(ctx, connStr, db.Schema())
+	db := kv.TestingTagSQL()
+
+	dbxSchema, err := LoadSchemaFromSQL(ctx, connStr, kv.TestingSchema())
 	require.NoError(t, err)
 
 	// get migration for this database
@@ -117,18 +95,18 @@ func migrateTest(t *testing.T, connStr string) {
 
 		// insert data for new tables
 		if expected.NewData != "" {
-			_, err := db.DB.ExecContext(ctx, expected.NewData)
+			_, err := db.ExecContext(ctx, expected.NewData)
 			require.NoError(t, err, tag)
 		}
 
 		// load schema from database
-		schema, err := pgutil.QuerySchema(ctx, db.DB)
+		schema, err := pgutil.QuerySchema(ctx, db)
 		require.NoError(t, err, tag)
 		// we don't care changes in versions table
 		schema.DropTable("versions")
 
 		// load data from database
-		data, err := pgutil.QueryData(ctx, db.DB, schema)
+		data, err := pgutil.QueryData(ctx, db, schema)
 		require.NoError(t, err, tag)
 
 		dbSnapshot, err := LoadDBSnapshot(ctx, expected, connStr)
