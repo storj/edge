@@ -479,7 +479,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		//    loss of performance by turning this into a StatObject.
 		// so we do #3 here. it's great!
 
-		return listSingleObjectV2(ctx, project, bucketName, prefix, recursive, fetchOwner)
+		return listSingleObjectV2(ctx, project, bucketName, prefix, continuationToken, recursive, fetchOwner)
 	}
 
 	var startAfterPath storj.Path
@@ -526,7 +526,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 
 	result = minio.ListObjectsV2Info{
 		IsTruncated:       more,
-		ContinuationToken: startAfter,
+		ContinuationToken: continuationToken,
 		Objects:           objects,
 		Prefixes:          prefixes,
 	}
@@ -537,7 +537,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 	return result, nil
 }
 
-func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName, key string, recursive, fetchOwner bool) (result minio.ListObjectsV2Info, err error) {
+func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName, key, continuationToken string, recursive, fetchOwner bool) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var prefixes []string
@@ -566,9 +566,10 @@ func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName
 	}
 
 	return minio.ListObjectsV2Info{
-		IsTruncated: false,
-		Prefixes:    prefixes,
-		Objects:     objects,
+		IsTruncated:       false,
+		ContinuationToken: continuationToken,
+		Prefixes:          prefixes,
+		Objects:           objects,
 	}, nil
 }
 
