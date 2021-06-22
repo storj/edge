@@ -441,7 +441,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 	defer func() { gateway.log(ctx, err) }()
 
 	if delimiter != "" && delimiter != "/" {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
+		return minio.ListObjectsV2Info{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
