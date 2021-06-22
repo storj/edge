@@ -355,7 +355,7 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
-		Cursor:    marker,
+		Cursor:    strings.TrimPrefix(marker, prefix),
 		Recursive: recursive,
 
 		System: true,
@@ -495,7 +495,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
-		Cursor:    startAfterPath,
+		Cursor:    strings.TrimPrefix(startAfterPath, prefix),
 		Recursive: recursive,
 
 		System: true,
