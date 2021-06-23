@@ -24,8 +24,8 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
+	storj.io/common v0.0.0-20210727152632-0700f883bc0f
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/private v0.0.0-20210629153057-a02a38c9d0a1
+	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0
 	storj.io/uplink v1.5.0-rc.1.0.20210708154526-f5ca59991bd8
 )

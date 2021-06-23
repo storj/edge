@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/private/dbutil/pgtest"
 )
 
@@ -44,7 +44,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	}
 	rb := make([]byte, 32)
 
-	var keyHash auth.KeyHash
+	var keyHash authdb.KeyHash
 	{
 		randBytes(rb)
 		var rh [32]byte
@@ -53,7 +53,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 		}
 	}
 
-	var record auth.Record
+	var record authdb.Record
 	{
 		record.SatelliteAddress = "sat.storj.test"
 
@@ -90,7 +90,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	require.NoError(t, kv.Invalidate(ctx, keyHash, "invalidated for testing purpose"), "invalidate")
 	_, err = kv.Get(ctx, keyHash)
 	require.Error(t, err, "get-invalid")
-	require.EqualError(t, err, auth.Invalid.New("%s", "invalidated for testing purpose").Error(), "get-invalid")
+	require.EqualError(t, err, authdb.Invalid.New("%s", "invalidated for testing purpose").Error(), "get-invalid")
 
 	require.NoError(t, kv.Delete(ctx, keyHash), "delete")
 	retrievedRecord, err = kv.Get(ctx, keyHash)
@@ -119,7 +119,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	}
 	rb := make([]byte, 32)
 
-	var keyHash auth.KeyHash
+	var keyHash authdb.KeyHash
 	{
 		randBytes(rb)
 		var rh [32]byte
@@ -128,7 +128,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 		}
 	}
 
-	var record auth.Record
+	var record authdb.Record
 	{
 		record.SatelliteAddress = "sat.storj.test"
 
@@ -199,7 +199,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	require.NoError(t, kv.Ping(ctx))
 	require.NoError(t, kv.MigrateToLatest(ctx))
 
-	r1 := &auth.Record{
+	r1 := &authdb.Record{
 		SatelliteAddress:     "abc",
 		MacaroonHead:         []byte{0},
 		EncryptedSecretKey:   []byte{1},
@@ -207,7 +207,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	}
 
 	for i := 0; i < 100; i += 2 {
-		require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r1))
+		require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(i)}, r1))
 	}
 
 	time.Sleep(wait)
@@ -223,7 +223,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	time.Sleep(wait)
 
 	for i := 0; i < 100; i++ {
-		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(i)}, -wait)
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, authdb.KeyHash{byte(i)}, -wait)
 		require.NoError(t, err)
 		if i%2 == 0 {
 			assert.Equal(t, r1, r)
@@ -234,23 +234,23 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 
 	for i := 1; i < 100; i += 2 {
 		n := time.Now()
-		r := &auth.Record{
+		r := &authdb.Record{
 			SatelliteAddress:     "def",
 			MacaroonHead:         []byte{3},
 			EncryptedSecretKey:   []byte{4},
 			EncryptedAccessGrant: []byte{5},
 			ExpiresAt:            &n,
 		}
-		require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r))
+		require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(i)}, r))
 	}
 
 	for i := 50; i < 100; i += 2 {
-		require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{byte(i)}, "test"))
+		require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{byte(i)}, "test"))
 	}
 
 	maxTime := time.Unix(1<<43, 0)
 
-	r2 := &auth.Record{
+	r2 := &authdb.Record{
 		SatelliteAddress:     "ghi",
 		MacaroonHead:         []byte{6},
 		EncryptedSecretKey:   []byte{7},
@@ -258,7 +258,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 		ExpiresAt:            &maxTime,
 	}
 
-	require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(255)}, r2))
+	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(255)}, r2))
 
 	time.Sleep(wait)
 
@@ -280,7 +280,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	time.Sleep(wait)
 
 	for i := 0; i < 100; i++ {
-		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(i)}, -wait)
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, authdb.KeyHash{byte(i)}, -wait)
 		require.NoError(t, err)
 		if i < 50 && i%2 == 0 {
 			assert.Equal(t, r1, r)
@@ -290,7 +290,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	}
 
 	{
-		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(255)}, -wait)
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, authdb.KeyHash{byte(255)}, -wait)
 		require.NoError(t, err)
 		assert.Equal(t, r2, r)
 	}
@@ -341,7 +341,7 @@ func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, delete
 
 	for i := int64(0); i < expectedCount; i++ {
 		n := time.Now()
-		r := &auth.Record{
+		r := &authdb.Record{
 			SatelliteAddress:     "abc",
 			MacaroonHead:         []byte{0},
 			EncryptedSecretKey:   []byte{1},

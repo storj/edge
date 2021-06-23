@@ -93,12 +93,14 @@ func TestUploadDownload(t *testing.T) {
 		// may conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
+		authSvcAddrTls := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
 		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
 
 		authSvc, err := startAuthSvc(t, authSvcExe, authSvcOptions{
 			Listen:    authSvcAddr,
+			ListenTLS: authSvcAddrTls,
 			Gateway:   "http://" + gatewayAddr,
 			KVBackend: "memory://",
 			Satellite: planet.Satellites[0].NodeURL(),
@@ -232,6 +234,7 @@ func TestUploadDownload(t *testing.T) {
 
 type authSvcOptions struct {
 	Listen    string
+	ListenTLS string
 	Gateway   string
 	KVBackend string
 	Satellite storj.NodeURL
@@ -245,6 +248,7 @@ func startAuthSvc(t *testing.T, exe string, opts authSvcOptions) (*exec.Cmd, err
 		"--allowed-satellites", opts.Satellite.String(),
 		"--endpoint", opts.Gateway,
 		"--listen-addr", opts.Listen,
+		"--listen-addr-tls", opts.ListenTLS,
 		"--kv-backend", opts.KVBackend,
 	}, opts.More...)
 

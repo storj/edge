@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/gateway-mt/auth/sqlauth"
 	cmd "storj.io/gateway-mt/cmd/authservice-unused-records"
 	"storj.io/private/dbutil"
@@ -92,19 +92,19 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 
 	n := time.Now().Round(time.Second)
 
-	r0 := &auth.Record{
+	r0 := &authdb.Record{
 		SatelliteAddress:     "abc",
 		MacaroonHead:         []byte{0},
 		EncryptedSecretKey:   []byte{1},
 		EncryptedAccessGrant: []byte{2},
 	}
-	r1 := &auth.Record{
+	r1 := &authdb.Record{
 		SatelliteAddress:     "def",
 		MacaroonHead:         config.MacaroonHead,
 		EncryptedSecretKey:   []byte{1},
 		EncryptedAccessGrant: []byte{2},
 	}
-	r2 := &auth.Record{
+	r2 := &authdb.Record{
 		SatelliteAddress:     "ghi",
 		MacaroonHead:         config.MacaroonHead,
 		EncryptedSecretKey:   []byte{1},

@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/gateway-mt/auth/sqlauth/dbx"
 	"storj.io/private/dbutil"
 	_ "storj.io/private/dbutil/cockroachutil" // register our custom driver
@@ -100,7 +100,7 @@ func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 
 // Put stores the record in the key/value store.
 // It is an error if the key already exists.
-func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record) (err error) {
+func (d *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.CreateNoReturn_Record(ctx,
@@ -116,13 +116,13 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 }
 
 // Get retrieves the record from the key/value store.
-func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (_ *auth.Record, err error) {
+func (d *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
 	return d.GetWithNonDefaultAsOfInterval(ctx, keyHash, -10*time.Second)
 }
 
 // GetWithNonDefaultAsOfInterval retrieves the record from the key/value store
 // using the specific asOfSystemInterval.
-func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.KeyHash, asOfSystemInterval time.Duration) (record *auth.Record, err error) {
+func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.KeyHash, asOfSystemInterval time.Duration) (record *authdb.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if d.impl == dbutil.Cockroach {
@@ -139,7 +139,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 		row := d.db.DB.QueryRowContext(ctx, query, keyHash[:])
 
 		var (
-			record        auth.Record
+			record        authdb.Record
 			invalidReason sql.NullString
 		)
 		err = row.Scan(
@@ -149,7 +149,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 		)
 		if err == nil {
 			if invalidReason.Valid {
-				return nil, auth.Invalid.New("%s", invalidReason.String)
+				return nil, authdb.Invalid.New("%s", invalidReason.String)
 			}
 
 			return &record, nil
@@ -175,10 +175,10 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 	} else if dbRecord == nil {
 		return nil, nil
 	} else if dbRecord.InvalidReason != nil {
-		return nil, auth.Invalid.New("%s", *dbRecord.InvalidReason)
+		return nil, authdb.Invalid.New("%s", *dbRecord.InvalidReason)
 	}
 
-	return &auth.Record{
+	return &authdb.Record{
 		SatelliteAddress:     dbRecord.SatelliteAddress,
 		MacaroonHead:         dbRecord.MacaroonHead,
 		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
@@ -190,7 +190,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 
 // Delete removes the record from the key/value store.
 // It is not an error if the key does not exist.
-func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
+func (d *KV) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = d.db.Delete_Record_By_EncryptionKeyHash(ctx,
@@ -316,7 +316,7 @@ func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
 // Invalidate causes the record to become invalid.
 // It is not an error if the key does not exist.
 // It does not update the invalid reason if the record is already invalid.
-func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string) (err error) {
+func (d *KV) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx,

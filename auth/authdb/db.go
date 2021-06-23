@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package auth
+package authdb
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -19,7 +20,10 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/gateway-mt/auth/satellitelist"
 )
+
+var mon = monkit.Package()
 
 // NotFound is returned when a record is not found.
 var NotFound = errs.Class("not found")
@@ -68,6 +72,11 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 // ToBase32 returns the EncryptionKey as a lowercase RFC 4648 base32 string.
 func (k EncryptionKey) ToBase32() string {
 	return ToBase32(encKeyVersionByte, k[:])
+}
+
+// ToBinary returns the EncryptionKey including the version byte.
+func (k EncryptionKey) ToBinary() []byte {
+	return append([]byte{encKeyVersionByte}, k[:]...)
 }
 
 // ToStorjKey returns the storj.Key equivalent for the EncryptionKey.
@@ -127,7 +136,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	nodeID, err := ParseSatelliteID(satelliteAddr)
+	nodeID, err := satellitelist.ParseSatelliteID(satelliteAddr)
 	if err != nil {
 		return secretKey, err
 	}
@@ -177,18 +186,18 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 }
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the
-// hash of the key and decrypted.
-func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
+// hash of the gateway access key and then decrypted.
+func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	record, err := db.kv.Get(ctx, key.Hash())
+	record, err := db.kv.Get(ctx, accessKeyID.Hash())
 	if err != nil {
 		return "", false, secretKey, errs.Wrap(err)
 	} else if record == nil {
-		return "", false, secretKey, NotFound.New("key hash: %x", key.Hash())
+		return "", false, secretKey, NotFound.New("key hash: %x", accessKeyID.Hash())
 	}
 
-	storjKey := key.ToStorjKey()
+	storjKey := accessKeyID.ToStorjKey()
 	// note that we currently always use the same nonce here - all zero's for secret keys
 	sk, err := encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
