@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/auth/authdb"
+	"storj.io/gateway-mt/auth/drpcauth"
 	"storj.io/gateway-mt/auth/httpauth"
 	"storj.io/gateway-mt/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/server"
@@ -32,7 +33,7 @@ type Config struct {
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
 	ListenAddr    string `user:"true" help:"public HTTP address to listen on" default:":8000"`
-	ListenAddrTLS string `user:"true" help:"public HTTPS address to listen on" default:":8443"`
+	ListenAddrTLS string `user:"true" help:"public HTTPS and DRPC+TLS address to listen on" default:":8443"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	CertFile    string `user:"true" help:"server certificate file" default:""`
@@ -156,6 +157,8 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 		})
 	}
 
+	drpcServer := drpcauth.NewGatewayAuthServer(ctx, log, db, endpoint)
+
 	listener, err := net.Listen("tcp", config.ListenAddrTLS)
 	if err != nil {
 		return err
@@ -163,7 +166,7 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 
 	res.SetStartupDone()
 
-	err = listenAndServe(ctx, log, listener, tlsConfig, handler)
+	err = listenAndServe(ctx, log, listener, tlsConfig, drpcServer, handler)
 	if err != nil {
 		return err
 	}

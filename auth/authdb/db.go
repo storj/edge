@@ -62,6 +62,15 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	err = k.FromBinary(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FromBinary reads the key from binary which must include the version byte.
+func (k *EncryptionKey) FromBinary(data []byte) error {
 	if data[0] != encKeyVersionByte {
 		return errs.New("encryption key did not start with expected byte")
 	}
@@ -71,7 +80,7 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 
 // ToBase32 returns the EncryptionKey as a lowercase RFC 4648 base32 string.
 func (k EncryptionKey) ToBase32() string {
-	return ToBase32(encKeyVersionByte, k[:])
+	return toBase32(k.ToBinary())
 }
 
 // ToBinary returns the EncryptionKey including the version byte.
@@ -88,13 +97,17 @@ func (k EncryptionKey) ToStorjKey() storj.Key {
 
 // ToBase32 returns the SecretKey as a lowercase RFC 4648 base32 string.
 func (s SecretKey) ToBase32() string {
-	return ToBase32(secKeyVersionByte, s[:])
+	return toBase32(s.ToBinary())
 }
 
-// ToBase32 returns the buffer as a lowercase RFC 4648 base32 string.
-func ToBase32(versionByte byte, k []byte) string {
-	keyWithMagic := append([]byte{versionByte}, k...)
-	return strings.ToLower(base32Encoding.EncodeToString(keyWithMagic))
+// ToBinary returns the SecretKey including the version byte.
+func (s SecretKey) ToBinary() []byte {
+	return append([]byte{secKeyVersionByte}, s[:]...)
+}
+
+// toBase32 returns the buffer as a lowercase RFC 4648 base32 string.
+func toBase32(k []byte) string {
+	return strings.ToLower(base32Encoding.EncodeToString(k))
 }
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
