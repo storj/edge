@@ -931,7 +931,13 @@ func getUserAgent(ctx context.Context) string {
 
 // minioError checks if the given error is a minio error.
 func minioError(err error) bool {
-	return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
+	// some minio errors are not minio.GenericError, so we need to check for these specifically.
+	switch {
+	case errors.As(err, &minio.ProjectUsageLimit{}), errors.As(err, &minio.SlowDown{}):
+		return true
+	default:
+		return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
+	}
 }
 
 // log all errors and relevant request information.

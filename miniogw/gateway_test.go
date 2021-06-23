@@ -5,10 +5,14 @@ package miniogw
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	minio "github.com/storj/minio/cmd"
 	"github.com/storj/minio/cmd/logger"
 	"github.com/stretchr/testify/require"
+
+	"storj.io/uplink"
 )
 
 func TestGetUserAgent(t *testing.T) {
@@ -37,5 +41,21 @@ func TestAccessKeyHash(t *testing.T) {
 		reqInfo.AccessKey = tc.input
 		output := getAccessKeyHash(&reqInfo)
 		require.Equal(t, tc.expected, output, i)
+	}
+}
+
+func TestMinioError(t *testing.T) {
+	tests := []struct {
+		input    error
+		expected bool
+	}{
+		{errors.New("some error"), false},
+		{uplink.ErrBucketNameInvalid, false},
+		{minio.SlowDown{}, true},
+		{minio.ProjectUsageLimit{}, true},
+		{minio.BucketNotEmpty{}, true},
+	}
+	for i, tc := range tests {
+		require.Equal(t, tc.expected, minioError(tc.input), i)
 	}
 }
