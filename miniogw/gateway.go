@@ -25,7 +25,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/private/version"
 	"storj.io/uplink"
@@ -350,7 +349,7 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 		//    loss of performance by turning this into a StatObject.
 		// so we do #3 here. it's great!
 
-		return listSingleObject(ctx, project, bucketName, prefix, recursive)
+		return listSingleObject(ctx, project, bucketName, prefix, marker, recursive, maxKeys)
 	}
 
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
@@ -368,17 +367,29 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 
 	limit := maxKeys
 	for (limit > 0 || maxKeys == 0) && list.Next() {
-		limit--
 		object := list.Item()
-		if object.IsPrefix {
-			prefixes = append(prefixes, object.Key)
-			continue
+
+		// The conditional below is a temporary fix until
+		// https://review.dev.storj.io/c/storj/uplink/+/5103 is resolved.
+		// Gateway will try to hop one item further (this successfully
+		// [hackingly] resolves the issue in synthetical tests).
+		if object.Key == startAfter {
+			if list.Next() {
+				object = list.Item()
+			} else {
+				break
+			}
 		}
 
-		objects = append(objects, minioObjectInfo(bucketName, "", object))
+		limit--
+
+		if object.IsPrefix {
+			prefixes = append(prefixes, object.Key)
+		} else {
+			objects = append(objects, minioObjectInfo(bucketName, "", object))
+		}
 
 		startAfter = object.Key
-
 	}
 	if list.Err() != nil {
 		return result, convertError(list.Err(), bucketName, "")
@@ -401,39 +412,17 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 	return result, nil
 }
 
-func listSingleObject(ctx context.Context, project *uplink.Project, bucketName, key string, recursive bool) (result minio.ListObjectsInfo, err error) {
+func listSingleObject(ctx context.Context, project *uplink.Project, bucketName, key, marker string, recursive bool, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var prefixes []string
-	if !recursive {
-		list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
-			Prefix:    key + "/",
-			Recursive: true,
-			// Limit: 1, would be nice to set here
-		})
-		if list.Next() {
-			prefixes = append(prefixes, key+"/")
-		}
-		if err := list.Err(); err != nil {
-			return minio.ListObjectsInfo{}, convertError(err, bucketName, key)
-		}
-	}
-
-	var objects []minio.ObjectInfo
-	object, err := project.StatObject(ctx, bucketName, key)
-	if err != nil {
-		if !errors.Is(err, uplink.ErrObjectNotFound) {
-			return minio.ListObjectsInfo{}, convertError(err, bucketName, key)
-		}
-	} else {
-		objects = append(objects, minioObjectInfo(bucketName, "", object))
-	}
+	isTruncated, nextMarker, objects, prefixes, err := listSingle(ctx, project, bucketName, key, marker, recursive, maxKeys)
 
 	return minio.ListObjectsInfo{
-		IsTruncated: false,
-		Prefixes:    prefixes,
+		IsTruncated: isTruncated,
+		NextMarker:  nextMarker,
 		Objects:     objects,
-	}, nil
+		Prefixes:    prefixes,
+	}, err // already converted/wrapped
 }
 
 func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
@@ -459,6 +448,15 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 
 	recursive := delimiter == ""
 
+	var startAfterPath string
+
+	if startAfter != "" {
+		startAfterPath = startAfter
+	}
+	if continuationToken != "" {
+		startAfterPath = continuationToken
+	}
+
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		// N.B.: in this case, the most S3-compatible thing we could do
 		// is ask the satellite to list all siblings of this prefix that
@@ -479,15 +477,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		//    loss of performance by turning this into a StatObject.
 		// so we do #3 here. it's great!
 
-		return listSingleObjectV2(ctx, project, bucketName, prefix, continuationToken, recursive, fetchOwner)
-	}
-
-	var startAfterPath storj.Path
-	if continuationToken != "" {
-		startAfterPath = continuationToken
-	}
-	if startAfterPath == "" && startAfter != "" {
-		startAfterPath = startAfter
+		return listSingleObjectV2(ctx, project, bucketName, prefix, continuationToken, startAfterPath, recursive, maxKeys)
 	}
 
 	var objects []minio.ObjectInfo
@@ -504,14 +494,27 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 
 	limit := maxKeys
 	for (limit > 0 || maxKeys == 0) && list.Next() {
-		limit--
 		object := list.Item()
-		if object.IsPrefix {
-			prefixes = append(prefixes, object.Key)
-			continue
+
+		// The conditional below is a temporary fix until
+		// https://review.dev.storj.io/c/storj/uplink/+/5103 is resolved.
+		// Gateway will try to hop one item further (this successfully
+		// [hackingly] resolves the issue in synthetical tests).
+		if object.Key == startAfterPath {
+			if list.Next() {
+				object = list.Item()
+			} else {
+				break
+			}
 		}
 
-		objects = append(objects, minioObjectInfo(bucketName, "", object))
+		limit--
+
+		if object.IsPrefix {
+			prefixes = append(prefixes, object.Key)
+		} else {
+			objects = append(objects, minioObjectInfo(bucketName, "", object))
+		}
 
 		startAfter = object.Key
 	}
@@ -537,11 +540,39 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 	return result, nil
 }
 
-func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName, key, continuationToken string, recursive, fetchOwner bool) (result minio.ListObjectsV2Info, err error) {
+func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName, key, continuationToken, startAfterPath string, recursive bool, maxKeys int) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var prefixes []string
-	if !recursive {
+	isTruncated, nextMarker, objects, prefixes, err := listSingle(ctx, project, bucketName, key, startAfterPath, recursive, maxKeys)
+
+	return minio.ListObjectsV2Info{
+		IsTruncated:           isTruncated,
+		ContinuationToken:     continuationToken,
+		NextContinuationToken: nextMarker,
+		Objects:               objects,
+		Prefixes:              prefixes,
+	}, err // already converted/wrapped
+}
+
+func listSingle(ctx context.Context, project *uplink.Project, bucketName, key, marker string, recursive bool, maxKeys int) (isTruncated bool, nextMarker string, objects []minio.ObjectInfo, prefixes []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if marker == "" {
+		object, err := project.StatObject(ctx, bucketName, key)
+		if err != nil {
+			if !errors.Is(err, uplink.ErrObjectNotFound) {
+				return false, "", nil, nil, convertError(err, bucketName, key)
+			}
+		} else {
+			objects = append(objects, minioObjectInfo(bucketName, "", object))
+
+			if maxKeys == 1 {
+				return true, key, objects, nil, nil
+			}
+		}
+	}
+
+	if !recursive && (marker == "" || marker == key) {
 		list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 			Prefix:    key + "/",
 			Recursive: true,
@@ -551,26 +582,11 @@ func listSingleObjectV2(ctx context.Context, project *uplink.Project, bucketName
 			prefixes = append(prefixes, key+"/")
 		}
 		if err := list.Err(); err != nil {
-			return minio.ListObjectsV2Info{}, convertError(err, bucketName, key)
+			return false, "", nil, nil, convertError(err, bucketName, key)
 		}
 	}
 
-	var objects []minio.ObjectInfo
-	object, err := project.StatObject(ctx, bucketName, key)
-	if err != nil {
-		if !errors.Is(err, uplink.ErrObjectNotFound) {
-			return minio.ListObjectsV2Info{}, convertError(err, bucketName, key)
-		}
-	} else {
-		objects = append(objects, minioObjectInfo(bucketName, "", object))
-	}
-
-	return minio.ListObjectsV2Info{
-		IsTruncated:       false,
-		ContinuationToken: continuationToken,
-		Prefixes:          prefixes,
-		Objects:           objects,
-	}, nil
+	return false, "", objects, prefixes, nil
 }
 
 func (gateway *gateway) MakeBucketWithLocation(ctx context.Context, bucketName string, opts minio.BucketOptions) (err error) {
