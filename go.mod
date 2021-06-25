@@ -22,5 +22,5 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20210601214904-24681cb3da97
 	storj.io/private v0.0.0-20210615185437-f53a5fcf98e0
-	storj.io/uplink v1.5.0-rc.1.0.20210603135837-2711b4e68738
+	storj.io/uplink v1.5.0-rc.1.0.20210623044259-5d6a93983f96
 )

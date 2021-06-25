@@ -1335,5 +1335,5 @@ storj.io/private v0.0.0-20210615185437-f53a5fcf98e0/go.mod h1:kJlhG6yxo2fTsJYyPp
 storj.io/storj v1.30.3 h1:VSwhD3T6Lp9+30r/ZEPs36Bz9W/KbGpYs4fzBpGb44M=
 storj.io/storj v1.30.3/go.mod h1:b5lKun7DPGlHyGaMhtwIEU3UliRxMMaWARzPiipEQfU=
 storj.io/uplink v1.5.0-rc.1.0.20210506124440-cfeb286eeeb9/go.mod h1:VzJd+P1sfcVnGCxm0mPPhOBkbov0gLZ+/QXeKkkZ1tI=
-storj.io/uplink v1.5.0-rc.1.0.20210603135837-2711b4e68738 h1:sC/l5oNX00DLm3NNKDmt11C0OQ0R1BnDR8n+yAo0a08=
-storj.io/uplink v1.5.0-rc.1.0.20210603135837-2711b4e68738/go.mod h1:h88Z4fMa15NwO6sqJAfvTDHIueRh9ZWYjw2qo1YiAoc=
+storj.io/uplink v1.5.0-rc.1.0.20210623044259-5d6a93983f96 h1:mhTXJTyVlspe2Bde6VYlgtmToq5oANXs55iH18jK9ew=
+storj.io/uplink v1.5.0-rc.1.0.20210623044259-5d6a93983f96/go.mod h1:h88Z4fMa15NwO6sqJAfvTDHIueRh9ZWYjw2qo1YiAoc=
