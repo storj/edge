@@ -16,7 +16,8 @@ import (
 func LogRequestsNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
 		log.Info("access", zap.String("method", r.Method),
-			zap.String("host", r.Host))
+			zap.String("host", r.Host),
+			zap.String("user-agent", r.UserAgent()))
 		h.ServeHTTP(w, r)
 	})
 }
