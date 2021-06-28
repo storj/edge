@@ -16,6 +16,7 @@ import (
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/auth/sqlauth/dbx"
 	"storj.io/private/dbutil"
+	_ "storj.io/private/dbutil/cockroachutil" // register our custom driver
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/tagsql"
