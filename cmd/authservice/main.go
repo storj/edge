@@ -55,7 +55,7 @@ type Config struct {
 	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
 	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 
-	KVBackend string `help:"key/value store backend url" default:"memory://"`
+	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
 	ListenAddr    string `user:"true" help:"public address to listen on" default:":8000"`

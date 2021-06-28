@@ -31,6 +31,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/processgroup"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/internal/minioclient"
@@ -84,19 +85,20 @@ func TestUploadDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 
-		accessStr, err := access.Serialize()
-		require.NoError(t, err)
-
 		// TODO: make address not hardcoded the address selection here
 		// may conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		satelliteURL := planet.Satellites[0].URL()
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
 		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
 
-		authSvc, err := startAuthSvc(t, authSvcExe, authSvcAddr, gatewayAddr, satelliteURL)
+		authSvc, err := startAuthSvc(t, authSvcExe, authSvcOptions{
+			Listen:    authSvcAddr,
+			Gateway:   "http://" + gatewayAddr,
+			KVBackend: "memory://",
+			Satellite: planet.Satellites[0].NodeURL(),
+		})
 		require.NoError(t, err)
 		defer func() { processgroup.Kill(authSvc) }()
 
@@ -114,8 +116,12 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		gateway, err := startGateway(t, client, gatewayExe, accessStr, gatewayAddr, authSvcAddr)
+		gateway, err := startGateway(t, client, gatewayExe, gatewayOptions{
+			Listen:      gatewayAddr,
+			AuthService: authSvcAddr,
+		})
 		require.NoError(t, err)
+
 		defer func() { processgroup.Kill(gateway) }()
 
 		{ // normal upload
@@ -224,13 +230,23 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
-func startAuthSvc(t *testing.T, exe, authSvcAddress, gatewayAddress, satelliteURL string, moreFlags ...string) (*exec.Cmd, error) {
+type authSvcOptions struct {
+	Listen    string
+	Gateway   string
+	KVBackend string
+	Satellite storj.NodeURL
+
+	More []string
+}
+
+func startAuthSvc(t *testing.T, exe string, opts authSvcOptions) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--auth-token", "super-secret",
-		"--allowed-satellites", satelliteURL,
-		"--endpoint", "http://" + gatewayAddress,
-		"--listen-addr", authSvcAddress,
-	}, moreFlags...)
+		"--allowed-satellites", opts.Satellite.String(),
+		"--endpoint", opts.Gateway,
+		"--listen-addr", opts.Listen,
+		"--kv-backend", opts.KVBackend,
+	}, opts.More...)
 
 	authSvc := exec.Command(exe, args...)
 
@@ -243,7 +259,7 @@ func startAuthSvc(t *testing.T, exe, authSvcAddress, gatewayAddress, satelliteUR
 		return nil, err
 	}
 
-	err = waitForAuthSvcStart(authSvcAddress, 5*time.Second, authSvc)
+	err = waitForAuthSvcStart(opts.Listen, 5*time.Second, authSvc)
 	if err != nil {
 		killErr := authSvc.Process.Kill()
 		return nil, errs.Combine(err, killErr)
@@ -298,14 +314,20 @@ func tryConnectAuthSvc(authSvcAddress string) bool {
 	return err == nil
 }
 
-func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayAddress,
-	authSvcAddress string, moreFlags ...string) (*exec.Cmd, error) {
+type gatewayOptions struct {
+	Listen      string
+	AuthService string
+
+	More []string
+}
+
+func startGateway(t *testing.T, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
 	args := append([]string{"run",
-		"--server.address", gatewayAddress,
+		"--server.address", opts.Listen,
 		"--auth-token", "super-secret",
-		"--auth-url", "http://" + authSvcAddress,
+		"--auth-url", "http://" + opts.AuthService,
 		"--domain-name", "localhost",
-	}, moreFlags...)
+	}, opts.More...)
 
 	gateway := exec.Command(exe, args...)
 
@@ -318,7 +340,7 @@ func startGateway(t *testing.T, client minioclient.Client, exe, access, gatewayA
 		return nil, err
 	}
 
-	err = waitForGatewayStart(client, gatewayAddress, 5*time.Second, gateway)
+	err = waitForGatewayStart(client, opts.Listen, 5*time.Second, gateway)
 	if err != nil {
 		killErr := gateway.Process.Kill()
 		return nil, errs.Combine(err, killErr)

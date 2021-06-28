@@ -93,7 +93,7 @@ authtoken="bob"
 authservice_address="127.0.0.1:9191"
 minio_url="http://127.0.0.1:7777/"
 
-authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" &
+authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" --kv-backend="memory://" &
 gateway-mt run --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" &
 
 for i in {1..60}; do
