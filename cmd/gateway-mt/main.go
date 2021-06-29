@@ -181,7 +181,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer,
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
-	return miniogw.NewGateway(config, pool, zap.L())
+	return miniogw.NewGateway(config, pool)
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

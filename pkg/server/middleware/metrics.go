@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+
+	"storj.io/gateway-mt/pkg/gwlog"
 )
 
 var mon = monkit.Package()
@@ -45,7 +47,28 @@ func Metrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		recorder := &StatusRecorder{ResponseWriter: w}
-		next.ServeHTTP(recorder, r)
-		mon.DurationVal("gmt_request_times", monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status))).Observe(time.Since(start))
+
+		ctx := r.Context()
+		log, ok := gwlog.FromContext(ctx)
+		if !ok {
+			log = gwlog.New()
+			ctx = log.WithContext(ctx)
+		}
+
+		next.ServeHTTP(recorder, r.WithContext(ctx))
+
+		mon.DurationVal("gmt_request_times",
+			monkit.NewSeriesTag("api", log.API),
+			monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status)),
+		).Observe(time.Since(start))
+
+		err := log.TagValue("error")
+		if err != "" {
+			mon.Event("gmt_unmapped_error",
+				monkit.NewSeriesTag("api", log.API),
+				monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status)),
+				monkit.NewSeriesTag("error", err),
+			)
+		}
 	})
 }

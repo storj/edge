@@ -6,10 +6,8 @@ package miniogw
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -20,12 +18,11 @@ import (
 	"github.com/storj/minio/cmd/logger"
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
+	"storj.io/gateway-mt/pkg/gwlog"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -43,11 +40,10 @@ var (
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
-func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, log *zap.Logger) (minio.ObjectLayer, error) {
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool) (minio.ObjectLayer, error) {
 	return &gateway{
 		config:         config,
 		connectionPool: connectionPool,
-		logger:         log,
 	}, nil
 }
 
@@ -55,7 +51,6 @@ type gateway struct {
 	minio.GatewayUnsupported
 	config         uplink.Config
 	connectionPool *rpcpool.Pool
-	logger         *zap.Logger
 }
 
 func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
@@ -913,53 +908,40 @@ func minioError(err error) bool {
 func (gateway *gateway) log(ctx context.Context, err error) {
 	reqInfo := logger.GetReqInfo(ctx)
 	if reqInfo == nil {
-		gateway.logger.Error("gateway error:", zap.Error(errs.New("empty request")))
 		return
 	}
 
-	writeLog(gateway.logger, zapcore.DebugLevel, reqInfo, err)
-
-	// most of the time context canceled is intentionally caused by the client
-	// to keep log message clean, we will only log it on debug level
-	if errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err) {
-		return
+	// log any unexpected errors
+	if err != nil && !minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)) {
+		reqInfo.SetTags("error", err.Error())
 	}
 
-	if err != nil && !minioError(err) {
-		writeLog(gateway.logger, zapcore.ErrorLevel, reqInfo, err)
-
-		// Ideally all foreseeable errors should be mapped to existing S3 / Minio errors.
-		// This event should allow us to correlate with the logs to gradually add more
-		// error mappings and reduce number of unmapped errors we return.
-		req := logger.GetReqInfo(ctx)
-		var apiName string
-		if req != nil {
-			apiName = req.API
-		}
-
-		mon.Event("gmt_unmapped_error",
-			monkit.NewSeriesTag("api", apiName),
-			monkit.NewSeriesTag("error", err.Error()),
-		)
+	// logger.GetReqInfo(ctx) will get the ReqInfo from context minio created as a copy of the
+	// parent request context. Our logging/metrics middleware can only see the parent context
+	// without the ReqInfo value, so in order for it to get at the ReqInfo data, we copy it
+	// to a separate log value both this gateway and our middleware can see, one that was
+	// set in context from the middleware itself, and so is accessible here.
+	// The alternative to this was to modify minio to avoid creating a ReqInfo and use the
+	// same reference of a ReqInfo that was set in our middleware, but we want to avoid
+	// modifying minio as much as we can help it.
+	if log, ok := gwlog.FromContext(ctx); ok {
+		copyReqInfo(log, reqInfo)
 	}
 }
 
-func writeLog(logger *zap.Logger, lvl zapcore.Level, reqInfo *logger.ReqInfo, err error) {
-	if ce := logger.Check(lvl, fmt.Sprintf("gateway %s:", lvl.String())); ce != nil {
-		ce.Write(zap.String("request-id", reqInfo.RequestID),
-			zap.String("access-key-sha256", getAccessKeyHash(reqInfo)),
-			zap.String("operation", reqInfo.API),
-			zap.String("user-agent", reqInfo.UserAgent),
-			zap.Error(err))
-	}
-}
+func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
+	dst.RemoteHost = src.RemoteHost
+	dst.Host = src.Host
+	dst.UserAgent = src.UserAgent
+	dst.DeploymentID = src.DeploymentID
+	dst.RequestID = src.RequestID
+	dst.API = src.API
+	dst.BucketName = src.BucketName
+	dst.ObjectName = src.ObjectName
+	dst.AccessKey = src.AccessKey
+	dst.AccessGrant = src.AccessGrant
 
-func getAccessKeyHash(reqInfo *logger.ReqInfo) string {
-	if reqInfo.AccessKey == "" {
-		return ""
+	for _, tag := range src.GetTags() {
+		dst.SetTags(tag.Key, tag.Val)
 	}
-
-	h := sha256.New()
-	h.Write([]byte(reqInfo.AccessKey))
-	return fmt.Sprintf("%x", h.Sum(nil))
 }

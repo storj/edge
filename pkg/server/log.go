@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
+
+	"storj.io/gateway-mt/pkg/gwlog"
 )
 
 // LogRequestsNoPaths logs requests but without paths (which have sensitive info).
@@ -26,9 +28,15 @@ func LogRequestsNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 	return whmon.MonitorResponse(whroute.HandlerFunc(h,
 		func(w http.ResponseWriter, r *http.Request) {
-			method, host := r.Method, r.Host
 			rw := w.(whmon.ResponseWriter)
 			start := time.Now()
+
+			ctx := r.Context()
+			gl, ok := gwlog.FromContext(ctx)
+			if !ok {
+				gl = gwlog.New()
+				ctx = gl.WithContext(ctx)
+			}
 
 			defer func() {
 				rec := recover()
@@ -37,24 +45,51 @@ func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 					panic(rec)
 				}
 			}()
-			h.ServeHTTP(rw, r)
+			h.ServeHTTP(rw, r.WithContext(ctx))
 
 			if !rw.WroteHeader() {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			code := rw.StatusCode()
-
-			level := log.Info
-			if code >= 500 {
-				level = log.Error
+			if gl.RequestID != "" {
+				logGatewayResponse(log, r, rw, gl, time.Since(start))
+				return
 			}
-			level("response", zap.String("method", method),
-				zap.String("host", host),
-				zap.Int("code", code),
-				zap.String("user-agent", r.UserAgent()),
-				zap.Int64("content-length", r.ContentLength),
-				zap.Int64("written", rw.Written()),
-				zap.Duration("duration", time.Since(start)))
+
+			logResponse(log, r, rw, time.Since(start))
 		}))
+}
+
+func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration) {
+	level := log.Info
+	if rw.StatusCode() >= 500 {
+		level = log.Error
+	}
+
+	level("response", zap.String("method", r.Method),
+		zap.String("host", r.Host),
+		zap.Int("code", rw.StatusCode()),
+		zap.String("user-agent", r.UserAgent()),
+		zap.String("api", gl.API),
+		zap.String("error", gl.TagValue("error")),
+		zap.String("request-id", gl.RequestID),
+		zap.String("access-key-sha256", gl.AccessKeyHash()),
+		zap.Int64("content-length", r.ContentLength),
+		zap.Int64("written", rw.Written()),
+		zap.Duration("duration", d))
+}
+
+func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration) {
+	level := log.Info
+	if rw.StatusCode() >= 500 {
+		level = log.Error
+	}
+
+	level("response", zap.String("method", r.Method),
+		zap.String("host", r.Host),
+		zap.Int("code", rw.StatusCode()),
+		zap.String("user-agent", r.UserAgent()),
+		zap.Int64("content-length", r.ContentLength),
+		zap.Int64("written", rw.Written()),
+		zap.Duration("duration", d))
 }

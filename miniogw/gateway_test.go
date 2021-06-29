@@ -12,6 +12,7 @@ import (
 	"github.com/storj/minio/cmd/logger"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/gateway-mt/pkg/gwlog"
 	"storj.io/uplink"
 )
 
@@ -28,22 +29,6 @@ func TestGetUserAgent(t *testing.T) {
 	require.Equal(t, "Test/1.0 S3-Browser/9.5.5 (https://s3browser.com) Gateway-MT/v0.0.0", results)
 }
 
-func TestAccessKeyHash(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"test123", "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae"},
-		{"", ""},
-	}
-	for i, tc := range tests {
-		var reqInfo logger.ReqInfo
-		reqInfo.AccessKey = tc.input
-		output := getAccessKeyHash(&reqInfo)
-		require.Equal(t, tc.expected, output, i)
-	}
-}
-
 func TestMinioError(t *testing.T) {
 	tests := []struct {
 		input    error
@@ -57,5 +42,23 @@ func TestMinioError(t *testing.T) {
 	}
 	for i, tc := range tests {
 		require.Equal(t, tc.expected, minioError(tc.input), i)
+	}
+}
+
+func TestLogUnexpectedError(t *testing.T) {
+	tests := []struct {
+		input    error
+		expected string
+	}{
+		{context.Canceled, ""},
+		{minio.BucketNotEmpty{}, ""},
+		{uplink.ErrBucketNameInvalid, uplink.ErrBucketNameInvalid.Error()},
+		{errors.New("unexpected error"), "unexpected error"},
+	}
+	for i, tc := range tests {
+		log := gwlog.New()
+		ctx := log.WithContext(context.Background())
+		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil}).log(ctx, tc.input)
+		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
