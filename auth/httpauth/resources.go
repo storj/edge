@@ -208,6 +208,10 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
+		if auth.NotFound.Has(err) {
+			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
+			return
+		}
 		res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
