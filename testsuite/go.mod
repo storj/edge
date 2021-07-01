@@ -7,13 +7,12 @@ replace storj.io/gateway-mt => ../
 require (
 	github.com/aws/aws-sdk-go v1.36.15
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/storj/minio v0.0.0-20210507172446-1458d31a273b
+	github.com/storj/minio v0.0.0-20210702141136-00a88a9ab454
 	github.com/stretchr/testify v1.7.0
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/zap v1.16.0
-	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210601214904-24681cb3da97
+	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/storj v1.30.3
-	storj.io/uplink v1.5.0-rc.1.0.20210623044259-5d6a93983f96
+	storj.io/storj v1.34.0-rc
+	storj.io/uplink v1.5.0-rc.1.0.20210708154526-f5ca59991bd8
 )

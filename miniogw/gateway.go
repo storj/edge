@@ -13,8 +13,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/minio/minio-go/v7/pkg/tags"
 	"github.com/spacemonkeygo/monkit/v3"
 	minio "github.com/storj/minio/cmd"
+	xhttp "github.com/storj/minio/cmd/http"
 	"github.com/storj/minio/cmd/logger"
 	"github.com/storj/minio/pkg/hash"
 	"github.com/zeebo/errs"
@@ -51,6 +53,10 @@ type gateway struct {
 	minio.GatewayUnsupported
 	config         uplink.Config
 	connectionPool *rpcpool.Pool
+}
+
+func (gateway *gateway) IsTaggingSupported() bool {
+	return true
 }
 
 func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, forceDelete bool) (err error) {
@@ -267,6 +273,105 @@ func (gateway *gateway) GetObjectInfo(ctx context.Context, bucketName, objectPat
 	}
 
 	return minioObjectInfo(bucketName, "", object), nil
+}
+
+func (gateway *gateway) PutObjectTags(ctx context.Context, bucketName, objectPath string, tags string, opts minio.ObjectOptions) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer func() { gateway.log(ctx, err) }()
+
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
+	object, err := project.StatObject(ctx, bucketName, objectPath)
+	if err != nil {
+		// TODO this should be removed and implemented on satellite side
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
+		return convertError(err, bucketName, objectPath)
+	}
+
+	if _, ok := object.Custom["s3:tags"]; !ok && tags == "" {
+		return nil
+	}
+
+	newMetadata := object.Custom.Clone()
+	if tags == "" {
+		delete(newMetadata, "s3:tags")
+	} else {
+		newMetadata["s3:tags"] = tags
+	}
+
+	err = project.UpdateObjectMetadata(ctx, bucketName, objectPath, newMetadata, nil)
+	if err != nil {
+		return convertError(err, bucketName, objectPath)
+	}
+
+	return nil
+}
+
+func (gateway *gateway) GetObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (t *tags.Tags, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer func() { gateway.log(ctx, err) }()
+
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
+	object, err := project.StatObject(ctx, bucketName, objectPath)
+	if err != nil {
+		// TODO this should be removed and implemented on satellite side
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
+		return nil, convertError(err, bucketName, objectPath)
+	}
+
+	t, err = tags.ParseObjectTags(object.Custom["s3:tags"])
+	if err != nil {
+		return nil, convertError(err, bucketName, objectPath)
+	}
+
+	return t, nil
+}
+
+func (gateway *gateway) DeleteObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer func() { gateway.log(ctx, err) }()
+
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
+	object, err := project.StatObject(ctx, bucketName, objectPath)
+	if err != nil {
+		// TODO this should be removed and implemented on satellite side
+		err = checkBucketError(ctx, project, bucketName, objectPath, err)
+		return convertError(err, bucketName, objectPath)
+	}
+
+	if _, ok := object.Custom["s3:tags"]; !ok {
+		return nil
+	}
+
+	newMetadata := object.Custom.Clone()
+	delete(newMetadata, "s3:tags")
+
+	err = project.UpdateObjectMetadata(ctx, bucketName, objectPath, newMetadata, nil)
+	if err != nil {
+		return convertError(err, bucketName, objectPath)
+	}
+
+	return nil
 }
 
 func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketInfo, err error) {
@@ -719,6 +824,11 @@ func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath st
 		abortErr := upload.Abort()
 		err = errs.Combine(err, abortErr)
 		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
+	}
+
+	if tagsStr, ok := opts.UserDefined[xhttp.AmzObjectTagging]; ok {
+		opts.UserDefined["s3:tags"] = tagsStr
+		delete(opts.UserDefined, xhttp.AmzObjectTagging)
 	}
 
 	opts.UserDefined["s3:etag"] = hex.EncodeToString(data.MD5Current())

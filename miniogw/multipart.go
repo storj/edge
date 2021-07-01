@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	minio "github.com/storj/minio/cmd"
+	xhttp "github.com/storj/minio/cmd/http"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/sync2"
@@ -171,10 +172,14 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 	}()
 
 	// TODO: Check that ETag of uploadedParts match the ETags stored in metabase.
-
 	etag, err := multipartUploadETag(uploadedParts)
 	if err != nil {
 		return minio.ObjectInfo{}, convertMultipartError(err, bucket, object, uploadID)
+	}
+
+	if tagsStr, ok := opts.UserDefined[xhttp.AmzObjectTagging]; ok {
+		opts.UserDefined["s3:tags"] = tagsStr
+		delete(opts.UserDefined, xhttp.AmzObjectTagging)
 	}
 
 	metadata := uplink.CustomMetadata(opts.UserDefined).Clone()

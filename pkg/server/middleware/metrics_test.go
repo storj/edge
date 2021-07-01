@@ -41,10 +41,10 @@ func TestMetrics(t *testing.T) {
 	Metrics(status(500)).ServeHTTP(rr, req)
 
 	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
-	assert.Equal(t, 1.0, c["gmt_request_times,api=ListObjects,status_code=200 count"])
-	assert.Equal(t, 2.0, c["gmt_request_times,api=ListObjects,status_code=400 count"])
-	assert.Equal(t, 3.0, c["gmt_request_times,api=ListObjects,status_code=500 count"])
-	assert.Equal(t, 1.0, c["gmt_unmapped_error,api=ListObjects,error=error!,status_code=200 total"])
-	assert.Equal(t, 2.0, c["gmt_unmapped_error,api=ListObjects,error=error!,status_code=400 total"])
-	assert.Equal(t, 3.0, c["gmt_unmapped_error,api=ListObjects,error=error!,status_code=500 total"])
+	assert.Equal(t, 1.0, c["gmt_request_times,api=ListObjects,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 count"])
+	assert.Equal(t, 2.0, c["gmt_request_times,api=ListObjects,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 count"])
+	assert.Equal(t, 3.0, c["gmt_request_times,api=ListObjects,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 count"])
+	assert.Equal(t, 1.0, c["gmt_unmapped_error,api=ListObjects,error=error!,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 total"])
+	assert.Equal(t, 2.0, c["gmt_unmapped_error,api=ListObjects,error=error!,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 total"])
+	assert.Equal(t, 3.0, c["gmt_unmapped_error,api=ListObjects,error=error!,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 total"])
 }
