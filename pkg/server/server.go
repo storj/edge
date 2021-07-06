@@ -26,10 +26,8 @@ import (
 	"storj.io/uplink/private/transport"
 )
 
-var (
-	// Error is an error class for internal Multinode Dashboard http server error.
-	Error = errs.Class("gateway")
-)
+// Error is an error class for internal Multinode Dashboard http server error.
+var Error = errs.Class("gateway")
 
 // Server represents an S3 compatible http server.
 type Server struct {
@@ -43,7 +41,11 @@ type Server struct {
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string, domainNames []string, useSetInMemoryMiddleware bool) *Server {
+//
+// TODO: at the time of wiring the new Signature middleware we'll start to use/
+// pass around the trustedIPs parameter.
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string,
+	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs TrustedIPsList) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 

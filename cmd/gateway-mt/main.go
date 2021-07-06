@@ -34,12 +34,14 @@ type GatewayFlags struct {
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
 
-	AuthURL            string `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
-	AuthToken          string `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
-	CertDir            string `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
-	InsecureDisableTLS bool   `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName         string `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
-	EncodeInMemory     bool   `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
+	AuthURL              string `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
+	AuthToken            string `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
+	CertDir              string `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
+	InsecureDisableTLS   bool   `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
+	DomainName           string `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	EncodeInMemory       bool   `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
+	ClientTrustedIPSList string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc." default:""`
+	UseClientIPHeaders   bool   `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 
 	Config
 	ConnectionPool ConnectionPoolConfig
@@ -170,7 +172,26 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 			return err
 		}
 	}
-	s3 := server.New(listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","), runCfg.EncodeInMemory)
+
+	var (
+		trustedClientIPs     server.TrustedIPsList
+		clientTrustedIPsList = strings.Split(runCfg.ClientTrustedIPSList, ",")
+	)
+
+	if runCfg.UseClientIPHeaders {
+		if len(clientTrustedIPsList) > 0 {
+			trustedClientIPs = server.NewTrustedIPsListTrustIPs(clientTrustedIPsList...)
+		} else {
+			trustedClientIPs = server.NewTrustedIPsListTrustAll()
+		}
+	} else {
+		trustedClientIPs = server.NewTrustedIPsListUntrustAll()
+	}
+
+	s3 := server.New(
+		listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","),
+		runCfg.EncodeInMemory, trustedClientIPs,
+	)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)

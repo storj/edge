@@ -33,6 +33,7 @@ func TestPathStyle(t *testing.T) {
 	t.Parallel()
 	testServer(t, false, false)
 }
+
 func TestVirtualHostStyle(t *testing.T) {
 	t.Parallel()
 	testServer(t, false, true)
@@ -42,6 +43,7 @@ func TestPathStyleTLS(t *testing.T) {
 	t.Parallel()
 	testServer(t, true, false)
 }
+
 func TestVirtualHostStyleTLS(t *testing.T) {
 	t.Parallel()
 	testServer(t, true, true)
@@ -59,7 +61,9 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	if useTLS {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
 	}
-	s := server.New(listener, zap.New(core), tlsConfig, "127.0.0.1:0", []string{"localhost"}, true)
+	s := server.New(
+		listener, zap.New(core), tlsConfig, "127.0.0.1:0", []string{"localhost"}, true, server.NewTrustedIPsListTrustAll(),
+	)
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(s.Run(ctx))
 	})

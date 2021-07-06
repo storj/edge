@@ -60,7 +60,9 @@ type GetAccessResponse struct {
 }
 
 // GetAccess returns the auth service access data for the give access key ID.
-func (c *AuthClient) GetAccess(ctx context.Context, accessKeyID string) (response *GetAccessResponse, err error) {
+// clientIP is the IP of the client that has originated the request and it's
+// required to be sent to the Auth service.
+func (c *AuthClient) GetAccess(ctx context.Context, accessKeyID string, clientIP string) (response *GetAccessResponse, err error) {
 	reqURL, err := c.accessURL.Parse(path.Join(c.accessURL.Path, accessKeyID))
 	if err != nil {
 		return nil, err
@@ -72,6 +74,7 @@ func (c *AuthClient) GetAccess(ctx context.Context, accessKeyID string) (respons
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Forwarded", "for="+clientIP)
 
 	res, err := c.client.Do(req)
 	if err != nil {

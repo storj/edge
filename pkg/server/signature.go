@@ -35,6 +35,7 @@ const (
 // Signature middleware handles authorization without Minio.
 type Signature struct {
 	AuthClient func() (*AuthClient, error)
+	TrustedIPs TrustedIPsList
 }
 
 // Middleware implements mux.Middlware.
@@ -53,7 +54,8 @@ func (s *Signature) Middleware(next http.Handler) http.Handler {
 			WriteError(ctx, w, err, r.URL)
 			return
 		}
-		authResponse, err := authClient.GetAccess(ctx, accessKeyID)
+
+		authResponse, err := authClient.GetAccess(ctx, accessKeyID, GetClientIP(s.TrustedIPs, r))
 		if err != nil {
 			WriteError(ctx, w, err, r.URL)
 			return
@@ -264,8 +266,10 @@ var ParseV4FromHeaderError = errs.Class("header")
 // ParseV4FromQueryError is the default error class for V4 parsing query errors.
 var ParseV4FromQueryError = errs.Class("query")
 
-var v4AuthorizationRegex = regexp.MustCompile("^AWS4-HMAC-SHA256 (?P<kvs>.+)$")
-var v4AuthorizationFieldRegex = regexp.MustCompile("^(?P<key>[^,=]+)[=](?P<val>[^,]+)[,]?[ ]*")
+var (
+	v4AuthorizationRegex      = regexp.MustCompile("^AWS4-HMAC-SHA256 (?P<kvs>.+)$")
+	v4AuthorizationFieldRegex = regexp.MustCompile("^(?P<key>[^,=]+)[=](?P<val>[^,]+)[,]?[ ]*")
+)
 
 // ParseV4FromHeader parses a V4 signature from the request headers.
 func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
