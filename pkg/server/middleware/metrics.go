@@ -52,10 +52,10 @@ func Metrics(next http.Handler) http.Handler {
 		log, ok := gwlog.FromContext(ctx)
 		if !ok {
 			log = gwlog.New()
-			ctx = log.WithContext(ctx)
+			r = r.WithContext(log.WithContext(ctx))
 		}
 
-		next.ServeHTTP(recorder, r.WithContext(ctx))
+		next.ServeHTTP(recorder, r)
 
 		mon.DurationVal("gmt_request_times",
 			monkit.NewSeriesTag("api", log.API),

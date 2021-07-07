@@ -35,7 +35,7 @@ func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 			gl, ok := gwlog.FromContext(ctx)
 			if !ok {
 				gl = gwlog.New()
-				ctx = gl.WithContext(ctx)
+				r = r.WithContext(gl.WithContext(ctx))
 			}
 
 			defer func() {
@@ -45,7 +45,7 @@ func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 					panic(rec)
 				}
 			}()
-			h.ServeHTTP(rw, r.WithContext(ctx))
+			h.ServeHTTP(rw, r)
 
 			if !rw.WroteHeader() {
 				rw.WriteHeader(http.StatusOK)
