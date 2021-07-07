@@ -5,9 +5,11 @@ package sqlauth_test
 
 import (
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -165,4 +167,170 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	retrievedExpAt := retrievedRecord.ExpiresAt.UTC().Round(time.Second)
 	retrievedRecord.ExpiresAt = &retrievedExpAt
 	require.Equal(t, record, *retrievedRecord)
+}
+
+func TestKV_DeleteUnused_Postgres(t *testing.T) {
+	testKVDeleteUnused(t, pgtest.PickPostgres(t), 0)
+}
+
+func TestKV_DeleteUnused_Cockroach(t *testing.T) {
+	testKVDeleteUnused(t, pgtest.PickCockroachAlt(t), time.Microsecond)
+}
+
+func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, kv.Close()) }()
+
+	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.MigrateToLatest(ctx))
+
+	r1 := &auth.Record{
+		SatelliteAddress:     "abc",
+		MacaroonHead:         []byte{0},
+		EncryptedSecretKey:   []byte{1},
+		EncryptedAccessGrant: []byte{2},
+	}
+
+	for i := 0; i < 100; i += 2 {
+		require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r1))
+	}
+
+	time.Sleep(wait)
+
+	// Confirm DeleteUnused is idempotent.
+	for i := 0; i < 3; i++ {
+		count, rounds, err := kv.DeleteUnused(ctx, wait, 20, 5)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), count)
+		assert.Equal(t, int64(0), rounds)
+	}
+
+	time.Sleep(wait)
+
+	for i := 0; i < 100; i++ {
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(i)}, -wait)
+		require.NoError(t, err)
+		if i%2 == 0 {
+			assert.Equal(t, r1, r)
+		} else {
+			assert.Nil(t, r)
+		}
+	}
+
+	for i := 1; i < 100; i += 2 {
+		n := time.Now()
+		r := &auth.Record{
+			SatelliteAddress:     "def",
+			MacaroonHead:         []byte{3},
+			EncryptedSecretKey:   []byte{4},
+			EncryptedAccessGrant: []byte{5},
+			ExpiresAt:            &n,
+		}
+		require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r))
+	}
+
+	for i := 50; i < 100; i += 2 {
+		require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{byte(i)}, "test"))
+	}
+
+	maxTime := time.Unix(1<<43, 0)
+
+	r2 := &auth.Record{
+		SatelliteAddress:     "ghi",
+		MacaroonHead:         []byte{6},
+		EncryptedSecretKey:   []byte{7},
+		EncryptedAccessGrant: []byte{8},
+		ExpiresAt:            &maxTime,
+	}
+
+	require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(255)}, r2))
+
+	time.Sleep(wait)
+
+	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
+	// records.
+	for i := 0; i < 5; i++ {
+		count, rounds, err := kv.DeleteUnused(ctx, wait, 20, 5)
+		require.NoError(t, err)
+
+		if i == 0 {
+			assert.Equal(t, int64(75), count)
+			assert.Equal(t, int64(15), rounds)
+		} else {
+			assert.Equal(t, int64(0), count)
+			assert.Equal(t, int64(0), rounds)
+		}
+	}
+
+	time.Sleep(wait)
+
+	for i := 0; i < 100; i++ {
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(i)}, -wait)
+		require.NoError(t, err)
+		if i < 50 && i%2 == 0 {
+			assert.Equal(t, r1, r)
+		} else {
+			assert.Nil(t, r)
+		}
+	}
+
+	{
+		r, err := kv.GetWithNonDefaultAsOfInterval(ctx, auth.KeyHash{byte(255)}, -wait)
+		require.NoError(t, err)
+		assert.Equal(t, r2, r)
+	}
+}
+
+func TestKV_DeleteUnusedBatching_Postgres(t *testing.T) {
+	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 10, 5, 100, 20, 0)
+	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1000, 250, 3214, 13, 0)
+	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1111, 321, 5000, 18, 0)
+}
+
+func TestKV_DeleteUnusedBatching_Cockroach(t *testing.T) {
+	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 10, 5, 100, 20, time.Second)
+	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1000, 250, 3214, 13, time.Second)
+	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1111, 321, 5000, 18, time.Second)
+}
+
+func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, deleteSize int, expectedCount, expectedRounds int64, wait time.Duration) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, kv.Close()) }()
+
+	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.MigrateToLatest(ctx))
+
+	for i := int64(0); i < expectedCount; i++ {
+		n := time.Now()
+		r := &auth.Record{
+			SatelliteAddress:     "abc",
+			MacaroonHead:         []byte{0},
+			EncryptedSecretKey:   []byte{1},
+			EncryptedAccessGrant: []byte{2},
+			ExpiresAt:            &n,
+		}
+
+		var k [32]byte
+
+		for j, r := range strconv.FormatInt(i, 16) {
+			k[j] = byte(r)
+		}
+
+		require.NoError(t, kv.Put(ctx, k, r))
+	}
+
+	time.Sleep(wait)
+
+	count, rounds, err := kv.DeleteUnused(ctx, wait, selectSize, deleteSize)
+	require.NoError(t, err)
+	assert.Equal(t, expectedCount, count)
+	assert.Equal(t, expectedRounds, rounds)
 }

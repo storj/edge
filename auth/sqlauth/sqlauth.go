@@ -198,6 +198,121 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 	return Error.Wrap(err)
 }
 
+// selectUnused returns up to selectSize pkvals corresponding to unused (expired
+// or invalid) records in a read-only transaction in the past as specified by
+// the asOfSystemInterval interval.
+func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize int) (pkvals [][]byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	tx, err := d.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// We don't commit the transaction and only roll it back, in any case, to
+	// release any read locks early.
+	defer func() { err = errs.Combine(err, Error.Wrap(tx.Rollback())) }()
+
+	if d.impl == dbutil.Cockroach {
+		if _, err = tx.ExecContext(
+			ctx,
+			"SET TRANSACTION"+d.impl.AsOfSystemInterval(-asOfSystemInterval),
+		); err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	rows, err := tx.QueryContext(
+		ctx,
+		`
+		SELECT encryption_key_hash
+		FROM records
+		WHERE expires_at < CURRENT_TIMESTAMP
+		  OR invalid_at < CURRENT_TIMESTAMP
+		ORDER BY encryption_key_hash
+		LIMIT $1
+		`,
+		selectSize,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
+
+	for rows.Next() {
+		var pkval []byte
+
+		if err = rows.Scan(&pkval); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		pkvals = append(pkvals, pkval)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return pkvals, nil
+}
+
+// DeleteUnused deletes expired and invalid records from the key/value store in
+// batches as specified by the selectSize and deleteSize parameters and returns
+// any error encountered. It uses database time to avoid problems with invalid
+// time on the server.
+func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		pkvals, err := d.selectUnused(ctx, asOfSystemInterval, selectSize)
+		if err != nil {
+			return count, rounds, Error.Wrap(err)
+		}
+
+		if len(pkvals) == 0 {
+			return count, rounds, nil
+		}
+
+		for len(pkvals) > 0 {
+			var batch [][]byte
+
+			batch, pkvals = batchValues(pkvals, deleteSize)
+
+			res, err := d.db.DB.ExecContext(
+				ctx,
+				`
+				DELETE
+				FROM records
+				WHERE encryption_key_hash = ANY ($1::BYTEA[])
+				`,
+				pgutil.ByteaArray(batch),
+			)
+			if err != nil {
+				return count, rounds, Error.Wrap(err)
+			}
+
+			c, err := res.RowsAffected()
+			if err == nil { // Not every database or database driver may support RowsAffected.
+				count += c
+			}
+
+			rounds++
+		}
+
+		if d.impl == dbutil.Cockroach {
+			time.Sleep(asOfSystemInterval)
+		}
+	}
+}
+
+func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
+	if len(pkvals) < threshold {
+		return pkvals, nil
+	}
+	return pkvals[:threshold], pkvals[threshold:]
+}
+
 // Invalidate causes the record to become invalid.
 // It is not an error if the key does not exist.
 // It does not update the invalid reason if the record is already invalid.

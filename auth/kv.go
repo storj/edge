@@ -41,6 +41,13 @@ type KV interface {
 	// It is not an error if the key does not exist.
 	Delete(ctx context.Context, keyHash KeyHash) error
 
+	// DeleteUnused deletes expired and invalid records from the key/value store
+	// and returns any error encountered.
+	//
+	// Batch deletion and usage of asOfSystemInterval, selectSize and deleteSize
+	// parameters depends on the implementation.
+	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error)
+
 	// Invalidate causes the record to become invalid.
 	// It is not an error if the key does not exist.
 	// It does not update the invalid reason if the record is already invalid.

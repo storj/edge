@@ -212,6 +212,16 @@ func (db *Database) Delete(ctx context.Context, key EncryptionKey) (err error) {
 	return errs.Wrap(db.kv.Delete(ctx, key.Hash()))
 }
 
+// DeleteUnused deletes expired and invalid records from the key/value store and
+// returns any error encountered.
+func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	count, rounds, err = db.kv.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
+
+	return count, rounds, errs.Wrap(err)
+}
+
 // Invalidate causes the access to become invalid.
 func (db *Database) Invalidate(ctx context.Context, key EncryptionKey, reason string) (err error) {
 	defer mon.Task()(&ctx)(&err)

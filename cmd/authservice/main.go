@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -65,6 +66,18 @@ type Config struct {
 	CertFile    string `user:"true" help:"server certificate file" default:""`
 	KeyFile     string `user:"true" help:"server key file" default:""`
 	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:8080" releaseDefault:""`
+
+	DeleteUnused DeleteUnusedConfig
+}
+
+// DeleteUnusedConfig is a config struct for configuring unused records deletion
+// chores.
+type DeleteUnusedConfig struct {
+	Run                bool          `help:"whether to run unused records deletion chore" default:"false"`
+	Interval           time.Duration `help:"interval unused records deletion chore waits to start next iteration" default:"24h"`
+	AsOfSystemInterval time.Duration `help:"the interval specified in AS OF SYSTEM in unused records deletion chore query as negative interval" default:"5s"`
+	SelectSize         int           `help:"batch size of records selected for deletion at a time" default:"10000"`
+	DeleteSize         int           `help:"batch size of records to delete from selected records at a time" default:"1000"`
 }
 
 func init() {
@@ -195,6 +208,26 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			Addr:    config.ListenAddr,
 		}).ListenAndServe()
 	})
+
+	if config.DeleteUnused.Run {
+		launch(func() error {
+			return sync2.NewCycle(config.DeleteUnused.Interval).Run(ctx, func(ctx context.Context) error {
+				log.Info("Beginning of next iteration of unused records deletion chore")
+
+				c, r, err := db.DeleteUnused(ctx, config.DeleteUnused.AsOfSystemInterval, config.DeleteUnused.SelectSize, config.DeleteUnused.DeleteSize)
+				if err != nil {
+					log.Warn("Error deleting unused records", zap.Error(err))
+				}
+
+				log.Info("Deleted unused records", zap.Int64("count", c), zap.Int64("rounds", r))
+
+				monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(c)
+				monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(r)
+
+				return nil
+			})
+		})
+	}
 
 	res.SetStartupDone()
 

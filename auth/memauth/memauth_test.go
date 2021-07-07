@@ -20,6 +20,7 @@ func TestKV(t *testing.T) {
 	defer ctx.Cleanup()
 
 	kv := New()
+	defer func() { require.NoError(t, kv.Close()) }()
 
 	r1 := &auth.Record{SatelliteAddress: "abc"}
 	r2 := &auth.Record{SatelliteAddress: "def"}
@@ -48,8 +49,10 @@ func TestKV(t *testing.T) {
 		switch i {
 		case 11, 43, 99:
 			require.NoError(t, err)
+			assert.Nil(t, v)
 		case 10, 12:
 			require.Error(t, err)
+			assert.Nil(t, v)
 		default:
 			require.NoError(t, err)
 			if i%2 == 0 {
@@ -63,6 +66,47 @@ func TestKV(t *testing.T) {
 	require.Error(t, kv.Put(ctx, auth.KeyHash{42}, nil))
 
 	require.NoError(t, kv.Ping(ctx))
+
+	for i := 0; i < 100; i += 2 {
+		t := time.Now()
+		kv.entries[auth.KeyHash{byte(i)}].ExpiresAt = &t
+	}
+
+	maxTime := time.Unix(1<<62, 0)
+
+	r3 := &auth.Record{SatelliteAddress: "ghi", ExpiresAt: &maxTime}
+
+	require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(255)}, r3))
+
+	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
+	// records.
+	for i := 0; i < 10; i++ {
+		_, _, err := kv.DeleteUnused(ctx, 0, 0, 0)
+		require.NoError(t, err)
+	}
+
+	for i := 0; i < 100; i++ {
+		v, err := kv.Get(ctx, auth.KeyHash{byte(i)})
+
+		require.NoError(t, err)
+
+		switch i {
+		case 10, 11, 12, 43, 99:
+			assert.Nil(t, v)
+		default:
+			if i%2 == 0 {
+				assert.Nil(t, v)
+			} else {
+				assert.Equal(t, r2, v)
+			}
+		}
+	}
+
+	{
+		v, err := kv.Get(ctx, auth.KeyHash{byte(255)})
+		require.NoError(t, err)
+		assert.Equal(t, r3, v)
+	}
 }
 
 // TestKVParallel is mainly to check for any race conditions.
@@ -97,6 +141,16 @@ func TestKVParallel(t *testing.T) {
 
 		for i := 0; i < 10000; i++ {
 			if err := kv.Delete(ctx, auth.KeyHash{byte(r.Intn(100))}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	ctx.Go(func() error { // DeleteUnused
+		for i := 0; i < 10000; i++ {
+			if _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
 				return err
 			}
 		}

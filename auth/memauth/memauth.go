@@ -6,6 +6,7 @@ package memauth
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -72,6 +73,28 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 	delete(d.entries, keyHash)
 	delete(d.invalid, keyHash)
 	return nil
+}
+
+// DeleteUnused deletes expired and invalid records from the key/value store and
+// returns any error encountered. It does not perform batch deletion of records.
+func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count, rounds int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for k, v := range d.entries {
+		if v != nil && v.ExpiresAt != nil && time.Now().After(*v.ExpiresAt) {
+			delete(d.entries, k)
+		}
+	}
+
+	for k := range d.invalid {
+		delete(d.entries, k)
+		delete(d.invalid, k)
+	}
+
+	return 0, 0, nil
 }
 
 // Invalidate causes the record to become invalid.
