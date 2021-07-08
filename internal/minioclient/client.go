@@ -5,11 +5,13 @@ package minioclient
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
 
-	minio "github.com/minio/minio-go/v6"
+	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/zeebo/errs"
 )
 
@@ -30,14 +32,14 @@ type Config struct {
 
 // Client is the common interface for different implementations.
 type Client interface {
-	MakeBucket(bucket, location string) error
-	RemoveBucket(bucket string) error
-	ListBuckets() ([]string, error)
+	MakeBucket(ctx context.Context, bucket, region string) error
+	RemoveBucket(ctx context.Context, bucket string) error
+	ListBuckets(ctx context.Context) ([]string, error)
 
-	Upload(bucket, objectName string, data []byte) error
-	Download(bucket, objectName string, buffer []byte) ([]byte, error)
-	Delete(bucket, objectName string) error
-	ListObjects(bucket, prefix string) ([]string, error)
+	Upload(ctx context.Context, bucket, objectName string, data []byte) error
+	Download(ctx context.Context, bucket, objectName string, buffer []byte) ([]byte, error)
+	Delete(ctx context.Context, bucket, objectName string) error
+	ListObjects(ctx context.Context, bucket, prefix string) []string
 }
 
 // Minio implements basic S3 Client with minio.
@@ -47,16 +49,19 @@ type Minio struct {
 
 // NewMinio creates new Client.
 func NewMinio(conf Config) (Client, error) {
-	api, err := minio.New(conf.S3Gateway, conf.AccessKey, conf.SecretKey, !conf.NoSSL)
+	client, err := minio.New(conf.S3Gateway, &minio.Options{
+		Creds:  credentials.NewStaticV4(conf.AccessKey, conf.SecretKey, ""),
+		Secure: !conf.NoSSL,
+	})
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}
-	return &Minio{api}, nil
+	return &Minio{client}, nil
 }
 
 // MakeBucket makes a new bucket.
-func (client *Minio) MakeBucket(bucket, location string) error {
-	err := client.API.MakeBucket(bucket, location)
+func (client *Minio) MakeBucket(ctx context.Context, bucket, region string) error {
+	err := client.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region})
 	if err != nil {
 		return MinioError.Wrap(err)
 	}
@@ -64,8 +69,8 @@ func (client *Minio) MakeBucket(bucket, location string) error {
 }
 
 // RemoveBucket removes a bucket.
-func (client *Minio) RemoveBucket(bucket string) error {
-	err := client.API.RemoveBucket(bucket)
+func (client *Minio) RemoveBucket(ctx context.Context, bucket string) error {
+	err := client.API.RemoveBucket(ctx, bucket)
 	if err != nil {
 		return MinioError.Wrap(err)
 	}
@@ -73,8 +78,8 @@ func (client *Minio) RemoveBucket(bucket string) error {
 }
 
 // ListBuckets lists all buckets.
-func (client *Minio) ListBuckets() ([]string, error) {
-	buckets, err := client.API.ListBuckets()
+func (client *Minio) ListBuckets(ctx context.Context) ([]string, error) {
+	buckets, err := client.API.ListBuckets(ctx)
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}
@@ -87,9 +92,9 @@ func (client *Minio) ListBuckets() ([]string, error) {
 }
 
 // Upload uploads object data to the specified path.
-func (client *Minio) Upload(bucket, objectName string, data []byte) error {
+func (client *Minio) Upload(ctx context.Context, bucket, objectName string, data []byte) error {
 	_, err := client.API.PutObject(
-		bucket, objectName,
+		ctx, bucket, objectName,
 		bytes.NewReader(data), int64(len(data)),
 		minio.PutObjectOptions{ContentType: "application/octet-stream"})
 	if err != nil {
@@ -99,9 +104,9 @@ func (client *Minio) Upload(bucket, objectName string, data []byte) error {
 }
 
 // UploadMultipart uses multipart uploads, has hardcoded threshold.
-func (client *Minio) UploadMultipart(bucket, objectName string, data []byte, partSize int, threshold int) error {
+func (client *Minio) UploadMultipart(ctx context.Context, bucket, objectName string, data []byte, partSize int, threshold int) error {
 	_, err := client.API.PutObject(
-		bucket, objectName,
+		ctx, bucket, objectName,
 		bytes.NewReader(data), -1,
 		minio.PutObjectOptions{
 			ContentType: "application/octet-stream",
@@ -114,8 +119,8 @@ func (client *Minio) UploadMultipart(bucket, objectName string, data []byte, par
 }
 
 // Download downloads object data.
-func (client *Minio) Download(bucket, objectName string, buffer []byte) ([]byte, error) {
-	reader, err := client.API.GetObject(bucket, objectName, minio.GetObjectOptions{})
+func (client *Minio) Download(ctx context.Context, bucket, objectName string, buffer []byte) ([]byte, error) {
+	reader, err := client.API.GetObject(ctx, bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}
@@ -139,8 +144,8 @@ func (client *Minio) Download(bucket, objectName string, buffer []byte) ([]byte,
 }
 
 // Delete deletes object.
-func (client *Minio) Delete(bucket, objectName string) error {
-	err := client.API.RemoveObject(bucket, objectName)
+func (client *Minio) Delete(ctx context.Context, bucket, objectName string) error {
+	err := client.API.RemoveObject(ctx, bucket, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
 		return MinioError.Wrap(err)
 	}
@@ -148,14 +153,10 @@ func (client *Minio) Delete(bucket, objectName string) error {
 }
 
 // ListObjects lists objects.
-func (client *Minio) ListObjects(bucket, prefix string) ([]string, error) {
-	doneCh := make(chan struct{})
-	defer close(doneCh)
-
-	names := []string{}
-	for message := range client.API.ListObjects(bucket, prefix, false, doneCh) {
+func (client *Minio) ListObjects(ctx context.Context, bucket, prefix string) []string {
+	var names []string
+	for message := range client.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix}) {
 		names = append(names, message.Key)
 	}
-
-	return names, nil
+	return names
 }

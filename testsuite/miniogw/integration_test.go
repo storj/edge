@@ -6,6 +6,7 @@
 package miniogw_test
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -116,7 +118,7 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		gateway, err := startGateway(t, client, gatewayExe, gatewayOptions{
+		gateway, err := startGateway(t, ctx, client, gatewayExe, gatewayOptions{
 			Listen:      gatewayAddr,
 			AuthService: authSvcAddr,
 		})
@@ -127,19 +129,19 @@ func TestUploadDownload(t *testing.T) {
 		{ // normal upload
 			bucket := "bucket"
 
-			err = client.MakeBucket(bucket, "")
+			err = client.MakeBucket(ctx, bucket, "")
 			require.NoError(t, err)
 
 			// generate enough data for a remote segment
 			data := testrand.BytesInt(5000)
 			objectName := "testdata"
 
-			err = client.Upload(bucket, objectName, data)
+			err = client.Upload(ctx, bucket, objectName, data)
 			require.NoError(t, err)
 
 			buffer := make([]byte, len(data))
 
-			bytes, err := client.Download(bucket, objectName, buffer)
+			bytes, err := client.Download(ctx, bucket, objectName, buffer)
 			require.NoError(t, err)
 
 			require.Equal(t, data, bytes)
@@ -148,7 +150,7 @@ func TestUploadDownload(t *testing.T) {
 		{ // multipart upload
 			bucket := "bucket-multipart"
 
-			err = client.MakeBucket(bucket, "")
+			err = client.MakeBucket(ctx, bucket, "")
 			require.NoError(t, err)
 
 			// minimum single part size is 5mib
@@ -167,20 +169,16 @@ func TestUploadDownload(t *testing.T) {
 			rawClient, ok := client.(*minioclient.Minio)
 			require.True(t, ok)
 
-			err = rawClient.UploadMultipart(bucket, objectName, data, partSize.Int(), 0)
+			err = rawClient.UploadMultipart(ctx, bucket, objectName, data, partSize.Int(), 0)
 			require.NoError(t, err)
 
-			doneCh := make(chan struct{})
-			defer close(doneCh)
-
 			// TODO find out why with prefix set its hanging test
-			for message := range rawClient.API.ListObjectsV2(bucket, "", true, doneCh) {
-				require.Equal(t, objectName, message.Key)
-				require.NotEmpty(t, message.ETag)
+			for objInfo := range rawClient.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: ""}) {
+				require.Equal(t, objectName, objInfo.Key)
 
 				// Minio adds a double quote to ETag, sometimes.
 				// Remove the potential quote from either end.
-				etag := strings.TrimPrefix(message.ETag, `"`)
+				etag := strings.TrimPrefix(objInfo.ETag, `"`)
 				etag = strings.TrimSuffix(etag, `"`)
 
 				require.Equal(t, expectedETag, etag)
@@ -188,7 +186,7 @@ func TestUploadDownload(t *testing.T) {
 			}
 
 			buffer := make([]byte, len(data))
-			bytes, err := client.Download(bucket, objectName, buffer)
+			bytes, err := client.Download(ctx, bucket, objectName, buffer)
 			require.NoError(t, err)
 
 			require.Equal(t, data, bytes)
@@ -321,7 +319,7 @@ type gatewayOptions struct {
 	More []string
 }
 
-func startGateway(t *testing.T, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
+func startGateway(t *testing.T, ctx context.Context, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--server.address", opts.Listen,
 		"--auth-token", "super-secret",
@@ -340,7 +338,7 @@ func startGateway(t *testing.T, client minioclient.Client, exe string, opts gate
 		return nil, err
 	}
 
-	err = waitForGatewayStart(client, opts.Listen, 5*time.Second, gateway)
+	err = waitForGatewayStart(ctx, client, opts.Listen, 5*time.Second, gateway)
 	if err != nil {
 		killErr := gateway.Process.Kill()
 		return nil, errs.Combine(err, killErr)
@@ -377,10 +375,10 @@ func stopGateway(gateway *exec.Cmd, gatewayAddress string) error {
 }
 
 // waitForGatewayStart will monitor starting when we are able to start the process.
-func waitForGatewayStart(client minioclient.Client, gatewayAddress string, maxStartupWait time.Duration, cmd *exec.Cmd) error {
+func waitForGatewayStart(ctx context.Context, client minioclient.Client, gatewayAddress string, maxStartupWait time.Duration, cmd *exec.Cmd) error {
 	start := time.Now()
 	for {
-		_, err := client.ListBuckets()
+		_, err := client.ListBuckets(ctx)
 		if err == nil {
 			return nil
 		}
