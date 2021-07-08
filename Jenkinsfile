@@ -15,14 +15,29 @@ timeout(time: 26, unit: 'MINUTES') {
 			dockerImage.inside('-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod') {
 				try {
 					stage('Build') {
-						checkout scm
+						def branchedStages = [:]
 
-						sh 'mkdir -p .build'
-						// make a backup of the mod file in case, for later linting
-						sh 'cp go.mod .build/go.mod.orig'
-						sh 'service postgresql start'
-						sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
-						sh 'make build-packages'
+						branchedStages["Environment"] = {
+							stage("Environment") {
+								checkout scm
+								sh 'mkdir -p .build'
+								// make a backup of the mod file in case, for later linting
+								sh 'cp go.mod .build/go.mod.orig'
+								sh 'make build-packages'
+							}
+						}
+
+						branchedStages["Environment: PostgreSQL & CockroachDB"] = {
+							stage("Environment: PostgreSQL & CockroachDB") {
+								sh 'service postgresql start'
+								sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
+								sh 'psql -U postgres -c \'create database teststorj;\''
+								sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+								sh 'use-ports -from 1024 -to 10000 &'
+							}
+						}
+
+						parallel branchedStages
 					}
 
 					stage('Verification') {
@@ -61,6 +76,8 @@ timeout(time: 26, unit: 'MINUTES') {
 						branchedStages["Test"] = {
 							stage("Test") {
 								withEnv([
+									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
+									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
 									"COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
@@ -98,9 +115,6 @@ timeout(time: 26, unit: 'MINUTES') {
 									"COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
-										sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-										sh 'psql -U postgres -c \'create database teststorj;\''
-										sh 'use-ports -from 1024 -to 10000 &'
 										dir('testsuite') {
 											sh 'go vet ./...'
 											sh 'go test -parallel 4 -p 6 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
