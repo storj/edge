@@ -36,10 +36,11 @@ retrieve those files!
         ```
         uplink access inspect "my-access-grant"
         ```
+    - `--kv-backend` is the connection string for the key-value store backend.  Valid values may include `pgxcockroach://...`, `pgx://...`, or `memory://`
     ```bash
     # migration automatically applies or updates DB schema in use.
     # shouldn't be run against the same database by multiple instances at once.
-    authservice run --migration --auth-token "super-secret" --allowed-satellites="satellite-node-url"
+    authservice run --migration --auth-token "super-secret" --allowed-satellites="satellite-node-url" --kv-backend="pgxcockroach://..."
     ```
 ## Run gateway-mt
 
@@ -282,7 +283,7 @@ storj-sim network run
 ```
 
 ```
-authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ID)@" --endpoint=http://localhost:7777
+authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ID)@" --endpoint=http://localhost:7777 --kv-backend="memory://"
 ```
 
 ```
@@ -292,9 +293,7 @@ gateway-mt run --auth-token="super-secret" --auth-url=http://localhost:8000 --do
 ```
 docker build . -f Dockerfile.mint -t storj/mint
 export $(uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:8000 --format env)
-export ACCESS_KEY=$(aws configure get aws_access_key_id --profile=storjsim)
-export SECRET_KEY=$(aws configure get aws_secret_access_key --profile=storjsim)
-docker run -e SERVER_ENDPOINT=host.docker.internal:7777 -e ACCESS_KEY=$ACCESS_KEY -e SECRET_KEY=$SECRET_KEY -e ENABLE_HTTPS=0 storj/mint
+docker run -e SERVER_ENDPOINT=host.docker.internal:7777 -e ACCESS_KEY=$AWS_ACCESS_KEY_ID -e SECRET_KEY=$AWS_SECRET_ACCESS_KEY -e ENABLE_HTTPS=0 storj/mint
 ```
 Note that Linux users may need alter the above commmand to `SERVER_ENDPOINT=localhost:7777` to use or the `--add-host=host.docker.internal:host-gateway` flag.
 
