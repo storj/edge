@@ -51,7 +51,9 @@ func (log *Log) TagValue(key string) string {
 
 // New returns a new Log.
 func New() *Log {
-	return &Log{&logger.ReqInfo{}}
+	l := Log{&logger.ReqInfo{}}
+	l.API = "unknown"
+	return &l
 }
 
 // FromContext gets a Log from context.

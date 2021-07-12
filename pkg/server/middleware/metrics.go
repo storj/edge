@@ -53,7 +53,6 @@ func Metrics(next http.Handler) http.Handler {
 		if !ok {
 			log = gwlog.New()
 			r = r.WithContext(log.WithContext(ctx))
-			log.API = "unknown"
 		}
 
 		next.ServeHTTP(recorder, r)
