@@ -34,7 +34,7 @@ random_bytes_file 1  1024      "$SRC_DIR/small-upload-testfile"     # create 1kb
 random_bytes_file 9  1024x1024 "$SRC_DIR/big-upload-testfile"       # create 9mb file of random bytes (remote)
 # this is special case where we need to test at least one remote segment and inline segment of exact size 0
 # value is invalid until we will be able to configure segment size once again
-# random_bytes_file 64 1024x1024 "$SRC_DIR/multipart-upload-testfile"
+random_bytes_file 64 1024x1024 "$SRC_DIR/multipart-upload-testfile"
 
 echo "Creating Bucket"
 aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket
@@ -44,24 +44,38 @@ aws configure set default.s3.multipart_threshold 1TB
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/small-upload-testfile" s3://bucket/small-testfile
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/big-upload-testfile"   s3://bucket/big-testfile
 
+echo "Testing tagging"
+touch "$TMPDIR/no-tags.json"
+cat > "$TMPDIR/has-tags.json" << EOF
+TAGSET	designation	confidential
+EOF
+aws --endpoint="$AWS_ENDPOINT" s3api get-object-tagging --bucket bucket --key big-testfile --output text > "$TMPDIR/tags.json"
+require_equal_files_content "$TMPDIR/tags.json" "$TMPDIR/no-tags.json"
+aws --endpoint="$AWS_ENDPOINT" s3api put-object-tagging --bucket bucket --key big-testfile --tagging '{"TagSet": [{ "Key": "designation", "Value": "confidential" }]}'
+aws --endpoint="$AWS_ENDPOINT" s3api get-object-tagging --bucket bucket --key big-testfile --output text > "$TMPDIR/tags.json"
+require_equal_files_content "$TMPDIR/tags.json" "$TMPDIR/has-tags.json"
+aws --endpoint="$AWS_ENDPOINT" s3api delete-object-tagging --bucket bucket --key big-testfile
+aws --endpoint="$AWS_ENDPOINT" s3api get-object-tagging --bucket bucket --key big-testfile --output text > "$TMPDIR/tags.json"
+require_equal_files_content "$TMPDIR/tags.json" "$TMPDIR/no-tags.json"
+
 # Wait 5 seconds to trigger any error related to one of the different intervals
 sleep 5
 
 # TODO: activate when we implement multipart upload again
-# echo "Uploading Multipart File"
-# aws configure set default.s3.multipart_threshold 4KB
-# aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" s3://bucket/multipart-testfile
+echo "Uploading Multipart File"
+aws configure set default.s3.multipart_threshold 4KB
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" s3://bucket/multipart-testfile
 
 echo "Downloading Files"
 aws s3 --endpoint "$AWS_ENDPOINT" ls s3://bucket
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/small-testfile     "$DST_DIR/small-download-testfile"
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/big-testfile       "$DST_DIR/big-download-testfile"
-# aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/multipart-testfile "$DST_DIR/multipart-download-testfile"
+aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp s3://bucket/multipart-testfile "$DST_DIR/multipart-download-testfile"
 aws s3 --endpoint "$AWS_ENDPOINT" rb s3://bucket --force
 
 require_equal_files_content "$SRC_DIR/small-upload-testfile"     "$DST_DIR/small-download-testfile"
 require_equal_files_content "$SRC_DIR/big-upload-testfile"       "$DST_DIR/big-download-testfile"
-# require_equal_files_content "$SRC_DIR/multipart-upload-testfile" "$DST_DIR/multipart-download-testfile"
+require_equal_files_content "$SRC_DIR/multipart-upload-testfile" "$DST_DIR/multipart-download-testfile"
 
 echo "Creating Bucket for sync test"
 aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket-sync
