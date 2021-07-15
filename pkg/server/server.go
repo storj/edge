@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/mux"
 	minio "github.com/storj/minio/cmd"
+	"github.com/storj/minio/cmd/logger"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -26,8 +28,12 @@ import (
 	"storj.io/uplink/private/transport"
 )
 
-// Error is an error class for internal Multinode Dashboard http server error.
-var Error = errs.Class("gateway")
+var (
+	// Error is an error class for internal Multinode Dashboard http server error.
+	Error = errs.Class("gateway")
+
+	minioTargetOnce sync.Once
+)
 
 // Server represents an S3 compatible http server.
 type Server struct {
@@ -76,6 +82,15 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 	// Gorilla matches in the order things are defined, so fall back
 	// to minio implementations if we haven't handled something
 	minio.RegisterAPIRouter(r)
+
+	// Ensure we log any minio system errors sent by minio logging.
+	// Target slice in minio is a global, so additionally ensure only one logger
+	// is added, such may be the case if starting multiple servers in parallel.
+	minioTargetOnce.Do(func() {
+		// error is ignored as we don't use validation of target.
+		_ = logger.AddTarget(NewMinioSystemLogTarget(s.log))
+	})
+
 	r.Use(middleware.Metrics)
 	r.Use(minio.RegisterMiddlewares)
 
