@@ -785,8 +785,8 @@ github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An
 github.com/spf13/viper v1.7.0/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5qpdg=
 github.com/spf13/viper v1.7.1 h1:pM5oEahlgWv/WnHXpgbKz7iLIxRf65tye2Ci+XFK5sk=
 github.com/spf13/viper v1.7.1/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5qpdg=
-github.com/storj/minio v0.0.0-20210709114951-cf559f5e26d5 h1:wu+uwEApmzMmXETOpFwXqMZaxrBlTr/KCf4HRPDWpZ8=
-github.com/storj/minio v0.0.0-20210709114951-cf559f5e26d5/go.mod h1:8Q1Nt/4dsHFQ8dElyYlm6nBq3BP5IEYob/bUAUnqdYc=
+github.com/storj/minio v0.0.0-20210715234501-c6c6a5b367d5 h1:LUuRR34bL7UeG8ECBHjy9C+X+YSqpuFfZ9Ecs9cEqUg=
+github.com/storj/minio v0.0.0-20210715234501-c6c6a5b367d5/go.mod h1:8Q1Nt/4dsHFQ8dElyYlm6nBq3BP5IEYob/bUAUnqdYc=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0 h1:kuuDrUJFZL1QYL9hUNuCxNObNzB0bV/ZG5jV3RWAQgo=
