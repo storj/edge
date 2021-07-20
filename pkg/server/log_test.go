@@ -4,10 +4,12 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	xhttp "github.com/storj/minio/cmd/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -53,7 +55,8 @@ func TestGatewayResponse(t *testing.T) {
 		})
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("?%s=abc123", xhttp.AmzAccessKeyID), nil)
+	req.Header.Add(xhttp.Authorization, "AWS4-HMAC-SHA256 Credential=123")
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 
@@ -66,5 +69,15 @@ func TestGatewayResponse(t *testing.T) {
 	require.Len(t, filteredLogs.All(), 1)
 
 	filteredLogs = observedLogs.FilterField(zap.String("request-id", "ABC123"))
+	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
+		fmt.Sprintf("%s=[...]", xhttp.AmzAccessKeyID),
+	}))
+	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
+		"Authorization=[...]",
+	}))
 	require.Len(t, filteredLogs.All(), 1)
 }
