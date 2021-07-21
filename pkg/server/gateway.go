@@ -14,10 +14,10 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go/v7/pkg/tags"
-	minio "github.com/storj/minio/cmd"
-	xhttp "github.com/storj/minio/cmd/http"
-	"github.com/storj/minio/cmd/logger"
-	"github.com/storj/minio/pkg/hash"
+	minio "github.com/minio/minio/cmd"
+	xhttp "github.com/minio/minio/cmd/http"
+	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
@@ -132,7 +132,17 @@ func (gateway *gateway) GetBucketInfo(ctx context.Context, bucketName string) (b
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	accessGrant := getAccessGrant(ctx)
+
+	// Some S3 (like AWS S3) implementations allow anonymous checks for bucket
+	// existence, but we explicitly forbid those and return
+	// `minio.NotImplemented`, which seems to be the most appropriate response
+	// in this case.
+	if accessGrant == "" {
+		return minio.BucketInfo{}, minio.NotImplemented{API: "GetBucketInfo (anonymous)"}
+	}
+
+	project, err := gateway.openProject(ctx, accessGrant)
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}

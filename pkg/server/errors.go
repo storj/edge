@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/minio/minio/cmd"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/storj/minio/cmd"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"

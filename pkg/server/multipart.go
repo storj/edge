@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	minio "github.com/storj/minio/cmd"
-	xhttp "github.com/storj/minio/cmd/http"
+	minio "github.com/minio/minio/cmd"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/sync2"

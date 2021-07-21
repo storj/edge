@@ -6,8 +6,8 @@ package server
 import (
 	"testing"
 
+	"github.com/minio/minio/cmd/logger/message/log"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/storj/minio/cmd/logger/message/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"

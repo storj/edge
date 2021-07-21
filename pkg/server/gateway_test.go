@@ -8,8 +8,8 @@ import (
 	"errors"
 	"testing"
 
-	minio "github.com/storj/minio/cmd"
-	"github.com/storj/minio/cmd/logger"
+	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

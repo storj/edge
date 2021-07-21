@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	xhttp "github.com/storj/minio/cmd/http"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"

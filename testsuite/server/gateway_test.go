@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	minio "github.com/storj/minio/cmd"
-	xhttp "github.com/storj/minio/cmd/http"
-	"github.com/storj/minio/cmd/logger"
-	"github.com/storj/minio/pkg/hash"
+	minio "github.com/minio/minio/cmd"
+	xhttp "github.com/minio/minio/cmd/http"
+	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

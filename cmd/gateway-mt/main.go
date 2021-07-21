@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
+	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	minio "github.com/storj/minio/cmd"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -149,13 +149,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	// wire up domain names for Minio
-	minio.HandleCommonEnvVars()
-	// make Minio not use random ETags
-	minio.SetGlobalCLI(false, true, false, address, true)
-	store := minio.NewIAMStorjAuthStore(gatewayLayer, runCfg.AuthURL, runCfg.AuthToken)
-	minio.SetObjectLayer(gatewayLayer)
-	minio.InitCustomStore(store, "StorjAuthSys")
+	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {

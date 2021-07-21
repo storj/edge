@@ -13,8 +13,8 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	minio "github.com/storj/minio/cmd"
-	"github.com/storj/minio/cmd/logger"
+	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/logger"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -74,6 +74,8 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
 
 	// Gorilla matches in the order things are defined, so fall back
 	// to minio implementations if we haven't handled something
+	minio.RegisterHealthCheckRouter(r)
+	minio.RegisterMetricsRouter(r)
 	minio.RegisterAPIRouter(r)
 
 	// Ensure we log any minio system errors sent by minio logging.
@@ -87,9 +89,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
 	r.Use(middleware.Metrics)
 	r.Use(minio.RegisterMiddlewares)
 
-	s.http.Handler = minio.CriticalErrorHandler{
-		Handler: minio.CorsHandler(r),
-	}
+	s.http.Handler = minio.CriticalErrorHandler(minio.CorsHandler(r))
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information.

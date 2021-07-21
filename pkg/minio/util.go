@@ -27,8 +27,8 @@ import (
 	"unsafe"
 	_ "unsafe" // for go:linkname
 
-	"github.com/storj/minio/cmd"
-	"github.com/storj/minio/cmd/logger"
+	"github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/logger"
 )
 
 // TODO: Revisit this when we update Minio.

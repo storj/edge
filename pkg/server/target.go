@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/minio/minio/cmd/logger/message/log"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/storj/minio/cmd/logger/message/log"
 	"go.uber.org/zap"
 )
 

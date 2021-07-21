@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	xhttp "github.com/storj/minio/cmd/http"
+	xhttp "github.com/minio/minio/cmd/http"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/webhelp.v1/whmon"

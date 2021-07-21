@@ -26,7 +26,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/storj/minio/cmd"
+	"github.com/minio/minio/cmd"
 
 	"storj.io/gateway-mt/pkg/minio"
 )
