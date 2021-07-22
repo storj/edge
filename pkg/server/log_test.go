@@ -57,8 +57,7 @@ func TestGatewayResponse(t *testing.T) {
 		})
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("?%s=abc123", xhttp.AmzAccessKeyID), nil)
-	req.Header.Add(xhttp.Authorization, "AWS4-HMAC-SHA256 Credential=123")
+	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 
@@ -69,17 +68,66 @@ func TestGatewayResponse(t *testing.T) {
 
 	filteredLogs := observedLogs.FilterField(zap.String("error", "error!"))
 	require.Len(t, filteredLogs.All(), 1)
+}
 
-	filteredLogs = observedLogs.FilterField(zap.String("request-id", "ABC123"))
-	require.Len(t, filteredLogs.All(), 1)
+func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
-		fmt.Sprintf("%s=[...]", xhttp.AmzAccessKeyID),
-	}))
-	require.Len(t, filteredLogs.All(), 1)
+	tests := []struct {
+		header string
+		query  string
+	}{
+		{query: xhttp.AmzAccessKeyID, header: ""},
+		{query: xhttp.AmzSignatureV2, header: ""},
+		{query: xhttp.AmzSignature, header: ""},
+		{query: xhttp.AmzCredential, header: ""},
+		{header: xhttp.Authorization, query: ""},
+		{header: "Cookie", query: ""},
+	}
+	for i, test := range tests {
+		handler := func() http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if log, ok := gwlog.FromContext(r.Context()); ok {
+					log.RequestID = "ABC123"
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+		}
 
-	filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
-		"Authorization=[...]",
-	}))
-	require.Len(t, filteredLogs.All(), 1)
+		var query string
+		if test.query != "" {
+			query = fmt.Sprintf("?%s=test", test.query)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", query, nil)
+		require.NoError(t, err, i)
+
+		if test.header != "" {
+			req.Header.Add(test.header, "test")
+		}
+
+		rr := httptest.NewRecorder()
+
+		observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+		observedLogger := zap.New(observedZapCore)
+
+		LogResponsesNoPaths(observedLogger, handler()).ServeHTTP(rr, req)
+
+		var filteredLogs *observer.ObservedLogs
+
+		if test.header != "" {
+			filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
+				fmt.Sprintf("%s=[...]", test.header),
+			}))
+			require.Len(t, filteredLogs.All(), 1, i)
+		}
+
+		if test.query != "" {
+			filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
+				fmt.Sprintf("%s=[...]", test.query),
+			}))
+			require.Len(t, filteredLogs.All(), 1, i)
+		}
+	}
 }
