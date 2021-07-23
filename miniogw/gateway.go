@@ -395,7 +395,7 @@ func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketIn
 		})
 	}
 	if buckets.Err() != nil {
-		return nil, buckets.Err()
+		return nil, convertError(buckets.Err(), "", "")
 	}
 	return items, nil
 }
