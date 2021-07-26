@@ -1,29 +1,19 @@
 GO_VERSION ?= 1.15.14
-GOOS ?= linux
-GOARCH ?= amd64
-GOPATH ?= $(shell go env GOPATH)
 COMPONENTLIST := gateway-mt authservice
-COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 LATEST_DEV_TAG := dev
+
 ifeq (${BRANCH_NAME},main)
-TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-BRANCH_NAME :=
+	TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+	BRANCH_NAME :=
 else
-TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
-ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
-LATEST_STABLE_TAG := latest
-endif
-endif
-RELEASE_BUILD_REQUIRED ?= false
-
-FILEEXT :=
-ifeq (${GOOS},windows)
-FILEEXT := .exe
+	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+	ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
+		LATEST_STABLE_TAG := latest
+	endif
 endif
 
-DOCKER_BUILD := docker build \
-	--build-arg TAG=${TAG}
+DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 
 .DEFAULT_GOAL := help
 .PHONY: help
