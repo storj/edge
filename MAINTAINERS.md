@@ -25,7 +25,7 @@ Examples of Release Candidates:
 - `v2.1.0-rc.1`
 
 ## Step-by-step release process
-1. Announce your intention to make a new release to the #team-gateway-mt Slack channel.
+1. Announce your intention to make a new release to the #team-edge Slack channel.
 2. Wait for a confirmation by at least one maintainer of this project (storj/gateway-mt) before proceeding with the next step.
 3. Create a new release from the Github web interface:
   - Go to https://github.com/storj/gateway-mt/releases.
@@ -36,21 +36,19 @@ Examples of Release Candidates:
   - Select the `This is a pre-release` checkbox. This checkbox must always be selected at this point, even if this is an official release. We will deselelect it after we upload the binaries to the release. Otherwise, the links to the binaries of the latest release will be broken in the documentation and other places.
   - Click the `Publish release` button.
 4. Creating the release tag triggers the release build on the private Jenkins: https://build.storj.io/job/gateway-mt/view/tags/
-5. When the release build completes, the binaries will be uploaded to the staging storage repository: http://storj-v3-alpha-builds.storage.googleapis.com/index.html
+5. When the release build completes, an image will be uploaded to Docker Hub: https://hub.docker.com/r/storjlabs/gateway-mt/tags and binaries will be uploaded to http://storj-v3-alpha-builds.storage.googleapis.com/index.html
 6. Find the build tag (e.g. `9b58a11-v1.0.1-go1.13.8`) and download all the binaries to your local drive.
 7. Update the Github release:
   - Go to https://github.com/storj/gateway-mt/releases.
   - Cick the `Edit` button on the release.
   - Upload all binaries as release artifacts.
-  - Add the following line to the description:
+  - Add the following line for the description:
 ```
-Docker image for this release: `storjlabs/gateway-mt:<build-tag>`
+Docker image: `9b58a11-v1.0.1-go1.13.8`
 ```
   - If this is an official release, deselect the `This is a pre-release` checkbox.
   - Click the `Update release` button.
-8. _Optional, but recommended_: Update the MinIO dependency to latest official release in main as a preparation for the next release. The idea is to do this early in the release cycle to have enough time for catching regressions.
-  - Merge the latest release tag of [github.com/minio/minio](https://github.com/minio/minio) to the `storj` branch of our fork: [github.com/storj/minio](https://github.com/storj/minio)
-  - Update the dependency in `go.mod` to the new head of the `storj` branch, i.e. `replace github.com/minio/minio => github.com/storj/minio storj`
-  - Run `go mod tidy`.
-  - Repeat for `testsuite/go.mod`.
+8. _Optional, but recommended_: Run `make bump-dependencies` to update all our common dependencies (storj, and minio). The idea is to do this early in the release cycle to have enough time for catching regressions. To do this manually for a dependency, in the root of the repo:
+  - `go get <url> && go mod tidy`
+  - Repeat the above command inside `testsuite`.
 
