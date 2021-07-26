@@ -4,7 +4,7 @@
 
 New version should be released when we are ready to make changes generally available.
 
-New version should not be released if we want to test our latest changes or to make them available to a limited number of users. This can be achieved without releasing a new version, e.g. by compiling the binary from latest master or specific Git commit. However, commits from master are not suitable for use in production unless they are a release tag.
+New version should not be released if we want to test our latest changes or to make them available to a limited number of users. This can be achieved without releasing a new version, e.g. by compiling the binary from latest main or specific Git commit. However, commits from main are not suitable for use in production unless they are a release tag.
 
 Consider releasing a new Release Candidate version to make changes available to a larger group of users, if we are not ready to make them available to everyone yet.
 
@@ -48,7 +48,7 @@ Docker image for this release: `storjlabs/gateway-mt:<build-tag>`
 ```
   - If this is an official release, deselect the `This is a pre-release` checkbox.
   - Click the `Update release` button.
-8. _Optional, but recommended_: Update the MinIO dependency to latest official release in master as a preparation for the next release. The idea is to do this early in the release cycle to have enough time for catching regressions.
+8. _Optional, but recommended_: Update the MinIO dependency to latest official release in main as a preparation for the next release. The idea is to do this early in the release cycle to have enough time for catching regressions.
   - Merge the latest release tag of [github.com/minio/minio](https://github.com/minio/minio) to the `storj` branch of our fork: [github.com/storj/minio](https://github.com/storj/minio)
   - Update the dependency in `go.mod` to the new head of the `storj` branch, i.e. `replace github.com/minio/minio => github.com/storj/minio storj`
   - Run `go mod tidy`.

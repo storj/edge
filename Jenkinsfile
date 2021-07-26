@@ -78,7 +78,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								withEnv([
 									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
 									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
-									"COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
+									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
 										sh 'go vet ./...'
@@ -112,7 +112,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								withEnv([
 									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
 									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
-									"COVERFLAGS=${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
+									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
 										dir('testsuite') {
