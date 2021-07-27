@@ -73,7 +73,6 @@ require_equal_files_content "$TMPDIR/tags.json" "$TMPDIR/no-tags.json"
 # Wait 5 seconds to trigger any error related to one of the different intervals
 sleep 5
 
-# TODO: activate when we implement multipart upload again
 echo "Uploading Multipart File"
 aws configure set default.s3.multipart_threshold 4KB
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" s3://bucket/multipart-testfile
@@ -105,7 +104,6 @@ echo "Deleting Files"
 
 aws s3 --endpoint "$AWS_ENDPOINT" mb s3://bucket
 
-# TODO: check for "Key": "data/multipart-download-testfile" when mutlipart upload is back
 cat > "$TMPDIR/all-exist.json" << EOF
 {
     "Objects": [
@@ -114,12 +112,14 @@ cat > "$TMPDIR/all-exist.json" << EOF
         },
         {
             "Key": "data/big-download-testfile"
+        },
+        {
+            "Key": "data/multipart-download-testfile"
         }
     ]
 }
 EOF
 
-# TODO: check for "Key": "data/multipart-download-testfile" when mutlipart upload is back
 cat > "$TMPDIR/some-exist.json" << EOF
 {
     "Objects": [
@@ -128,6 +128,9 @@ cat > "$TMPDIR/some-exist.json" << EOF
         },
         {
             "Key": "data/big-download-testfile"
+        },
+        {
+            "Key": "data/multipart-download-testfile"
         }
     ]
 }
