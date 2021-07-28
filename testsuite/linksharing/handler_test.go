@@ -1,0 +1,339 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package linksharing_test
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
+
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/storj/private/testplanet"
+)
+
+func TestNewHandler(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	testCases := []struct {
+		name   string
+		config sharing.Config
+		err    string
+	}{
+		{
+			name: "URL base must be http or https",
+			config: sharing.Config{
+				URLBases: []string{"gopher://chunks"},
+			},
+			err: "URL base must be http:// or https://",
+		},
+		{
+			name: "URL base must contain host",
+			config: sharing.Config{
+				URLBases: []string{"http://"},
+			},
+			err: "URL base must contain host",
+		},
+		{
+			name: "URL base can have a port",
+			config: sharing.Config{
+				URLBases: []string{"http://host:99"},
+			},
+		},
+		{
+			name: "URL base can have a path",
+			config: sharing.Config{
+				URLBases: []string{"http://host/gopher"},
+			},
+		},
+		{
+			name: "URL base must not contain user info",
+			config: sharing.Config{
+				URLBases: []string{"http://joe@host"},
+			},
+			err: "URL base must not contain user info",
+		},
+		{
+			name: "URL base must not contain query values",
+			config: sharing.Config{
+				URLBases: []string{"http://host/?gopher=chunks"},
+			},
+			err: "URL base must not contain query values",
+		},
+		{
+			name: "URL base must not contain a fragment",
+			config: sharing.Config{
+				URLBases: []string{"http://host/#gopher-chunks"},
+			},
+			err: "URL base must not contain a fragment",
+		},
+	}
+
+	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			testCase.config.Templates = "./../../pkg/linksharing/web"
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, testCase.config)
+			if testCase.err != "" {
+				require.EqualError(t, err, testCase.err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, handler)
+		})
+	}
+}
+
+func TestHandlerRequests(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   2,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, testHandlerRequests)
+}
+
+type authHandlerEntry struct {
+	grant  string
+	public bool
+}
+
+func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
+	require.NoError(t, err)
+
+	access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+	serializedAccess, err := access.Serialize()
+	require.NoError(t, err)
+
+	authToken := hex.EncodeToString(testrand.BytesInt(16))
+	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
+		"GOODACCESS":    {serializedAccess, true},
+		"PRIVATEACCESS": {serializedAccess, false},
+	}, authToken))
+	defer validAuthServer.Close()
+
+	testCases := []struct {
+		name       string
+		method     string
+		path       string
+		status     int
+		header     http.Header
+		body       string
+		authserver string
+	}{
+		{
+			name:   "invalid method",
+			method: "PUT",
+			status: http.StatusMethodNotAllowed,
+			body:   "Malformed request.",
+		},
+		{
+			name:   "GET missing access",
+			method: "GET",
+			path:   "s/",
+			status: http.StatusBadRequest,
+			body:   "Malformed request.",
+		},
+		{
+			name:       "GET misconfigured auth server",
+			method:     "GET",
+			path:       path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			status:     http.StatusInternalServerError,
+			body:       "Internal server error.",
+			authserver: "invalid://",
+		},
+		{
+			name:       "GET missing access key",
+			method:     "GET",
+			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			status:     http.StatusNotFound,
+			body:       "Not found.",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:       "GET private access key",
+			method:     "GET",
+			path:       path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			status:     http.StatusForbidden,
+			body:       "Access denied.",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:       "GET found access key",
+			method:     "GET",
+			path:       path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			status:     http.StatusOK,
+			body:       "foo",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:   "GET missing bucket",
+			method: "GET",
+			path:   path.Join("s", serializedAccess),
+			status: http.StatusBadRequest,
+			body:   "Malformed request.",
+		},
+		{
+			name:   "GET object not found",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test/bar"),
+			status: http.StatusNotFound,
+			body:   "Object not found",
+		},
+		{
+			name:   "GET success",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test/foo"),
+			status: http.StatusOK,
+			body:   "foo",
+		},
+		{
+			name:   "GET bucket listing success",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket") + "/",
+			status: http.StatusOK,
+			body:   "test/",
+		},
+		{
+			name:   "GET prefix listing success",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test") + "/",
+			status: http.StatusOK,
+			body:   "foo",
+		},
+		{
+			name:   "GET prefix listing empty",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "GET prefix redirect",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test"),
+			status: http.StatusSeeOther,
+		},
+		{
+			name:   "HEAD missing access",
+			method: "HEAD",
+			path:   "s/",
+			status: http.StatusBadRequest,
+			body:   "Malformed request.",
+		},
+		{
+			name:       "HEAD misconfigured auth server",
+			method:     "HEAD",
+			path:       path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			status:     http.StatusInternalServerError,
+			body:       "Internal server error.",
+			authserver: "invalid://",
+		},
+		{
+			name:       "HEAD missing access key",
+			method:     "HEAD",
+			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			status:     http.StatusNotFound,
+			body:       "Not found.",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:       "HEAD private access key",
+			method:     "GET",
+			path:       path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			status:     http.StatusForbidden,
+			body:       "Access denied",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:       "HEAD found access key",
+			method:     "GET",
+			path:       path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			status:     http.StatusOK,
+			body:       "",
+			authserver: validAuthServer.URL,
+		},
+		{
+			name:   "HEAD missing bucket",
+			method: "HEAD",
+			path:   path.Join("s", serializedAccess),
+			status: http.StatusBadRequest,
+			body:   "Malformed request.",
+		},
+		{
+			name:   "HEAD object not found",
+			method: "HEAD",
+			path:   path.Join("s", serializedAccess, "testbucket", "test/bar"),
+			status: http.StatusNotFound,
+			body:   "Object not found",
+		},
+		{
+			name:   "HEAD success",
+			method: "HEAD",
+			path:   path.Join("s", serializedAccess, "testbucket", "test/foo"),
+			status: http.StatusOK,
+			body:   "",
+		},
+	}
+
+	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
+				URLBases:  []string{"http://localhost"},
+				Templates: "./../../pkg/linksharing/web/",
+				AuthServiceConfig: sharing.AuthServiceConfig{
+					BaseURL: testCase.authserver,
+					Token:   authToken,
+				},
+			})
+			require.NoError(t, err)
+
+			url := "http://localhost/" + testCase.path
+			w := httptest.NewRecorder()
+			r, err := http.NewRequestWithContext(ctx, testCase.method, url, nil)
+			require.NoError(t, err)
+			handler.ServeHTTP(w, r)
+
+			assert.Equal(t, testCase.status, w.Code, "status code does not match")
+			for h, v := range testCase.header {
+				assert.Equal(t, v, w.Header()[h], "%q header does not match", h)
+			}
+			assert.Contains(t, w.Body.String(), testCase.body, "body does not match")
+		})
+	}
+}
+
+func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.True(t, strings.HasPrefix(r.URL.Path, "/v1/access/"))
+		require.Equal(t, r.Header.Get("Authorization"), "Bearer "+token)
+		accessKey := strings.TrimPrefix(r.URL.Path, "/v1/access/")
+		if grant, ok := accessKeys[accessKey]; ok {
+			require.NoError(t, json.NewEncoder(w).Encode(struct {
+				AccessGrant string `json:"access_grant"`
+				Public      bool   `json:"public"`
+			}{
+				AccessGrant: grant.grant,
+				Public:      grant.public,
+			}))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+}

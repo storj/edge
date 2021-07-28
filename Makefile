@@ -1,5 +1,5 @@
 GO_VERSION ?= 1.15.14
-COMPONENTLIST := gateway-mt authservice
+COMPONENTLIST := gateway-mt authservice linksharing
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 LATEST_DEV_TAG := dev
 
@@ -66,7 +66,7 @@ test: ## Run tests on source code (jenkins)
 ##@ Build
 
 .PHONY: images
-images: gateway-mt-image authservice-image ## Build gateway-mt and authservice Docker images
+images: gateway-mt-image authservice-image linksharing-image
 	echo Built version: ${TAG}
 
 .PHONY: gateway-mt-image
@@ -93,6 +93,18 @@ authservice-image: ## Build authservice Docker image
 		-f cmd/authservice/Dockerfile .
 	docker tag storjlabs/authservice:${TAG}-amd64 storjlabs/authservice:${LATEST_DEV_TAG}
 
+.PHONY: linksharing-image
+linksharing-image: ## Build linksharing Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-amd64 \
+		-f cmd/linksharing/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/linksharing/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-aarch64 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/linksharing/Dockerfile .
+	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
+
 .PHONY: binary
 binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
@@ -101,7 +113,7 @@ binary:
 	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}" --skip-osarches="freebsd/amd64"
 
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway-mt and authservice binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries (jenkins)
 	for C in ${COMPONENTLIST}; do\
 		$(MAKE) binary COMPONENT=$$C || exit $$? \
 	; done
@@ -156,6 +168,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 clean-images:
 	-docker rmi storjlabs/gateway-mt:${TAG}
 	-docker rmi storjlabs/authservice:${TAG}
+	-docker rmi storjlabs/linksharing:${TAG}
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target

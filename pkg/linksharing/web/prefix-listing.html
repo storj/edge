@@ -1,0 +1,84 @@
+{{template "header.html" .}}
+
+<nav class="navbar navbar-light">
+  <a class="navbar-brand" href="javascript:location.reload()">
+    <img src="{{.Base}}/static/img/logo.svg" alt="Storj DCS Logo" height="40px" loading="lazy" class="navbar-logo">
+  </a>
+  <div class="d-none">
+    <a href="https://tardigrade.io/login" class="btn btn-outline-secondary">Sign In</a>
+    <a href="https://tardigrade.io/signup" class="btn btn-outline-primary">Sign Up</a>
+  </div>
+</nav>
+
+<div class="bg-grey">
+  <div class="container-lg">
+    <div class="row justify-content-center">
+
+      <div class="col">
+        <div class="card directory my-5">
+
+          <section class="file-info text-left">
+
+            <div class="row">
+              <div class="col">
+                <h2 class="directory-heading">{{.Data.Title}}</h2>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col">
+                <h4 class="breadcrumbs">
+                  {{range .Data.Breadcrumbs}}
+                  <a href="{{.URL}}">{{.Prefix}}</a>
+                  <span class="separator">/</span>
+                  {{end}}
+                </h4>
+              </div>
+            </div>
+
+            {{if (gt (len .Data.Breadcrumbs) 1)}}
+              <a class="directory-link" href="../">
+                <div class="row">
+                  <div class="col">
+                    <img src="{{.Base}}/static/img/back.svg" alt="Back">
+                    <span class="directory-name">Back</span>
+                  </div>
+                </div>
+              </a>
+            {{end}}
+
+            {{range .Data.Objects}}
+              {{if .Prefix}}
+                  <a class="directory-link" href="{{.URL}}?wrap=1">
+                      <div class="row">
+                          <div class="col">
+                              <img src="{{$.Base}}/static/img/folder.svg" alt="Prefix"/>
+                              <span class="directory-name">{{.Key}}</span>
+                          </div>
+                      </div>
+                  </a>
+              {{else}}
+                  <a class="directory-link" href="{{.URL}}?wrap=1">
+                      <div class="row">
+                          <div class="col-9 col-sm-10">
+                              <img src="{{$.Base}}/static/img/file.svg" alt="Object"/>
+                              <span class="directory-name">{{.Key}}</span>
+                          </div>
+                          <div class="col-3 col-sm-2 text-right">
+                              <p class="directory-size">{{.Size}}</p>
+                          </div>
+                      </div>
+                  </a>
+              {{end}}
+            {{end}}
+
+          </section>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{{template "footer.html" .}}

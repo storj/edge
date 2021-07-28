@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="18px" height="22px" viewBox="0 0 18 22" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 43.2 (39069) - http://www.bohemiancoding.com/sketch -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(1.000000, 1.000000)" stroke="#2683FF">
+            <g id="file" transform="translate(8.000000, 10.000000) rotate(-270.000000) translate(-8.000000, -10.000000) translate(-2.000000, 2.500000)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20,13 C20,13.5304 19.7893,14.0391 19.4142,14.4142 C19.0391,14.7893 18.5304,15 18,15 L2,15 C1.46957,15 0.96086,14.7893 0.58579,14.4142 C0.21071,14.0391 3.13082893e-14,13.5304 3.13082893e-14,13 L3.13082893e-14,4 C3.13082893e-14,3.46957 4,-2.84217094e-14 4,-2.84217094e-14 L9,-3.19744231e-14 L18,-3.19744231e-14 C18.5304,-3.19744231e-14 19.0391,0.21071 19.4142,0.58579 C19.7893,0.96086 20,1.46957 20,2 L20,13 Z" id="Shape"></path>
+            </g>
+            <path d="M3.48612181,16 L12.5,16" id="Line-Copy-3" stroke-linecap="square"></path>
+            <path d="M3.48612181,13 L12.5,13" id="Line-Copy-4" stroke-linecap="square"></path>
+            <path d="M3.48612181,10 L12.5,10" id="Line-Copy-5" stroke-linecap="square"></path>
+            <path d="M3.48612181,7 L12.5,7" id="Line-Copy-6" stroke-linecap="square"></path>
+            <path d="M3.48612181,4 L8,4" id="Line-Copy-7" stroke-linecap="square"></path>
+        </g>
+    </g>
+</svg>

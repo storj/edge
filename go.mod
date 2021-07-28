@@ -4,10 +4,14 @@ go 1.13
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.1.0
+	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
+	github.com/calebcase/tmpfile v1.0.2 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgx/v4 v4.10.1
+	github.com/miekg/dns v1.1.35
 	github.com/minio/minio-go/v7 v7.0.6
+	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62 // indirect
 	github.com/spacemonkeygo/monkit/v3 v3.0.15
 	github.com/spf13/cobra v1.1.3
@@ -21,6 +25,7 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
+	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/private v0.0.0-20210629153057-a02a38c9d0a1
 	storj.io/uplink v1.5.0-rc.1.0.20210708154526-f5ca59991bd8
 )

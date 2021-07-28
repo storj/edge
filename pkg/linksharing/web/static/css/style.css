@@ -1,0 +1,311 @@
+/* Storj DCS link sharing https://link.us1.storjshare.io
+More info about Storj DCS at https://www.storj.io */
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+footer {
+  background: #133e9c;
+  background-image: url('/static/img/footer-bg.svg'), radial-gradient(56.25% 326.37% at 50% 50%, #002674 0%, #000000 100%);
+  background-size: cover;
+  width: 100%;
+  padding-top: 80px;
+  padding-bottom: 80px;
+  text-align: center;
+}
+
+h1,h2,h3,h4,h5,h6 {
+  font-family: Poppins, sans-serif;
+  font-weight: 700;
+  color: #000;
+}
+
+p, span, a {
+  font-family: Roboto, sans-serif;
+  font-weight: 300;
+  color: #000;
+}
+
+.bg-grey {
+  background: #F4F5F7;
+}
+
+/* Navigation */
+
+.navbar {
+  padding: 8px 16px;;
+  border-bottom: 1px solid #f2f3f4;
+  background: #fff;
+}
+
+.navbar-logo {
+  position: relative;
+  top: -3px;
+}
+
+.logo {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 168px;
+}
+
+.logo-mobile {
+  width: 140px;
+}
+
+/* Buttons */
+
+.btn {
+  font-family: Poppins;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  letter-spacing: .25px;
+  text-align: center;
+}
+.btn-primary {
+  color: #fff;
+  background-color: #2583FF;
+  border-color: #2583FF;
+}
+.btn-primary:hover {
+  color: #fff;
+  background-color: #0059d0;
+  border-color: #0059d0;
+}
+.btn-download {
+  margin-top: 40px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.btn-outline-secondary {
+  border-color: #c3c8cf;
+  color: #697687;
+}
+.btn-outline-secondary:hover {
+  color: #6c757d;
+  background-color: #f4f5f7;
+  border-color: #6c757d;
+}
+.btn-outline-primary:hover {
+  background-color: #0059d0;
+  color: #fff;
+  border-color: #0059d0;
+}
+.btn-copy {
+  position: absolute;
+  bottom: 30px;
+  right: 28px;
+  color: #0068DC;
+}
+.btn-light {
+  background: #fff;
+}
+
+.border-2 {
+  border-width: 2px;
+}
+
+/* Content */
+
+.card {
+  border: 1px solid #f2f3f4;
+  border-radius: 10px;
+}
+
+.file-title-top {
+  background: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  display: inline-block;
+  margin: 10px 0 0 0;
+}
+
+.file-title-distribution {
+  font-family: Poppins, sans-serif;
+  font-weight: 700;
+}
+
+.file-title-sidebar {
+  display: inline-block;
+  margin-left: 6px;
+  position: relative;
+  top: 16px;
+  max-width: 80%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-heading {
+  margin-bottom: 20px;
+}
+.file-name {
+  margin-bottom: 20px;
+}
+.file-size {
+  color: #949ba0;
+}
+
+/* Map */
+
+.lds-ring {
+  display: inline-block;
+  position: relative;
+  z-index: 1000;
+  background-color: rgba(78, 85, 91, 0.2);
+  margin-left: -15px;
+  width: calc(100% + 30px);
+  height: 100%;
+}
+.lds-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border: 8px solid;
+  border-radius: 50%;
+  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: #fff transparent transparent transparent;
+  left: calc(50% - 32px);
+  top: calc(50% - 32px);
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.map {
+  width: 100%;
+  max-width: 800px;
+  background: #fff !important;
+  margin: auto;
+  pointer-events: none;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#smallFileMessage {
+  border: 2px solid yellow;
+  background-color: rgba(255, 255, 0, 0.2);
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 8px;
+  align-items: center;
+}
+
+#piecesMessage {
+  font-size: 13px;
+}
+
+/* Share modal */
+
+.modal-title {
+  word-break: break-word;
+}
+
+.input-url {
+  background: #0C2546 !important;
+  color: #fff;
+  border: 0;
+  font-size: 14px;
+  height: 60px;
+  padding-right: 90px;
+}
+.input-url:focus {
+  color: #fff;
+}
+
+.copy-notification {
+  position: absolute;
+  top: 0;
+  text-align: center;
+  width: 100%;
+  margin-left: -64px;
+  display: none;
+}
+.copy-notification-text {
+  width: 110px;
+  background: #D3FFE6;
+  padding: 6px 8px;
+  margin: 0 auto;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  border: 1px solid #00D459;
+  border-top: 0;
+  font-size: 14px;
+}
+
+/* Bucket page styles */
+
+.directory {
+  padding: 40px;
+}
+.directory-heading {
+  margin-bottom: 20px;
+}
+.breadcrumbs {
+  margin-bottom: 24px;
+}
+.directory-link:hover {
+  text-decoration: none;
+}
+.directory-link .row {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.directory-link:hover .row {
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+.directory-link:hover .directory-name, .directory-link:hover .directory-size {
+  color: #2583FF;
+}
+.directory-link img {
+  margin-right: 12px;
+  height: 24px;
+  width: 24px;
+  position: relative;
+  top: -2px;
+}
+.directory-size {
+  margin-bottom: 0;
+}
+
+#pdfTag,
+#imgTag,
+#videoTag,
+#audioTag {
+  display: none;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+
+#pdfTag {
+  height: 500px;
+}

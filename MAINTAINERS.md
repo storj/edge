@@ -36,7 +36,10 @@ Examples of Release Candidates:
   - Select the `This is a pre-release` checkbox. This checkbox must always be selected at this point, even if this is an official release. We will deselelect it after we upload the binaries to the release. Otherwise, the links to the binaries of the latest release will be broken in the documentation and other places.
   - Click the `Publish release` button.
 4. Creating the release tag triggers the release build on the private Jenkins: https://build.storj.io/job/gateway-mt/view/tags/
-5. When the release build completes, an image will be uploaded to Docker Hub: https://hub.docker.com/r/storjlabs/gateway-mt/tags and binaries will be uploaded to http://storj-v3-alpha-builds.storage.googleapis.com/index.html
+5. When the release build completes, binaries will be uploaded to builds storage: http://storj-v3-alpha-builds.storage.googleapis.com/index.html, and Docker images will be published to Docker Hub:
+  * https://hub.docker.com/r/storjlabs/gateway-mt/tags
+  * https://hub.docker.com/r/storjlabs/authservice/tags
+  * https://hub.docker.com/r/storjlabs/linksharing/tags
 6. Find the build tag (e.g. `9b58a11-v1.0.1-go1.13.8`) and download all the binaries to your local drive.
 7. Update the Github release:
   - Go to https://github.com/storj/gateway-mt/releases.

@@ -1,9 +1,22 @@
+# Ignore release directory
 release/
-
-*.log
 
 # Jetbrains
 .idea/
-
 # VS Code
 .vscode/
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+# Test binary, built with `go test -c`
+*.test
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.log
+
+# avoid pushing maxmind databases
+*.mmdb

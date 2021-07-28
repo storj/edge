@@ -1,0 +1,173 @@
+{{template "header.html" .}}
+
+<div class="container-fluid">
+  <div class="row">
+
+    <div class="col-lg-8 col-xl-9 bg-grey order-2 order-lg-1">
+
+      <div class="row d-none d-lg-block mb-4">
+        <div class="col text-center">
+          <a href="javascript:location.reload()"><img src="{{.Base}}/static/img/logo.svg" class="logo" alt="Logo"></a>
+          <p class="file-title-top text-center">{{.Data.Key}}</p>
+        </div>
+      </div>
+
+      <div class="row justify-content-center mt-3">
+        <div class="col-12 col-xl-9">
+          <div class="card p-3 p-lg-5">
+            <div class="row">
+              <div class="col text-center mb-4 mt-3 mt-lg-0">
+                <h6>Real-time Distribution of <span class="text-muted file-title-distribution">{{.Data.Key}}</span> on Storj DCS</h6>
+              </div>
+            </div>
+            <div class="row">
+              <div id="map-img" class="col-12 col-lg-12 text-center map">
+                <img src="?map=1&width=800" style="width:100%;" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row justify-content-center">
+        <div class="col-12 col-sm-10 col-xl-8 text-center py-5">
+          <h5 class="mb-3">You’re Downloading this File From All Over the World</h5>
+          <p>Storj DCS distributes pieces of each file to a global network of independent nodes, and then recompiles them securely on download.  This means your data isn't being stored in an unsafe, centralized data center. The map above shows the location of the pieces of the file you are about to download.</p>
+          <a href="https://tardigrade.io/how-it-works/" target="_blank" rel="noopener" class="d-none btn btn-light btn-lg text-primary px-4 mt-2 mb-4">Learn More About Storj DCS</a>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-lg-4 col-xl-3 order-1 order-lg-2">
+      <div class="row mb-5 mt-3">
+        <div class="col-2">
+          <a href="javascript: location.reload()" class="d-block d-lg-none"><img src="{{.Base}}/static/img/logo.svg" class="logo-mobile" alt="Logo"></a>
+          <a href="?download" class="btn btn-outline-secondary d-none d-lg-inline-block" download><img src="{{.Base}}/static/img/icon-download-blue.svg" alt="Download"></a>
+        </div>
+        <div class="col-10 text-right d-none">
+          <a href="https://tardigrade.io/login" class="btn btn-outline-secondary">Sign In</a>
+          <a href="https://tardigrade.io/signup" class="btn btn-outline-primary">Sign Up</a>
+        </div>
+      </div>
+      <div class="row text-center text-lg-left">
+        <div class="col">
+          <div class="file">
+            <img src="{{.Base}}/static/img/icon-file.svg" class="d-block d-lg-inline-block mx-auto" alt="File icon">
+            <h5 class="file-title-sidebar">{{.Data.Key}}</h5>
+          </div>
+          <p class="mt-3">{{.Data.Size}}</p>
+          <embed class="embed-responsive embed-responsive-4by3" id="pdfTag">
+          <img class="embed-responsive embed-responsive-4by3" id="imgTag" alt="preview image">
+          <video class="embed-responsive embed-responsive-4by3" id="videoTag" controls></video>
+          <audio class="embed-responsive embed-responsive-4by3" id="audioTag" controls></audio>
+          <div class="row justify-content-center">
+            <div class="col-12 col-sm-4 col-lg-12">
+              <a href="?download" class="btn btn-primary btn-lg btn-block mb-3" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg" alt="Download" class="ml-2"></a>
+            </div>
+            <div class="col-12 col-sm-4 col-lg-12">
+              <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg btn-block mb-5 border-2 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg" alt="Share" class="ml-2"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center border-0 p-2 p-sm-4 p-md-5">
+      <div class="modal-header border-0">
+        <div class="copy-notification" id="copyNotification">
+          <p class="copy-notification-text">Link Copied!</p>
+        </div>
+        <h5 class="modal-title mx-auto" id="shareModalLabel">Share {{.Data.Key}}</h5>
+        <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button> -->
+      </div>
+      <div class="modal-body pt-0">
+        <p>Just copy and paste the link below to share this file.</p>
+        <input class="form-control form-control-lg mt-4 input-url" type="url" id="url" readonly>
+        <button type="button" name="copy" class="btn btn-light btn-copy" onclick="copy()" id="copyButton">Copy</button>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-primary btn-block btn-lg" data-dismiss="modal" onclick="closeModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade show" id="backdrop" style="display: none;"></div>
+
+<script type="text/javascript">
+  const pdfExtensions = 'pdf'
+  const imageExtensions = ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif']
+  const videoExtensions = ['m4v', 'mp4', 'webm', 'mov', 'mkv']
+  const audioExtensions = ['mp3', 'wav', 'ogg']
+
+  function openModal() {
+    if(!navigator.clipboard) {
+      document.getElementById("copyButton").disabled = true;
+    }
+    document.getElementById("backdrop").style.display = "block"
+    document.getElementById("shareModal").style.display = "block"
+    document.getElementById("shareModal").className += "show"
+    input.value = window.location.href;
+  }
+
+  function closeModal() {
+      document.getElementById("backdrop").style.display = "none"
+      document.getElementById("shareModal").style.display = "none"
+      document.getElementById("shareModal").className += document.getElementById("shareModal").className.replace("show", "")
+      document.getElementById("copyNotification").style.display = "none"
+  }
+
+  function copy() {
+    navigator.clipboard.writeText(input.value)
+    document.getElementById("copyNotification").style.display = "block"
+  }
+
+  function setupPreviewTag(id) {
+      const previewURL = `${window.location.origin}${window.location.pathname}?wrap=0`
+
+      document.getElementById(id).style.display = 'block'
+      document.getElementById(id).src = previewURL
+  }
+
+  let modal = document.getElementById('shareModal');
+  let input = document.getElementById('url');
+
+  window.onclick = function (event) {
+      if (event.target == modal) {
+          closeModal()
+      }
+  }
+
+  window.onload = async function () {
+      var fileExtension = {{.Data.Key}}.split('.').pop();
+      if (fileExtension) {
+        fileExtension = fileExtension.toLowerCase();
+      }
+
+      switch (true) {
+          case fileExtension === pdfExtensions:
+              setupPreviewTag('pdfTag')
+              break
+          case imageExtensions.includes(fileExtension):
+              setupPreviewTag('imgTag')
+              break
+          case videoExtensions.includes(fileExtension):
+              setupPreviewTag('videoTag')
+              break
+          case audioExtensions.includes(fileExtension):
+              setupPreviewTag('audioTag')
+              break
+          default:
+      }
+  }
+</script>
+
+{{template "footer.html" .}}
