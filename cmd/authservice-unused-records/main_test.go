@@ -23,6 +23,8 @@ import (
 )
 
 func TestVerifyFlags(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range []struct {
 		config  cmd.Config
 		wantErr bool
@@ -59,10 +61,12 @@ func TestVerifyFlags(t *testing.T) {
 }
 
 func TestDelete_Postgres(t *testing.T) {
+	t.Parallel()
 	testDelete(t, pgtest.PickPostgres(t), 0)
 }
 
 func TestDelete_Cockroach(t *testing.T) {
+	t.Parallel()
 	testDelete(t, pgtest.PickCockroachAlt(t), 100*time.Millisecond)
 }
 

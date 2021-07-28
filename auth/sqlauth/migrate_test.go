@@ -22,9 +22,15 @@ import (
 	"storj.io/private/dbutil/tempdb"
 )
 
-func TestMigratePostgres(t *testing.T) { migrateTest(t, pgtest.PickPostgres(t)) }
+func TestMigratePostgres(t *testing.T) {
+	t.Parallel()
+	migrateTest(t, pgtest.PickPostgres(t))
+}
 
-func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
+func TestMigrateCockroach(t *testing.T) {
+	t.Parallel()
+	migrateTest(t, pgtest.PickCockroachAlt(t))
+}
 
 func BenchmarkSetup_Postgres(b *testing.B) {
 	connstr := pgtest.PickPostgres(b)
@@ -66,9 +72,9 @@ func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*sqla
 }
 
 func migrateTest(t *testing.T, connStr string) {
-	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	log := zaptest.NewLogger(t)
 
 	kv, err := OpenTest(ctx, log, t.Name(), connStr)

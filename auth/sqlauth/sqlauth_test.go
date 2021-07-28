@@ -18,8 +18,14 @@ import (
 	"storj.io/private/dbutil/pgtest"
 )
 
-func TestKVFullCycle_Postgres(t *testing.T)  { testKVFullCycle(t, pgtest.PickPostgres(t)) }
-func TestKVFullCycle_Cockroach(t *testing.T) { testKVFullCycle(t, pgtest.PickCockroachAlt(t)) }
+func TestKVFullCycle_Postgres(t *testing.T) {
+	t.Parallel()
+	testKVFullCycle(t, pgtest.PickPostgres(t))
+}
+func TestKVFullCycle_Cockroach(t *testing.T) {
+	t.Parallel()
+	testKVFullCycle(t, pgtest.PickCockroachAlt(t))
+}
 
 func testKVFullCycle(t *testing.T, connStr string) {
 	ctx := testcontext.New(t)
@@ -93,6 +99,8 @@ func testKVFullCycle(t *testing.T, connStr string) {
 }
 
 func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
+	t.Parallel()
+
 	connStr := pgtest.PickCockroachAlt(t)
 
 	ctx := testcontext.New(t)
@@ -171,10 +179,12 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 }
 
 func TestKV_DeleteUnused_Postgres(t *testing.T) {
+	t.Parallel()
 	testKVDeleteUnused(t, pgtest.PickPostgres(t), 0)
 }
 
 func TestKV_DeleteUnused_Cockroach(t *testing.T) {
+	t.Parallel()
 	testKVDeleteUnused(t, pgtest.PickCockroachAlt(t), time.Microsecond)
 }
 
@@ -287,15 +297,35 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 }
 
 func TestKV_DeleteUnusedBatching_Postgres(t *testing.T) {
-	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 10, 5, 100, 20, 0)
-	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1000, 250, 3214, 13, 0)
-	testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1111, 321, 5000, 18, 0)
+	t.Parallel()
+	t.Run("10/5", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 10, 5, 100, 20, 0)
+	})
+	t.Run("1000/250", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1000, 250, 3214, 13, 0)
+	})
+	t.Run("1111/321", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickPostgres(t), 1111, 321, 5000, 18, 0)
+	})
 }
 
 func TestKV_DeleteUnusedBatching_Cockroach(t *testing.T) {
-	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 10, 5, 100, 20, time.Second)
-	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1000, 250, 3214, 13, time.Second)
-	testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1111, 321, 5000, 18, time.Second)
+	t.Parallel()
+	t.Run("10/5", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 10, 5, 100, 20, time.Second)
+	})
+	t.Run("1000/250", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1000, 250, 3214, 13, time.Second)
+	})
+	t.Run("1111/321", func(t *testing.T) {
+		t.Parallel()
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1111, 321, 5000, 18, time.Second)
+	})
 }
 
 func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, deleteSize int, expectedCount, expectedRounds int64, wait time.Duration) {

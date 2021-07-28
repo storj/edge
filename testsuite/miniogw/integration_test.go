@@ -79,11 +79,13 @@ func compileAt(t *testing.T, ctx *testcontext.Context, workDir string, pkg strin
 	return exe
 }
 
+var counter int64
+
 func TestUploadDownload(t *testing.T) {
-	var counter int64
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 
