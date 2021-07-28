@@ -21,6 +21,7 @@ import (
 
 func TestResponse(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +44,7 @@ func TestResponse(t *testing.T) {
 
 func TestGatewayResponse(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

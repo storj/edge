@@ -17,6 +17,7 @@ import (
 
 func TestMetrics(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	status := func(code int) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
