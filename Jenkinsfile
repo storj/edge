@@ -1,13 +1,3 @@
-def withDockerNetwork(Closure inner) {
-	try {
-		networkId = UUID.randomUUID().toString()
-		sh "docker network create ${networkId}"
-		inner.call(networkId)
-	} finally {
-		sh "docker network rm ${networkId}"
-	}
-}
-
 timeout(time: 26, unit: 'MINUTES') {
 	node {
 		stage('build'){
