@@ -201,7 +201,6 @@ timeout(time: 26, unit: 'MINUTES') {
 						echo "parsed keys ${ACCESS_KEY_ID} ${SECRET_KEY}"
 						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
 						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
-						docker run -u root:root --rm -e SERVER_IP=$gatewayip -e SERVER_PORT=7777 -e GATEWAY_DOMAIN -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/jenkins/test-aws.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/golang:1.16
 						# note the storj-ci docker image is used below, it already has duplicati etc. installed
 						docker run -u root:root --rm -e AWS_ENDPOINT="http://$gatewayip:7777" -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/testsuite/integration/run.sh --network minttest-gateway-mt-$BUILD_NUMBER storj-ci
 						docker pull storjlabs/minio-mint:latest
