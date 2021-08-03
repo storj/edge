@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package server
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/spacemonkeygo/monkit/v3"
 	minio "github.com/storj/minio/cmd"
 	xhttp "github.com/storj/minio/cmd/http"
 	"github.com/storj/minio/cmd/logger"
@@ -24,18 +23,14 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 )
 
 var (
-	mon              = monkit.Package()
 	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
-
-	// Error is the errs class of standard End User Client errors.
-	Error = errs.Class("Storj Gateway")
 
 	// ErrAccessGrant occurs when failing to parse the access grant from the request.
 	ErrAccessGrant = errs.Class("access grant")

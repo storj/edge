@@ -22,7 +22,6 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/gateway-mt/miniogw"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/cfgstruct"
@@ -32,8 +31,7 @@ import (
 
 // GatewayFlags configuration flags.
 type GatewayFlags struct {
-	Server miniogw.ServerConfig
-	Minio  miniogw.MinioConfig
+	Server server.Config
 
 	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
 	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
@@ -44,7 +42,7 @@ type GatewayFlags struct {
 	ClientTrustedIPSList []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 
-	S3Compatibility miniogw.S3CompatibilityConfig
+	S3Compatibility server.S3CompatibilityConfig
 
 	Config
 	ConnectionPool ConnectionPoolConfig
@@ -202,7 +200,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer,
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
-	return miniogw.NewGateway(config, pool, flags.S3Compatibility)
+	return server.NewGateway(config, pool, flags.S3Compatibility)
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

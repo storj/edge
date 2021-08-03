@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw_test
+package server_test
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/miniogw"
+	"storj.io/gateway-mt/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/uplink"
@@ -1825,12 +1825,12 @@ func TestProjectUsageLimit(t *testing.T) {
 		dataSize := 100 * memory.KiB
 		data := testrand.Bytes(dataSize)
 
-		s3Compatibility := miniogw.S3CompatibilityConfig{
+		s3Compatibility := server.S3CompatibilityConfig{
 			IncludeCustomMetadataListing: true,
 			MaxKeysLimit:                 1000,
 		}
 
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
+		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
@@ -1894,12 +1894,12 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		s3Compatibility := miniogw.S3CompatibilityConfig{
+		s3Compatibility := server.S3CompatibilityConfig{
 			IncludeCustomMetadataListing: true,
 			MaxKeysLimit:                 1000,
 		}
 
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
+		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
 		require.NoError(t, err)
 
 		defer func() { require.NoError(t, layer.Shutdown(ctx)) }()

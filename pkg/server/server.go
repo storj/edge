@@ -20,13 +20,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/version"
-	"storj.io/uplink"
-	"storj.io/uplink/private/transport"
 )
 
 var (
@@ -38,13 +34,9 @@ var (
 
 // Server represents an S3 compatible http server.
 type Server struct {
-	http         http.Server
-	listener     net.Listener
-	log          *zap.Logger
-	Address      string
-	DomainNames  []string
-	RPCPool      *rpcpool.Pool
-	UplinkConfig *uplink.Config
+	http     http.Server
+	listener net.Listener
+	log      *zap.Logger
 }
 
 // New returns new instance of an S3 compatible http server.
@@ -147,47 +139,4 @@ func (s *Server) Run(ctx context.Context) error {
 // Close closes server and underlying listener.
 func (s *Server) Close() error {
 	return Error.Wrap(s.http.Close())
-}
-
-// WithProject handles opening and closing a project within a request handler.
-func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(context.Context, *uplink.Project) error) {
-	ctx := r.Context()
-	accessGrant := GetAcessGrant(ctx)
-
-	uplinkConfig := s.UplinkConfig
-	uplinkConfig.UserAgent = getUserAgent(r.UserAgent())
-	err := transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-
-	project, err := uplinkConfig.OpenProject(ctx, accessGrant)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			s.log.Warn("Failed to close project", zap.Error(err))
-		}
-	}()
-	err = h(ctx, project)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-}
-
-var gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
-
-func getUserAgent(clientAgent string) string {
-	if clientAgent == "" {
-		return gatewayUserAgent
-	}
-	_, err := useragent.ParseEntries([]byte(clientAgent))
-	if err != nil {
-		return gatewayUserAgent
-	}
-	return gatewayUserAgent + " " + clientAgent
 }

@@ -14,7 +14,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
 // LogRequestsNoPaths logs requests but without paths (which have sensitive info).

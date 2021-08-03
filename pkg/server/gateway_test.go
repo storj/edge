@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package server
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/uplink"
 )
 

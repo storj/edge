@@ -3,7 +3,7 @@
 
 //lint:file-ignore U1000,SA4010,SA4006 Ignore all unused code, skipped tests
 //nolint
-package miniogw_test
+package server_test
 
 import (
 	"context"

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
 func TestResponse(t *testing.T) {
