@@ -15,4 +15,4 @@ done
 SATELLITE_ID="$(storj-sim network env SATELLITE_0_ID --config-dir /config/local-network)"
 echo "Found satellite ID: $SATELLITE_ID"
 
-authservice run --auth-token="super-secret" --allowed-satellites="${SATELLITE_ID}@" --endpoint="http://localhost:7777"
+authservice run --auth-token="super-secret" --allowed-satellites="${SATELLITE_ID}@" --endpoint="http://localhost:7777" --kv-backend="memory://"
