@@ -102,21 +102,15 @@ timeout(time: 26, unit: 'MINUTES') {
 								withEnv([
 									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
 									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
-									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=../.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
 										dir('testsuite') {
 											sh 'go vet -p 16 ./...'
-											sh 'go test -parallel 16 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
+											sh 'go test -parallel 16 -p 16 -vet=off -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
 										}
 									}
 									catch(err) {
 										throw err
-									}
-									finally {
-										sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
-										archiveArtifacts artifacts: '.build/testsuite.json'
-										junit '.build/testsuite.xml'
 									}
 								}
 							}
