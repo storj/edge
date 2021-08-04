@@ -1,20 +1,14 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package trustedip
 
 import (
-	"math/rand"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func TestGetClientIP(t *testing.T) {
 	testCases := []struct {

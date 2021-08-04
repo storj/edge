@@ -24,6 +24,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/gateway-mt/pkg/server"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"
@@ -173,16 +174,16 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		}
 	}
 
-	var trustedClientIPs server.TrustedIPsList
+	var trustedClientIPs trustedip.TrustedIPsList
 
 	if runCfg.UseClientIPHeaders {
 		if len(runCfg.ClientTrustedIPSList) > 0 {
-			trustedClientIPs = server.NewTrustedIPsListTrustIPs(runCfg.ClientTrustedIPSList...)
+			trustedClientIPs = trustedip.NewTrustedIPsListTrustIPs(runCfg.ClientTrustedIPSList...)
 		} else {
-			trustedClientIPs = server.NewTrustedIPsListTrustAll()
+			trustedClientIPs = trustedip.NewTrustedIPsListTrustAll()
 		}
 	} else {
-		trustedClientIPs = server.NewTrustedIPsListUntrustAll()
+		trustedClientIPs = trustedip.NewTrustedIPsListUntrustAll()
 	}
 
 	s3 := server.New(

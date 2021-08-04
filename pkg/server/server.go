@@ -23,6 +23,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -51,7 +52,7 @@ type Server struct {
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
 func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string,
-	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs TrustedIPsList) *Server {
+	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs trustedip.TrustedIPsList) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 

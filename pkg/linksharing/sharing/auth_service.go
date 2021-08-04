@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/gateway-mt/pkg/backoff"
 )
 
 // AuthServiceConfig describes configuration necessary to interact with the auth service.
@@ -53,7 +55,7 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
 
-	delay := ExponentialBackoff{
+	delay := backoff.ExponentialBackoff{
 		Min: 100 * time.Millisecond,
 		Max: 5 * time.Second,
 	}
