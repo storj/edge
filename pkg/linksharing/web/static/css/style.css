@@ -7,29 +7,26 @@ html {
 }
 
 footer {
-  background: #133e9c;
-  background-image: url('/static/img/footer-bg.svg'), radial-gradient(56.25% 326.37% at 50% 50%, #002674 0%, #000000 100%);
-  background-size: cover;
   width: 100%;
-  padding-top: 80px;
-  padding-bottom: 80px;
-  text-align: center;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  border-top: 1px solid #EDEEEF;
 }
 
-h1,h2,h3,h4,h5,h6 {
-  font-family: Poppins, sans-serif;
+h1,h2,h3,h4,h5,h6,b {
+  font-family: Inter, sans-serif;
   font-weight: 700;
   color: #000;
 }
 
 p, span, a {
-  font-family: Roboto, sans-serif;
+  font-family: Inter, sans-serif;
   font-weight: 300;
   color: #000;
 }
 
 .bg-grey {
-  background: #F4F5F7;
+  background: #F9FAFC;
 }
 
 /* Navigation */
@@ -40,16 +37,9 @@ p, span, a {
   background: #fff;
 }
 
-.navbar-logo {
-  position: relative;
-  top: -3px;
-}
-
 .logo {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  width: 168px;
+  width: 180px;
+  height: auto;
 }
 
 .logo-mobile {
@@ -59,18 +49,25 @@ p, span, a {
 /* Buttons */
 
 .btn {
-  font-family: Poppins;
+  font-family: Inter;
   font-weight: 700;
   font-size: 14px;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
   letter-spacing: .25px;
   text-align: center;
+  border-width: 2px;
 }
+.btn-lg {
+  font-size: 16px;
+  line-height: 32px;
+  padding: 0.55rem 2.2rem;
+}
+
 .btn-primary {
   color: #fff;
-  background-color: #2583FF;
-  border-color: #2583FF;
+  background-color: #376FFF;
+  border-color: #376FFF;
 }
 .btn-primary:hover {
   color: #fff;
@@ -84,6 +81,15 @@ p, span, a {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
+.btn-outline-primary {
+  border-color: #376FFF;
+  color: #376FFF;
+}
+.btn-outline-primary:hover {
+  background-color: #0059d0;
+  color: #fff;
+  border-color: #0059d0;
+}
 .btn-outline-secondary {
   border-color: #c3c8cf;
   color: #697687;
@@ -92,11 +98,6 @@ p, span, a {
   color: #6c757d;
   background-color: #f4f5f7;
   border-color: #6c757d;
-}
-.btn-outline-primary:hover {
-  background-color: #0059d0;
-  color: #fff;
-  border-color: #0059d0;
 }
 .btn-copy {
   position: absolute;
@@ -114,6 +115,10 @@ p, span, a {
 
 /* Content */
 
+.sidebar {
+  border-left: 1px solid #EDEEEF;
+}
+
 .card {
   border: 1px solid #f2f3f4;
   border-radius: 10px;
@@ -129,19 +134,15 @@ p, span, a {
 }
 
 .file-title-distribution {
-  font-family: Poppins, sans-serif;
+  font-family: Inter, sans-serif;
   font-weight: 700;
 }
 
 .file-title-sidebar {
   display: inline-block;
-  margin-left: 6px;
+  margin-bottom: 0;
   position: relative;
-  top: 16px;
-  max-width: 80%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  top: 2px;
 }
 
 .file-heading {
@@ -284,7 +285,7 @@ p, span, a {
   border-radius: 4px;
 }
 .directory-link:hover .directory-name, .directory-link:hover .directory-size {
-  color: #2583FF;
+  color: #376FFF;
 }
 .directory-link img {
   margin-right: 12px;
