@@ -71,7 +71,7 @@ func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, obj
 	list := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
 		Prefix: object,
 		System: true,
-		Custom: gateway.includeCustomMetadataListing,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	for list.Next() {
@@ -284,7 +284,7 @@ func (gateway *gateway) ListMultipartUploads(ctx context.Context, bucket string,
 		Cursor:    keyMarker,
 		Recursive: recursive,
 		System:    true,
-		Custom:    gateway.includeCustomMetadataListing,
+		Custom:    gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	startAfter := keyMarker

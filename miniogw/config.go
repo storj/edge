@@ -12,3 +12,10 @@ type MinioConfig struct {
 type ServerConfig struct {
 	Address string `help:"address to serve S3 api over" default:"127.0.0.1:7777" basic-help:"true"`
 }
+
+// S3CompatibilityConfig gathers parameters that control how strict the S3
+// compatibility is.
+type S3CompatibilityConfig struct {
+	IncludeCustomMetadataListing bool `help:"include custom metadata in S3's ListObjects, ListObjectsV2 and ListMultipartUploads responses" default:"true"`
+	MaxKeysLimit                 int  `help:"MaxKeys parameter limit for S3's ListObjects and ListObjectsV2 responses" default:"1000"`
+}

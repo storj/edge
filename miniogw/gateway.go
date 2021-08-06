@@ -42,19 +42,19 @@ var (
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
-func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, includeCustomMetadataListing bool) (minio.ObjectLayer, error) {
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, compatibilityConfig S3CompatibilityConfig) (minio.ObjectLayer, error) {
 	return &gateway{
-		config:                       config,
-		connectionPool:               connectionPool,
-		includeCustomMetadataListing: includeCustomMetadataListing,
+		config:              config,
+		connectionPool:      connectionPool,
+		compatibilityConfig: compatibilityConfig,
 	}, nil
 }
 
 type gateway struct {
 	minio.GatewayUnsupported
-	config                       uplink.Config
-	connectionPool               *rpcpool.Pool
-	includeCustomMetadataListing bool
+	config              uplink.Config
+	connectionPool      *rpcpool.Pool
+	compatibilityConfig S3CompatibilityConfig
 }
 
 func (gateway *gateway) IsTaggingSupported() bool {
@@ -402,6 +402,19 @@ func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketIn
 	return items, nil
 }
 
+// limitMaxKeys returns maxKeys limited to what gateway is configured to limit
+// maxKeys to, aligned with paging limitations on the satellite side. It will
+// also return the highest limit possible if maxKeys is not positive.
+func (gateway *gateway) limitMaxKeys(maxKeys int) int {
+	if maxKeys <= 0 || maxKeys >= gateway.compatibilityConfig.MaxKeysLimit {
+		// Return max keys with a buffer to gather the continuation token to
+		// avoid paging problems until we have a method in libuplink to get more
+		// info about page boundaries.
+		return gateway.compatibilityConfig.MaxKeysLimit - 1
+	}
+	return maxKeys
+}
+
 func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
@@ -456,14 +469,14 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 		Recursive: recursive,
 
 		System: true,
-		Custom: gateway.includeCustomMetadataListing,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
-	limit := maxKeys
-	for (limit > 0 || maxKeys == 0) && list.Next() {
+	limit := gateway.limitMaxKeys(maxKeys)
+	for limit > 0 && list.Next() {
 		object := list.Item()
 
 		limit--
@@ -571,14 +584,14 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		Recursive: recursive,
 
 		System: true,
-		Custom: gateway.includeCustomMetadataListing,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
-	limit := maxKeys
-	for (limit > 0 || maxKeys == 0) && list.Next() {
+	limit := gateway.limitMaxKeys(maxKeys)
+	for limit > 0 && list.Next() {
 		object := list.Item()
 
 		limit--

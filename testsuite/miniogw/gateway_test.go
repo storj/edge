@@ -25,6 +25,7 @@ import (
 	"github.com/storj/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -34,6 +35,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/miniogw"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/uplink"
 )
 
@@ -1823,7 +1825,12 @@ func TestProjectUsageLimit(t *testing.T) {
 		dataSize := 100 * memory.KiB
 		data := testrand.Bytes(dataSize)
 
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), true)
+		s3Compatibility := miniogw.S3CompatibilityConfig{
+			IncludeCustomMetadataListing: true,
+			MaxKeysLimit:                 1000,
+		}
+
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
@@ -1881,8 +1888,18 @@ func runTest(t *testing.T, test func(*testing.T, context.Context, minio.ObjectLa
 func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func(*testing.T, context.Context, minio.ObjectLayer, *uplink.Project)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{ // configure the segment loop rate limit until https://review.dev.storj.io/c/storj/storj/+/5406 gets merged
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.SegmentLoop.RateLimit = 1000
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), true)
+		s3Compatibility := miniogw.S3CompatibilityConfig{
+			IncludeCustomMetadataListing: true,
+			MaxKeysLimit:                 1000,
+		}
+
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
 		require.NoError(t, err)
 
 		defer func() { require.NoError(t, layer.Shutdown(ctx)) }()

@@ -10,6 +10,7 @@ import (
 
 	minio "github.com/storj/minio/cmd"
 	"github.com/storj/minio/cmd/logger"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/gateway-mt/pkg/gwlog"
@@ -58,7 +59,38 @@ func TestLogUnexpectedError(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, true}).log(ctx, tc.input)
+		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, S3CompatibilityConfig{}}).log(ctx, tc.input)
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
+	}
+}
+
+func TestLimitMaxKeys(t *testing.T) {
+	g := gateway{
+		compatibilityConfig: S3CompatibilityConfig{
+			MaxKeysLimit: 1000,
+		},
+	}
+
+	for i, tt := range [...]struct {
+		maxKeys  int
+		expected int
+	}{
+		{-10000, 999},
+		{-4500, 999},
+		{-1000, 999},
+		{-999, 999},
+		{-998, 999},
+		{-500, 999},
+		{-1, 999},
+		{0, 999},
+		{1, 1},
+		{500, 500},
+		{998, 998},
+		{999, 999},
+		{1000, 999},
+		{4500, 999},
+		{10000, 999},
+	} {
+		assert.Equal(t, tt.expected, g.limitMaxKeys(tt.maxKeys), i)
 	}
 }
