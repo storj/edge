@@ -404,11 +404,6 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	// TODO maybe this should be checked by project.ListObjects
-	if bucketName == "" {
-		return minio.ListObjectsInfo{}, minio.BucketNameInvalid{}
-	}
-
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
@@ -427,6 +422,8 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 	}()
 
 	recursive := delimiter == ""
+
+	startAfter := marker
 
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		// N.B.: in this case, the most S3-compatible thing we could do
@@ -448,19 +445,18 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 		//    loss of performance by turning this into a StatObject.
 		// so we do #3 here. it's great!
 
-		return listSingleObject(ctx, project, bucketName, prefix, marker, recursive, maxKeys)
+		return listSingleObject(ctx, project, bucketName, prefix, startAfter, recursive, maxKeys)
 	}
 
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
-		Cursor:    strings.TrimPrefix(marker, prefix),
+		Cursor:    strings.TrimPrefix(startAfter, prefix),
 		Recursive: recursive,
 
 		System: true,
 		Custom: true,
 	})
 
-	startAfter := marker
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
@@ -567,9 +563,6 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		return listSingleObjectV2(ctx, project, bucketName, prefix, continuationToken, startAfterPath, recursive, maxKeys)
 	}
 
-	var objects []minio.ObjectInfo
-	var prefixes []string
-
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
 		Cursor:    strings.TrimPrefix(startAfterPath, prefix),
@@ -578,6 +571,9 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		System: true,
 		Custom: true,
 	})
+
+	var objects []minio.ObjectInfo
+	var prefixes []string
 
 	limit := maxKeys
 	for (limit > 0 || maxKeys == 0) && list.Next() {
