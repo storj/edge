@@ -174,16 +174,16 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		}
 	}
 
-	var trustedClientIPs trustedip.TrustedIPsList
+	var trustedClientIPs trustedip.List
 
 	if runCfg.UseClientIPHeaders {
 		if len(runCfg.ClientTrustedIPSList) > 0 {
-			trustedClientIPs = trustedip.NewTrustedIPsListTrustIPs(runCfg.ClientTrustedIPSList...)
+			trustedClientIPs = trustedip.NewListTrustIPs(runCfg.ClientTrustedIPSList...)
 		} else {
-			trustedClientIPs = trustedip.NewTrustedIPsListTrustAll()
+			trustedClientIPs = trustedip.NewListTrustAll()
 		}
 	} else {
-		trustedClientIPs = trustedip.NewTrustedIPsListUntrustAll()
+		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
 	s3 := server.New(

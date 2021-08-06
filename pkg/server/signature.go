@@ -36,7 +36,7 @@ const (
 // Signature middleware handles authorization without Minio.
 type Signature struct {
 	AuthClient func() (*AuthClient, error)
-	TrustedIPs trustedip.TrustedIPsList
+	TrustedIPs trustedip.List
 }
 
 // Middleware implements mux.Middlware.
