@@ -42,17 +42,19 @@ var (
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
-func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool) (minio.ObjectLayer, error) {
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, includeCustomMetadataListing bool) (minio.ObjectLayer, error) {
 	return &gateway{
-		config:         config,
-		connectionPool: connectionPool,
+		config:                       config,
+		connectionPool:               connectionPool,
+		includeCustomMetadataListing: includeCustomMetadataListing,
 	}, nil
 }
 
 type gateway struct {
 	minio.GatewayUnsupported
-	config         uplink.Config
-	connectionPool *rpcpool.Pool
+	config                       uplink.Config
+	connectionPool               *rpcpool.Pool
+	includeCustomMetadataListing bool
 }
 
 func (gateway *gateway) IsTaggingSupported() bool {
@@ -454,7 +456,7 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 		Recursive: recursive,
 
 		System: true,
-		Custom: true,
+		Custom: gateway.includeCustomMetadataListing,
 	})
 
 	var objects []minio.ObjectInfo
@@ -569,7 +571,7 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		Recursive: recursive,
 
 		System: true,
-		Custom: true,
+		Custom: gateway.includeCustomMetadataListing,
 	})
 
 	var objects []minio.ObjectInfo

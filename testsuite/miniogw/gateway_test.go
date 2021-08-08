@@ -1823,7 +1823,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		dataSize := 100 * memory.KiB
 		data := testrand.Bytes(dataSize)
 
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), true)
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
@@ -1882,7 +1882,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool())
+		layer, err := miniogw.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), true)
 		require.NoError(t, err)
 
 		defer func() { require.NoError(t, layer.Shutdown(ctx)) }()

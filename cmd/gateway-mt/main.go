@@ -35,14 +35,15 @@ type GatewayFlags struct {
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
 
-	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
-	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
-	CertDir              string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
-	InsecureDisableTLS   bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName           string   `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
-	EncodeInMemory       bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
-	ClientTrustedIPSList []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
-	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	AuthURL                      string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
+	AuthToken                    string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
+	CertDir                      string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
+	InsecureDisableTLS           bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
+	DomainName                   string   `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
+	EncodeInMemory               bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
+	ClientTrustedIPSList         []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
+	UseClientIPHeaders           bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	DisableCustomMetadataListing bool     `help:"don't include custom metadata in S3 ListObjects, ListObjectsV2, and ListMultipartUploads responses" default:"false"`
 
 	Config
 	ConnectionPool ConnectionPoolConfig
@@ -200,7 +201,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer,
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
-	return miniogw.NewGateway(config, pool)
+	return miniogw.NewGateway(config, pool, !flags.DisableCustomMetadataListing)
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

@@ -58,7 +58,7 @@ func TestLogUnexpectedError(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil}).log(ctx, tc.input)
+		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, true}).log(ctx, tc.input)
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
