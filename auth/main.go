@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -134,6 +135,26 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 			Addr:    config.ListenAddr,
 		}).ListenAndServe()
 	})
+
+	if config.DeleteUnused.Run {
+		launch(func() error {
+			return sync2.NewCycle(config.DeleteUnused.Interval).Run(ctx, func(ctx context.Context) error {
+				log.Info("Beginning of next iteration of unused records deletion chore")
+
+				c, r, err := db.DeleteUnused(ctx, config.DeleteUnused.AsOfSystemInterval, config.DeleteUnused.SelectSize, config.DeleteUnused.DeleteSize)
+				if err != nil {
+					log.Warn("Error deleting unused records", zap.Error(err))
+				}
+
+				log.Info("Deleted unused records", zap.Int64("count", c), zap.Int64("rounds", r))
+
+				monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(c)
+				monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(r)
+
+				return nil
+			})
+		})
+	}
 
 	listener, err := net.Listen("tcp", config.ListenAddrTLS)
 	if err != nil {
