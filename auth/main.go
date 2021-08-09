@@ -139,12 +139,13 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 	if err != nil {
 		return err
 	}
+
+	res.SetStartupDone()
+
 	err = listenAndServe(ctx, log, listener, tlsConfig, handler)
 	if err != nil {
 		return err
 	}
-
-	res.SetStartupDone()
 
 	// return at the first error
 	return <-errors
