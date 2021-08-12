@@ -187,7 +187,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 	}
 
 	s3 := server.New(
-		listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","),
+		listener, zap.L(), tlsConfig, strings.Split(runCfg.DomainName, ","),
 		runCfg.EncodeInMemory, trustedClientIPs,
 	)
 	runError := s3.Run(ctx)

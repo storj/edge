@@ -63,7 +63,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
 	}
 	s := server.New(
-		listener, zap.New(core), tlsConfig, "127.0.0.1:0", []string{"localhost"}, true, trustedip.NewListTrustAll(),
+		listener, zap.New(core), tlsConfig, []string{"localhost"}, true, trustedip.NewListTrustAll(),
 	)
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(s.Run(ctx))
