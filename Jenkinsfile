@@ -1,7 +1,8 @@
 timeout(time: 26, unit: 'MINUTES') {
 	node {
 		stage('build'){
-			def dockerImage = docker.build("storj-ci", "--pull git://github.com/storj/ci.git#main")
+			def dockerImage = docker.image("storjlabs/ci:latest")
+			dockerImage.pull()
 			dockerImage.inside('-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod') {
 				try {
 					stage('Build') {
@@ -185,7 +186,7 @@ timeout(time: 26, unit: 'MINUTES') {
 						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
 						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
 						# note the storj-ci docker image is used below, it already has duplicati etc. installed
-						docker run -u root:root --rm -e AWS_ENDPOINT="http://$gatewayip:7777" -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/testsuite/integration/run.sh --network minttest-gateway-mt-$BUILD_NUMBER storj-ci
+						docker run -u root:root --rm -e AWS_ENDPOINT="http://$gatewayip:7777" -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/testsuite/integration/run.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/ci:latest
 						docker pull storjlabs/minio-mint:latest
 						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
 				'''
