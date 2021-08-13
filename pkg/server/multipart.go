@@ -154,6 +154,11 @@ func (gateway *gateway) AbortMultipartUpload(ctx context.Context, bucket, object
 
 	err = project.AbortUpload(ctx, bucket, object, uploadID)
 	if err != nil {
+		// it's not clear AbortMultipartUpload should return a 404 for objects not found
+		// minio tests only cover bucket not found and invalid id
+		if errors.Is(err, uplink.ErrObjectNotFound) {
+			return nil
+		}
 		return convertMultipartError(err, bucket, object, uploadID)
 	}
 	return nil

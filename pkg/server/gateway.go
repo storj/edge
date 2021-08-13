@@ -900,6 +900,8 @@ func checkBucketError(ctx context.Context, project *uplink.Project, bucketName, 
 
 func convertError(err error, bucket, object string) error {
 	switch {
+	case err == nil:
+		return nil
 	case ErrAccessGrant.Has(err):
 		// convert any errors parsing an access grant into InvalidArgument minio error type.
 		// InvalidArgument seems to be the closest minio error to map access grant errors to, and
