@@ -24,7 +24,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210805073808-8e0feb09e92a
+	storj.io/common v0.0.0-20210810183638-70ba30f208a9
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.24
 	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0

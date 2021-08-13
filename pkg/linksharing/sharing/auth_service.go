@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/backoff"
 )
 
@@ -23,6 +24,9 @@ type AuthServiceConfig struct {
 
 	// Authorization token used for the auth service to resolve access key ids.
 	Token string
+
+	// Cache is used for caching authservice's responses.
+	Cache *lrucache.ExpiringLRU
 }
 
 // AuthServiceResponse is the struct representing the response from the auth service.
@@ -108,4 +112,38 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 
 		return authResp, err
 	}
+}
+
+// ResolveWithCache is like Resolve, but it uses the underlying LRU cache to
+// cache and returns cached authservice's successful responses if caching is
+// enabled.
+func (a AuthServiceConfig) ResolveWithCache(ctx context.Context, accessKeyID string, clientIP string) (_ *AuthServiceResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if a.Cache == nil {
+		return a.Resolve(ctx, accessKeyID, clientIP)
+	}
+
+	type cachedAuthServiceResponse struct {
+		response *AuthServiceResponse
+		err      error
+	}
+
+	v, err := a.Cache.Get(accessKeyID, func() (interface{}, error) {
+		response, err := a.Resolve(ctx, accessKeyID, clientIP)
+
+		switch GetStatus(err, http.StatusOK) {
+		case http.StatusOK, http.StatusNotFound:
+			return cachedAuthServiceResponse{response: response, err: err}, nil
+		default:
+			return cachedAuthServiceResponse{}, err // err is already wrapped
+		}
+	})
+	if err != nil {
+		return nil, err // err is already wrapped
+	}
+
+	response := v.(cachedAuthServiceResponse)
+
+	return response.response, response.err
 }
