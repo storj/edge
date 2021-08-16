@@ -691,84 +691,86 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	// TODO: We want to return Not Implemented until we implement server-side copy
-	return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
+	if gateway.compatibilityConfig.DisableCopyObject {
+		// Note: In production Gateway-MT, we want to return Not Implemented until we implement server-side copy
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
+	}
 
-	// if srcObject == "" {
-	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: srcBucket}
-	// }
-	// if destObject == "" {
-	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
-	// }
+	if srcObject == "" {
+		return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: srcBucket}
+	}
+	if destObject == "" {
+		return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
+	}
 
-	// project, err := gateway.openProject(ctx, getAccessGrant(ctx))
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, err
-	// }
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
 
-	// // TODO this should be removed and implemented on satellite side
-	// _, err = project.StatBucket(ctx, srcBucket)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, srcBucket, "")
-	// }
+	// TODO this should be removed and implemented on satellite side
+	_, err = project.StatBucket(ctx, srcBucket)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, "")
+	}
 
-	// // TODO this should be removed and implemented on satellite side
-	// if srcBucket != destBucket {
-	// 	_, err = project.StatBucket(ctx, destBucket)
-	// 	if err != nil {
-	// 		return minio.ObjectInfo{}, convertError(err, destBucket, "")
-	// 	}
-	// }
+	// TODO this should be removed and implemented on satellite side
+	if srcBucket != destBucket {
+		_, err = project.StatBucket(ctx, destBucket)
+		if err != nil {
+			return minio.ObjectInfo{}, convertError(err, destBucket, "")
+		}
+	}
 
-	// if srcBucket == destBucket && srcObject == destObject {
-	// 	// Source and destination are the same. Do nothing, otherwise copying
-	// 	// the same object over itself may destroy it, especially if it is a
-	// 	// larger one.
-	// 	return srcInfo, nil
-	// }
+	if srcBucket == destBucket && srcObject == destObject {
+		// Source and destination are the same. Do nothing, otherwise copying
+		// the same object over itself may destroy it, especially if it is a
+		// larger one.
+		return srcInfo, nil
+	}
 
-	// download, err := project.DownloadObject(ctx, srcBucket, srcObject, nil)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
-	// }
-	// defer func() {
-	// 	// TODO: this hides minio error
-	// 	err = errs.Combine(err, download.Close())
-	// }()
+	download, err := project.DownloadObject(ctx, srcBucket, srcObject, nil)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
+	}
+	defer func() {
+		// TODO: this hides minio error
+		err = errs.Combine(err, download.Close())
+	}()
 
-	// upload, err := project.UploadObject(ctx, destBucket, destObject, nil)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	upload, err := project.UploadObject(ctx, destBucket, destObject, nil)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// info := download.Info()
-	// err = upload.SetCustomMetadata(ctx, info.Custom)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	info := download.Info()
+	err = upload.SetCustomMetadata(ctx, info.Custom)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// reader, err := hash.NewReader(download, info.System.ContentLength, "", "", info.System.ContentLength, true)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	reader, err := hash.NewReader(download, info.System.ContentLength, "", "", info.System.ContentLength, true)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// _, err = io.Copy(upload, reader)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// err = upload.Commit()
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	err = upload.Commit()
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// return minioObjectInfo(destBucket, hex.EncodeToString(reader.MD5Current()), upload.Info()), nil
+	return minioObjectInfo(destBucket, hex.EncodeToString(reader.MD5Current()), upload.Info()), nil
 }
 
 func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
