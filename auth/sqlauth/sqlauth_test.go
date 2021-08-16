@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/auth/authdb"
+	"storj.io/gateway-mt/auth/sqlauth"
 	"storj.io/private/dbutil/pgtest"
 )
 
@@ -31,7 +32,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connStr)
+	kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), connStr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
@@ -106,7 +107,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connStr)
+	kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), connStr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
@@ -192,7 +193,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
+	kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
@@ -314,17 +315,20 @@ func TestKV_DeleteUnusedBatching_Postgres(t *testing.T) {
 
 func TestKV_DeleteUnusedBatching_Cockroach(t *testing.T) {
 	t.Parallel()
+
+	const wait = 100 * time.Millisecond
+
 	t.Run("10/5", func(t *testing.T) {
 		t.Parallel()
-		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 10, 5, 100, 20, time.Second)
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 10, 5, 100, 20, wait)
 	})
 	t.Run("1000/250", func(t *testing.T) {
 		t.Parallel()
-		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1000, 250, 3214, 13, time.Second)
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1000, 250, 3214, 13, wait)
 	})
 	t.Run("1111/321", func(t *testing.T) {
 		t.Parallel()
-		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1111, 321, 5000, 18, time.Second)
+		testKVDeleteUnusedBatching(t, pgtest.PickCockroachAlt(t), 1111, 321, 5000, 18, wait)
 	})
 }
 
@@ -332,7 +336,7 @@ func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, delete
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	kv, err := OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
+	kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 

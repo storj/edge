@@ -19,6 +19,7 @@ import (
 	_ "storj.io/private/dbutil/cockroachutil" // register our custom driver
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
+	"storj.io/private/dbutil/tempdb"
 	"storj.io/private/tagsql"
 )
 
@@ -69,11 +70,28 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (*
 	}, nil
 }
 
-// TestingSchema returns the underlying database schema.
-func (d *KV) TestingSchema() string { return d.db.Schema() }
+// OpenTest creates an instance of KV suitable for testing.
+func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*KV, error) {
+	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
+	if err != nil {
+		return nil, err
+	}
 
-// TestingTagSQL returns *tagsql.DB.
-func (d *KV) TestingTagSQL() tagsql.DB { return d.db.DB }
+	kv, err := Open(ctx, log, tempDB.ConnStr, Options{ApplicationName: "test"})
+	if err != nil {
+		return nil, err
+	}
+
+	kv.TestingSetCleanup(tempDB.Close)
+
+	return kv, nil
+}
+
+// Schema returns the underlying database schema.
+func (d *KV) Schema() string { return d.db.Schema() }
+
+// TagSQL returns *tagsql.DB.
+func (d *KV) TagSQL() tagsql.DB { return d.db.DB }
 
 // Close closes the connection to database.
 func (d *KV) Close() error {
@@ -277,7 +295,7 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 		for len(pkvals) > 0 {
 			var batch [][]byte
 
-			batch, pkvals = batchValues(pkvals, deleteSize)
+			batch, pkvals = BatchValues(pkvals, deleteSize)
 
 			res, err := d.db.DB.ExecContext(
 				ctx,
@@ -306,7 +324,9 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 	}
 }
 
-func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
+// BatchValues splits pkvals into two groups, where the first has a maximum
+// length of threshold and the second contains the rest of the data.
+func BatchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
 	if len(pkvals) < threshold {
 		return pkvals, nil
 	}

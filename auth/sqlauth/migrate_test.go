@@ -47,7 +47,7 @@ func benchmarkSetup(b *testing.B, connStr string) {
 		func() {
 			ctx := context.Background()
 
-			kv, err := OpenTest(ctx, zap.NewNop(), b.Name(), connStr)
+			kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), b.Name(), connStr)
 			require.NoError(b, err)
 			defer func() { require.NoError(b, kv.Close()) }()
 
@@ -57,33 +57,19 @@ func benchmarkSetup(b *testing.B, connStr string) {
 	}
 }
 
-func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*sqlauth.KV, error) {
-	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
-	if err != nil {
-		return nil, err
-	}
-
-	kv, err := sqlauth.Open(ctx, log, tempDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
-	if err != nil {
-		return nil, err
-	}
-	kv.TestingSetCleanup(tempDB.Close)
-	return kv, nil
-}
-
 func migrateTest(t *testing.T, connStr string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
 
-	kv, err := OpenTest(ctx, log, t.Name(), connStr)
+	kv, err := sqlauth.OpenTest(ctx, log, t.Name(), connStr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	db := kv.TestingTagSQL()
+	db := kv.TagSQL()
 
-	dbxSchema, err := LoadSchemaFromSQL(ctx, connStr, kv.TestingSchema())
+	dbxSchema, err := LoadSchemaFromSQL(ctx, connStr, kv.Schema())
 	require.NoError(t, err)
 
 	// get migration for this database
