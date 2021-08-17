@@ -1825,7 +1825,7 @@ func TestProjectUsageLimit(t *testing.T) {
 			MaxKeysLimit:                 1000,
 		}
 
-		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
+		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility, true)
 		require.NoError(t, err)
 
 		access, err := setupAccess(ctx, t, planet, storj.EncNull, uplink.FullPermission())
@@ -1889,7 +1889,7 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 			MaxKeysLimit:                 1000,
 		}
 
-		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility)
+		layer, err := server.NewGateway(uplink.Config{}, rpc.NewDefaultConnectionPool(), s3Compatibility, true)
 		require.NoError(t, err)
 
 		defer func() { require.NoError(t, layer.Shutdown(ctx)) }()

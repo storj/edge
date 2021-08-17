@@ -41,6 +41,7 @@ type GatewayFlags struct {
 	EncodeInMemory       bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
 	ClientTrustedIPSList []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
 
 	S3Compatibility server.S3CompatibilityConfig
 
@@ -164,6 +165,10 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 	zap.S().Info("Starting Storj DCS S3 Gateway")
 	zap.S().Infof("Endpoint: %s", address)
 
+	if runCfg.InsecureLogAll {
+		zap.S().Info("Insecurely logging all errors, paths, and headers")
+	}
+
 	// because existing configs contain most of these values, we don't have separate
 	// parameter bindings for the non-Minio server
 	var tlsConfig *tls.Config
@@ -188,7 +193,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 
 	s3 := server.New(
 		listener, zap.L(), tlsConfig, strings.Split(runCfg.DomainName, ","),
-		runCfg.EncodeInMemory, trustedClientIPs,
+		runCfg.EncodeInMemory, trustedClientIPs, runCfg.InsecureLogAll,
 	)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
@@ -200,7 +205,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer,
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
-	return server.NewGateway(config, pool, flags.S3Compatibility)
+	return server.NewGateway(config, pool, flags.S3Compatibility, flags.InsecureLogAll)
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

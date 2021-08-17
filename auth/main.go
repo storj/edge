@@ -104,7 +104,7 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 	}
 
 	// logging. do not log paths - paths have access keys in them.
-	handler = server.LogResponsesNoPaths(log, server.LogRequestsNoPaths(log, handler))
+	handler = server.LogResponses(log, server.LogRequests(log, handler, false), false)
 
 	errors := make(chan error, 2)
 	launch := func(fn func() error) {

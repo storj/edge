@@ -44,7 +44,7 @@ type Server struct {
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
 func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
-	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs trustedip.List) *Server {
+	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs trustedip.List, insecureLogAll bool) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
@@ -93,8 +93,8 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information.
-	s.http.Handler = LogRequestsNoPaths(s.log, s.http.Handler)
-	s.http.Handler = LogResponsesNoPaths(s.log, s.http.Handler)
+	s.http.Handler = LogRequests(s.log, s.http.Handler, insecureLogAll)
+	s.http.Handler = LogResponses(s.log, s.http.Handler, insecureLogAll)
 
 	return s
 }

@@ -46,7 +46,7 @@ func TestMinioError(t *testing.T) {
 	}
 }
 
-func TestLogUnexpectedError(t *testing.T) {
+func TestLogUnexpectedErrorsOnly(t *testing.T) {
 	tests := []struct {
 		input    error
 		expected string
@@ -59,7 +59,25 @@ func TestLogUnexpectedError(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, S3CompatibilityConfig{}}).log(ctx, tc.input)
+		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, S3CompatibilityConfig{}, false}).log(ctx, tc.input)
+		require.Equal(t, tc.expected, log.TagValue("error"), i)
+	}
+}
+
+func TestLogAllErrors(t *testing.T) {
+	tests := []struct {
+		input    error
+		expected string
+	}{
+		{context.Canceled, context.Canceled.Error()},
+		{minio.BucketNotEmpty{}, minio.BucketNotEmpty{}.Error()},
+		{uplink.ErrBucketNameInvalid, uplink.ErrBucketNameInvalid.Error()},
+		{errors.New("unexpected error"), "unexpected error"},
+	}
+	for i, tc := range tests {
+		log := gwlog.New()
+		ctx := log.WithContext(context.Background())
+		(&gateway{minio.GatewayUnsupported{}, uplink.Config{}, nil, S3CompatibilityConfig{}, true}).log(ctx, tc.input)
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }

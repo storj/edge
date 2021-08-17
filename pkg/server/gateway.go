@@ -37,11 +37,12 @@ var (
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
-func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, compatibilityConfig S3CompatibilityConfig) (minio.ObjectLayer, error) {
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, compatibilityConfig S3CompatibilityConfig, insecureLogAll bool) (minio.ObjectLayer, error) {
 	return &gateway{
 		config:              config,
 		connectionPool:      connectionPool,
 		compatibilityConfig: compatibilityConfig,
+		insecureLogAll:      insecureLogAll,
 	}, nil
 }
 
@@ -50,6 +51,7 @@ type gateway struct {
 	config              uplink.Config
 	connectionPool      *rpcpool.Pool
 	compatibilityConfig S3CompatibilityConfig
+	insecureLogAll      bool
 }
 
 func (gateway *gateway) IsTaggingSupported() bool {
@@ -1007,8 +1009,8 @@ func (gateway *gateway) log(ctx context.Context, err error) {
 		return
 	}
 
-	// log any unexpected errors
-	if err != nil && !minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)) {
+	// log any unexpected errors, or log every error if flag set
+	if err != nil && (gateway.insecureLogAll || (!minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)))) {
 		reqInfo.SetTags("error", err.Error())
 	}
 
