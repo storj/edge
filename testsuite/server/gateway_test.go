@@ -1836,18 +1836,18 @@ func TestProjectUsageLimit(t *testing.T) {
 		accessString, err := access.Serialize()
 		require.NoError(t, err)
 
-		// Set the Access Grant as the S3 Access Key in the Context
-		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
+		// Establish new context with the Access Grant for the gateway to pick up.
+		ctxWithAccessGrant := logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
 
 		// Create a bucket with the Minio API
-		err = layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{})
+		err = layer.MakeBucketWithLocation(ctxWithAccessGrant, "testbucket", minio.BucketOptions{})
 		assert.NoError(t, err)
 
 		hashReader, err := hash.NewReader(bytes.NewReader(data), int64(dataSize), md5Hex(data), sha256Hex(data), int64(dataSize), true)
 		require.NoError(t, err)
 		putObjectReader := minio.NewPutObjReader(hashReader, nil, nil)
 
-		info, err := layer.PutObject(ctx, "testbucket", "test/path1", putObjectReader, minio.ObjectOptions{UserDefined: make(map[string]string)})
+		info, err := layer.PutObject(ctxWithAccessGrant, "testbucket", "test/path1", putObjectReader, minio.ObjectOptions{UserDefined: make(map[string]string)})
 		require.NoError(t, err)
 		assert.Equal(t, "test/path1", info.Name)
 		assert.Equal(t, "testbucket", info.Bucket)
@@ -1858,12 +1858,12 @@ func TestProjectUsageLimit(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// We'll be able to download 5X before reach the limit.
 		for i := 0; i < 5; i++ {
-			err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
+			err = layer.GetObject(ctxWithAccessGrant, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 			require.NoError(t, err)
 		}
 
 		// An extra download should return 'Exceeded Usage Limit' error
-		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
+		err = layer.GetObject(ctxWithAccessGrant, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 		require.Error(t, err)
 		require.EqualError(t, err, minio.ProjectUsageLimit{}.Error())
 
@@ -1873,7 +1873,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		})
 
 		// Should not return an error since it's a new month
-		err = layer.GetObject(ctx, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
+		err = layer.GetObject(ctxWithAccessGrant, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 		require.NoError(t, err)
 	})
 }
@@ -1907,15 +1907,15 @@ func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func
 		accessString, err := access.Serialize()
 		require.NoError(t, err)
 
-		// Set the Access Grant as the S3 Access Key in the Context
-		ctx.Context = logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
-
 		project, err := uplink.OpenProject(ctx, access)
 		require.NoError(t, err)
 
 		defer func() { require.NoError(t, project.Close()) }()
 
-		test(t, ctx, layer, project)
+		// Establish new context with the Access Grant for the gateway to pick up.
+		ctxWithAccessGrant := logger.SetReqInfo(ctx.Context, &logger.ReqInfo{AccessGrant: accessString})
+
+		test(t, ctxWithAccessGrant, layer, project)
 	})
 }
 
