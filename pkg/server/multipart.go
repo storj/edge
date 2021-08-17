@@ -176,7 +176,27 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 		err = errs.Combine(err, project.Close())
 	}()
 
-	// TODO: Check that ETag of uploadedParts match the ETags stored in metabase.
+	sort.Slice(uploadedParts, func(i, k int) bool {
+		return uploadedParts[i].PartNumber < uploadedParts[k].PartNumber
+	})
+
+	list := project.ListUploadParts(ctx, bucket, object, uploadID, &uplink.ListUploadPartsOptions{})
+	for list.Next() {
+		part := list.Item()
+		uploadedPart := uploadedParts[int(part.PartNumber)]
+		if uploadedPart.ETag != string(part.ETag) {
+			return minio.ObjectInfo{}, minio.InvalidPart{PartNumber: int(part.PartNumber), GotETag: uploadedPart.ETag}
+		}
+		if int(part.PartNumber) != len(uploadedParts)-1 {
+			if part.Size < int64(gateway.compatibilityConfig.MinPartSize) {
+				return minio.ObjectInfo{}, minio.PartTooSmall{PartNumber: int(part.PartNumber), PartSize: part.Size, PartETag: string(part.ETag)}
+			}
+		}
+	}
+	if list.Err() != nil {
+		return minio.ObjectInfo{}, convertMultipartError(list.Err(), bucket, object, uploadID)
+	}
+
 	etag, err := multipartUploadETag(uploadedParts)
 	if err != nil {
 		return minio.ObjectInfo{}, convertMultipartError(err, bucket, object, uploadID)
