@@ -215,10 +215,11 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 
 	// Confirm DeleteUnused is idempotent.
 	for i := 0; i < 3; i++ {
-		count, rounds, err := kv.DeleteUnused(ctx, wait, 20, 5)
+		count, rounds, heads, err := kv.DeleteUnused(ctx, wait, 20, 5)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), count)
 		assert.Equal(t, int64(0), rounds)
+		assert.Equal(t, make(map[string]int64), heads)
 	}
 
 	time.Sleep(wait)
@@ -261,20 +262,54 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 
 	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(255)}, r2))
 
+	{
+		n := time.Now()
+
+		r3 := &authdb.Record{
+			SatelliteAddress:     "ghi",
+			MacaroonHead:         []byte{9},
+			EncryptedSecretKey:   []byte{10},
+			EncryptedAccessGrant: []byte{11},
+			ExpiresAt:            &n,
+		}
+
+		require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(254)}, r3))
+
+		r4 := &authdb.Record{
+			SatelliteAddress:     "ghi",
+			MacaroonHead:         []byte{12},
+			EncryptedSecretKey:   []byte{13},
+			EncryptedAccessGrant: []byte{14},
+			ExpiresAt:            &n,
+		}
+
+		require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(253)}, r4))
+	}
+
 	time.Sleep(wait)
 
 	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
 	// records.
 	for i := 0; i < 5; i++ {
-		count, rounds, err := kv.DeleteUnused(ctx, wait, 20, 5)
+		count, rounds, heads, err := kv.DeleteUnused(ctx, wait, 20, 5)
 		require.NoError(t, err)
 
 		if i == 0 {
-			assert.Equal(t, int64(75), count)
-			assert.Equal(t, int64(15), rounds)
+			assert.Equal(t, int64(77), count)
+			assert.Equal(t, int64(16), rounds)
+
+			m := map[string]int64{
+				string([]byte{0}):  25,
+				string([]byte{3}):  50,
+				string([]byte{9}):  1,
+				string([]byte{12}): 1,
+			}
+
+			assert.Equal(t, m, heads)
 		} else {
 			assert.Equal(t, int64(0), count)
 			assert.Equal(t, int64(0), rounds)
+			assert.Equal(t, make(map[string]int64), heads)
 		}
 	}
 
@@ -364,8 +399,9 @@ func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, delete
 
 	time.Sleep(wait)
 
-	count, rounds, err := kv.DeleteUnused(ctx, wait, selectSize, deleteSize)
+	count, rounds, heads, err := kv.DeleteUnused(ctx, wait, selectSize, deleteSize)
 	require.NoError(t, err)
 	assert.Equal(t, expectedCount, count)
 	assert.Equal(t, expectedRounds, rounds)
+	assert.Equal(t, map[string]int64{string([]byte{0}): expectedCount}, heads)
 }

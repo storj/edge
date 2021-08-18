@@ -22,8 +22,8 @@ func TestKV(t *testing.T) {
 	kv := New()
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	r1 := &authdb.Record{SatelliteAddress: "abc"}
-	r2 := &authdb.Record{SatelliteAddress: "def"}
+	r1 := &authdb.Record{SatelliteAddress: "abc", MacaroonHead: []byte{255}}
+	r2 := &authdb.Record{SatelliteAddress: "def", MacaroonHead: []byte{254}}
 
 	for i := 0; i < 100; i++ {
 		if i%2 == 0 {
@@ -69,20 +69,32 @@ func TestKV(t *testing.T) {
 
 	for i := 0; i < 100; i += 2 {
 		t := time.Now()
-		kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &t
+		if i != 10 { // Don't include one of the previously invalidated records.
+			kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &t
+		}
 	}
 
 	maxTime := time.Unix(1<<62, 0)
 
 	r3 := &authdb.Record{SatelliteAddress: "ghi", ExpiresAt: &maxTime}
 
-	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(255)}, r3))
+	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(253)}, r3))
 
 	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
 	// records.
 	for i := 0; i < 10; i++ {
-		_, _, err := kv.DeleteUnused(ctx, 0, 0, 0)
+		count, rounds, heads, err := kv.DeleteUnused(ctx, 0, 0, 0)
 		require.NoError(t, err)
+
+		if i == 0 {
+			assert.Equal(t, int64(50), count)
+			assert.Equal(t, int64(1), rounds)
+			assert.Equal(t, map[string]int64{string([]byte{255}): 50}, heads)
+		} else {
+			assert.Equal(t, int64(0), count)
+			assert.Equal(t, int64(1), rounds)
+			assert.Equal(t, make(map[string]int64), heads)
+		}
 	}
 
 	for i := 0; i < 100; i++ {
@@ -103,7 +115,7 @@ func TestKV(t *testing.T) {
 	}
 
 	{
-		v, err := kv.Get(ctx, authdb.KeyHash{byte(255)})
+		v, err := kv.Get(ctx, authdb.KeyHash{byte(253)})
 		require.NoError(t, err)
 		assert.Equal(t, r3, v)
 	}
@@ -150,7 +162,7 @@ func TestKVParallel(t *testing.T) {
 
 	ctx.Go(func() error { // DeleteUnused
 		for i := 0; i < 10000; i++ {
-			if _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
+			if _, _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
 				return err
 			}
 		}

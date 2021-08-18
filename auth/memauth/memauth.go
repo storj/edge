@@ -77,24 +77,36 @@ func (d *KV) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
 
 // DeleteUnused deletes expired and invalid records from the key/value store and
 // returns any error encountered. It does not perform batch deletion of records.
-func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count, rounds int64, err error) {
+func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	deletesPerHead = make(map[string]int64)
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	for k, v := range d.entries {
-		if v != nil && v.ExpiresAt != nil && time.Now().After(*v.ExpiresAt) {
-			delete(d.entries, k)
-		}
-	}
-
 	for k := range d.invalid {
+		count++
+
+		if v := d.entries[k]; v != nil {
+			deletesPerHead[string(d.entries[k].MacaroonHead)]++
+		} else {
+			deletesPerHead[""]++
+		}
+
 		delete(d.entries, k)
 		delete(d.invalid, k)
 	}
 
-	return 0, 0, nil
+	for k, v := range d.entries {
+		if v != nil && v.ExpiresAt != nil && time.Now().After(*v.ExpiresAt) {
+			count++
+			deletesPerHead[string(v.MacaroonHead)]++
+			delete(d.entries, k)
+		}
+	}
+
+	return count, 1, deletesPerHead, nil
 }
 
 // Invalidate causes the record to become invalid.

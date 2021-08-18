@@ -5,14 +5,17 @@ package auth
 
 import (
 	"context"
+	"encoding/hex"
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/auth/authdb"
@@ -142,15 +145,30 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 			return sync2.NewCycle(config.DeleteUnused.Interval).Run(ctx, func(ctx context.Context) error {
 				log.Info("Beginning of next iteration of unused records deletion chore")
 
-				c, r, err := db.DeleteUnused(ctx, config.DeleteUnused.AsOfSystemInterval, config.DeleteUnused.SelectSize, config.DeleteUnused.DeleteSize)
+				count, rounds, heads, err := db.DeleteUnused(
+					ctx,
+					config.DeleteUnused.AsOfSystemInterval,
+					config.DeleteUnused.SelectSize,
+					config.DeleteUnused.DeleteSize)
 				if err != nil {
 					log.Warn("Error deleting unused records", zap.Error(err))
 				}
 
-				log.Info("Deleted unused records", zap.Int64("count", c), zap.Int64("rounds", r))
+				log.Info(
+					"Deleted unused records",
+					zap.Int64("count", count),
+					zap.Int64("rounds", rounds),
+					zap.Array("heads", headsMapToLoggableHeads(heads)))
 
-				monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(c)
-				monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(r)
+				monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
+				monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(rounds)
+
+				for h, c := range heads {
+					monkit.Package().IntVal(
+						"authservice_deleted_unused_records_deletes_per_head",
+						monkit.NewSeriesTag("head", hex.EncodeToString([]byte(h))),
+					).Observe(c)
+				}
 
 				return nil
 			})
@@ -173,4 +191,33 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 
 	// return at the first error
 	return <-errors
+}
+
+func headsMapToLoggableHeads(heads map[string]int64) zapcore.ArrayMarshalerFunc {
+	type loggableHead struct {
+		head  string
+		count int64
+	}
+
+	var loggableHeads []loggableHead
+
+	for k, v := range heads {
+		loggableHeads = append(loggableHeads, loggableHead{head: k, count: v})
+	}
+
+	sort.Slice(loggableHeads, func(i, j int) bool {
+		return loggableHeads[i].count > loggableHeads[j].count
+	})
+
+	return zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
+		for _, h := range loggableHeads {
+			if err := ae.AppendObject(zapcore.ObjectMarshalerFunc(func(oe zapcore.ObjectEncoder) error {
+				oe.AddInt64(hex.EncodeToString([]byte(h.head)), h.count)
+				return nil
+			})); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

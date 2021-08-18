@@ -46,7 +46,7 @@ type KV interface {
 	//
 	// Batch deletion and usage of asOfSystemInterval, selectSize and deleteSize
 	// parameters depends on the implementation.
-	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error)
+	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error)
 
 	// Invalidate causes the record to become invalid.
 	// It is not an error if the key does not exist.

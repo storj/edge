@@ -219,12 +219,12 @@ func (d *KV) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
 // selectUnused returns up to selectSize pkvals corresponding to unused (expired
 // or invalid) records in a read-only transaction in the past as specified by
 // the asOfSystemInterval interval.
-func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize int) (pkvals [][]byte, err error) {
+func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize int) (pkvals, heads [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := d.db.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	// We don't commit the transaction and only roll it back, in any case, to
@@ -236,14 +236,14 @@ func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration,
 			ctx,
 			"SET TRANSACTION"+d.impl.AsOfSystemInterval(-asOfSystemInterval),
 		); err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
 		}
 	}
 
 	rows, err := tx.QueryContext(
 		ctx,
 		`
-		SELECT encryption_key_hash
+		SELECT encryption_key_hash, macaroon_head
 		FROM records
 		WHERE expires_at < CURRENT_TIMESTAMP
 		  OR invalid_at < CURRENT_TIMESTAMP
@@ -253,49 +253,52 @@ func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration,
 		selectSize,
 	)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
 
 	for rows.Next() {
-		var pkval []byte
+		var pkval, head []byte
 
-		if err = rows.Scan(&pkval); err != nil {
-			return nil, Error.Wrap(err)
+		if err = rows.Scan(&pkval, &head); err != nil {
+			return nil, nil, Error.Wrap(err)
 		}
 
-		pkvals = append(pkvals, pkval)
+		pkvals, heads = append(pkvals, pkval), append(heads, head)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
-	return pkvals, nil
+	return pkvals, heads, nil
 }
 
 // DeleteUnused deletes expired and invalid records from the key/value store in
 // batches as specified by the selectSize and deleteSize parameters and returns
 // any error encountered. It uses database time to avoid problems with invalid
 // time on the server.
-func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error) {
+func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	deletesPerHead = make(map[string]int64)
+
 	for {
-		pkvals, err := d.selectUnused(ctx, asOfSystemInterval, selectSize)
+		pkvals, heads, err := d.selectUnused(ctx, asOfSystemInterval, selectSize)
 		if err != nil {
-			return count, rounds, Error.Wrap(err)
+			return count, rounds, deletesPerHead, Error.Wrap(err)
 		}
 
 		if len(pkvals) == 0 {
-			return count, rounds, nil
+			return count, rounds, deletesPerHead, nil
 		}
 
 		for len(pkvals) > 0 {
-			var batch [][]byte
+			var pkvalsBatch, headsBatch [][]byte
 
-			batch, pkvals = BatchValues(pkvals, deleteSize)
+			pkvalsBatch, pkvals = BatchValues(pkvals, deleteSize)
+			headsBatch, heads = BatchValues(heads, deleteSize)
 
 			res, err := d.db.DB.ExecContext(
 				ctx,
@@ -304,10 +307,10 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 				FROM records
 				WHERE encryption_key_hash = ANY ($1::BYTEA[])
 				`,
-				pgutil.ByteaArray(batch),
+				pgutil.ByteaArray(pkvalsBatch),
 			)
 			if err != nil {
-				return count, rounds, Error.Wrap(err)
+				return count, rounds, deletesPerHead, Error.Wrap(err)
 			}
 
 			c, err := res.RowsAffected()
@@ -316,6 +319,10 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 			}
 
 			rounds++
+
+			for _, h := range headsBatch {
+				deletesPerHead[string(h)]++
+			}
 		}
 
 		if d.impl == dbutil.Cockroach {
