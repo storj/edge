@@ -44,13 +44,13 @@ func listenAndServe(
 		return listenMux.Run(ctx)
 	})
 
+	drpcListener := tls.NewListener(listenMux.Route(drpcmigrate.DRPCHeader), tlsConfig)
+	httpListener := tls.NewListener(listenMux.Default(), tlsConfig)
+
 	g.Go(func() error {
-		log.Info("Starting HTTPS server")
-		listener := tls.NewListener(listenMux.Default(), tlsConfig)
+		log.Info("Starting HTTPS server", zap.String("address", httpListener.Addr().String()))
 
-		log.Info("listening for incoming HTTPS connections", zap.String("address", listener.Addr().String()))
-
-		err := httpServer.Serve(listener)
+		err := httpServer.Serve(httpListener)
 		if errors.Is(err, context.Canceled) || errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
@@ -58,11 +58,9 @@ func listenAndServe(
 	})
 
 	g.Go(func() error {
-		log.Info("Starting DRPC TLS server")
-		listener := tls.NewListener(listenMux.Route(drpcmigrate.DRPCHeader), tlsConfig)
-		log.Info("listening for incoming DRPC TLS connections", zap.String("address", listener.Addr().String()))
+		log.Info("Starting DRPC TLS server", zap.String("address", drpcListener.Addr().String()))
 
-		return drpcauth.StartListen(ctx, drpcServer, listener)
+		return drpcauth.StartListen(ctx, drpcServer, drpcListener)
 	})
 
 	g.Go(func() error {
