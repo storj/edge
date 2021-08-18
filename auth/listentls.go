@@ -28,7 +28,7 @@ func listenAndServe(
 	handler http.Handler,
 ) error {
 	if tlsConfig == nil {
-		log.Error("not starting DRPC and HTTPS because of missing TLS configuration")
+		log.Info("not starting DRPC and HTTPS because of missing TLS configuration")
 		return nil
 	}
 
