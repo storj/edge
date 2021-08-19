@@ -66,7 +66,6 @@ fi
 
 # increase default metainfo rate limit for tests
 sed -i 's/# metainfo.rate-limiter.enabled: true/metainfo.rate-limiter.enabled: false/g' "$(storj-sim network env SATELLITE_0_DIR)/config.yaml"
-cat "$(storj-sim network env SATELLITE_0_DIR)/config.yaml" | grep "metainfo.rate-limiter.enabled"
 
 storj-sim -x network run &
 

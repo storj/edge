@@ -45,7 +45,7 @@ SHARE_URL=$(uplink share --access "$ACCESS_GRANT" \
     --not-after "$EXPIRE_AFTER" \
     --readonly \
     --url \
-    "sj://$BUCKET" | grep -e "^URL\s*:" | awk '{print $3}')
+    "sj://$BUCKET" | grep -e "^URL\\s*:" | awk '{print $3}')
 
 
 # fallback for older curl versions that don't have the parallel downloads feature.
@@ -79,7 +79,7 @@ trap 'rm "$URLS_FILE"' EXIT
 IFS=$'\n'
 for FILE in $FILES; do
     URL="${SHARE_URL}${FILE}?download=1"
-    printf "url=%s\noutput=/dev/null\n" "$URL" >> "$URLS_FILE"
+    printf "url=%s\\noutput=/dev/null\\n" "$URL" >> "$URLS_FILE"
 done
 
 curl --parallel \

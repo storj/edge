@@ -162,9 +162,9 @@ function main()
 
     ## Report when all tests in run_list are run
     if [ $i -eq "$count" ]; then
-        echo -e "\nAll tests ran successfully"
+        echo -e "\\nAll tests ran successfully"
     else
-        echo -e "\nExecuted $i out of $count tests successfully."
+        echo -e "\\nExecuted $i out of $count tests successfully."
         exit 1
     fi
 }

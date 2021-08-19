@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 set -Eueo pipefail
-trap 'rc=$?; echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"; exit $rc' ERR
+
+log_error() {
+	rc=$?
+	echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"
+	exit $rc
+}
+trap log_error ERR
+
 [ -n "${AWS_ACCESS_KEY_ID}" ]
 [ -n "${AWS_SECRET_ACCESS_KEY}" ]
 [ -n "${AWS_ENDPOINT}" ]
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-source $SCRIPTDIR/require.sh
+# shellcheck source=testsuite/integration/require.sh
+source "$SCRIPTDIR"/require.sh
 
 #setup tmpdir for testfiles and cleanup
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
-cleanup(){
+cleanup() {
 	rm -rf "$TMPDIR"
 }
 trap cleanup EXIT
@@ -34,9 +42,20 @@ BUCKET="backup-bucket"
 # trim the protocol from the start of the endpoint (if present)
 SERVER_NAME="${AWS_ENDPOINT#*//}"
 
-GENERIC="--passphrase=my-pass --use-ssl=false --debug-output=true --auth-username=${AWS_ACCESS_KEY_ID} --auth-password=${AWS_SECRET_ACCESS_KEY}" 
-duplicati-cli backup  "s3://$BUCKET" "$SRC_DIR" --s3-server-name="$SERVER_NAME" $GENERIC
-duplicati-cli restore "s3://$BUCKET" --restore-path="$DST_DIR" --s3-server-name="$SERVER_NAME" $GENERIC
+duplicati-cli backup "s3://$BUCKET" "$SRC_DIR" --s3-server-name="$SERVER_NAME" \
+	--passphrase=my-pass \
+	--use-ssl=false \
+	--debug-output=true \
+	--auth-username="$AWS_ACCESS_KEY_ID" \
+	--auth-password="$AWS_SECRET_ACCESS_KEY"
+
+duplicati-cli restore "s3://$BUCKET" --restore-path="$DST_DIR" \
+	--s3-server-name="$SERVER_NAME" \
+	--passphrase=my-pass \
+	--use-ssl=false \
+	--debug-output=true \
+	--auth-username="$AWS_ACCESS_KEY_ID" \
+	--auth-password="$AWS_SECRET_ACCESS_KEY"
 
 require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR/backup-testfile-1MiB"
 require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR/backup-testfile-10MiB"

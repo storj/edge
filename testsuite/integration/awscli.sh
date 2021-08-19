@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 set -Eueo pipefail
-trap 'rc=$?; echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"; exit $rc' ERR
+
+log_error() {
+	rc=$?
+	echo "error code $rc in $(caller) line $LINENO :: ${BASH_COMMAND}"
+	exit $rc
+}
+trap log_error ERR
+
 [ -n "${AWS_ACCESS_KEY_ID}" ]
 [ -n "${AWS_SECRET_ACCESS_KEY}" ]
 [ -n "${AWS_ENDPOINT}" ]
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-source $SCRIPTDIR/require.sh
+# shellcheck source=testsuite/integration/require.sh
+source "$SCRIPTDIR"/require.sh
 
 #setup tmpdir for testfiles and cleanup
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
-cleanup(){
+cleanup() {
 	rm -rf "$TMPDIR"
 }
 trap cleanup EXIT
@@ -23,11 +31,11 @@ mkdir -p "$SRC_DIR" "$DST_DIR" "$SYNC_DST_DIR"
 
 export AWS_CONFIG_FILE=$TMPDIR/.aws/config
 
-random_bytes_file () {
+random_bytes_file() {
 	count=$1
-    size=$2
+	size=$2
 	output=$3
-	dd if=/dev/urandom of="$output" count=$count bs="$size" >/dev/null 2>&1
+	dd if=/dev/urandom of="$output" count="$count" bs="$size" >/dev/null 2>&1
 }
 
 random_bytes_file 1  1024      "$SRC_DIR/small-upload-testfile"     # create 1kb file of random bytes (inline)
