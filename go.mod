@@ -21,8 +21,9 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210916151047-6aaeb34bb916
+	storj.io/common v0.0.0-20210922161202-47f5ba40a543
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.26
 	storj.io/gateway v1.3.1-0.20211003223318-bdc1165baf61
