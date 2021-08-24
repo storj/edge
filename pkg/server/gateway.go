@@ -708,6 +708,10 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
 	}
 
+	if storageClass, ok := srcInfo.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject (storage class)"}
+	}
+
 	if srcObject == "" {
 		return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: srcBucket}
 	}
@@ -788,6 +792,10 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
+
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "PutObject (storage class)"}
+	}
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {

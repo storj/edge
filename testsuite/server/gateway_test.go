@@ -1122,6 +1122,48 @@ func TestCopyObjectPart(t *testing.T) {
 	})
 }
 
+func TestPutObjectStorageClass(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		opts := minio.ObjectOptions{
+			UserDefined: map[string]string{
+				xhttp.AmzStorageClass: "REDUCED_REDUNDANCY",
+			},
+		}
+		_, err := layer.PutObject(ctx, "srcBucket", "srcObject", nil, opts)
+		require.EqualError(t, err, minio.NotImplemented{API: "PutObject (storage class)"}.Error())
+	})
+}
+
+func TestMultipartUploadStorageClass(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		opts := minio.ObjectOptions{
+			UserDefined: map[string]string{
+				xhttp.AmzStorageClass: "REDUCED_REDUNDANCY",
+			},
+		}
+		_, err := layer.NewMultipartUpload(ctx, "srcBucket", "srcObject", opts)
+		require.EqualError(t, err, minio.NotImplemented{API: "NewMultipartUpload (storage class)"}.Error())
+	})
+}
+
+func TestCopyObjectStorageClass(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		srcInfo := minio.ObjectInfo{
+			UserDefined: map[string]string{
+				xhttp.AmzStorageClass: "REDUCED_REDUNDANCY",
+			},
+		}
+		_, err := layer.CopyObject(ctx, "srcBucket", "srcObject", "destBucket", "destObject", srcInfo, minio.ObjectOptions{}, minio.ObjectOptions{})
+		require.EqualError(t, err, minio.NotImplemented{API: "CopyObject (storage class)"}.Error())
+	})
+}
+
 func TestPutObjectPart(t *testing.T) {
 	t.Parallel()
 

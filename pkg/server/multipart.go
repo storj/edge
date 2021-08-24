@@ -25,6 +25,10 @@ func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object s
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return "", minio.NotImplemented{API: "NewMultipartUpload (storage class)"}
+	}
+
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return "", err
