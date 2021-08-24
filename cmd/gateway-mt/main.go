@@ -185,10 +185,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
-	s3 := server.New(
-		listener, zap.L(), tlsConfig, strings.Split(runCfg.DomainName, ","),
-		runCfg.EncodeInMemory, trustedClientIPs, runCfg.InsecureLogAll,
-	)
+	s3 := server.New(listener, zap.L(), tlsConfig, runCfg.EncodeInMemory, trustedClientIPs, runCfg.InsecureLogAll)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)

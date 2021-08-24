@@ -43,8 +43,8 @@ type Server struct {
 //
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
-func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
-	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs trustedip.List, insecureLogAll bool) *Server {
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetInMemoryMiddleware bool,
+	trustedIPs trustedip.List, insecureLogAll bool) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
@@ -58,15 +58,6 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config,
 	publicServices := r.PathPrefix("/-/").Subrouter()
 	publicServices.HandleFunc("/health", s.healthCheck)
 	publicServices.HandleFunc("/version", s.versionInfo)
-
-	for _, domainName := range domainNames {
-		pathStyle := r.Host(domainName).Subrouter()
-		s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-		// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
-
-		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
-		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
-	}
 
 	if useSetInMemoryMiddleware {
 		r.Use(middleware.SetInMemory)
@@ -108,13 +99,6 @@ func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (s *Server) versionInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, version.Build.Version.String())
-}
-
-// AddRoutes adds handlers to path-style and virtual-host style routes.
-func (s *Server) AddRoutes(r *mux.Router, bucketPath, objectPath string) {
-	// these routes were tested, but we have them commented out because they're currently not implemented
-	// when implementing one of these, please also uncomment its test in server_test.go
-	r.HandleFunc(bucketPath, s.GetBucketVersioning).Methods(http.MethodGet).Queries("versioning", "")
 }
 
 // Run starts the S3 compatible http server.
