@@ -175,7 +175,7 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 		})
 	}
 
-	drpcServer := drpcauth.NewGatewayAuthServer(ctx, log, db, endpoint)
+	drpcServer := drpcauth.NewServer(ctx, log, db, endpoint)
 
 	listener, err := net.Listen("tcp", config.ListenAddrTLS)
 	if err != nil {

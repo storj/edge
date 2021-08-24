@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -76,30 +75,29 @@ func TestTLS(t *testing.T) {
 	connection, err := dialer.DialAddressHostnameVerification(ctx, address)
 	require.NoError(t, err)
 
-	drpcClient := pb.NewDRPCGatewayAuthClient(connection)
+	drpcClient := pb.NewDRPCEdgeAuthClient(connection)
 
-	binaryAccessGrant, _, err := base58.CheckDecode("1JdRhtpnQUH3KggvmzfMhUT9pDTF9L8CFZoU5NynjRmaVQ4mCev6ZAGiPrpTem5PcfEEFTRioDk4eed2uJADVAvtSH3ETdbokBy7o3355ih9rJ2j5h8vC9yrVrdRjnAdwvaEJADJJTbL8VqZT6Jksd5tP6roMQbwZog9RNoSKMjb71Z9TAG1dTGLfqpBV5nsktyZaGdsru32Wk7BCvNQV3VdgPmax6AGPdnv4WNBrzmLVNQzhpHGx9LsKzfECtQMQTdrmULgqUiJBFoUafB")
-	require.NoError(t, err)
+	accessGrant := "1JdRhtpnQUH3KggvmzfMhUT9pDTF9L8CFZoU5NynjRmaVQ4mCev6ZAGiPrpTem5PcfEEFTRioDk4eed2uJADVAvtSH3ETdbokBy7o3355ih9rJ2j5h8vC9yrVrdRjnAdwvaEJADJJTbL8VqZT6Jksd5tP6roMQbwZog9RNoSKMjb71Z9TAG1dTGLfqpBV5nsktyZaGdsru32Wk7BCvNQV3VdgPmax6AGPdnv4WNBrzmLVNQzhpHGx9LsKzfECtQMQTdrmULgqUiJBFoUafB"
 
-	registerGatewayResponse, err := drpcClient.RegisterGatewayAccess(ctx, &pb.RegisterGatewayAccessRequest{
-		AccessGrant: binaryAccessGrant,
+	registerAccessResponse, err := drpcClient.RegisterAccess(ctx, &pb.EdgeRegisterAccessRequest{
+		AccessGrant: accessGrant,
 		Public:      false,
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "accesskeyid", string(registerGatewayResponse.AccessKeyId))
-	require.Equal(t, "secretkey", string(registerGatewayResponse.SecretKey))
-	require.Equal(t, "endpoint", registerGatewayResponse.Endpoint)
+	require.Equal(t, "accesskeyid", registerAccessResponse.AccessKeyId)
+	require.Equal(t, "secretkey", registerAccessResponse.SecretKey)
+	require.Equal(t, "endpoint", registerAccessResponse.Endpoint)
 }
 
 type DRPCServerMock struct {
-	pb.DRPCGatewayAuthServer
+	pb.DRPCEdgeAuthServer
 }
 
-func (g *DRPCServerMock) RegisterGatewayAccess(context.Context, *pb.RegisterGatewayAccessRequest) (*pb.RegisterGatewayAccessResponse, error) {
-	return &pb.RegisterGatewayAccessResponse{
-		AccessKeyId: []byte("accesskeyid"),
-		SecretKey:   []byte("secretkey"),
+func (g *DRPCServerMock) RegisterAccess(context.Context, *pb.EdgeRegisterAccessRequest) (*pb.EdgeRegisterAccessResponse, error) {
+	return &pb.EdgeRegisterAccessResponse{
+		AccessKeyId: "accesskeyid",
+		SecretKey:   "secretkey",
 		Endpoint:    "endpoint",
 	}, nil
 }
