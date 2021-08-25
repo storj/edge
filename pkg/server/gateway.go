@@ -76,6 +76,19 @@ func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, for
 	}
 
 	_, err = project.DeleteBucket(ctx, bucketName)
+	if errs.Is(err, uplink.ErrBucketNotEmpty) {
+		// Check if the bucket contains any non-pending objects. If it doesn't,
+		// this would mean there were initiated non-committed and non-aborted
+		// multipart uploads. Other S3 implementations allow deletion of such
+		// buckets, but with uplink, we need to explicitly force bucket
+		// deletion.
+		it := project.ListObjects(ctx, bucketName, nil)
+		if !it.Next() && it.Err() == nil {
+			_, err = project.DeleteBucketWithObjects(ctx, bucketName)
+			return convertError(err, bucketName, "")
+		}
+	}
+
 	return convertError(err, bucketName, "")
 }
 

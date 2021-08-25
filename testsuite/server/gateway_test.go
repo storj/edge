@@ -95,6 +95,50 @@ func TestGetBucketInfo(t *testing.T) {
 	})
 }
 
+func maybeAbortPartUpload(t *testing.T, err error, part *uplink.PartUpload) {
+	if err != nil {
+		assert.NoError(t, part.Abort())
+	}
+}
+
+func maybeAbortMultipartUpload(ctx context.Context, t *testing.T, err error, project *uplink.Project, bucket, key, uploadID string) {
+	if err != nil {
+		assert.NoError(t, err, project.AbortUpload(ctx, bucket, key, uploadID))
+	}
+}
+
+func addPendingMultipartUpload(ctx context.Context, t *testing.T, project *uplink.Project, bucket *uplink.Bucket) {
+	for i := 0; i < 2; i++ {
+		upload, err := project.BeginUpload(ctx, bucket.Name, testFile2, nil)
+		require.NoError(t, err)
+
+		t.Logf("%d: started upload of %s with ID=%s", i, upload.Key, upload.UploadID)
+
+		for j := uint32(0); j < 3; j++ {
+			part, err := project.UploadPart(ctx, bucket.Name, testFile2, upload.UploadID, j)
+			maybeAbortPartUpload(t, err, part)
+			maybeAbortMultipartUpload(ctx, t, err, project, bucket.Name, testFile2, upload.UploadID)
+			require.NoError(t, err)
+
+			t.Logf("%d/%d: started part upload", i, part.Info().PartNumber)
+
+			_, err = part.Write(make([]byte, 4*memory.KiB))
+			maybeAbortPartUpload(t, err, part)
+			maybeAbortMultipartUpload(ctx, t, err, project, bucket.Name, testFile2, upload.UploadID)
+			require.NoError(t, err)
+
+			err = part.Commit()
+			maybeAbortPartUpload(t, err, part)
+			maybeAbortMultipartUpload(ctx, t, err, project, bucket.Name, testFile2, upload.UploadID)
+			require.NoError(t, err)
+
+			t.Logf("%d/%d: finished part upload (uploaded %d bytes)", i, part.Info().PartNumber, part.Info().Size)
+		}
+
+		t.Logf("%d: finished uploading parts of %s (ID=%s)", i, upload.Key, upload.UploadID)
+	}
+}
+
 func TestDeleteBucket(t *testing.T) {
 	t.Parallel()
 
@@ -150,6 +194,31 @@ func TestDeleteBucket(t *testing.T) {
 			// Check the error when deleting non-existing bucket
 			err = layer.DeleteBucket(ctx, testBucket, true)
 			assert.Equal(t, minio.BucketNotFound{Bucket: testBucket}, err)
+		}
+		{
+			// Test deletion of the empty bucket with pending multipart uploads.
+			bucket, err := project.CreateBucket(ctx, testBucket)
+			assert.NoError(t, err)
+
+			addPendingMultipartUpload(ctx, t, project, bucket)
+
+			// Initiate bucket deletion with forceDelete=false because this flag
+			// isn't passed from non-minio clients to the bucket deletion
+			// handler anyway.
+			assert.NoError(t, layer.DeleteBucket(ctx, bucket.Name, false))
+		}
+		{
+			// Test deletion of the empty bucket with pending multipart uploads,
+			// but there's an additional non-pending object.
+			bucket, err := project.CreateBucket(ctx, testBucket)
+			assert.NoError(t, err)
+
+			_, err = createFile(ctx, project, bucket.Name, testFile, nil, nil)
+			assert.NoError(t, err)
+
+			addPendingMultipartUpload(ctx, t, project, bucket)
+
+			assert.ErrorIs(t, layer.DeleteBucket(ctx, bucket.Name, false), minio.BucketNotEmpty{Bucket: bucket.Name})
 		}
 	})
 }
