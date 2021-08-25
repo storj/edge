@@ -60,7 +60,7 @@ type DeleteUnusedConfig struct {
 }
 
 // Run contains everything needed to start authservice.
-func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) error {
+func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) (err error) {
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
@@ -100,20 +100,29 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 		ConfigDir:   confDir,
 	}
 
-	tlsConfig, handler, err := configureTLS(tlsInfo, res)
+	tlsConfig, httpHandler, err := configureTLS(tlsInfo, res)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
 	// logging. do not log paths - paths have access keys in them.
-	handler = server.LogResponses(log, server.LogRequests(log, handler, false), false)
-
+	httpHandler = server.LogResponses(log, server.LogRequests(log, httpHandler, false), false)
 	httpServer := &http.Server{
-		Addr:    config.ListenAddr,
-		Handler: handler,
+		Handler: httpHandler,
+	}
+
+	plaintextListener, err := net.Listen("tcp", config.ListenAddr)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	tlsListener, err := net.Listen("tcp", config.ListenAddrTLS)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
+
+	drpcServer := drpcauth.NewServer(groupCtx, log, db, endpoint)
 
 	if areSatsDynamic {
 		sync2.NewCycle(config.CacheExpiration).Start(groupCtx, group, func(ctx context.Context) error {
@@ -141,33 +150,15 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 			log.Error("HTTP server Shutdown", zap.Error(err))
 		}
 
-		return nil
+		return errs.Combine(err, plaintextListener.Close(), tlsListener.Close())
 	})
 
 	group.Go(func() error {
-		log.Info("listening for incoming HTTP connections", zap.String("addr", config.ListenAddr))
-
-		if !errs.Is(httpServer.ListenAndServe(), http.ErrServerClosed) {
-			// Error starting or closing listener:
-			return err
-		}
-
-		return nil
+		return listenAndServePlain(groupCtx, log, plaintextListener, drpcServer, httpServer)
 	})
 
 	group.Go(func() (err error) {
-		listener, err := net.Listen("tcp", config.ListenAddrTLS)
-		if err != nil {
-			return err
-		}
-
-		defer func() { err = errs.Combine(err, listener.Close()) }()
-
-		res.SetStartupDone()
-
-		server := drpcauth.NewServer(groupCtx, log, db, endpoint)
-
-		return listenAndServe(groupCtx, log, listener, tlsConfig, server, handler)
+		return listenAndServeTLS(groupCtx, log, tlsListener, tlsConfig, drpcServer, httpServer)
 	})
 
 	if config.DeleteUnused.Run {
@@ -202,6 +193,8 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 			return nil
 		})
 	}
+
+	res.SetStartupDone()
 
 	return errs.Wrap(group.Wait())
 }

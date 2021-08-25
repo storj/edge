@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -35,6 +36,7 @@ func TestTLS(t *testing.T) {
 	certFile, keyFile, certificatePEM, _ := createSelfSignedCertificateFile(t, "localhost")
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
+
 	require.NoError(t, err)
 	address := strings.ReplaceAll(listener.Addr().String(), "127.0.0.1", "localhost")
 
@@ -47,20 +49,27 @@ func TestTLS(t *testing.T) {
 	tlsConfig, handler, err := configureTLS(tlsInfo, nil)
 	require.NoError(t, err)
 
+	httpServer := &http.Server{
+		Handler: handler,
+	}
+	defer func() {
+		err := httpServer.Close()
+		require.NoError(t, err)
+	}()
+
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer func() {
 		serverCancel()
-		ctx.Wait()
 	}()
 
 	ctx.Go(func() error {
-		return listenAndServe(
+		return listenAndServeTLS(
 			serverCtx,
 			zaptest.NewLogger(t),
 			listener,
 			tlsConfig,
 			&DRPCServerMock{},
-			handler,
+			httpServer,
 		)
 	})
 

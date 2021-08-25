@@ -5,7 +5,6 @@ package auth
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
@@ -18,35 +17,29 @@ import (
 	"storj.io/gateway-mt/auth/drpcauth"
 )
 
-// listenAndServeTLS serves HTTPS and DRPC+TLS over the same port using drpcmigrate.
-func listenAndServeTLS(
+// listenAndServePlain serves HTTP and DRPC over the same port using drpcmigrate.
+func listenAndServePlain(
 	ctx context.Context,
 	log *zap.Logger,
 	tcpListener net.Listener,
-	tlsConfig *tls.Config,
 	drpcServer pb.DRPCEdgeAuthServer,
 	httpServer *http.Server,
 ) error {
-	if tlsConfig == nil {
-		log.Info("not starting DRPC+TLS and HTTPS because of missing TLS configuration")
-		return nil
-	}
-
 	listenMux := drpcmigrate.NewListenMux(tcpListener, len(drpcmigrate.DRPCHeader))
 
 	var g errgroup.Group
 
-	drpcListener := tls.NewListener(listenMux.Route(drpcmigrate.DRPCHeader), tlsConfig)
-	httpListener := tls.NewListener(listenMux.Default(), tlsConfig)
+	drpcListener := listenMux.Route(drpcmigrate.DRPCHeader)
+	httpListener := listenMux.Default()
 
 	g.Go(func() error {
-		log.Info("Starting DRPC TLS server", zap.String("address", drpcListener.Addr().String()))
+		log.Info("Starting DRPC server", zap.String("address", drpcListener.Addr().String()))
 
 		return drpcauth.StartListen(ctx, drpcServer, drpcListener)
 	})
 
 	g.Go(func() error {
-		log.Info("Starting HTTPS server", zap.String("address", httpListener.Addr().String()))
+		log.Info("Starting HTTP server", zap.String("address", httpListener.Addr().String()))
 
 		err := httpServer.Serve(httpListener)
 		if errors.Is(err, http.ErrServerClosed) {
