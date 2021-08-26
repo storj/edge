@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/aws/aws-sdk-go-v2 v1.1.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/calebcase/tmpfile v1.0.2 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgx/v4 v4.10.1
@@ -25,11 +24,11 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210825124359-897bc05b5ab5
+	storj.io/common v0.0.0-20210826213913-a78b0b6a12f3
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.24
 	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0
-	storj.io/uplink v1.5.0-rc.1.0.20210806152005-46c8523933ff
+	storj.io/uplink v1.5.0-rc.1.0.20210827115050-6827e2032248
 )
 
 replace github.com/minio/minio => storj.io/minio v0.0.0-20210819113254-ef95e15300a2
