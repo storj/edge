@@ -1,9 +1,17 @@
 {{template "header.html" .}}
 
-<div class="container-lg">
-  <div class="row justify-content-center">
+<div class="vh-80 w-100">
+  <div class="flex-column align-content-center justify-content-center">
 
-    <h2 class="directory-heading">{{.Data}}</h2>
+    <div class="col text-center text-md-center">
+      <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg" class="logo mt-4" alt="Storj DCS Logo"></a>
+    </div>
+
+    <div class="d-flex flex-column text-center justify-content-center col-12 col-lg-12 my-4 error-container">
+      <h1 class="error-title">404</h1>
+      <h3 class="my-3">Ooops, page not found.</h3>
+      <span><a href="/" class="btn btn-primary btn-lg rounded-pill mt-2 d-block d-md-inline-block homepage-btn">Go to homepage</a></span>
+    </div>
 
   </div>
 </div>

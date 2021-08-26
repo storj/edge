@@ -3,7 +3,7 @@
 <div class="container-fluid">
   <div class="row">
 
-    <div class="col-lg-8 col-xl-9 bg-grey px-lg-4 px-xl-5 order-2 order-lg-1">
+    <div class="col-lg-8 col-xl-9 bg-grey px-lg-4 px-xl-5 order-2 order-lg-1 content">
 
       <div class="row pt-4 pb-2">
         <div class="col-12 col-md-5 text-center text-md-left">
@@ -14,6 +14,7 @@
             <p class="mt-3">{{.Data.Size}}</p>
         </div>
         <div class="col-12 col-md-7 text-center text-md-right">
+            <p><img class="expander active" src="{{.Base}}/static/img/collapse-left.svg" onclick="toggleSideBar()" alt="expander icon"></p>
             <a href="?download" class="btn btn-primary btn-lg rounded-pill mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg" alt="Download" class="ml-2"></a>
             <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg rounded-pill mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg" alt="Share" class="ml-2"></button>
         </div>
@@ -25,12 +26,13 @@
           <img class="embed-responsive embed-responsive-4by3" id="imgTag" alt="preview image">
           <video class="embed-responsive embed-responsive-4by3" id="videoTag" controls></video>
           <audio class="embed-responsive embed-responsive-4by3" id="audioTag" controls></audio>
+          <img class="embed-responsive embed-responsive-4by3 d-none" id="placeholderImage" src="{{.Base}}/static/img/file-drop.svg" alt="placeholder image">
         </div>
       </div>
 
     </div>
 
-    <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar order-1 order-lg-2">
+    <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar order-1 order-lg-2 active">
       <div class="row mb-3 mt-3">
         <div class="col text-center text-md-left">
           <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg" class="logo mt-4" alt="Storj DCS Logo"></a>
@@ -42,11 +44,11 @@
             <div class="col py-3 py-lg-4 text-center text-md-left">
               <h3 class="mb-3">You’re getting this file from all over the world.</h3>
               <p><b>Storj Decentralized Cloud Storage</b> splits files into smaller pieces, then distributes those pieces over a global network of Nodes and recompiles them securely on download. This map shows the real-time locations of this file’s pieces.</p>
-              <a href="https://www.storj.io/" class="btn btn-outline-secondary btn-lg rounded-pill px-4 mt-2 mb-4">Learn More</a>
+              <p class="nodes-count w-100 mt-2 text-center">83 Storj nodes are storing a piece of this file.</p>
             </div>
           </div>
           <div class="row">
-            <div id="map-img" class="col-12 col-lg-12 text-center map mb-5">
+            <div id="map-img" class="col-12 col-lg-12 text-center map mt-4 mb-5">
               <img src="?map=1&width=800" style="width:100%;" />
             </div>
           </div>
@@ -127,8 +129,36 @@
       }
   }
 
+  function toggleSideBar() {
+      const sidebar = document.querySelector('.sidebar');
+      const contentArea = document.querySelector('.content')
+      const expander = document.querySelector('.expander');
+
+      if (sidebar && contentArea && expander) {
+          sidebar.classList.toggle('active');
+          expander.classList.toggle('active');
+
+          if (sidebar.classList.contains('active')) {
+              sidebar.classList.replace('col-xl-0', 'col-xl-3');
+              sidebar.classList.replace('col-lg-0', 'col-lg-4');
+              contentArea.classList.replace('col-lg-12', 'col-lg-8')
+              contentArea.classList.replace('col-xl-12', 'col-xl-9')
+          } else {
+              sidebar.classList.replace('col-xl-3', 'col-xl-0');
+              sidebar.classList.replace('col-lg-4', 'col-lg-0');
+              contentArea.classList.replace('col-lg-8', 'col-lg-12')
+              contentArea.classList.replace('col-xl-9', 'col-xl-12')
+          }
+
+      }
+  }
+
+  function setPlaceholderImage() {
+    document.getElementById('placeholderImage').classList.remove('d-none');
+  }
+
   window.onload = async function () {
-      var fileExtension = {{.Data.Key}}.split('.').pop();
+      let fileExtension = {{.Data.Key}}.split('.').pop();
       if (fileExtension) {
         fileExtension = fileExtension.toLowerCase();
       }
@@ -147,6 +177,7 @@
               setupPreviewTag('audioTag')
               break
           default:
+              setPlaceholderImage()
       }
   }
 </script>
