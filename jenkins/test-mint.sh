@@ -64,6 +64,10 @@ else
 	storj-sim -x --satellites 1 --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
 fi
 
+# increase default metainfo rate limit for tests
+sed -i 's/#\smetainfo\.rate-limiter\.rate.*/metainfo.rate-limiter.rate: 1000/g' ~/.local/share/storj/local-network/satellite/0/config.yaml
+cat ~/.local/share/storj/local-network/satellite/0/config.yaml | grep "metainfo.rate-limiter.rate"
+
 storj-sim -x network run &
 
 for i in {1..60}; do
