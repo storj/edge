@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/auth/authdb"
@@ -25,7 +26,9 @@ import (
 	"storj.io/gateway-mt/pkg/server"
 )
 
-// Config is the config.
+const serverShutdownTimeout = 10 * time.Second
+
+// Config holds authservice's configuration.
 type Config struct {
 	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
 	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
@@ -56,8 +59,7 @@ type DeleteUnusedConfig struct {
 	DeleteSize         int           `help:"batch size of records to delete from selected records at a time" default:"1000"`
 }
 
-// Run is the entry point function
-// exposed function to enable its usage in testsuites.
+// Run contains everything needed to start authservice.
 func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) error {
 	if len(config.AllowedSatellites) == 0 {
 		return errs.New("allowed satellites parameter '--allowed-satellites' is required")
@@ -106,91 +108,105 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 	// logging. do not log paths - paths have access keys in them.
 	handler = server.LogResponses(log, server.LogRequests(log, handler, false), false)
 
-	errors := make(chan error, 2)
-	launch := func(fn func() error) {
-		go func() {
-			err := fn()
-			if err != nil {
-				errors <- err
-			}
-		}()
-	}
+	group, groupCtx := errgroup.WithContext(ctx)
 
 	if areSatsDynamic {
-		launch(func() error {
-			return sync2.NewCycle(config.CacheExpiration).Run(ctx, func(ctx context.Context) error {
-				log.Debug("Reloading allowed satellite list")
-				allowedSatelliteIDs, _, err := satellitelist.LoadSatelliteIDs(ctx, config.AllowedSatellites)
-				if err != nil {
-					log.Warn("Error reloading allowed satellite list", zap.Error(err))
-				} else {
-					db.SetAllowedSatellites(allowedSatelliteIDs)
-				}
-				return nil
-			})
+		sync2.NewCycle(config.CacheExpiration).Start(groupCtx, group, func(ctx context.Context) error {
+			log.Debug("Reloading allowed satellite list")
+			allowedSatelliteIDs, _, err := satellitelist.LoadSatelliteIDs(ctx, config.AllowedSatellites)
+			if err != nil {
+				log.Warn("Error reloading allowed satellite list", zap.Error(err))
+			} else {
+				db.SetAllowedSatellites(allowedSatelliteIDs)
+			}
+			return nil
 		})
 	}
 
-	launch(func() error {
-		log.Info("listening for incoming HTTP connections", zap.String("address", config.ListenAddr))
-
-		return (&http.Server{
-			Handler: handler,
+	group.Go(func() error {
+		srv := &http.Server{
 			Addr:    config.ListenAddr,
-		}).ListenAndServe()
+			Handler: handler,
+		}
+
+		idleConnsClosed := make(chan struct{})
+		go func() {
+			<-groupCtx.Done()
+
+			// Don't wait more than a couple of seconds to shut down the server.
+			ctxWithTimeout, canc := context.WithTimeout(context.Background(), serverShutdownTimeout)
+			defer canc()
+
+			// We received an interrupt signal, shut down.
+			if err := srv.Shutdown(ctxWithTimeout); err != nil {
+				// Error from closing listeners, or context timeout:
+				log.Error("HTTP server Shutdown", zap.Error(err))
+			}
+
+			close(idleConnsClosed)
+		}()
+
+		log.Info("listening for incoming HTTP connections", zap.String("addr", config.ListenAddr))
+
+		if !errs.Is(srv.ListenAndServe(), http.ErrServerClosed) {
+			// Error starting or closing listener:
+			return err
+		}
+
+		<-idleConnsClosed
+
+		return nil
+	})
+
+	group.Go(func() (err error) {
+		listener, err := net.Listen("tcp", config.ListenAddrTLS)
+		if err != nil {
+			return err
+		}
+
+		defer func() { err = errs.Combine(err, listener.Close()) }()
+
+		res.SetStartupDone()
+
+		server := drpcauth.NewServer(groupCtx, log, db, endpoint)
+
+		return listenAndServe(groupCtx, log, listener, tlsConfig, server, handler)
 	})
 
 	if config.DeleteUnused.Run {
-		launch(func() error {
-			return sync2.NewCycle(config.DeleteUnused.Interval).Run(ctx, func(ctx context.Context) error {
-				log.Info("Beginning of next iteration of unused records deletion chore")
+		sync2.NewCycle(config.DeleteUnused.Interval).Start(groupCtx, group, func(ctx context.Context) error {
+			log.Info("Beginning of next iteration of unused records deletion chore")
 
-				count, rounds, heads, err := db.DeleteUnused(
-					ctx,
-					config.DeleteUnused.AsOfSystemInterval,
-					config.DeleteUnused.SelectSize,
-					config.DeleteUnused.DeleteSize)
-				if err != nil {
-					log.Warn("Error deleting unused records", zap.Error(err))
-				}
+			count, rounds, heads, err := db.DeleteUnused(
+				ctx,
+				config.DeleteUnused.AsOfSystemInterval,
+				config.DeleteUnused.SelectSize,
+				config.DeleteUnused.DeleteSize)
+			if err != nil {
+				log.Warn("Error deleting unused records", zap.Error(err))
+			}
 
-				log.Info(
-					"Deleted unused records",
-					zap.Int64("count", count),
-					zap.Int64("rounds", rounds),
-					zap.Array("heads", headsMapToLoggableHeads(heads)))
+			log.Info(
+				"Deleted unused records",
+				zap.Int64("count", count),
+				zap.Int64("rounds", rounds),
+				zap.Array("heads", headsMapToLoggableHeads(heads)))
 
-				monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
-				monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(rounds)
+			monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
+			monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(rounds)
 
-				for h, c := range heads {
-					monkit.Package().IntVal(
-						"authservice_deleted_unused_records_deletes_per_head",
-						monkit.NewSeriesTag("head", hex.EncodeToString([]byte(h))),
-					).Observe(c)
-				}
+			for h, c := range heads {
+				monkit.Package().IntVal(
+					"authservice_deleted_unused_records_deletes_per_head",
+					monkit.NewSeriesTag("head", hex.EncodeToString([]byte(h))),
+				).Observe(c)
+			}
 
-				return nil
-			})
+			return nil
 		})
 	}
 
-	drpcServer := drpcauth.NewServer(ctx, log, db, endpoint)
-
-	listener, err := net.Listen("tcp", config.ListenAddrTLS)
-	if err != nil {
-		return err
-	}
-
-	res.SetStartupDone()
-
-	err = listenAndServe(ctx, log, listener, tlsConfig, drpcServer, handler)
-	if err != nil {
-		return err
-	}
-
-	// return at the first error
-	return <-errors
+	return group.Wait()
 }
 
 func headsMapToLoggableHeads(heads map[string]int64) zapcore.ArrayMarshalerFunc {
