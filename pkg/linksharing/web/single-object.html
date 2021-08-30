@@ -32,7 +32,7 @@
 
     </div>
 
-    <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar order-1 order-lg-2 active">
+    <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar order-1 order-lg-2 active d-block">
       <div class="row mb-3 mt-3">
         <div class="col text-center text-md-left">
           <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg" class="logo mt-4" alt="Storj DCS Logo"></a>
@@ -44,7 +44,7 @@
             <div class="col py-3 py-lg-4 text-center text-md-left">
               <h3 class="mb-3">You’re getting this file from all over the world.</h3>
               <p><b>Storj Decentralized Cloud Storage</b> splits files into smaller pieces, then distributes those pieces over a global network of Nodes and recompiles them securely on download. This map shows the real-time locations of this file’s pieces.</p>
-              <p class="nodes-count w-100 mt-2 text-center">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file.</p>
+              <p class="nodes-count w-100 mt-2 text-center p-1">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file.</p>
             </div>
           </div>
           <div class="row">
@@ -139,11 +139,13 @@
           expander.classList.toggle('active');
 
           if (sidebar.classList.contains('active')) {
+              sidebar.classList.replace('d-none', 'd-block');
               sidebar.classList.replace('col-xl-0', 'col-xl-3');
               sidebar.classList.replace('col-lg-0', 'col-lg-4');
               contentArea.classList.replace('col-lg-12', 'col-lg-8')
               contentArea.classList.replace('col-xl-12', 'col-xl-9')
           } else {
+              sidebar.classList.replace('d-block', 'd-none');
               sidebar.classList.replace('col-xl-3', 'col-xl-0');
               sidebar.classList.replace('col-lg-4', 'col-lg-0');
               contentArea.classList.replace('col-lg-8', 'col-lg-12')

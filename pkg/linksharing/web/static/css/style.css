@@ -349,11 +349,31 @@ p, span, a {
 }
 
 .nodes-count {
-  height: 37px;
+  height: auto;
   line-height: 37px;
   background: #F2F4F7;
   border-radius: 50px;
   font-style: normal;
   font-weight: bold;
   color: #202020;
+}
+
+@media screen and (max-width: 1250px) {
+  .footer {
+    flex-direction: column;
+  }
+
+  .footer > .buttons-area {
+    margin-top: 20px;
+  }
+}
+
+@media screen and (max-width: 1000px) {
+  .footer > div:first-of-type {
+    flex-direction: column;
+  }
+
+  .footer > p {
+    margin: 20px 0 0 0;
+  }
 }
