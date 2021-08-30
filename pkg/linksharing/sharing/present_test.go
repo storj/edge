@@ -37,7 +37,7 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 		Key: "test.jpg",
 	}
 
-	err = handler.showObject(ctx, w, r, pr, project, object)
+	err = handler.showObject(ctx, w, r, pr, nil, 0, project, object)
 	require.NoError(t, err)
 
 	ctypes, haveType := w.Header()["Content-Type"]
@@ -46,7 +46,7 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 
 	object.Key = "test"
 
-	err = handler.showObject(ctx, w, r, pr, project, object)
+	err = handler.showObject(ctx, w, r, pr, nil, 0, project, object)
 	require.NoError(t, err)
 
 	ctypes, haveType = w.Header()["Content-Type"]

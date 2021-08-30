@@ -74,7 +74,12 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	if pr.realKey != "" { // there are no objects with the empty key
 		o, err := project.StatObject(ctx, pr.bucket, pr.realKey)
 		if err == nil {
-			return handler.showObject(ctx, w, r, pr, project, o)
+			locations, pieces, err := handler.getLocations(ctx, pr)
+			if err != nil {
+				return WithAction(err, "stat object")
+			}
+
+			return handler.showObject(ctx, w, r, pr, locations, pieces, project, o)
 		}
 		if !errors.Is(err, uplink.ErrObjectNotFound) {
 			return WithAction(err, "stat object")
@@ -103,7 +108,12 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	indexResult := <-indexResultCh
 	o, err := indexResult.obj, indexResult.err
 	if err == nil {
-		return handler.showObject(ctx, w, r, pr, project, o)
+		locations, pieces, err := handler.getLocations(ctx, pr)
+		if err != nil {
+			return WithAction(err, "stat object")
+		}
+
+		return handler.showObject(ctx, w, r, pr, locations, pieces, project, o)
 	}
 	if !errors.Is(err, uplink.ErrObjectNotFound) {
 		return WithAction(err, "stat object - index.html")
@@ -118,15 +128,10 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	return handler.servePrefix(ctx, w, project, pr)
 }
 
-func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project, o *uplink.Object) (err error) {
+func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, locations []location, pieces int64, project *uplink.Project, o *uplink.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	q := r.URL.Query()
-
-	locations, pieces, err := handler.getLocations(ctx, pr)
-	if err != nil {
-		return err
-	}
 
 	if queryFlagLookup(q, "map", false) {
 		return handler.serveMap(ctx, w, locations, pieces, o, q)
