@@ -157,8 +157,8 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	var input struct {
-		Key  string
-		Size string
+		Key        string
+		Size       string
 		NodesCount int
 	}
 	input.Key = filepath.Base(o.Key)
