@@ -14,16 +14,16 @@ import (
 	"strings"
 	"time"
 
+	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	minio "github.com/storj/minio/cmd"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/gateway-mt/miniogw"
 	"storj.io/gateway-mt/pkg/server"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"
@@ -31,8 +31,7 @@ import (
 
 // GatewayFlags configuration flags.
 type GatewayFlags struct {
-	Server miniogw.ServerConfig
-	Minio  miniogw.MinioConfig
+	Server server.Config
 
 	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
 	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
@@ -42,6 +41,9 @@ type GatewayFlags struct {
 	EncodeInMemory       bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
 	ClientTrustedIPSList []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
+
+	S3Compatibility server.S3CompatibilityConfig
 
 	Config
 	ConnectionPool ConnectionPoolConfig
@@ -147,13 +149,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	// wire up domain names for Minio
-	minio.HandleCommonEnvVars()
-	// make Minio not use random ETags
-	minio.SetGlobalCLI(false, true, false, address, true)
-	store := minio.NewIAMStorjAuthStore(gatewayLayer, runCfg.AuthURL, runCfg.AuthToken)
-	minio.SetObjectLayer(gatewayLayer)
-	minio.InitCustomStore(store, "StorjAuthSys")
+	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -162,6 +158,10 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 
 	zap.S().Info("Starting Storj DCS S3 Gateway")
 	zap.S().Infof("Endpoint: %s", address)
+
+	if runCfg.InsecureLogAll {
+		zap.S().Info("Insecurely logging all errors, paths, and headers")
+	}
 
 	// because existing configs contain most of these values, we don't have separate
 	// parameter bindings for the non-Minio server
@@ -173,22 +173,19 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		}
 	}
 
-	var trustedClientIPs server.TrustedIPsList
+	var trustedClientIPs trustedip.List
 
 	if runCfg.UseClientIPHeaders {
 		if len(runCfg.ClientTrustedIPSList) > 0 {
-			trustedClientIPs = server.NewTrustedIPsListTrustIPs(runCfg.ClientTrustedIPSList...)
+			trustedClientIPs = trustedip.NewListTrustIPs(runCfg.ClientTrustedIPSList...)
 		} else {
-			trustedClientIPs = server.NewTrustedIPsListTrustAll()
+			trustedClientIPs = trustedip.NewListTrustAll()
 		}
 	} else {
-		trustedClientIPs = server.NewTrustedIPsListUntrustAll()
+		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
-	s3 := server.New(
-		listener, zap.L(), tlsConfig, address, strings.Split(runCfg.DomainName, ","),
-		runCfg.EncodeInMemory, trustedClientIPs,
-	)
+	s3 := server.New(listener, zap.L(), tlsConfig, runCfg.EncodeInMemory, trustedClientIPs, runCfg.InsecureLogAll)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
@@ -199,7 +196,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer,
 	config := flags.newUplinkConfig(ctx)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 
-	return miniogw.NewGateway(config, pool)
+	return server.NewGateway(config, pool, flags.S3Compatibility, flags.InsecureLogAll)
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

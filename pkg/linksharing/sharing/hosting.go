@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 )
 
@@ -31,7 +32,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}
 
 	access, root, err := handler.txtRecords.fetchAccessForHost(
-		ctx, host, getClientIP(handler.trustedClientIPsList, r),
+		ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r),
 	)
 	if err != nil {
 		return WithAction(err, "fetch access")

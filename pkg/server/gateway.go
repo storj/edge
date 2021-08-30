@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package server
 
 import (
 	"bytes"
@@ -14,45 +14,44 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/spacemonkeygo/monkit/v3"
-	minio "github.com/storj/minio/cmd"
-	xhttp "github.com/storj/minio/cmd/http"
-	"github.com/storj/minio/cmd/logger"
-	"github.com/storj/minio/pkg/hash"
+	minio "github.com/minio/minio/cmd"
+	xhttp "github.com/minio/minio/cmd/http"
+	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 )
 
 var (
-	mon              = monkit.Package()
 	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
-
-	// Error is the errs class of standard End User Client errors.
-	Error = errs.Class("Storj Gateway")
 
 	// ErrAccessGrant occurs when failing to parse the access grant from the request.
 	ErrAccessGrant = errs.Class("access grant")
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
-func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool) (minio.ObjectLayer, error) {
+func NewGateway(config uplink.Config, connectionPool *rpcpool.Pool, compatibilityConfig S3CompatibilityConfig, insecureLogAll bool) (minio.ObjectLayer, error) {
 	return &gateway{
-		config:         config,
-		connectionPool: connectionPool,
+		config:              config,
+		connectionPool:      connectionPool,
+		compatibilityConfig: compatibilityConfig,
+		insecureLogAll:      insecureLogAll,
 	}, nil
 }
 
 type gateway struct {
 	minio.GatewayUnsupported
-	config         uplink.Config
-	connectionPool *rpcpool.Pool
+	config              uplink.Config
+	connectionPool      *rpcpool.Pool
+	compatibilityConfig S3CompatibilityConfig
+	insecureLogAll      bool
 }
 
 func (gateway *gateway) IsTaggingSupported() bool {
@@ -77,6 +76,19 @@ func (gateway *gateway) DeleteBucket(ctx context.Context, bucketName string, for
 	}
 
 	_, err = project.DeleteBucket(ctx, bucketName)
+	if errs.Is(err, uplink.ErrBucketNotEmpty) {
+		// Check if the bucket contains any non-pending objects. If it doesn't,
+		// this would mean there were initiated non-committed and non-aborted
+		// multipart uploads. Other S3 implementations allow deletion of such
+		// buckets, but with uplink, we need to explicitly force bucket
+		// deletion.
+		it := project.ListObjects(ctx, bucketName, nil)
+		if !it.Next() && it.Err() == nil {
+			_, err = project.DeleteBucketWithObjects(ctx, bucketName)
+			return convertError(err, bucketName, "")
+		}
+	}
+
 	return convertError(err, bucketName, "")
 }
 
@@ -133,7 +145,17 @@ func (gateway *gateway) GetBucketInfo(ctx context.Context, bucketName string) (b
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	accessGrant := getAccessGrant(ctx)
+
+	// Some S3 (like AWS S3) implementations allow anonymous checks for bucket
+	// existence, but we explicitly forbid those and return
+	// `minio.NotImplemented`, which seems to be the most appropriate response
+	// in this case.
+	if accessGrant == "" {
+		return minio.BucketInfo{}, minio.NotImplemented{API: "GetBucketInfo (anonymous)"}
+	}
+
+	project, err := gateway.openProject(ctx, accessGrant)
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}
@@ -400,14 +422,22 @@ func (gateway *gateway) ListBuckets(ctx context.Context) (items []minio.BucketIn
 	return items, nil
 }
 
+// limitMaxKeys returns maxKeys limited to what gateway is configured to limit
+// maxKeys to, aligned with paging limitations on the satellite side. It will
+// also return the highest limit possible if maxKeys is not positive.
+func (gateway *gateway) limitMaxKeys(maxKeys int) int {
+	if maxKeys <= 0 || maxKeys >= gateway.compatibilityConfig.MaxKeysLimit {
+		// Return max keys with a buffer to gather the continuation token to
+		// avoid paging problems until we have a method in libuplink to get more
+		// info about page boundaries.
+		return gateway.compatibilityConfig.MaxKeysLimit - 1
+	}
+	return maxKeys
+}
+
 func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
-
-	// TODO maybe this should be checked by project.ListObjects
-	if bucketName == "" {
-		return minio.ListObjectsInfo{}, minio.BucketNameInvalid{}
-	}
 
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
@@ -427,6 +457,8 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 	}()
 
 	recursive := delimiter == ""
+
+	startAfter := marker
 
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		// N.B.: in this case, the most S3-compatible thing we could do
@@ -448,24 +480,23 @@ func (gateway *gateway) ListObjects(ctx context.Context, bucketName, prefix, mar
 		//    loss of performance by turning this into a StatObject.
 		// so we do #3 here. it's great!
 
-		return listSingleObject(ctx, project, bucketName, prefix, marker, recursive, maxKeys)
+		return listSingleObject(ctx, project, bucketName, prefix, startAfter, recursive, maxKeys)
 	}
 
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
-		Cursor:    strings.TrimPrefix(marker, prefix),
+		Cursor:    strings.TrimPrefix(startAfter, prefix),
 		Recursive: recursive,
 
 		System: true,
-		Custom: true,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
-	startAfter := marker
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
-	limit := maxKeys
-	for (limit > 0 || maxKeys == 0) && list.Next() {
+	limit := gateway.limitMaxKeys(maxKeys)
+	for limit > 0 && list.Next() {
 		object := list.Item()
 
 		limit--
@@ -567,20 +598,20 @@ func (gateway *gateway) ListObjectsV2(ctx context.Context, bucketName, prefix, c
 		return listSingleObjectV2(ctx, project, bucketName, prefix, continuationToken, startAfterPath, recursive, maxKeys)
 	}
 
-	var objects []minio.ObjectInfo
-	var prefixes []string
-
 	list := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
 		Prefix:    prefix,
 		Cursor:    strings.TrimPrefix(startAfterPath, prefix),
 		Recursive: recursive,
 
 		System: true,
-		Custom: true,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
-	limit := maxKeys
-	for (limit > 0 || maxKeys == 0) && list.Next() {
+	var objects []minio.ObjectInfo
+	var prefixes []string
+
+	limit := gateway.limitMaxKeys(maxKeys)
+	for limit > 0 && list.Next() {
 		object := list.Item()
 
 		limit--
@@ -685,89 +716,99 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	// TODO: We want to return Not Implemented until we implement server-side copy
-	return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
+	if gateway.compatibilityConfig.DisableCopyObject {
+		// Note: In production Gateway-MT, we want to return Not Implemented until we implement server-side copy
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
+	}
 
-	// if srcObject == "" {
-	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: srcBucket}
-	// }
-	// if destObject == "" {
-	// 	return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
-	// }
+	if storageClass, ok := srcInfo.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject (storage class)"}
+	}
 
-	// project, err := gateway.openProject(ctx, getAccessGrant(ctx))
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, err
-	// }
+	if srcObject == "" {
+		return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: srcBucket}
+	}
+	if destObject == "" {
+		return minio.ObjectInfo{}, minio.ObjectNameInvalid{Bucket: destBucket}
+	}
 
-	// // TODO this should be removed and implemented on satellite side
-	// _, err = project.StatBucket(ctx, srcBucket)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, srcBucket, "")
-	// }
+	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
 
-	// // TODO this should be removed and implemented on satellite side
-	// if srcBucket != destBucket {
-	// 	_, err = project.StatBucket(ctx, destBucket)
-	// 	if err != nil {
-	// 		return minio.ObjectInfo{}, convertError(err, destBucket, "")
-	// 	}
-	// }
+	// TODO this should be removed and implemented on satellite side
+	_, err = project.StatBucket(ctx, srcBucket)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, "")
+	}
 
-	// if srcBucket == destBucket && srcObject == destObject {
-	// 	// Source and destination are the same. Do nothing, otherwise copying
-	// 	// the same object over itself may destroy it, especially if it is a
-	// 	// larger one.
-	// 	return srcInfo, nil
-	// }
+	// TODO this should be removed and implemented on satellite side
+	if srcBucket != destBucket {
+		_, err = project.StatBucket(ctx, destBucket)
+		if err != nil {
+			return minio.ObjectInfo{}, convertError(err, destBucket, "")
+		}
+	}
 
-	// download, err := project.DownloadObject(ctx, srcBucket, srcObject, nil)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
-	// }
-	// defer func() {
-	// 	// TODO: this hides minio error
-	// 	err = errs.Combine(err, download.Close())
-	// }()
+	if srcBucket == destBucket && srcObject == destObject {
+		// Source and destination are the same. Do nothing, otherwise copying
+		// the same object over itself may destroy it, especially if it is a
+		// larger one.
+		return srcInfo, nil
+	}
 
-	// upload, err := project.UploadObject(ctx, destBucket, destObject, nil)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	download, err := project.DownloadObject(ctx, srcBucket, srcObject, nil)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
+	}
+	defer func() {
+		// TODO: this hides minio error
+		err = errs.Combine(err, download.Close())
+	}()
 
-	// info := download.Info()
-	// err = upload.SetCustomMetadata(ctx, info.Custom)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	upload, err := project.UploadObject(ctx, destBucket, destObject, nil)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// reader, err := hash.NewReader(download, info.System.ContentLength, "", "", info.System.ContentLength, true)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	info := download.Info()
+	err = upload.SetCustomMetadata(ctx, info.Custom)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// _, err = io.Copy(upload, reader)
-	// if err != nil {
-	// 	abortErr := upload.Abort()
-	// 	err = errs.Combine(err, abortErr)
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	reader, err := hash.NewReader(download, info.System.ContentLength, "", "", info.System.ContentLength, true)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// err = upload.Commit()
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
-	// }
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
 
-	// return minioObjectInfo(destBucket, hex.EncodeToString(reader.MD5Current()), upload.Info()), nil
+	err = upload.Commit()
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, destBucket, destObject)
+	}
+
+	return minioObjectInfo(destBucket, hex.EncodeToString(reader.MD5Current()), upload.Info()), nil
 }
 
 func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
+
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return minio.ObjectInfo{}, minio.NotImplemented{API: "PutObject (storage class)"}
+	}
 
 	project, err := gateway.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -894,6 +935,8 @@ func checkBucketError(ctx context.Context, project *uplink.Project, bucketName, 
 
 func convertError(err error, bucket, object string) error {
 	switch {
+	case err == nil:
+		return nil
 	case ErrAccessGrant.Has(err):
 		// convert any errors parsing an access grant into InvalidArgument minio error type.
 		// InvalidArgument seems to be the closest minio error to map access grant errors to, and
@@ -997,8 +1040,8 @@ func (gateway *gateway) log(ctx context.Context, err error) {
 		return
 	}
 
-	// log any unexpected errors
-	if err != nil && !minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)) {
+	// log any unexpected errors, or log every error if flag set
+	if err != nil && (gateway.insecureLogAll || (!minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)))) {
 		reqInfo.SetTags("error", err.Error())
 	}
 

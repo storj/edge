@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
@@ -51,7 +53,7 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	}
 
 	access, err := parseAccess(ctx, serializedAccess, handler.authConfig,
-		getClientIP(handler.trustedClientIPsList, r),
+		trustedip.GetClientIP(handler.trustedClientIPsList, r),
 	)
 	if err != nil {
 		return err

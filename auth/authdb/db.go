@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package auth
+package authdb
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -19,7 +20,10 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/gateway-mt/auth/satellitelist"
 )
+
+var mon = monkit.Package()
 
 // NotFound is returned when a record is not found.
 var NotFound = errs.Class("not found")
@@ -58,6 +62,15 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	err = k.FromBinary(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FromBinary reads the key from binary which must include the version byte.
+func (k *EncryptionKey) FromBinary(data []byte) error {
 	if data[0] != encKeyVersionByte {
 		return errs.New("encryption key did not start with expected byte")
 	}
@@ -67,7 +80,12 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 
 // ToBase32 returns the EncryptionKey as a lowercase RFC 4648 base32 string.
 func (k EncryptionKey) ToBase32() string {
-	return ToBase32(encKeyVersionByte, k[:])
+	return toBase32(k.ToBinary())
+}
+
+// ToBinary returns the EncryptionKey including the version byte.
+func (k EncryptionKey) ToBinary() []byte {
+	return append([]byte{encKeyVersionByte}, k[:]...)
 }
 
 // ToStorjKey returns the storj.Key equivalent for the EncryptionKey.
@@ -79,13 +97,17 @@ func (k EncryptionKey) ToStorjKey() storj.Key {
 
 // ToBase32 returns the SecretKey as a lowercase RFC 4648 base32 string.
 func (s SecretKey) ToBase32() string {
-	return ToBase32(secKeyVersionByte, s[:])
+	return toBase32(s.ToBinary())
 }
 
-// ToBase32 returns the buffer as a lowercase RFC 4648 base32 string.
-func ToBase32(versionByte byte, k []byte) string {
-	keyWithMagic := append([]byte{versionByte}, k...)
-	return strings.ToLower(base32Encoding.EncodeToString(keyWithMagic))
+// ToBinary returns the SecretKey including the version byte.
+func (s SecretKey) ToBinary() []byte {
+	return append([]byte{secKeyVersionByte}, s[:]...)
+}
+
+// toBase32 returns the buffer as a lowercase RFC 4648 base32 string.
+func toBase32(k []byte) string {
+	return strings.ToLower(base32Encoding.EncodeToString(k))
 }
 
 // Database wraps a key/value store and uses it to store encrypted accesses and secrets.
@@ -127,7 +149,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	nodeID, err := ParseSatelliteID(satelliteAddr)
+	nodeID, err := satellitelist.ParseSatelliteID(satelliteAddr)
 	if err != nil {
 		return secretKey, err
 	}
@@ -177,18 +199,18 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 }
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the
-// hash of the key and decrypted.
-func (db *Database) Get(ctx context.Context, key EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
+// hash of the gateway access key and then decrypted.
+func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	record, err := db.kv.Get(ctx, key.Hash())
+	record, err := db.kv.Get(ctx, accessKeyID.Hash())
 	if err != nil {
 		return "", false, secretKey, errs.Wrap(err)
 	} else if record == nil {
-		return "", false, secretKey, NotFound.New("key hash: %x", key.Hash())
+		return "", false, secretKey, NotFound.New("key hash: %x", accessKeyID.Hash())
 	}
 
-	storjKey := key.ToStorjKey()
+	storjKey := accessKeyID.ToStorjKey()
 	// note that we currently always use the same nonce here - all zero's for secret keys
 	sk, err := encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
@@ -214,12 +236,12 @@ func (db *Database) Delete(ctx context.Context, key EncryptionKey) (err error) {
 
 // DeleteUnused deletes expired and invalid records from the key/value store and
 // returns any error encountered.
-func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error) {
+func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	count, rounds, err = db.kv.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
+	count, rounds, deletesPerHead, err = db.kv.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
 
-	return count, rounds, errs.Wrap(err)
+	return count, rounds, deletesPerHead, errs.Wrap(err)
 }
 
 // Invalidate causes the access to become invalid.

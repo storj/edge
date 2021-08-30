@@ -102,7 +102,7 @@ func deleteCommand(cmd *cobra.Command, _ []string) error {
 
 	defer func() { err = errs.Combine(err, k.Close()) }()
 
-	db, impl := k.TestingTagSQL(), dbutil.ImplementationForScheme(k.TestingSchema())
+	db, impl := k.TagSQL(), dbutil.ImplementationForScheme(k.Schema())
 
 	wouldDelete, count, rounds, err := Delete(ctx, log, db, impl, config)
 
@@ -140,7 +140,7 @@ func Delete(ctx context.Context, log *zap.Logger, db tagsql.DB, impl dbutil.Impl
 		for !cfg.DryRun && len(pkvals) > 0 {
 			var batch [][]byte
 
-			batch, pkvals = batchValues(pkvals, cfg.DeleteSize)
+			batch, pkvals = sqlauth.BatchValues(pkvals, cfg.DeleteSize)
 
 			res, err := db.ExecContext(
 				ctx,
@@ -226,11 +226,4 @@ func selectUnused(ctx context.Context, db tagsql.DB, impl dbutil.Implementation,
 	}
 
 	return pkvals, nil
-}
-
-func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
-	if len(pkvals) < threshold {
-		return pkvals, nil
-	}
-	return pkvals[:threshold], pkvals[threshold:]
 }

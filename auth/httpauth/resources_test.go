@@ -19,8 +19,9 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/gateway-mt/auth/memauth"
+	"storj.io/gateway-mt/auth/satellitelist"
 )
 
 const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
@@ -101,7 +102,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Availability after startup", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		const path = "/v1/health/startup"
 
@@ -118,7 +119,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -147,7 +148,7 @@ func TestResources_CRUD(t *testing.T) {
 		var unknownSatelliteID storj.NodeID
 		unknownSatelliteID[4] = 7
 		allowed := map[storj.NodeID]struct{}{unknownSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -155,16 +156,16 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 
 		allowed = map[storj.NodeID]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res = New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowed, _, err := auth.LoadSatelliteIDs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
+		allowed, _, err := satellitelist.LoadSatelliteIDs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res = New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -184,7 +185,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalidate", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -210,7 +211,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Public", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -232,7 +233,7 @@ func TestResources_Authorization(t *testing.T) {
 	require.NoError(t, err)
 
 	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-	res := New(zaptest.NewLogger(t), auth.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+	res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)

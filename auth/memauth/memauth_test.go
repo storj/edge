@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 )
 
 func TestKV(t *testing.T) {
@@ -22,29 +22,29 @@ func TestKV(t *testing.T) {
 	kv := New()
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	r1 := &auth.Record{SatelliteAddress: "abc"}
-	r2 := &auth.Record{SatelliteAddress: "def"}
+	r1 := &authdb.Record{SatelliteAddress: "abc", MacaroonHead: []byte{255}}
+	r2 := &authdb.Record{SatelliteAddress: "def", MacaroonHead: []byte{254}}
 
 	for i := 0; i < 100; i++ {
 		if i%2 == 0 {
-			require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r1))
+			require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(i)}, r1))
 		} else {
-			require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(i)}, r2))
+			require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(i)}, r2))
 		}
 	}
 
-	require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{10}, ""))
-	require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{11}, ""))
-	require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{12}, ""))
-	require.NoError(t, kv.Invalidate(ctx, auth.KeyHash{12}, ""))
+	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{10}, ""))
+	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{11}, ""))
+	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{12}, ""))
+	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{12}, ""))
 
-	require.NoError(t, kv.Delete(ctx, auth.KeyHash{43}))
-	require.NoError(t, kv.Delete(ctx, auth.KeyHash{11}))
-	require.NoError(t, kv.Delete(ctx, auth.KeyHash{99}))
-	require.NoError(t, kv.Delete(ctx, auth.KeyHash{99}))
+	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{43}))
+	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{11}))
+	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{99}))
+	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{99}))
 
 	for i := 0; i < 100; i++ {
-		v, err := kv.Get(ctx, auth.KeyHash{byte(i)})
+		v, err := kv.Get(ctx, authdb.KeyHash{byte(i)})
 
 		switch i {
 		case 11, 43, 99:
@@ -63,30 +63,42 @@ func TestKV(t *testing.T) {
 		}
 	}
 
-	require.Error(t, kv.Put(ctx, auth.KeyHash{42}, nil))
+	require.Error(t, kv.Put(ctx, authdb.KeyHash{42}, nil))
 
 	require.NoError(t, kv.Ping(ctx))
 
 	for i := 0; i < 100; i += 2 {
 		t := time.Now()
-		kv.entries[auth.KeyHash{byte(i)}].ExpiresAt = &t
+		if i != 10 { // Don't include one of the previously invalidated records.
+			kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &t
+		}
 	}
 
 	maxTime := time.Unix(1<<62, 0)
 
-	r3 := &auth.Record{SatelliteAddress: "ghi", ExpiresAt: &maxTime}
+	r3 := &authdb.Record{SatelliteAddress: "ghi", ExpiresAt: &maxTime}
 
-	require.NoError(t, kv.Put(ctx, auth.KeyHash{byte(255)}, r3))
+	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(253)}, r3))
 
 	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
 	// records.
 	for i := 0; i < 10; i++ {
-		_, _, err := kv.DeleteUnused(ctx, 0, 0, 0)
+		count, rounds, heads, err := kv.DeleteUnused(ctx, 0, 0, 0)
 		require.NoError(t, err)
+
+		if i == 0 {
+			assert.Equal(t, int64(50), count)
+			assert.Equal(t, int64(1), rounds)
+			assert.Equal(t, map[string]int64{string([]byte{255}): 50}, heads)
+		} else {
+			assert.Equal(t, int64(0), count)
+			assert.Equal(t, int64(1), rounds)
+			assert.Equal(t, make(map[string]int64), heads)
+		}
 	}
 
 	for i := 0; i < 100; i++ {
-		v, err := kv.Get(ctx, auth.KeyHash{byte(i)})
+		v, err := kv.Get(ctx, authdb.KeyHash{byte(i)})
 
 		require.NoError(t, err)
 
@@ -103,7 +115,7 @@ func TestKV(t *testing.T) {
 	}
 
 	{
-		v, err := kv.Get(ctx, auth.KeyHash{byte(255)})
+		v, err := kv.Get(ctx, authdb.KeyHash{byte(253)})
 		require.NoError(t, err)
 		assert.Equal(t, r3, v)
 	}
@@ -120,7 +132,7 @@ func TestKVParallel(t *testing.T) {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < 10000; i++ {
-			_ = kv.Put(ctx, auth.KeyHash{byte(r.Intn(100))}, nil)
+			_ = kv.Put(ctx, authdb.KeyHash{byte(r.Intn(100))}, nil)
 		}
 
 		return nil
@@ -130,7 +142,7 @@ func TestKVParallel(t *testing.T) {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < 10000; i++ {
-			_, _ = kv.Get(ctx, auth.KeyHash{byte(r.Intn(100))})
+			_, _ = kv.Get(ctx, authdb.KeyHash{byte(r.Intn(100))})
 		}
 
 		return nil
@@ -140,7 +152,7 @@ func TestKVParallel(t *testing.T) {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < 10000; i++ {
-			if err := kv.Delete(ctx, auth.KeyHash{byte(r.Intn(100))}); err != nil {
+			if err := kv.Delete(ctx, authdb.KeyHash{byte(r.Intn(100))}); err != nil {
 				return err
 			}
 		}
@@ -150,7 +162,7 @@ func TestKVParallel(t *testing.T) {
 
 	ctx.Go(func() error { // DeleteUnused
 		for i := 0; i < 10000; i++ {
-			if _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
+			if _, _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
 				return err
 			}
 		}
@@ -162,7 +174,7 @@ func TestKVParallel(t *testing.T) {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < 10000; i++ {
-			if err := kv.Invalidate(ctx, auth.KeyHash{byte(r.Intn(100))}, ""); err != nil {
+			if err := kv.Invalidate(ctx, authdb.KeyHash{byte(r.Intn(100))}, ""); err != nil {
 				return err
 			}
 		}

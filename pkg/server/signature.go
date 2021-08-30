@@ -21,6 +21,7 @@ import (
 	awsv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 )
 
@@ -35,7 +36,7 @@ const (
 // Signature middleware handles authorization without Minio.
 type Signature struct {
 	AuthClient func() (*AuthClient, error)
-	TrustedIPs TrustedIPsList
+	TrustedIPs trustedip.List
 }
 
 // Middleware implements mux.Middlware.
@@ -55,7 +56,7 @@ func (s *Signature) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		authResponse, err := authClient.GetAccess(ctx, accessKeyID, GetClientIP(s.TrustedIPs, r))
+		authResponse, err := authClient.GetAccess(ctx, accessKeyID, trustedip.GetClientIP(s.TrustedIPs, r))
 		if err != nil {
 			WriteError(ctx, w, err, r.URL)
 			return

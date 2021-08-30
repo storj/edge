@@ -20,6 +20,7 @@ import (
 
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 )
@@ -114,7 +115,7 @@ type Handler struct {
 	redirectHTTPS        bool
 	landingRedirect      string
 	uplink               *uplink.Config
-	trustedClientIPsList trustedIPsList
+	trustedClientIPsList trustedip.List
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -156,15 +157,15 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		return nil, err
 	}
 
-	var trustedClientIPs trustedIPsList
+	var trustedClientIPs trustedip.List
 	if config.UseClientIPHeaders {
 		if len(config.ClientTrustedIPsList) > 0 {
-			trustedClientIPs = newTrustedIPsListTrustIPs(config.ClientTrustedIPsList...)
+			trustedClientIPs = trustedip.NewListTrustIPs(config.ClientTrustedIPsList...)
 		} else {
-			trustedClientIPs = newTrustedIPsListTrustAll()
+			trustedClientIPs = trustedip.NewListTrustAll()
 		}
 	} else {
-		trustedClientIPs = newTrustedIPsListUntrustAll()
+		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
 	return &Handler{

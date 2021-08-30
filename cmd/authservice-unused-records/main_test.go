@@ -4,7 +4,6 @@
 package main_test
 
 import (
-	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -14,12 +13,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/gateway-mt/auth/sqlauth"
 	cmd "storj.io/gateway-mt/cmd/authservice-unused-records"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgtest"
-	"storj.io/private/dbutil/tempdb"
 )
 
 func TestVerifyFlags(t *testing.T) {
@@ -67,14 +65,14 @@ func TestDelete_Postgres(t *testing.T) {
 
 func TestDelete_Cockroach(t *testing.T) {
 	t.Parallel()
-	testDelete(t, pgtest.PickCockroachAlt(t), 100*time.Millisecond)
+	testDelete(t, pgtest.PickCockroachAlt(t), time.Microsecond)
 }
 
 func testDelete(t *testing.T, connstr string, wait time.Duration) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	kv, err := openTest(ctx, zap.NewNop(), t.Name(), connstr)
+	kv, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), connstr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
@@ -85,26 +83,26 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 		AuthServiceDB:      connstr,
 		AsOfSystemInterval: -wait,
 		MacaroonHead:       []byte{1, 3, 3, 7},
-		SelectSize:         200,
-		DeleteSize:         50,
+		SelectSize:         20,
+		DeleteSize:         5,
 		DryRun:             true,
 	}
 
 	n := time.Now().Round(time.Second)
 
-	r0 := &auth.Record{
+	r0 := &authdb.Record{
 		SatelliteAddress:     "abc",
 		MacaroonHead:         []byte{0},
 		EncryptedSecretKey:   []byte{1},
 		EncryptedAccessGrant: []byte{2},
 	}
-	r1 := &auth.Record{
+	r1 := &authdb.Record{
 		SatelliteAddress:     "def",
 		MacaroonHead:         config.MacaroonHead,
 		EncryptedSecretKey:   []byte{1},
 		EncryptedAccessGrant: []byte{2},
 	}
-	r2 := &auth.Record{
+	r2 := &authdb.Record{
 		SatelliteAddress:     "ghi",
 		MacaroonHead:         config.MacaroonHead,
 		EncryptedSecretKey:   []byte{1},
@@ -112,7 +110,7 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 		ExpiresAt:            &n,
 	}
 
-	const iterations = 10000
+	const iterations = 1000
 
 	for i := 0; i < iterations; i++ {
 		switch i % 3 {
@@ -127,11 +125,11 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 
 	time.Sleep(wait)
 
-	db, impl := kv.TestingTagSQL(), dbutil.ImplementationForScheme(kv.TestingSchema())
+	db, impl := kv.TagSQL(), dbutil.ImplementationForScheme(kv.Schema())
 	wouldDelete, count, rounds, err := cmd.Delete(ctx, zap.NewNop(), db, impl, config)
 
 	require.NoError(t, err)
-	assert.Equal(t, 3333, wouldDelete)
+	assert.Equal(t, 333, wouldDelete)
 	assert.Equal(t, int64(0), count)
 	assert.Equal(t, int64(0), rounds)
 
@@ -163,8 +161,8 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 	wouldDelete, count, rounds, err = cmd.Delete(ctx, zap.NewNop(), db, impl, config)
 
 	require.NoError(t, err)
-	assert.Equal(t, 3333, wouldDelete)
-	assert.Equal(t, int64(3333), count)
+	assert.Equal(t, 333, wouldDelete)
+	assert.Equal(t, int64(333), count)
 	assert.Equal(t, int64(67), rounds)
 
 	// Confirm deletion deleted only relevant data:
@@ -187,26 +185,6 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 			assert.Equal(t, r2, r)
 		}
 	}
-}
-
-func openTest(ctx context.Context, log *zap.Logger, name, connstr string) (*sqlauth.KV, error) {
-	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := sqlauth.Options{
-		ApplicationName: "authservice-unused-records_test",
-	}
-
-	kv, err := sqlauth.Open(ctx, log, tempDB.ConnStr, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	kv.TestingSetCleanup(tempDB.Close)
-
-	return kv, nil
 }
 
 func itob32(i int) [32]byte {

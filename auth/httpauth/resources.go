@@ -14,12 +14,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 )
 
 // Resources wrap a database and expose methods over HTTP.
 type Resources struct {
-	db        *auth.Database
+	db        *authdb.Database
 	endpoint  *url.URL
 	authToken string
 
@@ -33,7 +33,7 @@ type Resources struct {
 }
 
 // New constructs Resources for some database.
-func New(log *zap.Logger, db *auth.Database, endpoint *url.URL, authToken string) *Resources {
+func New(log *zap.Logger, db *authdb.Database, endpoint *url.URL, authToken string) *Resources {
 	res := &Resources{
 		db:        db,
 		endpoint:  endpoint,
@@ -151,8 +151,8 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var err error
-	var key auth.EncryptionKey
-	if key, err = auth.NewEncryptionKey(); err != nil {
+	var key authdb.EncryptionKey
+	if key, err = authdb.NewEncryptionKey(); err != nil {
 		res.writeError(w, "newAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -199,7 +199,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var key auth.EncryptionKey
+	var key authdb.EncryptionKey
 	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "getAccess", err.Error(), http.StatusBadRequest)
@@ -208,7 +208,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
-		if auth.NotFound.Has(err) {
+		if authdb.NotFound.Has(err) {
 			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
 			return
 		}
@@ -237,7 +237,7 @@ func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var key auth.EncryptionKey
+	var key authdb.EncryptionKey
 	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "deleteAccess", err.Error(), http.StatusBadRequest)
@@ -260,7 +260,7 @@ func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	var key auth.EncryptionKey
+	var key authdb.EncryptionKey
 	err := key.FromBase32(res.id.Value(req.Context()))
 	if err != nil {
 		res.writeError(w, "invalidateAccess", err.Error(), http.StatusBadRequest)

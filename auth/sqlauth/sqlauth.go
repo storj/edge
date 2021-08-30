@@ -13,12 +13,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/auth/authdb"
 	"storj.io/gateway-mt/auth/sqlauth/dbx"
 	"storj.io/private/dbutil"
 	_ "storj.io/private/dbutil/cockroachutil" // register our custom driver
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
+	"storj.io/private/dbutil/tempdb"
 	"storj.io/private/tagsql"
 )
 
@@ -69,11 +70,28 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (*
 	}, nil
 }
 
-// TestingSchema returns the underlying database schema.
-func (d *KV) TestingSchema() string { return d.db.Schema() }
+// OpenTest creates an instance of KV suitable for testing.
+func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*KV, error) {
+	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
+	if err != nil {
+		return nil, err
+	}
 
-// TestingTagSQL returns *tagsql.DB.
-func (d *KV) TestingTagSQL() tagsql.DB { return d.db.DB }
+	kv, err := Open(ctx, log, tempDB.ConnStr, Options{ApplicationName: "test"})
+	if err != nil {
+		return nil, err
+	}
+
+	kv.TestingSetCleanup(tempDB.Close)
+
+	return kv, nil
+}
+
+// Schema returns the underlying database schema.
+func (d *KV) Schema() string { return d.db.Schema() }
+
+// TagSQL returns *tagsql.DB.
+func (d *KV) TagSQL() tagsql.DB { return d.db.DB }
 
 // Close closes the connection to database.
 func (d *KV) Close() error {
@@ -100,7 +118,7 @@ func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 
 // Put stores the record in the key/value store.
 // It is an error if the key already exists.
-func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record) (err error) {
+func (d *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.CreateNoReturn_Record(ctx,
@@ -116,13 +134,13 @@ func (d *KV) Put(ctx context.Context, keyHash auth.KeyHash, record *auth.Record)
 }
 
 // Get retrieves the record from the key/value store.
-func (d *KV) Get(ctx context.Context, keyHash auth.KeyHash) (_ *auth.Record, err error) {
+func (d *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
 	return d.GetWithNonDefaultAsOfInterval(ctx, keyHash, -10*time.Second)
 }
 
 // GetWithNonDefaultAsOfInterval retrieves the record from the key/value store
 // using the specific asOfSystemInterval.
-func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.KeyHash, asOfSystemInterval time.Duration) (record *auth.Record, err error) {
+func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.KeyHash, asOfSystemInterval time.Duration) (record *authdb.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if d.impl == dbutil.Cockroach {
@@ -139,7 +157,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 		row := d.db.DB.QueryRowContext(ctx, query, keyHash[:])
 
 		var (
-			record        auth.Record
+			record        authdb.Record
 			invalidReason sql.NullString
 		)
 		err = row.Scan(
@@ -149,7 +167,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 		)
 		if err == nil {
 			if invalidReason.Valid {
-				return nil, auth.Invalid.New("%s", invalidReason.String)
+				return nil, authdb.Invalid.New("%s", invalidReason.String)
 			}
 
 			return &record, nil
@@ -175,10 +193,10 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 	} else if dbRecord == nil {
 		return nil, nil
 	} else if dbRecord.InvalidReason != nil {
-		return nil, auth.Invalid.New("%s", *dbRecord.InvalidReason)
+		return nil, authdb.Invalid.New("%s", *dbRecord.InvalidReason)
 	}
 
-	return &auth.Record{
+	return &authdb.Record{
 		SatelliteAddress:     dbRecord.SatelliteAddress,
 		MacaroonHead:         dbRecord.MacaroonHead,
 		EncryptedSecretKey:   dbRecord.EncryptedSecretKey,
@@ -190,7 +208,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash auth.Key
 
 // Delete removes the record from the key/value store.
 // It is not an error if the key does not exist.
-func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
+func (d *KV) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = d.db.Delete_Record_By_EncryptionKeyHash(ctx,
@@ -201,12 +219,12 @@ func (d *KV) Delete(ctx context.Context, keyHash auth.KeyHash) (err error) {
 // selectUnused returns up to selectSize pkvals corresponding to unused (expired
 // or invalid) records in a read-only transaction in the past as specified by
 // the asOfSystemInterval interval.
-func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize int) (pkvals [][]byte, err error) {
+func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize int) (pkvals, heads [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := d.db.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	// We don't commit the transaction and only roll it back, in any case, to
@@ -218,14 +236,14 @@ func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration,
 			ctx,
 			"SET TRANSACTION"+d.impl.AsOfSystemInterval(-asOfSystemInterval),
 		); err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
 		}
 	}
 
 	rows, err := tx.QueryContext(
 		ctx,
 		`
-		SELECT encryption_key_hash
+		SELECT encryption_key_hash, macaroon_head
 		FROM records
 		WHERE expires_at < CURRENT_TIMESTAMP
 		  OR invalid_at < CURRENT_TIMESTAMP
@@ -235,49 +253,52 @@ func (d *KV) selectUnused(ctx context.Context, asOfSystemInterval time.Duration,
 		selectSize,
 	)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
 
 	for rows.Next() {
-		var pkval []byte
+		var pkval, head []byte
 
-		if err = rows.Scan(&pkval); err != nil {
-			return nil, Error.Wrap(err)
+		if err = rows.Scan(&pkval, &head); err != nil {
+			return nil, nil, Error.Wrap(err)
 		}
 
-		pkvals = append(pkvals, pkval)
+		pkvals, heads = append(pkvals, pkval), append(heads, head)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
-	return pkvals, nil
+	return pkvals, heads, nil
 }
 
 // DeleteUnused deletes expired and invalid records from the key/value store in
 // batches as specified by the selectSize and deleteSize parameters and returns
 // any error encountered. It uses database time to avoid problems with invalid
 // time on the server.
-func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, err error) {
+func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	deletesPerHead = make(map[string]int64)
+
 	for {
-		pkvals, err := d.selectUnused(ctx, asOfSystemInterval, selectSize)
+		pkvals, heads, err := d.selectUnused(ctx, asOfSystemInterval, selectSize)
 		if err != nil {
-			return count, rounds, Error.Wrap(err)
+			return count, rounds, deletesPerHead, Error.Wrap(err)
 		}
 
 		if len(pkvals) == 0 {
-			return count, rounds, nil
+			return count, rounds, deletesPerHead, nil
 		}
 
 		for len(pkvals) > 0 {
-			var batch [][]byte
+			var pkvalsBatch, headsBatch [][]byte
 
-			batch, pkvals = batchValues(pkvals, deleteSize)
+			pkvalsBatch, pkvals = BatchValues(pkvals, deleteSize)
+			headsBatch, heads = BatchValues(heads, deleteSize)
 
 			res, err := d.db.DB.ExecContext(
 				ctx,
@@ -286,10 +307,10 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 				FROM records
 				WHERE encryption_key_hash = ANY ($1::BYTEA[])
 				`,
-				pgutil.ByteaArray(batch),
+				pgutil.ByteaArray(pkvalsBatch),
 			)
 			if err != nil {
-				return count, rounds, Error.Wrap(err)
+				return count, rounds, deletesPerHead, Error.Wrap(err)
 			}
 
 			c, err := res.RowsAffected()
@@ -298,6 +319,10 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 			}
 
 			rounds++
+
+			for _, h := range headsBatch {
+				deletesPerHead[string(h)]++
+			}
 		}
 
 		if d.impl == dbutil.Cockroach {
@@ -306,7 +331,9 @@ func (d *KV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration,
 	}
 }
 
-func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
+// BatchValues splits pkvals into two groups, where the first has a maximum
+// length of threshold and the second contains the rest of the data.
+func BatchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
 	if len(pkvals) < threshold {
 		return pkvals, nil
 	}
@@ -316,7 +343,7 @@ func batchValues(pkvals [][]byte, threshold int) ([][]byte, [][]byte) {
 // Invalidate causes the record to become invalid.
 // It is not an error if the key does not exist.
 // It does not update the invalid reason if the record is already invalid.
-func (d *KV) Invalidate(ctx context.Context, keyHash auth.KeyHash, reason string) (err error) {
+func (d *KV) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx,

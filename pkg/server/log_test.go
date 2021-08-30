@@ -9,17 +9,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	xhttp "github.com/storj/minio/cmd/http"
-	"github.com/stretchr/testify/assert"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
-func TestResponse(t *testing.T) {
+func TestResponseNoPaths(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -29,20 +28,44 @@ func TestResponse(t *testing.T) {
 		})
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
-	assert.NoError(t, err)
+	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
 	observedLogger := zap.New(observedZapCore)
 
-	LogResponsesNoPaths(observedLogger, handler()).ServeHTTP(rr, req)
+	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.Int("code", http.StatusOK))
+	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
+	require.Len(t, filteredLogs.All(), 0)
+
+	filteredLogs = observedLogs.FilterField(zap.Int("code", http.StatusOK))
 	require.Len(t, filteredLogs.All(), 1)
 }
 
-func TestGatewayResponse(t *testing.T) {
+func TestResponsePathsIncluded(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	handler := func() http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+	}
+
+	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	rr := httptest.NewRecorder()
+
+	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedLogger := zap.New(observedZapCore)
+
+	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
+
+	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
+	require.Len(t, filteredLogs.All(), 1)
+}
+
+func TestGatewayResponseNoPaths(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -57,29 +80,103 @@ func TestGatewayResponse(t *testing.T) {
 		})
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("?%s=abc123", xhttp.AmzAccessKeyID), nil)
-	req.Header.Add(xhttp.Authorization, "AWS4-HMAC-SHA256 Credential=123")
-	require.NoError(t, err)
+	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
 	observedLogger := zap.New(observedZapCore)
 
-	LogResponsesNoPaths(observedLogger, handler()).ServeHTTP(rr, req)
+	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String("error", "error!"))
-	require.Len(t, filteredLogs.All(), 1)
+	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
+	require.Len(t, filteredLogs.All(), 0)
 
-	filteredLogs = observedLogs.FilterField(zap.String("request-id", "ABC123"))
+	filteredLogs = observedLogs.FilterField(zap.String("error", "error!"))
 	require.Len(t, filteredLogs.All(), 1)
+}
 
-	filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
-		fmt.Sprintf("%s=[...]", xhttp.AmzAccessKeyID),
-	}))
-	require.Len(t, filteredLogs.All(), 1)
+func TestGatewayResponsePathsIncluded(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
-		"Authorization=[...]",
-	}))
+	handler := func() http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if log, ok := gwlog.FromContext(r.Context()); ok {
+				log.RequestID = "ABC123"
+			}
+
+			w.WriteHeader(http.StatusOK)
+		})
+	}
+
+	req := httptest.NewRequest("GET", "/test?q=123", nil).WithContext(ctx)
+	rr := httptest.NewRecorder()
+
+	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedLogger := zap.New(observedZapCore)
+
+	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
+
+	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/test?q=123"))
 	require.Len(t, filteredLogs.All(), 1)
+}
+
+func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	tests := []struct {
+		header string
+		query  string
+	}{
+		{query: xhttp.AmzAccessKeyID, header: ""},
+		{query: xhttp.AmzSignatureV2, header: ""},
+		{query: xhttp.AmzSignature, header: ""},
+		{query: xhttp.AmzCredential, header: ""},
+		{header: xhttp.Authorization, query: ""},
+		{header: "Cookie", query: ""},
+	}
+	for i, test := range tests {
+		handler := func() http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if log, ok := gwlog.FromContext(r.Context()); ok {
+					log.RequestID = "ABC123"
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+		}
+
+		target := "/"
+		if test.query != "" {
+			target = fmt.Sprintf("/?%s=test", test.query)
+		}
+
+		req := httptest.NewRequest("GET", target, nil).WithContext(ctx)
+		rr := httptest.NewRecorder()
+
+		if test.header != "" {
+			req.Header.Add(test.header, "test")
+		}
+
+		observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+		observedLogger := zap.New(observedZapCore)
+
+		LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
+
+		var filteredLogs *observer.ObservedLogs
+
+		if test.header != "" {
+			filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
+				fmt.Sprintf("%s=[...]", test.header),
+			}))
+			require.Len(t, filteredLogs.All(), 1, i)
+		}
+
+		if test.query != "" {
+			filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
+				fmt.Sprintf("%s=[...]", test.query),
+			}))
+			require.Len(t, filteredLogs.All(), 1, i)
+		}
+	}
 }

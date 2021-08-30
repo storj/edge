@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
 func TestMetrics(t *testing.T) {

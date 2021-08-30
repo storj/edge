@@ -36,7 +36,7 @@ func parseAccess(ctx context.Context, access string, cfg AuthServiceConfig, clie
 	}
 
 	// otherwise, assume an access key.
-	authResp, err := cfg.Resolve(ctx, access, clientIP)
+	authResp, err := cfg.ResolveWithCache(ctx, access, clientIP)
 	if err != nil {
 		return nil, err
 	}

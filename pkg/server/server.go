@@ -13,19 +13,16 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	minio "github.com/storj/minio/cmd"
-	"github.com/storj/minio/cmd/logger"
+	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/logger"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/version"
-	"storj.io/uplink"
-	"storj.io/uplink/private/transport"
 )
 
 var (
@@ -37,25 +34,21 @@ var (
 
 // Server represents an S3 compatible http server.
 type Server struct {
-	http         http.Server
-	listener     net.Listener
-	log          *zap.Logger
-	Address      string
-	DomainNames  []string
-	RPCPool      *rpcpool.Pool
-	UplinkConfig *uplink.Config
+	http     http.Server
+	listener net.Listener
+	log      *zap.Logger
 }
 
 // New returns new instance of an S3 compatible http server.
 //
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
-func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address string,
-	domainNames []string, useSetInMemoryMiddleware bool, trustedIPs TrustedIPsList) *Server {
+func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetInMemoryMiddleware bool,
+	trustedIPs trustedip.List, insecureLogAll bool) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
-	s := &Server{listener: listener, log: log, http: http.Server{Handler: r, Addr: address}}
+	s := &Server{listener: listener, log: log, http: http.Server{Handler: r}}
 
 	if tlsConfig != nil {
 		s.listener = tls.NewListener(listener, tlsConfig)
@@ -66,21 +59,14 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 	publicServices.HandleFunc("/health", s.healthCheck)
 	publicServices.HandleFunc("/version", s.versionInfo)
 
-	for _, domainName := range domainNames {
-		pathStyle := r.Host(domainName).Subrouter()
-		s.AddRoutes(pathStyle, "/{bucket:.+}", "/{bucket:.+}/{key:.+}")
-		// pathStyle.HandleFunc("/", s.ListBuckets).Methods(http.MethodGet)
-
-		virtualHostStyle := r.Host("{bucket:.+}." + domainName).Subrouter()
-		s.AddRoutes(virtualHostStyle, "/", "/{key:.+}")
-	}
-
 	if useSetInMemoryMiddleware {
 		r.Use(middleware.SetInMemory)
 	}
 
 	// Gorilla matches in the order things are defined, so fall back
 	// to minio implementations if we haven't handled something
+	minio.RegisterHealthCheckRouter(r)
+	minio.RegisterMetricsRouter(r)
 	minio.RegisterAPIRouter(r)
 
 	// Ensure we log any minio system errors sent by minio logging.
@@ -94,14 +80,12 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, address 
 	r.Use(middleware.Metrics)
 	r.Use(minio.RegisterMiddlewares)
 
-	s.http.Handler = minio.CriticalErrorHandler{
-		Handler: minio.CorsHandler(r),
-	}
+	s.http.Handler = minio.CriticalErrorHandler(minio.CorsHandler(r))
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information.
-	s.http.Handler = LogRequestsNoPaths(s.log, s.http.Handler)
-	s.http.Handler = LogResponsesNoPaths(s.log, s.http.Handler)
+	s.http.Handler = LogRequests(s.log, s.http.Handler, insecureLogAll)
+	s.http.Handler = LogResponses(s.log, s.http.Handler, insecureLogAll)
 
 	return s
 }
@@ -115,13 +99,6 @@ func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (s *Server) versionInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, version.Build.Version.String())
-}
-
-// AddRoutes adds handlers to path-style and virtual-host style routes.
-func (s *Server) AddRoutes(r *mux.Router, bucketPath, objectPath string) {
-	// these routes were tested, but we have them commented out because they're currently not implemented
-	// when implementing one of these, please also uncomment its test in server_test.go
-	r.HandleFunc(bucketPath, s.GetBucketVersioning).Methods(http.MethodGet).Queries("versioning", "")
 }
 
 // Run starts the S3 compatible http server.
@@ -146,47 +123,4 @@ func (s *Server) Run(ctx context.Context) error {
 // Close closes server and underlying listener.
 func (s *Server) Close() error {
 	return Error.Wrap(s.http.Close())
-}
-
-// WithProject handles opening and closing a project within a request handler.
-func (s *Server) WithProject(w http.ResponseWriter, r *http.Request, h func(context.Context, *uplink.Project) error) {
-	ctx := r.Context()
-	accessGrant := GetAcessGrant(ctx)
-
-	uplinkConfig := s.UplinkConfig
-	uplinkConfig.UserAgent = getUserAgent(r.UserAgent())
-	err := transport.SetConnectionPool(ctx, s.UplinkConfig, s.RPCPool)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-
-	project, err := uplinkConfig.OpenProject(ctx, accessGrant)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			s.log.Warn("Failed to close project", zap.Error(err))
-		}
-	}()
-	err = h(ctx, project)
-	if err != nil {
-		WriteError(ctx, w, err, r.URL)
-		return
-	}
-}
-
-var gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
-
-func getUserAgent(clientAgent string) string {
-	if clientAgent == "" {
-		return gatewayUserAgent
-	}
-	_, err := useragent.ParseEntries([]byte(clientAgent))
-	if err != nil {
-		return gatewayUserAgent
-	}
-	return gatewayUserAgent + " " + clientAgent
 }

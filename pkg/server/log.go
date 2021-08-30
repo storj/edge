@@ -9,26 +9,37 @@ import (
 	"strings"
 	"time"
 
-	xhttp "github.com/storj/minio/cmd/http"
+	xhttp "github.com/minio/minio/cmd/http"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
-	"storj.io/gateway-mt/pkg/gwlog"
+	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
-// LogRequestsNoPaths logs requests but without paths (which have sensitive info).
-func LogRequestsNoPaths(log *zap.Logger, h http.Handler) http.Handler {
+const requestURILogField = "request-uri"
+
+// LogRequests logs requests.
+func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
-		log.Info("access", zap.String("method", r.Method),
+		fields := []zapcore.Field{
+			zap.String("method", r.Method),
 			zap.String("host", r.Host),
-			zap.String("user-agent", r.UserAgent()))
+			zap.String("user-agent", r.UserAgent()),
+		}
+
+		if insecureLogPaths {
+			fields = append(fields, zap.String(requestURILogField, r.RequestURI))
+		}
+
+		log.Info("access", fields...)
 		h.ServeHTTP(w, r)
 	})
 }
 
-// LogResponsesNoPaths logs requests and responsed but without paths (which have sensitive info).
-func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
+// LogResponses logs responses.
+func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Handler {
 	return whmon.MonitorResponse(whroute.HandlerFunc(h,
 		func(w http.ResponseWriter, r *http.Request) {
 			rw := w.(whmon.ResponseWriter)
@@ -55,15 +66,15 @@ func LogResponsesNoPaths(log *zap.Logger, h http.Handler) http.Handler {
 			}
 
 			if gl.RequestID != "" {
-				logGatewayResponse(log, r, rw, gl, time.Since(start))
+				logGatewayResponse(log, r, rw, gl, time.Since(start), insecureLogAll)
 				return
 			}
 
-			logResponse(log, r, rw, time.Since(start))
+			logResponse(log, r, rw, time.Since(start), insecureLogAll)
 		}))
 }
 
-func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration) {
+func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
 	level := log.Info
 	if rw.StatusCode() >= 500 {
 		level = log.Error
@@ -71,6 +82,11 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 
 	var query []string
 	for k, v := range r.URL.Query() {
+		if insecureLogAll {
+			query = append(query, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
+			continue
+		}
+
 		var val string
 		// obfuscate any credentials in the query value.
 		// https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html
@@ -86,6 +102,11 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 
 	var reqHeaders []string
 	for k, v := range r.Header {
+		if insecureLogAll {
+			reqHeaders = append(reqHeaders, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
+			continue
+		}
+
 		var val string
 		// obfuscate any credentials in headers.
 		switch k {
@@ -102,7 +123,8 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		rspHeaders = append(rspHeaders, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
 	}
 
-	level("response", zap.String("method", r.Method),
+	fields := []zapcore.Field{
+		zap.String("method", r.Method),
 		zap.String("host", r.Host),
 		zap.Int("code", rw.StatusCode()),
 		zap.String("user-agent", r.UserAgent()),
@@ -115,20 +137,35 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.Duration("duration", d),
 		zap.Strings("query", query),
 		zap.Strings("req-headers", reqHeaders),
-		zap.Strings("rsp-headers", rspHeaders))
+		zap.Strings("rsp-headers", rspHeaders),
+	}
+
+	if insecureLogAll {
+		fields = append(fields, zap.String(requestURILogField, r.RequestURI))
+	}
+
+	level("response", fields...)
 }
 
-func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration) {
+func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
 	level := log.Info
 	if rw.StatusCode() >= 500 {
 		level = log.Error
 	}
 
-	level("response", zap.String("method", r.Method),
+	fields := []zapcore.Field{
+		zap.String("method", r.Method),
 		zap.String("host", r.Host),
 		zap.Int("code", rw.StatusCode()),
 		zap.String("user-agent", r.UserAgent()),
 		zap.Int64("content-length", r.ContentLength),
 		zap.Int64("written", rw.Written()),
-		zap.Duration("duration", d))
+		zap.Duration("duration", d),
+	}
+
+	if insecureLogAll {
+		fields = append(fields, zap.String(requestURILogField, r.RequestURI))
+	}
+
+	level("response", fields...)
 }

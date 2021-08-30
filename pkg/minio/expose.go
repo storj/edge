@@ -28,68 +28,68 @@ import (
 	_ "unsafe" // for go:linkname
 
 	"github.com/gorilla/mux"
-	"github.com/storj/minio/cmd"
+	"github.com/minio/minio/cmd"
 )
 
 //  WriteErrorResponse exposes minio's cmd.writeErrorResponse
 //
 //nolint: golint
-//go:linkname WriteErrorResponse github.com/storj/minio/cmd.writeErrorResponse
+//go:linkname WriteErrorResponse github.com/minio/minio/cmd.writeErrorResponse
 func WriteErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL)
 
 //  WriteErrorResponseString exposes minio's cmd.writeErrorResponseString
 //
 //nolint: golint
-//go:linkname WriteErrorResponseString github.com/storj/minio/cmd.writeErrorResponseString
+//go:linkname WriteErrorResponseString github.com/minio/minio/cmd.writeErrorResponseString
 func WriteErrorResponseString(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL)
 
 // GetAPIError exposes minio's cmd.getAPIError
 //
 //nolint: golint
-//go:linkname GetAPIError github.com/storj/minio/cmd.getAPIError
+//go:linkname GetAPIError github.com/minio/minio/cmd.getAPIError
 func GetAPIError(code cmd.APIErrorCode) cmd.APIError
 
 // ToAPIErrorCode exposes minio's cmd.toAPIErrorCode
 //
 //nolint: golint
-//go:linkname ToAPIErrorCode github.com/storj/minio/cmd.toAPIErrorCode
+//go:linkname ToAPIErrorCode github.com/minio/minio/cmd.toAPIErrorCode
 func ToAPIErrorCode(ctx context.Context, err error) (apiErr cmd.APIErrorCode)
 
 // SetObjectLayer exposes minio's cmd.setObjectLayer
 //
 //nolint: golint
-//go:linkname SetObjectLayer github.com/storj/minio/cmd.setObjectLayer
+//go:linkname SetObjectLayer github.com/minio/minio/cmd.setObjectLayer
 func SetObjectLayer(o cmd.ObjectLayer)
 
 // HandleCommonEnvVars exposes minio's cmd.handleCommonEnvVars
 //
 //nolint: golint
-//go:linkname HandleCommonEnvVars github.com/storj/minio/cmd.handleCommonEnvVars
+//go:linkname HandleCommonEnvVars github.com/minio/minio/cmd.handleCommonEnvVars
 func HandleCommonEnvVars()
 
 // CorsHandler exposes minio's cmd.corsHandler
 //
 //nolint: golint
-//go:linkname CorsHandler github.com/storj/minio/cmd.corsHandler
+//go:linkname CorsHandler github.com/minio/minio/cmd.corsHandler
 func CorsHandler(handler http.Handler) http.Handler
 
 // TODO: This function will be necessary when we update Minio.
 // // RejectUnsupportedAPIs exposes minio's cmd.rejectUnsupportedAPIs
 // //
 // //nolint: golint
-// //go:linkname RejectUnsupportedAPIs github.com/storj/minio/cmd.rejectUnsupportedAPIs
+// //go:linkname RejectUnsupportedAPIs github.com/minio/minio/cmd.rejectUnsupportedAPIs
 // func RejectUnsupportedAPIs(router *mux.Router)
 
 // GlobalHandlers exposes minio's cmd.globalHandlers
 //
 //nolint: golint
-//go:linkname GlobalHandlers github.com/storj/minio/cmd.globalHandlers
+//go:linkname GlobalHandlers github.com/minio/minio/cmd.globalHandlers
 var GlobalHandlers []mux.MiddlewareFunc
 
 // GlobalCLIContext exposes minio's cmd.globalCLIContext
 //
 //nolint: golint
-//go:linkname GlobalCLIContext github.com/storj/minio/cmd.globalCLIContext
+//go:linkname GlobalCLIContext github.com/minio/minio/cmd.globalCLIContext
 var GlobalCLIContext = struct {
 	JSON           bool
 	Quiet          bool
@@ -101,5 +101,5 @@ var GlobalCLIContext = struct {
 // GlobalIAMSys exposes minio's cmd.globalIAMSys
 //
 //nolint: golint
-//go:linkname GlobalIAMSys github.com/storj/minio/cmd.globalIAMSys
+//go:linkname GlobalIAMSys github.com/minio/minio/cmd.globalIAMSys
 var GlobalIAMSys *cmd.IAMSys

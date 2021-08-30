@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package server
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	minio "github.com/storj/minio/cmd"
-	xhttp "github.com/storj/minio/cmd/http"
+	minio "github.com/minio/minio/cmd"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/sync2"
@@ -24,6 +24,10 @@ import (
 func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
+
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+		return "", minio.NotImplemented{API: "NewMultipartUpload (storage class)"}
+	}
 
 	project, err := gateway.openProjectMultipart(ctx, getAccessGrant(ctx))
 	if err != nil {
@@ -71,7 +75,7 @@ func (gateway *gateway) GetMultipartInfo(ctx context.Context, bucket string, obj
 	list := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
 		Prefix: object,
 		System: true,
-		Custom: true,
+		Custom: gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	for list.Next() {
@@ -154,6 +158,11 @@ func (gateway *gateway) AbortMultipartUpload(ctx context.Context, bucket, object
 
 	err = project.AbortUpload(ctx, bucket, object, uploadID)
 	if err != nil {
+		// it's not clear AbortMultipartUpload should return a 404 for objects not found
+		// minio tests only cover bucket not found and invalid id
+		if errors.Is(err, uplink.ErrObjectNotFound) {
+			return nil
+		}
 		return convertMultipartError(err, bucket, object, uploadID)
 	}
 	return nil
@@ -171,7 +180,27 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 		err = errs.Combine(err, project.Close())
 	}()
 
-	// TODO: Check that ETag of uploadedParts match the ETags stored in metabase.
+	sort.Slice(uploadedParts, func(i, k int) bool {
+		return uploadedParts[i].PartNumber < uploadedParts[k].PartNumber
+	})
+
+	list := project.ListUploadParts(ctx, bucket, object, uploadID, &uplink.ListUploadPartsOptions{})
+	for list.Next() {
+		part := list.Item()
+		uploadedPart := uploadedParts[int(part.PartNumber)]
+		if uploadedPart.ETag != string(part.ETag) {
+			return minio.ObjectInfo{}, minio.InvalidPart{PartNumber: int(part.PartNumber), GotETag: uploadedPart.ETag}
+		}
+		if int(part.PartNumber) != len(uploadedParts)-1 {
+			if part.Size < int64(gateway.compatibilityConfig.MinPartSize) {
+				return minio.ObjectInfo{}, minio.PartTooSmall{PartNumber: int(part.PartNumber), PartSize: part.Size, PartETag: string(part.ETag)}
+			}
+		}
+	}
+	if list.Err() != nil {
+		return minio.ObjectInfo{}, convertMultipartError(list.Err(), bucket, object, uploadID)
+	}
+
 	etag, err := multipartUploadETag(uploadedParts)
 	if err != nil {
 		return minio.ObjectInfo{}, convertMultipartError(err, bucket, object, uploadID)
@@ -284,7 +313,7 @@ func (gateway *gateway) ListMultipartUploads(ctx context.Context, bucket string,
 		Cursor:    keyMarker,
 		Recursive: recursive,
 		System:    true,
-		Custom:    true,
+		Custom:    gateway.compatibilityConfig.IncludeCustomMetadataListing,
 	})
 
 	startAfter := keyMarker
