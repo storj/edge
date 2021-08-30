@@ -123,8 +123,13 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 
 	q := r.URL.Query()
 
+	locations, pieces, err := handler.getLocations(ctx, pr)
+	if err != nil {
+		return err
+	}
+
 	if queryFlagLookup(q, "map", false) {
-		return handler.serveMap(ctx, w, pr, o, q)
+		return handler.serveMap(ctx, w, locations, pieces, o, q)
 	}
 
 	// if someone provides the 'download' flag on or off, we do that, otherwise
@@ -154,9 +159,11 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	var input struct {
 		Key  string
 		Size string
+		NodesCount int
 	}
 	input.Key = filepath.Base(o.Key)
 	input.Size = memory.Size(o.System.ContentLength).Base10String()
+	input.NodesCount = len(locations)
 
 	handler.renderTemplate(w, "single-object.html", pageData{
 		Data:  input,
