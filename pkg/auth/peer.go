@@ -110,6 +110,10 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.New("allowed satellites parameter '--allowed-satellites' resolved to zero satellites")
 	}
 
+	for satelliteID := range allowedSats {
+		log.Debug("allowed satellite: " + satelliteID.String())
+	}
+
 	if config.Endpoint == "" {
 		return nil, errs.New("endpoint parameter '--endpoint' is required")
 	}
