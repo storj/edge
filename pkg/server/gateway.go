@@ -963,10 +963,15 @@ func convertError(err error, bucket, object string) error {
 	case errors.Is(err, uplink.ErrPermissionDenied):
 		return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
 	case errors.Is(err, uplink.ErrTooManyRequests):
-		return minio.SlowDown{}
+		// What we want to trigger here is minio.SlowDown.
+		// However, minio converts errors internally, and SlowDown doesn't map to itself.
+		// InsufficientWriteQuorum does map to SlowDown.
+		return minio.InsufficientWriteQuorum{}
 	case errors.Is(err, io.ErrUnexpectedEOF):
 		return minio.IncompleteBody{Bucket: bucket, Object: object}
 	default:
+		// TODO:  we occasionally see minio.InsufficientWriteQuorum{}
+		// here, so we might be calling convertError twice
 		return err
 	}
 }
