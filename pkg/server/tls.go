@@ -31,5 +31,8 @@ func LoadTLSConfigFromDir(configDir string) (*tls.Config, error) {
 		}
 		certificates = append(certificates, cert)
 	}
-	return &tls.Config{Certificates: certificates}, nil
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: certificates,
+	}, nil
 }

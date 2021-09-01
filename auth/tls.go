@@ -43,6 +43,7 @@ func configureTLS(config *TLSInfo, handler http.Handler) (*tls.Config, http.Hand
 	}
 
 	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{cert},
 	}, handler, nil
 }
@@ -59,6 +60,7 @@ func configureLetsEncrypt(config *TLSInfo, handler http.Handler) (*tls.Config, h
 	}
 
 	tlsConfig := &tls.Config{
+		MinVersion:     tls.VersionTLS12,
 		GetCertificate: certManager.GetCertificate,
 	}
 
