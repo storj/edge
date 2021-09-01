@@ -633,7 +633,7 @@ func TestCopyObject(t *testing.T) {
 			// about object and those values should be used with upload.Info()
 			// This should be working after final fix
 			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 3*time.Second)
+			assert.WithinDuration(t, info.ModTime, obj.System.Created, 5*time.Second)
 
 			assert.Equal(t, obj.System.ContentLength, info.Size)
 			assert.Equal(t, "text/plain", info.ContentType)
