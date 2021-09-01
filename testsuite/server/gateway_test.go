@@ -337,6 +337,45 @@ func TestPutObject(t *testing.T) {
 	})
 }
 
+func TestPutObjectZeroBytes(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		bucket, err := project.CreateBucket(ctx, testBucket)
+		require.NoError(t, err)
+
+		h, err := hash.NewReader(
+			bytes.NewReader(make([]byte, 0)),
+			0,
+			"d41d8cd98f00b204e9800998ecf8427e",
+			"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			0,
+			true)
+		require.NoError(t, err)
+
+		r := minio.NewPutObjReader(h, nil, nil)
+
+		opts := minio.ObjectOptions{
+			UserDefined: make(map[string]string),
+		}
+
+		obj, err := layer.PutObject(ctx, bucket.Name, testFile, r, opts)
+		require.NoError(t, err)
+
+		assert.Zero(t, obj.Size)
+
+		downloaded, err := project.DownloadObject(ctx, obj.Bucket, obj.Name, nil)
+		require.NoError(t, err)
+
+		_, err = downloaded.Read(make([]byte, 1))
+		assert.ErrorIs(t, err, io.EOF)
+
+		assert.Zero(t, downloaded.Info().System.ContentLength)
+
+		require.NoError(t, downloaded.Close())
+	})
+}
+
 func TestGetObjectInfo(t *testing.T) {
 	t.Parallel()
 
@@ -594,7 +633,7 @@ func TestCopyObject(t *testing.T) {
 			// about object and those values should be used with upload.Info()
 			// This should be working after final fix
 			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 2*time.Second)
+			assert.WithinDuration(t, info.ModTime, obj.System.Created, 5*time.Second)
 
 			assert.Equal(t, obj.System.ContentLength, info.Size)
 			assert.Equal(t, "text/plain", info.ContentType)
@@ -1265,6 +1304,171 @@ func TestPutObjectPart(t *testing.T) {
 		require.Equal(t, listParts.Parts[0].PartNumber, 1)
 		require.Equal(t, listParts.Parts[1].PartNumber, 2)
 		require.Equal(t, listParts.Parts[2].PartNumber, 3)
+	})
+}
+
+func TestPutObjectPartZeroBytesOnlyPart(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		bucket, err := project.CreateBucket(ctx, testBucket)
+		require.NoError(t, err)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, bucket.Name, testFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		defer func() {
+			if err = layer.AbortMultipartUpload(ctx, bucket.Name, testFile, uploadID, minio.ObjectOptions{}); err != nil {
+				assert.ErrorIs(t, err, minio.InvalidUploadID{Bucket: bucket.Name, Object: testFile, UploadID: uploadID})
+			}
+		}()
+
+		h, err := hash.NewReader(
+			bytes.NewReader(make([]byte, 0)),
+			0,
+			"d41d8cd98f00b204e9800998ecf8427e",
+			"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			0,
+			true)
+		require.NoError(t, err)
+
+		r := minio.NewPutObjReader(h, nil, nil)
+
+		opts := minio.ObjectOptions{
+			UserDefined: make(map[string]string),
+		}
+
+		part, err := layer.PutObjectPart(ctx, bucket.Name, testFile, uploadID, 1, r, opts)
+		require.NoError(t, err)
+
+		assert.Zero(t, part.Size)
+		assert.Zero(t, part.ActualSize)
+
+		parts := []minio.CompletePart{
+			{
+				PartNumber: part.PartNumber,
+				ETag:       part.ETag,
+			},
+		}
+
+		obj, err := layer.CompleteMultipartUpload(ctx, bucket.Name, testFile, uploadID, parts, opts)
+		require.NoError(t, err)
+
+		assert.Zero(t, obj.Size)
+
+		downloaded, err := project.DownloadObject(ctx, obj.Bucket, obj.Name, nil)
+		require.NoError(t, err)
+
+		_, err = downloaded.Read(make([]byte, 1))
+		assert.ErrorIs(t, err, io.EOF)
+
+		assert.Zero(t, downloaded.Info().System.ContentLength)
+
+		require.NoError(t, downloaded.Close())
+	})
+}
+
+func TestPutObjectPartZeroBytesLastPart(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
+		bucket, err := project.CreateBucket(ctx, testBucket)
+		require.NoError(t, err)
+
+		uploadID, err := layer.NewMultipartUpload(ctx, bucket.Name, testFile, minio.ObjectOptions{})
+		require.NoError(t, err)
+
+		defer func() {
+			if err = layer.AbortMultipartUpload(ctx, bucket.Name, testFile, uploadID, minio.ObjectOptions{}); err != nil {
+				assert.ErrorIs(t, err, minio.InvalidUploadID{Bucket: bucket.Name, Object: testFile, UploadID: uploadID})
+			}
+		}()
+
+		const (
+			nonZeroContent          = "test"
+			nonZeroContentLen       = int64(4)
+			nonZeroContentMD5Hex    = "098f6bcd4621d373cade4e832627b4f6"
+			nonZeroContentSHA256Hex = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+		)
+
+		var parts []minio.CompletePart
+
+		// Upload two non-zero parts:
+		for i := 0; i < 2; i++ {
+
+			h, err := hash.NewReader(
+				bytes.NewReader([]byte(nonZeroContent)),
+				nonZeroContentLen,
+				nonZeroContentMD5Hex,
+				nonZeroContentSHA256Hex,
+				nonZeroContentLen,
+				true)
+			require.NoError(t, err)
+
+			r := minio.NewPutObjReader(h, nil, nil)
+
+			opts := minio.ObjectOptions{
+				UserDefined: make(map[string]string),
+			}
+
+			part, err := layer.PutObjectPart(ctx, bucket.Name, testFile, uploadID, i+1, r, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, nonZeroContentLen, part.Size)
+			assert.Equal(t, nonZeroContentLen, part.ActualSize)
+
+			parts = append(parts, minio.CompletePart{PartNumber: part.PartNumber, ETag: part.ETag})
+		}
+
+		// Upload one (last) zero-byte part:
+
+		h, err := hash.NewReader(
+			bytes.NewReader(make([]byte, 0)),
+			0,
+			"d41d8cd98f00b204e9800998ecf8427e",
+			"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			0,
+			true)
+		require.NoError(t, err)
+
+		r := minio.NewPutObjReader(h, nil, nil)
+
+		opts := minio.ObjectOptions{
+			UserDefined: make(map[string]string),
+		}
+
+		part, err := layer.PutObjectPart(ctx, bucket.Name, testFile, uploadID, 3, r, opts)
+		require.NoError(t, err)
+
+		assert.Zero(t, part.Size)
+		assert.Zero(t, part.ActualSize)
+
+		parts = append(parts, minio.CompletePart{PartNumber: part.PartNumber, ETag: part.ETag})
+
+		obj, err := layer.CompleteMultipartUpload(ctx, bucket.Name, testFile, uploadID, parts, opts)
+		require.NoError(t, err)
+
+		// The uplink library contains unresolved TODO for returning real
+		// objects after committing. TODO(amwolff): enable this check after
+		// mentioned TODO is completed.
+		//
+		// assert.Equal(t, 2*nonZeroContentLen, obj.Size)
+
+		// Verify state:
+
+		downloaded, err := project.DownloadObject(ctx, obj.Bucket, obj.Name, nil)
+		require.NoError(t, err)
+
+		defer func() { require.NoError(t, downloaded.Close()) }()
+
+		buf := new(bytes.Buffer)
+
+		_, err = io.Copy(buf, downloaded)
+		require.NoError(t, err)
+
+		assert.Equal(t, nonZeroContent+nonZeroContent, buf.String())
+
+		assert.Equal(t, 2*nonZeroContentLen, downloaded.Info().System.ContentLength)
 	})
 }
 

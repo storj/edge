@@ -199,7 +199,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 }
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the
-// hash of the gateway access key and then decrypted.
+// hash of the access key and then decrypted.
 func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 

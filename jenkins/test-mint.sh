@@ -65,8 +65,8 @@ else
 fi
 
 # increase default metainfo rate limit for tests
-sed -i 's/#\smetainfo\.rate-limiter\.rate.*/metainfo.rate-limiter.rate: 1000/g' ~/.local/share/storj/local-network/satellite/0/config.yaml
-cat ~/.local/share/storj/local-network/satellite/0/config.yaml | grep "metainfo.rate-limiter.rate"
+sed -i 's/# metainfo.rate-limiter.enabled: true/metainfo.rate-limiter.enabled: false/g' "$(storj-sim network env SATELLITE_0_DIR)/config.yaml"
+cat "$(storj-sim network env SATELLITE_0_DIR)/config.yaml" | grep "metainfo.rate-limiter.enabled"
 
 storj-sim -x network run &
 
@@ -98,7 +98,7 @@ authservice_address="127.0.0.1:9191"
 minio_url="http://127.0.0.1:7777/"
 
 authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" --kv-backend="memory://" &
-gateway-mt run --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" &
+gateway-mt run --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" --insecure-log-all &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"

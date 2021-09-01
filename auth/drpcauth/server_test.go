@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -32,39 +31,36 @@ var minimalAccessSatelliteID = func() storj.NodeID {
 	return url.ID
 }()
 
-func createBackend(ctx context.Context, t *testing.T) (*GatewayAuthServer, *authdb.Database) {
-	endpoint, err := url.Parse("http://best-gateway.com/")
+func createBackend(ctx context.Context, t *testing.T) (*Server, *authdb.Database) {
+	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
 	allowedSatelliteIDs := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 
 	db := authdb.NewDatabase(memauth.New(), allowedSatelliteIDs)
 
-	return NewGatewayAuthServer(ctx, zaptest.NewLogger(t), db, endpoint), db
+	return NewServer(ctx, zaptest.NewLogger(t), db, endpoint), db
 }
 
-func TestRegisterGatewayAccess(t *testing.T) {
+func TestRegisterAccess(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 	server, db := createBackend(ctx, t)
 
-	binaryAccessGrant, _, err := base58.CheckDecode(minimalAccess)
-	require.NoError(t, err)
-
-	response, err := server.RegisterGatewayAccess(
+	response, err := server.RegisterAccess(
 		ctx,
-		&pb.RegisterGatewayAccessRequest{
-			AccessGrant: binaryAccessGrant,
+		&pb.EdgeRegisterAccessRequest{
+			AccessGrant: minimalAccess,
 			Public:      false,
 		},
 	)
 	require.NoError(t, err)
-	require.Equal(t, "http://best-gateway.com/", response.Endpoint)
-	require.Len(t, response.AccessKeyId, 17)
-	require.Len(t, response.SecretKey, 33)
+	require.Equal(t, "http://gateway.test", response.Endpoint)
+	require.Len(t, response.AccessKeyId, 28)
+	require.Len(t, response.SecretKey, 53)
 
 	var accessKeyID authdb.EncryptionKey
 
-	err = accessKeyID.FromBinary(response.AccessKeyId)
+	err = accessKeyID.FromBase32(response.AccessKeyId)
 	require.NoError(t, err)
 
 	storedAccessGrant, storedPublic, storedSecretKey, err := db.Get(
@@ -75,5 +71,5 @@ func TestRegisterGatewayAccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, false, storedPublic)
 	require.Equal(t, minimalAccess, storedAccessGrant)
-	require.Equal(t, response.SecretKey, storedSecretKey.ToBinary())
+	require.Equal(t, response.SecretKey, storedSecretKey.ToBase32())
 }

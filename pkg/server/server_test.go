@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
@@ -59,7 +59,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
 	}
 	s := server.New(
-		listener, zap.L(), tlsConfig, true, trustedip.NewListTrustAll(), true,
+		listener, zaptest.NewLogger(t), tlsConfig, true, trustedip.NewListTrustAll(), true,
 	)
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(s.Run(ctx))

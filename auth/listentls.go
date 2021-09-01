@@ -24,7 +24,7 @@ func listenAndServe(
 	log *zap.Logger,
 	tcpListener net.Listener,
 	tlsConfig *tls.Config,
-	drpcServer pb.DRPCGatewayAuthServer,
+	drpcServer pb.DRPCEdgeAuthServer,
 	handler http.Handler,
 ) error {
 	if tlsConfig == nil {

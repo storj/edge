@@ -36,17 +36,24 @@ random_bytes_file "10MiB" "$SRC_DIR/backup-testfile-10MiB" # create 1-MiB file o
 
 export PASSPHRASE="PASSPHRASE"
 
-duplicity -v9 "$SRC_DIR" "s3://${SERVER_NAME}/duplicity/" --s3-unencrypted-connection
+# duplicity 0.8.x w/ boto3 doesn't seem to create buckets anymore
+aws s3 --endpoint "$AWS_ENDPOINT" mb s3://duplicity
+aws s3 --endpoint "$AWS_ENDPOINT" mb s3://duplicity-multipart
 
-duplicity -v9 "s3://${SERVER_NAME}/duplicity/" "$DST_DIR" --s3-unencrypted-connection
+# pip install boto psutil
+apt-get install -y python3-psutil python3-boto3
+
+duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "$SRC_DIR" "boto3+s3://duplicity/" --s3-unencrypted-connection
+
+duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "boto3+s3://duplicity/" "$DST_DIR" --s3-unencrypted-connection
 
 require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR/backup-testfile-1MiB"
 require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR/backup-testfile-10MiB"
 
 # use multipart upload
-duplicity -v9 "$SRC_DIR" "s3://${SERVER_NAME}/duplicity-multipart/" --s3-unencrypted-connection --s3-use-multiprocessing --s3-multipart-max-procs 2 --s3-multipart-chunk-size 2097152
+duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "$SRC_DIR" "boto3+s3://duplicity-multipart/" --s3-unencrypted-connection --s3-use-multiprocessing --s3-multipart-max-procs 2 --s3-multipart-chunk-size 2097152
 
-duplicity -v9 "s3://${SERVER_NAME}/duplicity-multipart/" $DST_DIR_MULTIPART --s3-unencrypted-connection
+duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "boto3+s3://duplicity-multipart/" $DST_DIR_MULTIPART --s3-unencrypted-connection
 
 require_equal_files_content "$SRC_DIR/backup-testfile-1MiB"  "$DST_DIR_MULTIPART/backup-testfile-1MiB"
 require_equal_files_content "$SRC_DIR/backup-testfile-10MiB" "$DST_DIR_MULTIPART/backup-testfile-10MiB"

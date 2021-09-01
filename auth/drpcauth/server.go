@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/url"
 
-	"github.com/btcsuite/btcutil/base58"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -25,10 +24,10 @@ import (
 	"storj.io/gateway-mt/auth/authdb"
 )
 
-// GatewayAuthServer is a collection of dependencies for the DRPC-based service
+// Server is a collection of dependencies for the DRPC-based service
 // It is an interface for clients like Uplink to use the auth service.
-type GatewayAuthServer struct {
-	pb.DRPCGatewayAuthServer
+type Server struct {
+	pb.DRPCEdgeAuthServer
 
 	ctx context.Context
 	log *zap.Logger
@@ -39,14 +38,14 @@ type GatewayAuthServer struct {
 	endpoint *url.URL
 }
 
-// NewGatewayAuthServer creates a GatewayAuthServer which is not running.
-func NewGatewayAuthServer(
+// NewServer creates a Server which is not running.
+func NewServer(
 	ctx context.Context,
 	log *zap.Logger,
 	db *authdb.Database,
 	endpoint *url.URL,
-) *GatewayAuthServer {
-	return &GatewayAuthServer{
+) *Server {
+	return &Server{
 		ctx:      ctx,
 		log:      log,
 		db:       db,
@@ -54,43 +53,43 @@ func NewGatewayAuthServer(
 	}
 }
 
-// RegisterGatewayAccess implements interface DRPCGatewayAuthServer.
+// RegisterAccess implements interface DRPCEdgeAuthServer.
 // Wraps the actual functionality with logging.
-func (g *GatewayAuthServer) RegisterGatewayAccess(
+func (g *Server) RegisterAccess(
 	ctx context.Context,
-	request *pb.RegisterGatewayAccessRequest,
-) (*pb.RegisterGatewayAccessResponse, error) {
-	g.log.Debug("DRPC RegisterGatewayAccess request")
+	request *pb.EdgeRegisterAccessRequest,
+) (*pb.EdgeRegisterAccessResponse, error) {
+	g.log.Debug("DRPC RegisterAccess request")
 
-	response, err := g.registerGatewayAccessImpl(ctx, request)
+	response, err := g.registerAccessImpl(ctx, request)
 
 	if err != nil {
-		g.log.Error("DRPC RegisterGatewayAccess failed", zap.Error(err))
+		g.log.Error("DRPC RegisterAccess failed", zap.Error(err))
 		err = rpcstatus.Wrap(rpcstatus.Internal, err)
 	} else {
-		g.log.Debug("DRPC RegisterGatewayAccess success")
+		g.log.Debug("DRPC RegisterAccess success")
 	}
 
 	return response, err
 }
 
-func (g *GatewayAuthServer) registerGatewayAccessImpl(
+func (g *Server) registerAccessImpl(
 	ctx context.Context,
-	request *pb.RegisterGatewayAccessRequest,
-) (*pb.RegisterGatewayAccessResponse, error) {
+	request *pb.EdgeRegisterAccessRequest,
+) (*pb.EdgeRegisterAccessResponse, error) {
 	accessKey, err := authdb.NewEncryptionKey()
 	if err != nil {
 		return nil, err
 	}
 
-	secretKey, err := g.db.Put(ctx, accessKey, base58.CheckEncode(request.AccessGrant, 0), request.Public)
+	secretKey, err := g.db.Put(ctx, accessKey, request.AccessGrant, request.Public)
 	if err != nil {
 		return nil, err
 	}
 
-	response := pb.RegisterGatewayAccessResponse{
-		AccessKeyId: accessKey.ToBinary(),
-		SecretKey:   secretKey.ToBinary(),
+	response := pb.EdgeRegisterAccessResponse{
+		AccessKeyId: accessKey.ToBase32(),
+		SecretKey:   secretKey.ToBase32(),
 		Endpoint:    g.endpoint.String(),
 	}
 
@@ -100,12 +99,12 @@ func (g *GatewayAuthServer) registerGatewayAccessImpl(
 // StartListen start a DRPC server on the given listener.
 func StartListen(
 	ctx context.Context,
-	gatewayAuthServer pb.DRPCGatewayAuthServer,
+	authServer pb.DRPCEdgeAuthServer,
 	listener net.Listener,
 ) error {
 	mux := drpcmux.New()
 
-	err := pb.DRPCRegisterGatewayAuth(mux, gatewayAuthServer)
+	err := pb.DRPCRegisterEdgeAuth(mux, authServer)
 	if err != nil {
 		return err
 	}

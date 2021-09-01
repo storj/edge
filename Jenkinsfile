@@ -195,6 +195,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				throw err
 			}
 			finally {
+				sh 'docker logs mintsetup-gateway-mt-$BUILD_NUMBER || true'
 				sh 'docker stop mintsetup-gateway-mt-$BUILD_NUMBER || true'
 				sh 'docker stop postgres-gateway-mt-$BUILD_NUMBER || true'
 				sh 'docker stop redis-gateway-mt-$BUILD_NUMBER || true'

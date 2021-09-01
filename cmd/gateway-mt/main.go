@@ -33,12 +33,13 @@ import (
 type GatewayFlags struct {
 	Server server.Config
 
-	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000" basic-help:"true"`
-	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret" basic-help:"true"`
+	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000"`
+	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret"`
 	CertDir              string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
 	InsecureDisableTLS   bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName           string   `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost" basic-help:"true"`
-	EncodeInMemory       bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true" basic-help:"true"`
+	DomainName           string   `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost"`
+	CorsOrigins          string   `help:"list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway" default:"*"`
+	EncodeInMemory       bool     `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true"`
 	ClientTrustedIPSList []string `help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
@@ -95,6 +96,12 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
 
+	// The loop below sets all flags in GatewayFlags to show up without the
+	// `--advanced` flag until we decide which flags we want to hide.
+	runCmd.Flags().VisitAll(func(f *pflag.Flag) {
+		cfgstruct.SetBoolAnnotation(runCmd.Flags(), f.Name, cfgstruct.BasicHelpAnnotationName, true)
+	})
+
 	rootCmd.PersistentFlags().BoolVar(new(bool), "advanced", false, "if used in with -h, print advanced flags help")
 	cfgstruct.SetBoolAnnotation(rootCmd.PersistentFlags(), "advanced", cfgstruct.BasicHelpAnnotationName, true)
 	cfgstruct.SetBoolAnnotation(rootCmd.PersistentFlags(), "config-dir", cfgstruct.BasicHelpAnnotationName, true)
@@ -149,7 +156,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer)
+	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer, strings.Split(runCfg.CorsOrigins, ","))
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
