@@ -40,9 +40,6 @@ export PASSPHRASE="PASSPHRASE"
 aws s3 --endpoint "$AWS_ENDPOINT" mb s3://duplicity
 aws s3 --endpoint "$AWS_ENDPOINT" mb s3://duplicity-multipart
 
-# pip install boto psutil
-apt-get install -y python3-psutil python3-boto3
-
 duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "$SRC_DIR" "boto3+s3://duplicity/" --s3-unencrypted-connection
 
 duplicity -v9 --s3-endpoint-url=${AWS_ENDPOINT} "boto3+s3://duplicity/" "$DST_DIR" --s3-unencrypted-connection

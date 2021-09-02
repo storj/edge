@@ -141,13 +141,14 @@ timeout(time: 26, unit: 'MINUTES') {
 				}
 			}
 		}
-		stage('integration-tests'){
-			try {
+		try {
+			stage('Integration set up') {
 				checkout scm
 
 				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
 				env.STORJ_SIM_REDIS = 'redis:6379'
 				env.GATEWAY_DOMAIN = 'gateway.local'
+				env.GATEWAY_IP = '10.11.0.10'
 				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER postgres:12.3'
 				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER redis:latest'
 				sh '''until $(docker logs postgres-gateway-mt-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
@@ -156,53 +157,73 @@ timeout(time: 26, unit: 'MINUTES') {
 					done
 				'''
 				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
-
 				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.16'
 				// Wait until the docker command above prints out the keys before proceeding
-				sh '''#!/bin/bash
-						set -e +x
-						echo "listing"
-						ls $PWD/jenkins
-						t="0"
-						while true; do
-							logs=$(docker logs mintsetup-gateway-mt-$BUILD_NUMBER -t --since "$t" 2>&1)
-							keys=$(echo "$logs" | grep "Finished access_key_id" || true)
-							if [ ! -z "$keys" ]; then
-								echo "$logs"
-								echo "found keys $keys"
-								ACCESS_KEY_ID=$(echo "$keys" | rev |  cut -d "," -f2 | cut -d ":" -f1 | rev)
-								SECRET_KEY=$(echo "$keys" | rev |  cut -d "," -f1 | cut -d ":" -f1 | rev)
-								break
-							fi
-							t=$(echo -E "$logs" | tail -n 1 | cut -d " " -f1)
-							echo "printing logs"
+				output = sh (script: '''#!/bin/bash
+					set -e +x
+					echo "listing"
+					ls $PWD/jenkins
+					t="0"
+					while true; do
+						logs=$(docker logs mintsetup-gateway-mt-$BUILD_NUMBER -t --since "$t" 2>&1)
+						keys=$(echo "$logs" | grep "Finished access_key_id" || true)
+						if [ ! -z "$keys" ]; then
 							echo "$logs"
-							sleep 5
-						done
+							echo "found keys $keys"
+							echo "ACCESS_KEY_ID=$(echo "$keys" | rev |  cut -d "," -f2 | cut -d ":" -f1 | rev)"
+							echo "SECRET_KEY=$(echo "$keys" | rev |  cut -d "," -f1 | cut -d ":" -f1 | rev)"
+							break
+						fi
+						t=$(echo -E "$logs" | tail -n 1 | cut -d " " -f1)
+						echo "printing logs"
+						echo "$logs"
+						sleep 5
+					done
+				''', returnStdout: true).trim().split('\n')
+				env.ACCESS_KEY_ID = output.findAll{ it.startsWith('ACCESS_KEY_ID=') }[0].split('=')[1]
+				env.SECRET_KEY = output.findAll{ it.startsWith('SECRET_KEY=') }[0].split('=')[1]
+				println output.join('\n')
 
-						gatewayip=10.11.0.10
+				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16'
+				sh 'docker network connect --alias mintsetup --ip $GATEWAY_IP minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER'
+				sh 'docker pull storjlabs/minio-mint:latest'
+			}
 
-						echo "parsed keys ${ACCESS_KEY_ID} ${SECRET_KEY}"
-						docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16
-						docker network connect --alias mintsetup --ip $gatewayip minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER
-						# note the storj-ci docker image is used below, it already has duplicati etc. installed
-						docker run -u root:root --rm -e AWS_ENDPOINT="http://$gatewayip:7777" -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${SECRET_KEY} -v $PWD:$PWD -w $PWD --name testawscli-$BUILD_NUMBER --entrypoint $PWD/testsuite/integration/run.sh --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/ci:latest
-						docker pull storjlabs/minio-mint:latest
-						docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=${ACCESS_KEY_ID} -e SECRET_KEY=${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-$BUILD_NUMBER storjlabs/minio-mint:latest
-				'''
+			stage('Integration') {
+				def branchedStages = [:]
+
+				tests = ['awscli', 'awscli_multipart', 'duplicity', 'duplicati']
+				tests.each { test ->
+					branchedStages["Test $test"] = {
+						stage("Test $test") {
+							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"http://\${GATEWAY_IP}:7777\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
+						}
+					}
+				}
+
+				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'aws-sdk-ruby', 'aws-sdk-php', 'awscli', 's3cmd', 'security']
+				mintTests.each { test ->
+					branchedStages["Mint $test"] = {
+						stage("Mint $test") {
+							sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/minio-mint:latest $test"
+						}
+					}
+				}
+
+				parallel branchedStages
 			}
-			catch(err) {
-				throw err
-			}
-			finally {
-				sh 'docker logs mintsetup-gateway-mt-$BUILD_NUMBER || true'
-				sh 'docker stop mintsetup-gateway-mt-$BUILD_NUMBER || true'
-				sh 'docker stop postgres-gateway-mt-$BUILD_NUMBER || true'
-				sh 'docker stop redis-gateway-mt-$BUILD_NUMBER || true'
-				sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
-				sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
-				deleteDir()
-			}
+		}
+		catch(err) {
+			throw err
+		}
+		finally {
+			sh 'docker logs mintsetup-gateway-mt-$BUILD_NUMBER || true'
+			sh 'docker stop mintsetup-gateway-mt-$BUILD_NUMBER || true'
+			sh 'docker stop postgres-gateway-mt-$BUILD_NUMBER || true'
+			sh 'docker stop redis-gateway-mt-$BUILD_NUMBER || true'
+			sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
+			sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
+			deleteDir()
 		}
 	}
 }
