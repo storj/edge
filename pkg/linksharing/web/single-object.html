@@ -134,24 +134,25 @@
       const contentArea = document.querySelector('.content')
       const expander = document.querySelector('.expander');
 
-      if (sidebar && contentArea && expander) {
-          sidebar.classList.toggle('active');
-          expander.classList.toggle('active');
+      if (!(sidebar && contentArea && expander)) {
+          return;
+      }
 
-          if (sidebar.classList.contains('active')) {
-              sidebar.classList.replace('d-none', 'd-block');
-              sidebar.classList.replace('col-xl-0', 'col-xl-3');
-              sidebar.classList.replace('col-lg-0', 'col-lg-4');
-              contentArea.classList.replace('col-lg-12', 'col-lg-8')
-              contentArea.classList.replace('col-xl-12', 'col-xl-9')
-          } else {
-              sidebar.classList.replace('d-block', 'd-none');
-              sidebar.classList.replace('col-xl-3', 'col-xl-0');
-              sidebar.classList.replace('col-lg-4', 'col-lg-0');
-              contentArea.classList.replace('col-lg-8', 'col-lg-12')
-              contentArea.classList.replace('col-xl-9', 'col-xl-12')
-          }
+      sidebar.classList.toggle('active');
+      expander.classList.toggle('active');
 
+      if (sidebar.classList.contains('active')) {
+          sidebar.classList.replace('d-none', 'd-block');
+          sidebar.classList.replace('col-xl-0', 'col-xl-3');
+          sidebar.classList.replace('col-lg-0', 'col-lg-4');
+          contentArea.classList.replace('col-lg-12', 'col-lg-8')
+          contentArea.classList.replace('col-xl-12', 'col-xl-9')
+      } else {
+          sidebar.classList.replace('d-block', 'd-none');
+          sidebar.classList.replace('col-xl-3', 'col-xl-0');
+          sidebar.classList.replace('col-lg-4', 'col-lg-0');
+          contentArea.classList.replace('col-lg-8', 'col-lg-12')
+          contentArea.classList.replace('col-xl-9', 'col-xl-12')
       }
   }
 
