@@ -53,13 +53,8 @@ func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (lo
 	return locations, ipSummary.PieceCount, nil
 }
 
-func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, pr *parsedRequest, o *uplink.Object, q url.Values) (err error) {
+func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, locations []location, pieces int64, o *uplink.Object, q url.Values) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	locations, pieces, err := handler.getLocations(ctx, pr)
-	if err != nil {
-		return err
-	}
 
 	m := reference.WorldMap()
 
