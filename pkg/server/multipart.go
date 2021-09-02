@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/config/storageclass"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/zeebo/errs"
 
@@ -25,7 +26,7 @@ func (gateway *gateway) NewMultipartUpload(ctx context.Context, bucket, object s
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != storageclass.STANDARD {
 		return "", minio.NotImplemented{API: "NewMultipartUpload (storage class)"}
 	}
 

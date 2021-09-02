@@ -15,6 +15,7 @@ import (
 
 	"github.com/minio/minio-go/v7/pkg/tags"
 	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd/config/storageclass"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/hash"
@@ -721,7 +722,7 @@ func (gateway *gateway) CopyObject(ctx context.Context, srcBucket, srcObject, de
 		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject"}
 	}
 
-	if storageClass, ok := srcInfo.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+	if storageClass, ok := srcInfo.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != storageclass.STANDARD {
 		return minio.ObjectInfo{}, minio.NotImplemented{API: "CopyObject (storage class)"}
 	}
 
@@ -806,7 +807,7 @@ func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath st
 	defer mon.Task()(&ctx)(&err)
 	defer func() { gateway.log(ctx, err) }()
 
-	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != "STANDARD" {
+	if storageClass, ok := opts.UserDefined[xhttp.AmzStorageClass]; ok && storageClass != storageclass.STANDARD {
 		return minio.ObjectInfo{}, minio.NotImplemented{API: "PutObject (storage class)"}
 	}
 
