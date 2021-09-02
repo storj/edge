@@ -38,10 +38,8 @@ timeout(time: 26, unit: 'MINUTES') {
 							stage("Lint") {
 								sh 'check-copyright'
 								sh 'check-large-files'
-								sh 'check-imports ./...'
-								sh 'check-peer-constraints'
-								sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc lint'
-								sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc check-lock'
+								sh 'check-imports -race ./...'
+								sh 'check-peer-constraints -race'
 								sh 'check-atomic-align ./...'
 								sh 'check-monkit ./...'
 								sh 'check-errs ./...'
@@ -49,17 +47,16 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'golangci-lint --concurrency 16 run --config /go/ci/.golangci.yml'
 								sh 'check-downgrades'
 								sh 'check-mod-tidy -mod .build/go.mod.orig'
-								// TODO: reenable,
-								//	currently there are few packages that contain non-standard license formats.
-								//sh 'go-licenses check ./...'
 
 								dir("testsuite") {
-									sh 'check-imports ./...'
+									sh 'check-imports -race ./...'
 									sh 'check-atomic-align ./...'
 									sh 'check-monkit ./...'
 									sh 'check-errs ./...'
 									sh 'staticcheck ./...'
 									sh 'golangci-lint --concurrency 16 run --config /go/ci/.golangci.yml'
+									sh 'check-downgrades'
+									sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
 								}
 							}
 						}
