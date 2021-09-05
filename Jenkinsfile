@@ -198,7 +198,7 @@ timeout(time: 26, unit: 'MINUTES') {
 					}
 				}
 
-				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'aws-sdk-ruby', 'aws-sdk-php', 'awscli', 's3cmd', 'security']
+				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'awscli', 's3cmd', 'security']
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
@@ -208,6 +208,18 @@ timeout(time: 26, unit: 'MINUTES') {
 				}
 
 				parallel branchedStages
+			}
+
+			// We run aws-sdk-php and aws-sdk-ruby tests sequentially because
+			// each of them contains a test that lists buckets and interferes
+			// with other tests that run in parallel.
+			//
+			// TODO: run each Mint test with different credentials.
+			stage('Integration Mint/PHP') {
+				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/minio-mint:latest aws-sdk-php"
+			}
+			stage('Integration Mint/Ruby') {
+				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/minio-mint:latest aws-sdk-ruby"
 			}
 		}
 		catch(err) {
