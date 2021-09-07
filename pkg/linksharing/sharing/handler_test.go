@@ -4,9 +4,15 @@
 package sharing
 
 import (
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 )
 
 func TestCompareHosts(t *testing.T) {
@@ -34,4 +40,44 @@ func TestCompareHosts(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, result)
 	}
+}
+
+func TestHandler_CORS(t *testing.T) {
+	check := func(method, path string) bool {
+		rec := httptest.NewRecorder()
+
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer authToken")
+		req.Header.Add("Origin", "http://example.com")
+
+		cfg := Config{
+			URLBases:  []string{"http://test.test"},
+			Templates: "../../../pkg/linksharing/web/",
+		}
+
+		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
+		require.NoError(t, err)
+		_ = handler.serveHTTP(testcontext.New(t), rec, req)
+
+		result := rec.Result()
+		require.NoError(t, result.Body.Close())
+
+		respHeaders := result.Header.Get("Access-Control-Allow-Origin")
+		if respHeaders != "*" {
+			return false
+		}
+		respHeaders = result.Header.Get("Access-Control-Allow-Methods")
+		if respHeaders != "GET, HEAD" {
+			return false
+		}
+		respHeaders = result.Header.Get("Access-Control-Allow-Headers")
+		return respHeaders == "*"
+	}
+
+	require.False(t, check("POST", "/health/process"))
+	require.True(t, check("OPTIONS", "/health/process"))
+	require.True(t, check("GET", "/health/process"))
+	require.True(t, check("HEAD", "/health/process"))
+	require.False(t, check("PUT", "/health/process"))
+	require.False(t, check("DELETE", "/health/process"))
 }

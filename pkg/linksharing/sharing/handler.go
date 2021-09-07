@@ -275,9 +275,14 @@ func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, d
 func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodHead && r.Method != http.MethodGet {
+	if r.Method == http.MethodOptions {
+		// handle CORS pre-flight requests
+		handler.cors(ctx, w, r)
+		return nil
+	} else if r.Method != http.MethodHead && r.Method != http.MethodGet {
 		return WithStatus(errs.New("method not allowed"), http.StatusMethodNotAllowed)
 	}
+	handler.cors(ctx, w, r)
 
 	ourDomain, err := isDomainOurs(r.Host, handler.urlBases)
 	if err != nil {
@@ -308,6 +313,12 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 	default:
 		return handler.handleStandard(ctx, w, r)
 	}
+}
+
+func (handler *Handler) cors(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
 }
 
 func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
