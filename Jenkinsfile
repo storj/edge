@@ -198,7 +198,7 @@ timeout(time: 26, unit: 'MINUTES') {
 					}
 				}
 
-				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'awscli', 's3cmd', 'security']
+				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
