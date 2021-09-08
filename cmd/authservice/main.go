@@ -5,8 +5,6 @@ package main
 
 import (
 	"context"
-	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -34,11 +32,6 @@ var (
 		Short: "Create or update the database schema, then quit",
 		RunE:  cmdMigrationRun,
 	}
-	runHealthCheckCmd = &cobra.Command{
-		Use:   "health-check [URL]",
-		Short: "Check the health endpoint",
-		RunE:  cmdHealthCheckRun,
-	}
 
 	config  auth.Config
 	confDir string
@@ -50,13 +43,11 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(runHealthCheckCmd)
 
 	runCmd.AddCommand(runMigrationCmd)
 
 	process.Bind(runCmd, &config, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(runMigrationCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(runHealthCheckCmd, &config, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func main() {
@@ -99,39 +90,6 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := migrator.MigrateToLatest(ctx); err != nil {
 		return errs.Wrap(err)
-	}
-
-	return nil
-}
-
-func cmdHealthCheckRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	url := "http://localhost:8000/v1/health/live"
-	if len(args) > 0 {
-		url = args[0]
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	client := http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	err = res.Body.Close()
-	if err != nil {
-		return err
-	}
-
-	if res.StatusCode != 200 {
-		return errs.New("health check not ok %d", res.StatusCode)
 	}
 
 	return nil
