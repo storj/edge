@@ -268,26 +268,19 @@ func TestResources_CORS(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer authToken")
 		req.Header.Add("Origin", "http://example.com")
 		New(zaptest.NewLogger(t), nil, endpoint, "authToken").ServeHTTP(rec, req)
-
-		var isValidCORSHeaders bool
 		result := rec.Result()
-		defer require.NoError(t, result.Body.Close())
+		require.NoError(t, result.Body.Close())
 
 		respHeaders := result.Header.Get("Access-Control-Allow-Origin")
-		if respHeaders == "*" {
-			isValidCORSHeaders = true
+		if respHeaders != "*" {
+			return false
 		}
 		respHeaders = result.Header.Get("Access-Control-Allow-Methods")
-		if respHeaders == "POST, OPTIONS" {
-
-			isValidCORSHeaders = true
+		if respHeaders != "POST, OPTIONS" {
+			return false
 		}
 		respHeaders = result.Header.Get("Access-Control-Allow-Headers")
-		if respHeaders == "Content-Type, Accept, Accept-Language, Content-Language, Content-Length, Accept-Encoding" {
-			isValidCORSHeaders = true
-		}
-
-		return isValidCORSHeaders
+		return respHeaders == "Content-Type, Accept, Accept-Language, Content-Language, Content-Length, Accept-Encoding"
 	}
 
 	require.True(t, check("POST", "/v1/access"))
