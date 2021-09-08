@@ -87,7 +87,7 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, kv.Close()) }()
+	defer func() { err = errs.Combine(err, errs.Wrap(kv.Close())) }()
 
 	db := authdb.NewDatabase(kv, allowedSats)
 	res := httpauth.New(log.Named("resources"), db, endpoint, config.AuthToken)
@@ -102,11 +102,16 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 
 	tlsConfig, handler, err := configureTLS(tlsInfo, res)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	// logging. do not log paths - paths have access keys in them.
 	handler = server.LogResponses(log, server.LogRequests(log, handler, false), false)
+
+	httpServer := &http.Server{
+		Addr:    config.ListenAddr,
+		Handler: handler,
+	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
 
@@ -124,36 +129,28 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 	}
 
 	group.Go(func() error {
-		srv := &http.Server{
-			Addr:    config.ListenAddr,
-			Handler: handler,
+		<-groupCtx.Done()
+
+		// Don't wait more than a couple of seconds to shut down the server.
+		ctxWithTimeout, canc := context.WithTimeout(context.Background(), serverShutdownTimeout)
+		defer canc()
+
+		// We received an interrupt signal, shut down.
+		if err := httpServer.Shutdown(ctxWithTimeout); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Error("HTTP server Shutdown", zap.Error(err))
 		}
 
-		idleConnsClosed := make(chan struct{})
-		go func() {
-			<-groupCtx.Done()
+		return nil
+	})
 
-			// Don't wait more than a couple of seconds to shut down the server.
-			ctxWithTimeout, canc := context.WithTimeout(context.Background(), serverShutdownTimeout)
-			defer canc()
-
-			// We received an interrupt signal, shut down.
-			if err := srv.Shutdown(ctxWithTimeout); err != nil {
-				// Error from closing listeners, or context timeout:
-				log.Error("HTTP server Shutdown", zap.Error(err))
-			}
-
-			close(idleConnsClosed)
-		}()
-
+	group.Go(func() error {
 		log.Info("listening for incoming HTTP connections", zap.String("addr", config.ListenAddr))
 
-		if !errs.Is(srv.ListenAndServe(), http.ErrServerClosed) {
+		if !errs.Is(httpServer.ListenAndServe(), http.ErrServerClosed) {
 			// Error starting or closing listener:
 			return err
 		}
-
-		<-idleConnsClosed
 
 		return nil
 	})
@@ -206,7 +203,7 @@ func Run(ctx context.Context, config Config, confDir string, log *zap.Logger) er
 		})
 	}
 
-	return group.Wait()
+	return errs.Wrap(group.Wait())
 }
 
 func headsMapToLoggableHeads(heads map[string]int64) zapcore.ArrayMarshalerFunc {
