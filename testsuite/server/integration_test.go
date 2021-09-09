@@ -31,11 +31,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/processgroup"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/internal/minioclient"
 	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
@@ -89,24 +90,31 @@ func TestUploadDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 
-		// TODO: make address not hardcoded the address selection here
-		// may conflict with some automatically bound address.
+		// TODO: make address not hardcoded the address selection here may
+		// conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddrTls := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
-		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
 
-		authSvc, err := startAuthSvc(t, authSvcExe, authSvcOptions{
-			Listen:    authSvcAddr,
-			ListenTLS: authSvcAddrTls,
-			Gateway:   "http://" + gatewayAddr,
-			KVBackend: "memory://",
-			Satellite: planet.Satellites[0].NodeURL(),
-		})
+		authConfig := auth.Config{
+			Endpoint:          "http://" + gatewayAddr,
+			AuthToken:         "super-secret",
+			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
+			KVBackend:         "memory://",
+			ListenAddr:        authSvcAddr,
+			ListenAddrTLS:     authSvcAddrTls,
+		}
+
+		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
 		require.NoError(t, err)
-		defer func() { processgroup.Kill(authSvc) }()
+
+		defer ctx.Check(auth.Close)
+
+		ctx.Go(func() error { return auth.Run(ctx) })
+
+		require.NoError(t, waitForAuthSvcStart(authSvcAddr, time.Second))
 
 		// todo: use the unused endpoint below
 		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
@@ -232,48 +240,9 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
-type authSvcOptions struct {
-	Listen    string
-	ListenTLS string
-	Gateway   string
-	KVBackend string
-	Satellite storj.NodeURL
-
-	More []string
-}
-
-func startAuthSvc(t *testing.T, exe string, opts authSvcOptions) (*exec.Cmd, error) {
-	args := append([]string{"run",
-		"--auth-token", "super-secret",
-		"--allowed-satellites", opts.Satellite.String(),
-		"--endpoint", opts.Gateway,
-		"--listen-addr", opts.Listen,
-		"--listen-addr-tls", opts.ListenTLS,
-		"--kv-backend", opts.KVBackend,
-	}, opts.More...)
-
-	authSvc := exec.Command(exe, args...)
-
-	log := zaptest.NewLogger(t)
-	authSvc.Stdout = logWriter{log.Named("authsvc:stdout")}
-	authSvc.Stderr = logWriter{log.Named("authsvc:stderr")}
-
-	err := authSvc.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	err = waitForAuthSvcStart(opts.Listen, 5*time.Second, authSvc)
-	if err != nil {
-		killErr := authSvc.Process.Kill()
-		return nil, errs.Combine(err, killErr)
-	}
-
-	return authSvc, nil
-}
-
-// waitForAuthSvcStart will monitor starting when we are able to start the process.
-func waitForAuthSvcStart(authSvcAddress string, maxStartupWait time.Duration, cmd *exec.Cmd) error {
+// waitForAuthSvcStart checks if authservice is ready in a constant backoff
+// fashion.
+func waitForAuthSvcStart(authSvcAddress string, maxStartupWait time.Duration) error {
 	start := time.Now()
 	for {
 		_, err := http.Get("http://" + authSvcAddress)
@@ -285,29 +254,7 @@ func waitForAuthSvcStart(authSvcAddress string, maxStartupWait time.Duration, cm
 		time.Sleep(50 * time.Millisecond)
 
 		if time.Since(start) > maxStartupWait {
-			return cmdErr("AuthSvc", "start", authSvcAddress, maxStartupWait, cmd)
-		}
-	}
-}
-
-func stopAuthSvc(authSvc *exec.Cmd, authSvcAddress string, cmd *exec.Cmd) error {
-	err := authSvc.Process.Kill()
-	if err != nil {
-		return err
-	}
-
-	start := time.Now()
-	maxStopWait := 5 * time.Second
-	for {
-		if !tryConnectAuthSvc(authSvcAddress) {
-			return nil
-		}
-
-		// wait a bit before retrying to reduce load
-		time.Sleep(50 * time.Millisecond)
-
-		if time.Since(start) > maxStopWait {
-			return cmdErr("AuthSvc", "stop", authSvcAddress, maxStopWait, cmd)
+			return errs.New("exceeded maxStartupWait duration")
 		}
 	}
 }
