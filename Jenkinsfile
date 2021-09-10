@@ -183,7 +183,7 @@ timeout(time: 26, unit: 'MINUTES') {
 
 				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16'
 				sh 'docker network connect --alias mintsetup --ip $GATEWAY_IP minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER'
-				sh 'docker pull storjlabs/minio-mint:latest'
+				sh 'docker pull storjlabs/gateway-mint:latest'
 			}
 
 			stage('Integration') {
@@ -202,7 +202,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
-							sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/minio-mint:latest $test"
+							sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
 						}
 					}
 				}
@@ -216,10 +216,10 @@ timeout(time: 26, unit: 'MINUTES') {
 			//
 			// TODO: run each Mint test with different credentials.
 			stage('Integration Mint/PHP') {
-				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/minio-mint:latest aws-sdk-php"
+				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
 			}
 			stage('Integration Mint/Ruby') {
-				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/minio-mint:latest aws-sdk-ruby"
+				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
 			}
 		}
 		catch(err) {
