@@ -69,7 +69,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	return auth.Run(ctx, config, confDir, log)
+	p, err := auth.New(ctx, log, config, confDir)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, p.Close()) }()
+
+	return p.Run(ctx)
 }
 
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {

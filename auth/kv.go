@@ -25,12 +25,10 @@ func OpenKV(ctx context.Context, log *zap.Logger, kvurl string) (authdb.KV, erro
 	switch driver {
 	case "memory":
 		return memauth.New(), nil
-
 	case "pgxcockroach", "postgres", "cockroach", "pgx":
-		kv, err := sqlauth.Open(ctx, log, kvurl, sqlauth.Options{
+		return sqlauth.Open(ctx, log, kvurl, sqlauth.Options{
 			ApplicationName: "authservice",
 		})
-		return kv, err
 	default:
 		return nil, errs.New("unknown scheme: %q", kvurl)
 	}
