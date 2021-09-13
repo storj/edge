@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//lint:file-ignore U1000,SA4010,SA4006 Ignore all unused code, skipped tests
-//nolint
 package server_test
 
 import (
@@ -10,7 +8,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -94,7 +91,7 @@ func TestUploadDownload(t *testing.T) {
 		// conflict with some automatically bound address.
 		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		authSvcAddrTls := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
+		authSvcAddrTLS := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
 
@@ -104,7 +101,7 @@ func TestUploadDownload(t *testing.T) {
 			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
 			KVBackend:         "memory://",
 			ListenAddr:        authSvcAddr,
-			ListenAddrTLS:     authSvcAddrTls,
+			ListenAddrTLS:     authSvcAddrTLS,
 		}
 
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
@@ -114,7 +111,7 @@ func TestUploadDownload(t *testing.T) {
 
 		ctx.Go(func() error { return auth.Run(ctx) })
 
-		require.NoError(t, waitForAuthSvcStart(authSvcAddr, time.Second))
+		require.NoError(t, waitForAuthSvcStart(ctx, authSvcAddr, time.Second))
 
 		// todo: use the unused endpoint below
 		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
@@ -130,7 +127,7 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		gateway, err := startGateway(t, ctx, client, gatewayExe, gatewayOptions{
+		gateway, err := startGateway(ctx, t, client, gatewayExe, gatewayOptions{
 			Listen:      gatewayAddr,
 			AuthService: authSvcAddr,
 		})
@@ -242,11 +239,23 @@ func TestUploadDownload(t *testing.T) {
 
 // waitForAuthSvcStart checks if authservice is ready in a constant backoff
 // fashion.
-func waitForAuthSvcStart(authSvcAddress string, maxStartupWait time.Duration) error {
-	start := time.Now()
-	for {
-		_, err := http.Get("http://" + authSvcAddress)
-		if err == nil {
+func waitForAuthSvcStart(ctx context.Context, authSvcAddress string, maxStartupWait time.Duration) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/v1/health/live", authSvcAddress), nil)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	for start := time.Now(); ; {
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
+
+		if res.Body.Close() != nil {
+			continue
+		}
+
+		if res.StatusCode == http.StatusOK {
 			return nil
 		}
 
@@ -259,12 +268,6 @@ func waitForAuthSvcStart(authSvcAddress string, maxStartupWait time.Duration) er
 	}
 }
 
-// tryConnectAuthSvc will try to connect to the process public address.
-func tryConnectAuthSvc(authSvcAddress string) bool {
-	_, err := http.Get("http://" + authSvcAddress)
-	return err == nil
-}
-
 type gatewayOptions struct {
 	Listen      string
 	AuthService string
@@ -272,7 +275,7 @@ type gatewayOptions struct {
 	More []string
 }
 
-func startGateway(t *testing.T, ctx context.Context, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
+func startGateway(ctx context.Context, t *testing.T, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
 	args := append([]string{"run",
 		"--server.address", opts.Listen,
 		"--auth-token", "super-secret",
@@ -301,30 +304,8 @@ func startGateway(t *testing.T, ctx context.Context, client minioclient.Client, 
 }
 
 func cmdErr(app, action, address string, wait time.Duration, cmd *exec.Cmd) error {
-	return fmt.Errorf("%s [%s] did not %s in required time %v\n%s\n",
+	return fmt.Errorf("%s [%s] did not %s in required time %v\n%s",
 		app, address, action, wait, strings.Join(cmd.Args, " "))
-}
-
-func stopGateway(gateway *exec.Cmd, gatewayAddress string) error {
-	err := gateway.Process.Kill()
-	if err != nil {
-		return err
-	}
-
-	start := time.Now()
-	maxStopWait := 5 * time.Second
-	for {
-		if !tryConnectGateway(gatewayAddress) {
-			return nil
-		}
-
-		// wait a bit before retrying to reduce load
-		time.Sleep(50 * time.Millisecond)
-
-		if time.Since(start) > maxStopWait {
-			return cmdErr("Gateway", "stop", gatewayAddress, maxStopWait, gateway)
-		}
-	}
 }
 
 // waitForGatewayStart will monitor starting when we are able to start the process.
@@ -343,19 +324,6 @@ func waitForGatewayStart(ctx context.Context, client minioclient.Client, gateway
 			return cmdErr("Gateway", "start", gatewayAddress, maxStartupWait, cmd)
 		}
 	}
-}
-
-// tryConnect will try to connect to the process public address.
-func tryConnectGateway(gatewayAddress string) bool {
-	conn, err := net.Dial("tcp", gatewayAddress)
-	if err != nil {
-		return false
-	}
-	// write empty byte slice to trigger refresh on connection
-	_, _ = conn.Write([]byte{})
-	// ignoring errors, because we only care about being able to connect
-	_ = conn.Close()
-	return true
 }
 
 type logWriter struct{ log *zap.Logger }
