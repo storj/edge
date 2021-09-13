@@ -86,6 +86,7 @@ sleep 5
 
 echo "Uploading Multipart File"
 aws configure set default.s3.multipart_threshold 4KB
+aws configure set default.s3.multipart_chunksize 64MB
 aws s3 --endpoint "$AWS_ENDPOINT" --no-progress cp "$SRC_DIR/multipart-upload-testfile" "s3://$BUCKET/multipart-testfile"
 
 echo "Downloading Files"
