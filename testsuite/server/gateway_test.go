@@ -2173,7 +2173,7 @@ func TestProjectUsageLimit(t *testing.T) {
 		// An extra download should return 'Exceeded Usage Limit' error
 		err = layer.GetObject(ctxWithAccessGrant, "testbucket", "test/path1", 0, -1, ioutil.Discard, "", minio.ObjectOptions{})
 		require.Error(t, err)
-		require.EqualError(t, err, minio.ProjectUsageLimit{}.Error())
+		require.ErrorIs(t, err, server.ErrProjectUsageLimit)
 
 		// Simulate new billing cycle (next month)
 		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {

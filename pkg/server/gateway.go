@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 
+	miniogo "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/tags"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/config/storageclass"
@@ -35,6 +36,25 @@ var (
 
 	// ErrAccessGrant occurs when failing to parse the access grant from the request.
 	ErrAccessGrant = errs.Class("access grant")
+
+	// ErrProjectUsageLimit is a custom error for when a user has reached their
+	// Satellite project upload limit.
+	ErrProjectUsageLimit = miniogo.ErrorResponse{
+		Code:       "XStorjProjectLimits",
+		StatusCode: http.StatusInsufficientStorage,
+		Message:    "You have reached your Storj project upload limit on the Satellite.",
+	}
+
+	// ErrSlowDown is a custom error for when a user is exceeding Satellite
+	// request rate limits. We don't use the built-in `minio.SlowDown{}` error
+	// because minio doesn't expect this error would be returned by the
+	// object API. e.g. it would map errors like `minio.InsufficientWriteQuorum`
+	// to `minio.SlowDown`, but not SlowDown to itself.
+	ErrSlowDown = miniogo.ErrorResponse{
+		Code:       "SlowDown",
+		StatusCode: http.StatusTooManyRequests,
+		Message:    "Please reduce your request rate.",
+	}
 )
 
 // NewGateway implements returns a implementation of Gateway-MT compatible with Minio.
@@ -939,14 +959,11 @@ func convertError(err error, bucket, object string) error {
 	case err == nil:
 		return nil
 	case ErrAccessGrant.Has(err):
-		// convert any errors parsing an access grant into InvalidArgument minio error type.
-		// InvalidArgument seems to be the closest minio error to map access grant errors to, and
-		// will respond with 400 Bad Request status.
-		// we could create our own type from a minio.GenericError, but minio won't know what API
-		// status code to map that to and default to a 500 (see api-errors.go toAPIErrorCode())
-		// The other way would be to modify our minio fork directly, which is something already done
-		// with the ProjectUsageLimit error type, but we're trying to avoid that as much as possible.
-		return minio.InvalidArgument{Err: err}
+		return miniogo.ErrorResponse{
+			Code:       "XStorjAccessInvalid",
+			StatusCode: http.StatusBadRequest,
+			Message:    err.Error(),
+		}
 	case errors.Is(err, uplink.ErrBucketNameInvalid):
 		return minio.BucketNameInvalid{Bucket: bucket}
 	case errors.Is(err, uplink.ErrBucketAlreadyExists):
@@ -960,19 +977,16 @@ func convertError(err error, bucket, object string) error {
 	case errors.Is(err, uplink.ErrObjectNotFound):
 		return minio.ObjectNotFound{Bucket: bucket, Object: object}
 	case errors.Is(err, uplink.ErrBandwidthLimitExceeded):
-		return minio.ProjectUsageLimit{}
+		return ErrProjectUsageLimit
 	case errors.Is(err, uplink.ErrPermissionDenied):
 		return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
 	case errors.Is(err, uplink.ErrTooManyRequests):
-		// What we want to trigger here is minio.SlowDown.
-		// However, minio converts errors internally, and SlowDown doesn't map to itself.
-		// InsufficientWriteQuorum does map to SlowDown.
-		return minio.InsufficientWriteQuorum{}
+		return ErrSlowDown
 	case errors.Is(err, io.ErrUnexpectedEOF):
 		return minio.IncompleteBody{Bucket: bucket, Object: object}
 	default:
-		// TODO:  we occasionally see minio.InsufficientWriteQuorum{}
-		// here, so we might be calling convertError twice
+		// TODO: we occasionally see ErrSlowDown here, so we might be
+		// calling convertError twice
 		return err
 	}
 }
@@ -1032,7 +1046,7 @@ func getUserAgent(ctx context.Context) string {
 func minioError(err error) bool {
 	// some minio errors are not minio.GenericError, so we need to check for these specifically.
 	switch {
-	case errors.As(err, &minio.ProjectUsageLimit{}), errors.As(err, &minio.SlowDown{}):
+	case errors.As(err, &miniogo.ErrorResponse{}):
 		return true
 	default:
 		return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))

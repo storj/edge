@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	miniogo "github.com/minio/minio-go/v7"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/stretchr/testify/assert"
@@ -37,8 +38,9 @@ func TestMinioError(t *testing.T) {
 	}{
 		{errors.New("some error"), false},
 		{uplink.ErrBucketNameInvalid, false},
-		{minio.SlowDown{}, true},
-		{minio.ProjectUsageLimit{}, true},
+		{miniogo.ErrorResponse{Message: "oops"}, true},
+		{ErrProjectUsageLimit, true},
+		{ErrSlowDown, true},
 		{minio.BucketNotEmpty{}, true},
 	}
 	for i, tc := range tests {
@@ -53,6 +55,9 @@ func TestLogUnexpectedErrorsOnly(t *testing.T) {
 	}{
 		{context.Canceled, ""},
 		{minio.BucketNotEmpty{}, ""},
+		{miniogo.ErrorResponse{Message: "oops"}, ""},
+		{ErrProjectUsageLimit, ""},
+		{ErrSlowDown, ""},
 		{uplink.ErrBucketNameInvalid, uplink.ErrBucketNameInvalid.Error()},
 		{errors.New("unexpected error"), "unexpected error"},
 	}
