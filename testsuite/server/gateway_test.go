@@ -57,7 +57,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 
 		// Create a bucket with the Minio API
 		err = layer.MakeBucketWithLocation(ctx, testBucket, minio.BucketOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check that the bucket is created using the Uplink API
 		bucket, err := project.StatBucket(ctx, testBucket)
@@ -85,14 +85,13 @@ func TestGetBucketInfo(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		info, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the bucket info using the Minio API
 		bucket, err := layer.GetBucketInfo(ctx, testBucket)
-		if assert.NoError(t, err) {
-			assert.Equal(t, testBucket, bucket.Name)
-			assert.Equal(t, info.Created, bucket.Created)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, testBucket, bucket.Name)
+		assert.Equal(t, info.Created, bucket.Created)
 	})
 }
 
@@ -155,10 +154,10 @@ func TestDeleteBucket(t *testing.T) {
 
 			// Create a bucket with a file using the Uplink API
 			bucket, err := project.CreateBucket(ctx, testBucket)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			_, err = createFile(ctx, project, bucket.Name, testFile, nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Check the error when deleting non-empty bucket
 			err = layer.DeleteBucket(ctx, testBucket, false)
@@ -166,11 +165,11 @@ func TestDeleteBucket(t *testing.T) {
 
 			// Delete the file using the Uplink API, so the bucket becomes empty
 			_, err = project.DeleteObject(ctx, bucket.Name, testFile)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Delete the bucket info using the Minio API
 			err = layer.DeleteBucket(ctx, testBucket, false)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Check that the bucket is deleted using the Uplink API
 			_, err = project.StatBucket(ctx, testBucket)
@@ -179,14 +178,14 @@ func TestDeleteBucket(t *testing.T) {
 		{
 			// Create a bucket with a file using the Uplink API
 			bucket, err := project.CreateBucket(ctx, testBucket)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			_, err = createFile(ctx, project, bucket.Name, testFile, nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Check deleting bucket with force flag
 			err = layer.DeleteBucket(ctx, testBucket, true)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Check that the bucket is deleted using the Uplink API
 			_, err = project.StatBucket(ctx, testBucket)
@@ -199,23 +198,23 @@ func TestDeleteBucket(t *testing.T) {
 		{
 			// Test deletion of the empty bucket with pending multipart uploads.
 			bucket, err := project.CreateBucket(ctx, testBucket)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			addPendingMultipartUpload(ctx, t, project, bucket)
 
 			// Initiate bucket deletion with forceDelete=false because this flag
 			// isn't passed from non-minio clients to the bucket deletion
 			// handler anyway.
-			assert.NoError(t, layer.DeleteBucket(ctx, bucket.Name, false))
+			require.NoError(t, layer.DeleteBucket(ctx, bucket.Name, false))
 		}
 		{
 			// Test deletion of the empty bucket with pending multipart uploads,
 			// but there's an additional non-pending object.
 			bucket, err := project.CreateBucket(ctx, testBucket)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			_, err = createFile(ctx, project, bucket.Name, testFile, nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			addPendingMultipartUpload(ctx, t, project, bucket)
 
@@ -230,7 +229,7 @@ func TestListBuckets(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, project *uplink.Project) {
 		// Check that empty list is return if no buckets exist yet
 		bucketInfos, err := layer.ListBuckets(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, bucketInfos)
 
 		// Create all expected buckets using the Uplink API
@@ -239,17 +238,16 @@ func TestListBuckets(t *testing.T) {
 		for i, bucketName := range bucketNames {
 			bucket, err := project.CreateBucket(ctx, bucketName)
 			buckets[i] = bucket
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		// Check that the expected buckets can be listed using the Minio API
 		bucketInfos, err = layer.ListBuckets(ctx)
-		if assert.NoError(t, err) {
-			assert.Equal(t, len(bucketNames), len(bucketInfos))
-			for i, bucketInfo := range bucketInfos {
-				assert.Equal(t, bucketNames[i], bucketInfo.Name)
-				assert.Equal(t, buckets[i].Created, bucketInfo.Created)
-			}
+		require.NoError(t, err)
+		assert.Equal(t, len(bucketNames), len(bucketInfos))
+		for i, bucketInfo := range bucketInfos {
+			assert.Equal(t, bucketNames[i], bucketInfo.Name)
+			assert.Equal(t, buckets[i].Created, bucketInfo.Created)
 		}
 	})
 }
@@ -294,7 +292,7 @@ func TestPutObject(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when putting an object with empty name
 		_, err = layer.PutObject(ctx, testBucket, "", nil, minio.ObjectOptions{})
@@ -302,39 +300,37 @@ func TestPutObject(t *testing.T) {
 
 		// Put the object using the Minio API
 		info, err := layer.PutObject(ctx, testBucket, testFile, data, minio.ObjectOptions{UserDefined: metadata})
-		if assert.NoError(t, err) {
-			assert.Equal(t, testFile, info.Name)
-			assert.Equal(t, testBucket, info.Bucket)
-			assert.False(t, info.IsDir)
-			assert.True(t, time.Since(info.ModTime) < 1*time.Minute)
-			assert.Equal(t, data.Size(), info.Size)
-			assert.NotEmpty(t, info.ETag)
-			assert.Equal(t, expectedMetaInfo.ContentType, info.ContentType)
+		require.NoError(t, err)
+		assert.Equal(t, testFile, info.Name)
+		assert.Equal(t, testBucket, info.Bucket)
+		assert.False(t, info.IsDir)
+		assert.True(t, time.Since(info.ModTime) < 1*time.Minute)
+		assert.Equal(t, data.Size(), info.Size)
+		assert.NotEmpty(t, info.ETag)
+		assert.Equal(t, expectedMetaInfo.ContentType, info.ContentType)
 
-			expectedMetaInfo.UserDefined["s3:etag"] = info.ETag
-			expectedMetaInfo.UserDefined["content-type"] = info.ContentType
-			assert.Equal(t, expectedMetaInfo.UserDefined, info.UserDefined)
-		}
+		expectedMetaInfo.UserDefined["s3:etag"] = info.ETag
+		expectedMetaInfo.UserDefined["content-type"] = info.ContentType
+		assert.Equal(t, expectedMetaInfo.UserDefined, info.UserDefined)
 
 		// Check that the object is uploaded using the Uplink API
 		obj, err := project.StatObject(ctx, testBucketInfo.Name, testFile)
-		if assert.NoError(t, err) {
-			assert.Equal(t, testFile, obj.Key)
-			assert.False(t, obj.IsPrefix)
+		require.NoError(t, err)
+		assert.Equal(t, testFile, obj.Key)
+		assert.False(t, obj.IsPrefix)
 
-			// TODO upload.Info() is using StreamID creation time but this value is different
-			// than last segment creation time, CommitObject request should return latest info
-			// about object and those values should be used with upload.Info()
-			// This should be working after final fix
-			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 1*time.Second)
+		// TODO upload.Info() is using StreamID creation time but this value is different
+		// than last segment creation time, CommitObject request should return latest info
+		// about object and those values should be used with upload.Info()
+		// This should be working after final fix
+		// assert.Equal(t, info.ModTime, obj.Info.Created)
+		assert.WithinDuration(t, info.ModTime, obj.System.Created, 1*time.Second)
 
-			assert.Equal(t, info.Size, obj.System.ContentLength)
-			// TODO disabled until we will store ETag with object
-			// assert.Equal(t, info.ETag, hex.EncodeToString(obj.Checksum))
-			assert.Equal(t, info.ContentType, obj.Custom["content-type"])
-			assert.EqualValues(t, info.UserDefined, obj.Custom)
-		}
+		assert.Equal(t, info.Size, obj.System.ContentLength)
+		// TODO disabled until we will store ETag with object
+		// assert.Equal(t, info.ETag, hex.EncodeToString(obj.Checksum))
+		assert.Equal(t, info.ContentType, obj.Custom["content-type"])
+		assert.EqualValues(t, info.UserDefined, obj.Custom)
 	})
 }
 
@@ -391,7 +387,7 @@ func TestGetObjectInfo(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when getting an object with empty name
 		_, err = layer.GetObjectInfo(ctx, testBucket, "", minio.ObjectOptions{})
@@ -408,27 +404,26 @@ func TestGetObjectInfo(t *testing.T) {
 			"key2":         "value2",
 		}
 		obj, err := createFile(ctx, project, testBucketInfo.Name, testFile, []byte("test"), metadata)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Get the object info using the Minio API
 		info, err := layer.GetObjectInfo(ctx, testBucket, testFile, minio.ObjectOptions{})
-		if assert.NoError(t, err) {
-			assert.Equal(t, testFile, info.Name)
-			assert.Equal(t, testBucket, info.Bucket)
-			assert.False(t, info.IsDir)
+		require.NoError(t, err)
+		assert.Equal(t, testFile, info.Name)
+		assert.Equal(t, testBucket, info.Bucket)
+		assert.False(t, info.IsDir)
 
-			// TODO upload.Info() is using StreamID creation time but this value is different
-			// than last segment creation time, CommitObject request should return latest info
-			// about object and those values should be used with upload.Info()
-			// This should be working after final fix
-			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 1*time.Second)
+		// TODO upload.Info() is using StreamID creation time but this value is different
+		// than last segment creation time, CommitObject request should return latest info
+		// about object and those values should be used with upload.Info()
+		// This should be working after final fix
+		// assert.Equal(t, info.ModTime, obj.Info.Created)
+		assert.WithinDuration(t, info.ModTime, obj.System.Created, 1*time.Second)
 
-			assert.Equal(t, obj.System.ContentLength, info.Size)
-			assert.Equal(t, obj.Custom["s3:etag"], info.ETag)
-			assert.Equal(t, "text/plain", info.ContentType)
-			assert.Equal(t, metadata, info.UserDefined)
-		}
+		assert.Equal(t, obj.System.ContentLength, info.Size)
+		assert.Equal(t, obj.Custom["s3:etag"], info.ETag)
+		assert.Equal(t, "text/plain", info.ContentType)
+		assert.Equal(t, metadata, info.UserDefined)
 	})
 }
 
@@ -446,7 +441,7 @@ func TestGetObjectNInfo(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when getting an object with empty name
 		_, err = layer.GetObjectNInfo(ctx, testBucket, "", nil, nil, 0, minio.ObjectOptions{})
@@ -463,7 +458,7 @@ func TestGetObjectNInfo(t *testing.T) {
 			"key2":         "value2",
 		}
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile, []byte("abcdef"), metadata)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		for i, tt := range []struct {
 			rangeSpec *minio.HTTPRangeSpec
@@ -498,10 +493,10 @@ func TestGetObjectNInfo(t *testing.T) {
 				assert.Error(t, err, errTag)
 			} else if assert.NoError(t, err) {
 				data, err := ioutil.ReadAll(reader)
-				assert.NoError(t, err, errTag)
+				require.NoError(t, err, errTag)
 
 				err = reader.Close()
-				assert.NoError(t, err, errTag)
+				require.NoError(t, err, errTag)
 
 				assert.Equal(t, tt.substr, string(data), errTag)
 			}
@@ -523,7 +518,7 @@ func TestGetObject(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when getting an object with empty name
 		err = layer.GetObject(ctx, testBucket, "", 0, 0, nil, "", minio.ObjectOptions{})
@@ -540,7 +535,7 @@ func TestGetObject(t *testing.T) {
 			"key2":         "value2",
 		}
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile, []byte("abcdef"), metadata)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		for i, tt := range []struct {
 			offset, length int64
@@ -591,7 +586,7 @@ func TestCopyObject(t *testing.T) {
 
 		// Create the source bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when copying an object with empty name
 		_, err = layer.CopyObject(ctx, testBucket, "", destBucket, destFile, minio.ObjectInfo{}, minio.ObjectOptions{}, minio.ObjectOptions{})
@@ -604,11 +599,11 @@ func TestCopyObject(t *testing.T) {
 			"key2":         "value2",
 		}
 		obj, err := createFile(ctx, project, testBucketInfo.Name, testFile, []byte("test"), metadata)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Get the source object info using the Minio API
 		srcInfo, err := layer.GetObjectInfo(ctx, testBucket, testFile, minio.ObjectOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when copying an object to a bucket with empty name
 		_, err = layer.CopyObject(ctx, testBucket, testFile, "", destFile, srcInfo, minio.ObjectOptions{}, minio.ObjectOptions{})
@@ -620,44 +615,42 @@ func TestCopyObject(t *testing.T) {
 
 		// Create the destination bucket using the Uplink API
 		destBucketInfo, err := project.CreateBucket(ctx, destBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Copy the object using the Minio API
 		info, err := layer.CopyObject(ctx, testBucket, testFile, destBucket, destFile, srcInfo, minio.ObjectOptions{}, minio.ObjectOptions{})
-		if assert.NoError(t, err) {
-			assert.Equal(t, destFile, info.Name)
-			assert.Equal(t, destBucket, info.Bucket)
-			assert.False(t, info.IsDir)
+		require.NoError(t, err)
+		assert.Equal(t, destFile, info.Name)
+		assert.Equal(t, destBucket, info.Bucket)
+		assert.False(t, info.IsDir)
 
-			// TODO upload.Info() is using StreamID creation time but this value is different
-			// than last segment creation time, CommitObject request should return latest info
-			// about object and those values should be used with upload.Info()
-			// This should be working after final fix
-			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 5*time.Second)
+		// TODO upload.Info() is using StreamID creation time but this value is different
+		// than last segment creation time, CommitObject request should return latest info
+		// about object and those values should be used with upload.Info()
+		// This should be working after final fix
+		// assert.Equal(t, info.ModTime, obj.Info.Created)
+		assert.WithinDuration(t, info.ModTime, obj.System.Created, 5*time.Second)
 
-			assert.Equal(t, obj.System.ContentLength, info.Size)
-			assert.Equal(t, "text/plain", info.ContentType)
-			assert.EqualValues(t, obj.Custom, info.UserDefined)
-		}
+		assert.Equal(t, obj.System.ContentLength, info.Size)
+		assert.Equal(t, "text/plain", info.ContentType)
+		assert.EqualValues(t, obj.Custom, info.UserDefined)
 
 		// Check that the destination object is uploaded using the Uplink API
 		obj, err = project.StatObject(ctx, destBucketInfo.Name, destFile)
-		if assert.NoError(t, err) {
-			assert.Equal(t, destFile, obj.Key)
-			assert.False(t, obj.IsPrefix)
+		require.NoError(t, err)
+		assert.Equal(t, destFile, obj.Key)
+		assert.False(t, obj.IsPrefix)
 
-			// TODO upload.Info() is using StreamID creation time but this value is different
-			// than last segment creation time, CommitObject request should return latest info
-			// about object and those values should be used with upload.Info()
-			// This should be working after final fix
-			// assert.Equal(t, info.ModTime, obj.Info.Created)
-			assert.WithinDuration(t, info.ModTime, obj.System.Created, 2*time.Second)
+		// TODO upload.Info() is using StreamID creation time but this value is different
+		// than last segment creation time, CommitObject request should return latest info
+		// about object and those values should be used with upload.Info()
+		// This should be working after final fix
+		// assert.Equal(t, info.ModTime, obj.Info.Created)
+		assert.WithinDuration(t, info.ModTime, obj.System.Created, 2*time.Second)
 
-			assert.Equal(t, info.Size, obj.System.ContentLength)
-			assert.Equal(t, info.ContentType, obj.Custom["content-type"])
-			assert.EqualValues(t, info.UserDefined, obj.Custom)
-		}
+		assert.Equal(t, info.Size, obj.System.ContentLength)
+		assert.Equal(t, info.ContentType, obj.Custom["content-type"])
+		assert.EqualValues(t, info.UserDefined, obj.Custom)
 	})
 }
 
@@ -677,7 +670,7 @@ func TestDeleteObject(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when deleting an object with empty name
 		deleted, err = layer.DeleteObject(ctx, testBucket, "", minio.ObjectOptions{})
@@ -690,11 +683,11 @@ func TestDeleteObject(t *testing.T) {
 
 		// Create the object using the Uplink API
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile, nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Delete the object info using the Minio API
 		deleted, err = layer.DeleteObject(ctx, testBucket, testFile, minio.ObjectOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, testBucket, deleted.Bucket)
 		assert.Equal(t, testFile, deleted.Name)
 
@@ -724,7 +717,7 @@ func TestDeleteObjects(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check the error when deleting an object with empty name
 		deletedObjects, deleteErrors = layer.DeleteObjects(ctx, testBucket, []minio.ObjectToDelete{{ObjectName: ""}}, minio.ObjectOptions{})
@@ -742,17 +735,17 @@ func TestDeleteObjects(t *testing.T) {
 
 		// Create the 3 objects using the Uplink API
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile, nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile2, nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		_, err = createFile(ctx, project, testBucketInfo.Name, testFile3, nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Delete the 1st and the 3rd object using the Minio API
 		deletedObjects, deleteErrors = layer.DeleteObjects(ctx, testBucket, []minio.ObjectToDelete{{ObjectName: testFile}, {ObjectName: testFile3}}, minio.ObjectOptions{})
 		require.Len(t, deleteErrors, 2)
-		assert.NoError(t, deleteErrors[0])
-		assert.NoError(t, deleteErrors[1])
+		require.NoError(t, deleteErrors[0])
+		require.NoError(t, deleteErrors[1])
 		require.Len(t, deletedObjects, 2)
 		assert.NotEmpty(t, deletedObjects[0])
 		assert.NotEmpty(t, deletedObjects[1])
@@ -761,7 +754,7 @@ func TestDeleteObjects(t *testing.T) {
 		_, err = project.StatObject(ctx, testBucketInfo.Name, testFile)
 		assert.True(t, errors.Is(err, uplink.ErrObjectNotFound))
 		_, err = project.StatObject(ctx, testBucketInfo.Name, testFile2)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		_, err = project.StatObject(ctx, testBucketInfo.Name, testFile3)
 		assert.True(t, errors.Is(err, uplink.ErrObjectNotFound))
 	})
@@ -861,7 +854,7 @@ func testListObjects(t *testing.T, listObjects listObjectsFunc) {
 
 		// Create the bucket and files using the Uplink API
 		testBucketInfo, err := project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		filePaths := []string{
 			"a", "aa", "b", "bb", "c",
@@ -889,7 +882,7 @@ func testListObjects(t *testing.T, listObjects listObjectsFunc) {
 				object:   file,
 				metadata: metadata,
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		sort.Strings(filePaths)
@@ -1120,36 +1113,35 @@ func testListObjects(t *testing.T, listObjects listObjectsFunc) {
 
 			// Check that the expected objects can be listed using the Minio API
 			prefixes, objects, marker, _, isTruncated, err := listObjects(ctx, layer, testBucket, tt.prefix, tt.marker, tt.delimiter, tt.maxKeys)
-			if assert.NoError(t, err, errTag) {
-				assert.Equal(t, tt.more, isTruncated, errTag)
-				assert.Equal(t, tt.marker, marker, errTag)
-				assert.Equal(t, tt.prefixes, prefixes, errTag)
-				require.Equal(t, len(tt.objects), len(objects), errTag)
-				for i, objectInfo := range objects {
-					path := objectInfo.Name
-					expected, found := files[path]
+			require.NoError(t, err, errTag)
+			assert.Equal(t, tt.more, isTruncated, errTag)
+			assert.Equal(t, tt.marker, marker, errTag)
+			assert.Equal(t, tt.prefixes, prefixes, errTag)
+			require.Equal(t, len(tt.objects), len(objects), errTag)
+			for i, objectInfo := range objects {
+				path := objectInfo.Name
+				expected, found := files[path]
 
-					if assert.True(t, found) {
-						if tt.prefix != "" && strings.HasSuffix(tt.prefix, "/") {
-							assert.Equal(t, tt.prefix+tt.objects[i], objectInfo.Name, errTag)
-						} else {
-							assert.Equal(t, tt.objects[i], objectInfo.Name, errTag)
-						}
-						assert.Equal(t, testBucket, objectInfo.Bucket, errTag)
-						assert.False(t, objectInfo.IsDir, errTag)
-
-						// TODO upload.Info() is using StreamID creation time but this value is different
-						// than last segment creation time, CommitObject request should return latest info
-						// about object and those values should be used with upload.Info()
-						// This should be working after final fix
-						// assert.Equal(t, info.ModTime, obj.Info.Created)
-						assert.WithinDuration(t, objectInfo.ModTime, expected.object.System.Created, 1*time.Second)
-
-						assert.Equal(t, expected.object.System.ContentLength, objectInfo.Size, errTag)
-						// assert.Equal(t, hex.EncodeToString(obj.Checksum), objectInfo.ETag, errTag)
-						assert.Equal(t, expected.metadata["content-type"], objectInfo.ContentType, errTag)
-						assert.Equal(t, expected.metadata, objectInfo.UserDefined, errTag)
+				if assert.True(t, found) {
+					if tt.prefix != "" && strings.HasSuffix(tt.prefix, "/") {
+						assert.Equal(t, tt.prefix+tt.objects[i], objectInfo.Name, errTag)
+					} else {
+						assert.Equal(t, tt.objects[i], objectInfo.Name, errTag)
 					}
+					assert.Equal(t, testBucket, objectInfo.Bucket, errTag)
+					assert.False(t, objectInfo.IsDir, errTag)
+
+					// TODO upload.Info() is using StreamID creation time but this value is different
+					// than last segment creation time, CommitObject request should return latest info
+					// about object and those values should be used with upload.Info()
+					// This should be working after final fix
+					// assert.Equal(t, info.ModTime, obj.Info.Created)
+					assert.WithinDuration(t, objectInfo.ModTime, expected.object.System.Created, 1*time.Second)
+
+					assert.Equal(t, expected.object.System.ContentLength, objectInfo.Size, errTag)
+					// assert.Equal(t, hex.EncodeToString(obj.Checksum), objectInfo.ETag, errTag)
+					assert.Equal(t, expected.metadata["content-type"], objectInfo.ContentType, errTag)
+					assert.Equal(t, expected.metadata, objectInfo.UserDefined, errTag)
 				}
 			}
 		}
@@ -1403,7 +1395,7 @@ func TestListMultipartUploads(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		_, err = project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		userDefined := make(map[string]string)
 
@@ -1725,7 +1717,7 @@ func TestGetMultipartInfo(t *testing.T) {
 
 		// Create the bucket using the Uplink API
 		_, err = project.CreateBucket(ctx, testBucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		now := time.Now()
 		// TODO when we can have two multipart uploads for the same object key, make tests for this case
@@ -2149,7 +2141,7 @@ func TestProjectUsageLimit(t *testing.T) {
 
 		// Create a bucket with the Minio API
 		err = layer.MakeBucketWithLocation(ctxWithAccessGrant, "testbucket", minio.BucketOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		hashReader, err := hash.NewReader(bytes.NewReader(data), int64(dataSize), md5Hex(data), sha256Hex(data), int64(dataSize), true)
 		require.NoError(t, err)

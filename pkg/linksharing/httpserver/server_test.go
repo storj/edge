@@ -191,7 +191,7 @@ func (testCase *serverTestCase) DoGet(ctx context.Context, tb testing.TB) {
 	assert.Equal(tb, resp.StatusCode, http.StatusBadRequest)
 
 	body, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(tb, err)
+	require.NoError(tb, err)
 	assert.True(tb, strings.HasPrefix(strings.ToLower(string(body)), "<!doctype html>\n"))
 }
 
