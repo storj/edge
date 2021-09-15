@@ -39,9 +39,14 @@ var (
 
 	// ErrProjectUsageLimit is a custom error for when a user has reached their
 	// Satellite project upload limit.
+	// Note: we went with 403 Forbidden over 507 Insufficient Storage, as 507
+	// doesn't fit this case exactly. 507 is for when the server cannot
+	// physically store any further data, e.g. the disk has filled up. In this
+	// case though the user can solve this themselves by upgrading their plan,
+	// so it should be treated as a 4xx level error, not 5xx.
 	ErrProjectUsageLimit = miniogo.ErrorResponse{
 		Code:       "XStorjProjectLimits",
-		StatusCode: http.StatusInsufficientStorage,
+		StatusCode: http.StatusForbidden,
 		Message:    "You have reached your Storj project upload limit on the Satellite.",
 	}
 
