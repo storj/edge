@@ -874,7 +874,9 @@ func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath st
 		delete(opts.UserDefined, xhttp.AmzObjectTagging)
 	}
 
-	opts.UserDefined["s3:etag"] = hex.EncodeToString(data.MD5Current())
+	etag := data.MD5CurrentHexString()
+	opts.UserDefined["s3:etag"] = etag
+
 	err = upload.SetCustomMetadata(ctx, opts.UserDefined)
 	if err != nil {
 		abortErr := upload.Abort()
@@ -887,7 +889,7 @@ func (gateway *gateway) PutObject(ctx context.Context, bucketName, objectPath st
 		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
 	}
 
-	return minioObjectInfo(bucketName, opts.UserDefined["s3:etag"], upload.Info()), nil
+	return minioObjectInfo(bucketName, etag, upload.Info()), nil
 }
 
 func (gateway *gateway) Shutdown(ctx context.Context) (err error) {

@@ -5,13 +5,9 @@ package server
 
 import (
 	"context"
-	"crypto/md5" /* #nosec G501 */ // Is only used for calculating a hash of the ETags of the all the parts of a multipart upload.
-	"encoding/hex"
 	"errors"
 	"math"
 	"sort"
-	"strconv"
-	"strings"
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/config/storageclass"
@@ -123,7 +119,7 @@ func (gateway *gateway) PutObjectPart(ctx context.Context, bucket, object, uploa
 		return minio.PartInfo{}, convertMultipartError(err, bucket, object, uploadID)
 	}
 
-	err = partUpload.SetETag([]byte(data.MD5CurrentHexString())) // TODO is MD5CurrentHexString correct?
+	err = partUpload.SetETag([]byte(data.MD5CurrentHexString()))
 	if err != nil {
 		abortErr := partUpload.Abort()
 		err = errs.Combine(err, abortErr)
@@ -202,10 +198,7 @@ func (gateway *gateway) CompleteMultipartUpload(ctx context.Context, bucket, obj
 		return minio.ObjectInfo{}, convertMultipartError(list.Err(), bucket, object, uploadID)
 	}
 
-	etag, err := multipartUploadETag(uploadedParts)
-	if err != nil {
-		return minio.ObjectInfo{}, convertMultipartError(err, bucket, object, uploadID)
-	}
+	etag := minio.ComputeCompleteMultipartMD5(uploadedParts)
 
 	if tagsStr, ok := opts.UserDefined[xhttp.AmzObjectTagging]; ok {
 		opts.UserDefined["s3:tags"] = tagsStr
@@ -374,31 +367,6 @@ func minioMultipartInfo(bucket string, object *uplink.UploadInfo) minio.Multipar
 		UploadID:    object.UploadID,
 		UserDefined: object.Custom,
 	}
-}
-
-func multipartUploadETag(parts []minio.CompletePart) (string, error) {
-	var hashes []byte
-	for _, part := range parts {
-		md5, err := hex.DecodeString(canonicalEtag(part.ETag))
-		if err != nil {
-			hashes = append(hashes, []byte(part.ETag)...)
-		} else {
-			hashes = append(hashes, md5...)
-		}
-	}
-
-	/* #nosec G401 */ // ETags aren't security sensitive
-	sum := md5.Sum(hashes)
-	return hex.EncodeToString(sum[:]) + "-" + strconv.Itoa(len(parts)), nil
-}
-
-func canonicalEtag(etag string) string {
-	etag = strings.Trim(etag, `"`)
-	p := strings.IndexByte(etag, '-')
-	if p >= 0 {
-		return etag[:p]
-	}
-	return etag
 }
 
 func convertMultipartError(err error, bucket, object, uploadID string) error {
