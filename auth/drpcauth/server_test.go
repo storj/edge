@@ -3,7 +3,6 @@
 package drpcauth
 
 import (
-	"context"
 	"net/url"
 	"testing"
 
@@ -31,20 +30,21 @@ var minimalAccessSatelliteID = func() storj.NodeID {
 	return url.ID
 }()
 
-func createBackend(ctx context.Context, t *testing.T) (*Server, *authdb.Database) {
+func createBackend(t *testing.T) (*Server, *authdb.Database) {
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
 	allowedSatelliteIDs := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 
 	db := authdb.NewDatabase(memauth.New(), allowedSatelliteIDs)
 
-	return NewServer(ctx, zaptest.NewLogger(t), db, endpoint), db
+	return NewServer(zaptest.NewLogger(t), db, endpoint), db
 }
 
 func TestRegisterAccess(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	server, db := createBackend(ctx, t)
+
+	server, db := createBackend(t)
 
 	response, err := server.RegisterAccess(
 		ctx,

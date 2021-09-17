@@ -178,7 +178,7 @@ func (p *Peer) Run(ctx context.Context) error {
 		})
 	}
 
-	drpcServer := drpcauth.NewServer(groupCtx, p.log, p.adb, p.endpoint)
+	drpcServer := drpcauth.NewServer(p.log, p.adb, p.endpoint)
 
 	ctxWithCancel, cancel := context.WithCancel(groupCtx)
 

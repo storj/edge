@@ -29,7 +29,6 @@ import (
 type Server struct {
 	pb.DRPCEdgeAuthServer
 
-	ctx context.Context
 	log *zap.Logger
 
 	// This is duplicated with package storj.io/gateway-mt/auth/httpauth/resources
@@ -38,15 +37,13 @@ type Server struct {
 	endpoint *url.URL
 }
 
-// NewServer creates a Server which is not running.
+// NewServer creates a Server that is not running.
 func NewServer(
-	ctx context.Context,
 	log *zap.Logger,
 	db *authdb.Database,
 	endpoint *url.URL,
 ) *Server {
 	return &Server{
-		ctx:      ctx,
 		log:      log,
 		db:       db,
 		endpoint: endpoint,
