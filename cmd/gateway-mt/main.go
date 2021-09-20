@@ -184,7 +184,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 
 	if runCfg.UseClientIPHeaders {
 		if len(runCfg.ClientTrustedIPSList) > 0 {
-			trustedClientIPs = trustedip.NewListTrustIPs(runCfg.ClientTrustedIPSList...)
+			trustedClientIPs = trustedip.NewList(runCfg.ClientTrustedIPSList...)
 		} else {
 			trustedClientIPs = trustedip.NewListTrustAll()
 		}

@@ -20,7 +20,7 @@ func TestGetClientIP(t *testing.T) {
 	}{
 		{
 			desc: "Trusted IP (v4) 'Forwarded' single 'for'",
-			l:    NewListTrustIPs("192.168.5.2", "10.5.2.23"),
+			l:    NewList("192.168.5.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header:     map[string][]string{"Forwarded": {"for=172.17.5.10"}},
@@ -29,7 +29,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' single 'for'",
-			l:    NewListTrustIPs("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"Forwarded": {"for=49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -38,7 +38,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for'",
-			l:    NewListTrustIPs("192.168.5.2", "10.5.2.23"),
+			l:    NewList("192.168.5.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.5.2",
 				Header: map[string][]string{
@@ -49,7 +49,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for'",
-			l:    NewListTrustIPs("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
+			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -60,7 +60,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for' with space after comma",
-			l:    NewListTrustIPs("10.5.2.23"),
+			l:    NewList("10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header: map[string][]string{
@@ -71,7 +71,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for' with space after comma",
-			l:    NewListTrustIPs("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"),
+			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"),
 			r: &http.Request{
 				RemoteAddr: "[49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c]:8089",
 				Header: map[string][]string{
@@ -82,7 +82,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for' with other pairs",
-			l:    NewListTrustIPs("192.168.5.2", "10.5.2.23", "172.20.20.20"),
+			l:    NewList("192.168.5.2", "10.5.2.23", "172.20.20.20"),
 			r: &http.Request{
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
@@ -96,7 +96,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for' with other pairs",
-			l:    NewListTrustIPs("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "172.20.20.20"),
+			l:    NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "172.20.20.20"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -110,7 +110,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Forwarded-For' single IP",
-			l:    NewListTrustIPs("192.168.50.2", "10.5.2.23"),
+			l:    NewList("192.168.50.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},
@@ -119,7 +119,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Forwarded-For' single IP",
-			l:    NewListTrustIPs("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
+			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "[8428:f6d:9d3d:82cf:7190:3c31:3326:8484]:123",
 				Header:     map[string][]string{"X-Forwarded-For": {"49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -128,7 +128,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Forwarded-For' multiple IPs",
-			l:    NewListTrustIPs("10.5.2.23", "192.168.50.2"),
+			l:    NewList("10.5.2.23", "192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header: map[string][]string{
@@ -139,7 +139,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Forwarded-For' multiple IPs",
-			l:    NewListTrustIPs("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "192.168.50.2"),
+			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c",
 				Header: map[string][]string{
@@ -150,7 +150,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Real-Ip'",
-			l:    NewListTrustIPs("192.168.50.2"),
+			l:    NewList("192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header:     map[string][]string{"X-Real-Ip": {"172.31.254.85"}},
@@ -159,7 +159,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Real-Ip'",
-			l:    NewListTrustIPs("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"X-Real-Ip": {"49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -168,7 +168,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) no headers",
-			l:    NewListTrustIPs("192.168.50.60", "10.5.2.23"),
+			l:    NewList("192.168.50.60", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.60",
 			},
@@ -176,7 +176,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) no headers",
-			l:    NewListTrustIPs("192.168.50.60", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    NewList("192.168.50.60", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "[8428:f6d:9d3d:82cf:7190:3c31:3326:8484]:7894",
 			},
@@ -184,7 +184,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) multiple headers",
-			l:    NewListTrustIPs("10.5.2.23"),
+			l:    NewList("10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header: map[string][]string{
@@ -196,7 +196,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) multiple headers",
-			l:    NewListTrustIPs("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -208,7 +208,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted IP (v4)",
-			l:    NewListTrustIPs("192.168.50.2", "10.5.2.23"),
+			l:    NewList("192.168.50.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.100.15",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},
@@ -217,7 +217,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted IP (v6)",
-			l:    NewListTrustIPs("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "10.5.2.23"),
+			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},

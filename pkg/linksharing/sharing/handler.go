@@ -160,7 +160,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 	var trustedClientIPs trustedip.List
 	if config.UseClientIPHeaders {
 		if len(config.ClientTrustedIPsList) > 0 {
-			trustedClientIPs = trustedip.NewListTrustIPs(config.ClientTrustedIPsList...)
+			trustedClientIPs = trustedip.NewList(config.ClientTrustedIPsList...)
 		} else {
 			trustedClientIPs = trustedip.NewListTrustAll()
 		}

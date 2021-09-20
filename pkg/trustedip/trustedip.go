@@ -27,11 +27,11 @@ func NewListTrustAll() List {
 	return List{}
 }
 
-// NewListTrustIPs creates a new List which trusts the passed ips.
+// NewList creates a new List which trusts the passed ips.
 //
 // NOTE: ips are not checked to be well formatted and their values are what they
 // kept in the list.
-func NewListTrustIPs(ips ...string) List {
+func NewList(ips ...string) List {
 	l := List{ips: make(map[string]struct{}, len(ips))}
 
 	for _, ip := range ips {
