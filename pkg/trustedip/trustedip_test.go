@@ -1,26 +1,27 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package trustedip
+package trustedip_test
 
 import (
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 func TestGetClientIP(t *testing.T) {
 	testCases := []struct {
 		desc string
-		l    List
+		l    trustedip.List
 		r    *http.Request
 		ip   string
 	}{
 		{
 			desc: "Trusted IP (v4) 'Forwarded' single 'for'",
-			l:    NewList("192.168.5.2", "10.5.2.23"),
+			l:    trustedip.NewList("192.168.5.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header:     map[string][]string{"Forwarded": {"for=172.17.5.10"}},
@@ -29,7 +30,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' single 'for'",
-			l:    NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    trustedip.NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"Forwarded": {"for=49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -38,7 +39,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for'",
-			l:    NewList("192.168.5.2", "10.5.2.23"),
+			l:    trustedip.NewList("192.168.5.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.5.2",
 				Header: map[string][]string{
@@ -49,7 +50,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for'",
-			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
+			l:    trustedip.NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -60,7 +61,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for' with space after comma",
-			l:    NewList("10.5.2.23"),
+			l:    trustedip.NewList("10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header: map[string][]string{
@@ -71,7 +72,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for' with space after comma",
-			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"),
+			l:    trustedip.NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"),
 			r: &http.Request{
 				RemoteAddr: "[49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c]:8089",
 				Header: map[string][]string{
@@ -82,7 +83,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'Forwarded' multiple 'for' with other pairs",
-			l:    NewList("192.168.5.2", "10.5.2.23", "172.20.20.20"),
+			l:    trustedip.NewList("192.168.5.2", "10.5.2.23", "172.20.20.20"),
 			r: &http.Request{
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
@@ -96,7 +97,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'Forwarded' multiple 'for' with other pairs",
-			l:    NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "172.20.20.20"),
+			l:    trustedip.NewList("192.168.5.2", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "172.20.20.20"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -110,7 +111,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Forwarded-For' single IP",
-			l:    NewList("192.168.50.2", "10.5.2.23"),
+			l:    trustedip.NewList("192.168.50.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},
@@ -119,7 +120,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Forwarded-For' single IP",
-			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
+			l:    trustedip.NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "[8428:f6d:9d3d:82cf:7190:3c31:3326:8484]:123",
 				Header:     map[string][]string{"X-Forwarded-For": {"49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -128,7 +129,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Forwarded-For' multiple IPs",
-			l:    NewList("10.5.2.23", "192.168.50.2"),
+			l:    trustedip.NewList("10.5.2.23", "192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header: map[string][]string{
@@ -139,7 +140,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Forwarded-For' multiple IPs",
-			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "192.168.50.2"),
+			l:    trustedip.NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c",
 				Header: map[string][]string{
@@ -150,7 +151,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) 'X-Real-Ip'",
-			l:    NewList("192.168.50.2"),
+			l:    trustedip.NewList("192.168.50.2"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.2",
 				Header:     map[string][]string{"X-Real-Ip": {"172.31.254.85"}},
@@ -159,7 +160,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) 'X-Real-Ip'",
-			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    trustedip.NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"X-Real-Ip": {"49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c"}},
@@ -168,7 +169,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) no headers",
-			l:    NewList("192.168.50.60", "10.5.2.23"),
+			l:    trustedip.NewList("192.168.50.60", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.50.60",
 			},
@@ -176,7 +177,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) no headers",
-			l:    NewList("192.168.50.60", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    trustedip.NewList("192.168.50.60", "8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "[8428:f6d:9d3d:82cf:7190:3c31:3326:8484]:7894",
 			},
@@ -184,7 +185,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v4) multiple headers",
-			l:    NewList("10.5.2.23"),
+			l:    trustedip.NewList("10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "10.5.2.23",
 				Header: map[string][]string{
@@ -196,7 +197,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Trusted IP (v6) multiple headers",
-			l:    NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
+			l:    trustedip.NewList("8428:f6d:9d3d:82cf:7190:3c31:3326:8484"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header: map[string][]string{
@@ -208,7 +209,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted IP (v4)",
-			l:    NewList("192.168.50.2", "10.5.2.23"),
+			l:    trustedip.NewList("192.168.50.2", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "192.168.100.15",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},
@@ -217,7 +218,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted IP (v6)",
-			l:    NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "10.5.2.23"),
+			l:    trustedip.NewList("49d4:4f54:d2fa:4f5f:fe12:d3bf:d523:192c", "10.5.2.23"),
 			r: &http.Request{
 				RemoteAddr: "8428:f6d:9d3d:82cf:7190:3c31:3326:8484",
 				Header:     map[string][]string{"X-Forwarded-For": {"172.31.254.80"}},
@@ -226,7 +227,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted any IP (v4)",
-			l:    NewListUntrustAll(),
+			l:    trustedip.NewListUntrustAll(),
 			r: &http.Request{
 				RemoteAddr: "192.168.135.80:6968",
 				Header: map[string][]string{
@@ -238,7 +239,7 @@ func TestGetClientIP(t *testing.T) {
 		},
 		{
 			desc: "Untrusted any IP (v6)",
-			l:    NewListUntrustAll(),
+			l:    trustedip.NewListUntrustAll(),
 			r: &http.Request{
 				RemoteAddr: "[6e11:d5a8:b04d:9416:1f51:5262:15bc:4be6]:5458",
 				Header: map[string][]string{
@@ -253,7 +254,7 @@ func TestGetClientIP(t *testing.T) {
 	for _, tC := range testCases {
 		tC := tC
 		t.Run(tC.desc, func(t *testing.T) {
-			ip := GetClientIP(tC.l, tC.r)
+			ip := trustedip.GetClientIP(tC.l, tC.r)
 			assert.Equal(t, tC.ip, ip)
 		})
 	}
@@ -466,7 +467,7 @@ func TestGetClientIPFromHeaders(t *testing.T) {
 	for _, tC := range testCases {
 		tC := tC
 		t.Run(tC.desc, func(t *testing.T) {
-			ip, ok := GetIPFromHeaders(tC.r.Header)
+			ip, ok := trustedip.GetIPFromHeaders(tC.r.Header)
 			if !tC.ok {
 				assert.Equal(t, tC.ok, ok, "OK")
 				return
@@ -474,101 +475,6 @@ func TestGetClientIPFromHeaders(t *testing.T) {
 
 			assert.Equal(t, tC.ip, ip)
 			assert.Equal(t, tC.ok, ok)
-		})
-	}
-}
-
-func TestStripPort(t *testing.T) {
-	testCases := []struct {
-		desc string
-		addr string
-		exp  string
-	}{
-		{
-			desc: "hostname no port",
-			addr: "storj.test",
-			exp:  "storj.test",
-		},
-		{
-			desc: "hostname port",
-			addr: "storj.test:1234",
-			exp:  "storj.test",
-		},
-		{
-			desc: "hostname invalid",
-			addr: "storj:test:123:",
-			exp:  "storj:test:123:",
-		},
-		{
-			desc: "IPv4 no port",
-			addr: "192.168.1.78",
-			exp:  "192.168.1.78",
-		},
-		{
-			desc: "IPv4 port",
-			addr: "192.168.7.69:7888",
-			exp:  "192.168.7.69",
-		},
-		{
-			desc: "IPv4 invalid",
-			addr: "1985:5849.15.15:8080:",
-			exp:  "1985:5849.15.15:8080:",
-		},
-		{
-			desc: "IPv6 no port",
-			addr: "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7",
-			exp:  "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7",
-		},
-		{
-			desc: "IPv6 port",
-			addr: "[6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7]:9898",
-			exp:  "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7",
-		},
-		{
-			desc: "IPv6 invalid not closing bracket",
-			addr: "[6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7:9898",
-			exp:  "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b",
-		},
-		{
-			desc: "IPv6 invalid port without brackets",
-			addr: "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7:9898",
-			exp:  "6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7:9898",
-		},
-		{
-			desc: "IPv6 invalid brackets no port",
-			addr: "[6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7]",
-			exp:  "6934:9e20:e075:a5f6:c8d2:21d1:124",
-		},
-		{
-			desc: "empty address",
-			addr: "",
-			exp:  "",
-		},
-		{
-			desc: "invalid address bracket",
-			addr: "[",
-			exp:  "[",
-		},
-		{
-			desc: "invalid address bracket-colon",
-			addr: "[:",
-			exp:  "[:",
-		},
-		{
-			desc: "invalid address brackets",
-			addr: "[]",
-			exp:  "[]",
-		},
-		{
-			desc: "invalid address colon",
-			addr: ":",
-			exp:  "",
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			host := stripPort(tC.addr)
-			require.Equal(t, tC.exp, host)
 		})
 	}
 }
