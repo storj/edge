@@ -22,6 +22,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
+	"storj.io/gateway-mt/pkg/auth/failrate"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/server"
@@ -31,10 +32,12 @@ const serverShutdownTimeout = 10 * time.Second
 
 // Config holds authservice's configuration.
 type Config struct {
-	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
-	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
-	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
-	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
+	Endpoint                     string        `help:"Gateway endpoint URL to return to clients" default:""`
+	AuthToken                    string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
+	AllowedSatellites            []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
+	CacheExpiration              time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
+	GetAccessRateLimiters        failrate.LimitersConfig
+	GetAccessRateLimitersEnabled bool `help:"indicates if rate-limiting for GetAccess endpoints is enabled" default:"false"`
 
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
@@ -112,7 +115,16 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	adb := authdb.NewDatabase(kv, allowedSats)
-	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken)
+
+	var rl *failrate.Limiters
+	if config.GetAccessRateLimitersEnabled {
+		rl, err = failrate.NewLimiters(config.GetAccessRateLimiters)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, rl)
 
 	tlsInfo := &TLSInfo{
 		LetsEncrypt: config.LetsEncrypt,

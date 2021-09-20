@@ -7,11 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -19,7 +22,10 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/failrate"
 	"storj.io/gateway-mt/pkg/auth/memauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
@@ -45,7 +51,16 @@ func TestResources_URLs(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
-		New(zaptest.NewLogger(t), nil, endpoint, "authToken").ServeHTTP(rec, req)
+
+		limiters, err := failrate.NewLimiters(failrate.LimitersConfig{
+			MaxReqsSecond: 1,
+			Burst:         1,
+			NumLimits:     10,
+		})
+		require.NoError(t, err)
+
+		res := New(zaptest.NewLogger(t), nil, endpoint, "authToken", limiters)
+		res.ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
 
@@ -102,7 +117,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Availability after startup", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		const path = "/v1/health/startup"
 
@@ -119,7 +134,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -148,7 +163,7 @@ func TestResources_CRUD(t *testing.T) {
 		var unknownSatelliteID storj.NodeID
 		unknownSatelliteID[4] = 7
 		allowed := map[storj.NodeID]struct{}{unknownSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -156,7 +171,7 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 
 		allowed = map[storj.NodeID]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -165,7 +180,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowed, _, err := satellitelist.LoadSatelliteIDs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -185,7 +200,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalidate", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -211,7 +226,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Public", func(t *testing.T) {
 		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -233,7 +248,7 @@ func TestResources_Authorization(t *testing.T) {
 	require.NoError(t, err)
 
 	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-	res := New(zaptest.NewLogger(t), authdb.NewDatabase(memauth.New(), allowed), endpoint, "authToken")
+	res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -267,7 +282,10 @@ func TestResources_CORS(t *testing.T) {
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
 		req.Header.Add("Origin", "http://example.com")
-		New(zaptest.NewLogger(t), nil, endpoint, "authToken").ServeHTTP(rec, req)
+
+		res := newResource(t, nil, endpoint, nil)
+		res.ServeHTTP(rec, req)
+
 		result := rec.Result()
 		require.NoError(t, result.Body.Close())
 
@@ -288,4 +306,180 @@ func TestResources_CORS(t *testing.T) {
 	require.False(t, check("GET", "/v1/access/someid"))
 	require.False(t, check("PUT", "/v1/access/someid/invalid"))
 	require.False(t, check("DELETE", "/v1/access/someid"))
+}
+
+func TestResources_getAccess_withLimiters(t *testing.T) {
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+
+	limiters, err := failrate.NewLimiters(failrate.LimitersConfig{
+		MaxReqsSecond: 1, Burst: 1, NumLimits: 10,
+	})
+	require.NoError(t, err)
+	res := newResource(
+		t, authdb.NewDatabase(memauth.New(), allowed), endpoint, limiters,
+	)
+
+	accessKeyID := createAccess(t, minimalAccess, res)
+
+	t.Run("allowed", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+accessKeyID, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer authToken")
+		rc := httptest.NewRecorder()
+		res.ServeHTTP(rc, req)
+		require.Equal(t, http.StatusOK, rc.Code)
+	})
+
+	t.Run("rate-limited", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		deletedAccess := createAccess(t, generateAccessGrant(t, time.Time{}), res)
+
+		// Delete the access grant for being able to request one that doesn't exist.
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "/v1/access/"+deletedAccess, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer authToken")
+		rc := httptest.NewRecorder()
+		res.ServeHTTP(rc, req)
+		require.Equal(t, http.StatusOK, rc.Code)
+
+		// Request an access grant that doesn't exist.
+		// This request isn't rate limited because it's configured for allowing one
+		// failure.
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+deletedAccess, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer authToken")
+		rc = httptest.NewRecorder()
+		res.ServeHTTP(rc, req)
+		require.Equal(t, http.StatusUnauthorized, rc.Code)
+
+		// Request an existing access grant but verifies that it's rate-limited due
+		// to the previous failed request.
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+accessKeyID, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer authToken")
+		rc = httptest.NewRecorder()
+		res.ServeHTTP(rc, req)
+		require.Equal(t, http.StatusTooManyRequests, rc.Code)
+
+		rah := rc.Header().Get("Retry-After")
+		ra, err := strconv.Atoi(rah)
+		require.NoErrorf(
+			t, err, "invalid Retry-After header value, expected an integer, got: %s ",
+			rah,
+		)
+		require.Equal(t, 1, ra, "Retry-After seconds")
+	})
+}
+
+func TestResources_getAccess_noLimiters(t *testing.T) {
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+
+	res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	accessKeyID := createAccess(t, minimalAccess, res)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+accessKeyID, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer authToken")
+	rc := httptest.NewRecorder()
+	res.ServeHTTP(rc, req)
+	require.Equal(t, http.StatusOK, rc.Code)
+
+	deletedAccess := createAccess(t, generateAccessGrant(t, time.Time{}), res)
+
+	// Delete the access grant for being able to request one that doesn't exist.
+	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, "/v1/access/"+deletedAccess, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer authToken")
+	rc = httptest.NewRecorder()
+	res.ServeHTTP(rc, req)
+	require.Equal(t, http.StatusOK, rc.Code)
+
+	// Request an access grant that doesn't exist several times.
+	for i := 0; i < rand.Intn(100)+10; i++ {
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+deletedAccess, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer authToken")
+		rc = httptest.NewRecorder()
+		res.ServeHTTP(rc, req)
+		require.Equal(t, http.StatusUnauthorized, rc.Code)
+	}
+
+	// Request an existing access grant should be fine because they
+	// rate-limiting isn't set.
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+accessKeyID, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer authToken")
+	rc = httptest.NewRecorder()
+	res.ServeHTTP(rc, req)
+	require.Equal(t, http.StatusOK, rc.Code)
+}
+
+func newResource(
+	t *testing.T, db *authdb.Database, endpoint *url.URL, limiters *failrate.Limiters,
+) *Resources {
+	t.Helper()
+
+	return New(zaptest.NewLogger(t), db, endpoint, "authToken", limiters)
+}
+
+// Generates a new valid access grant.
+// It's restricted to be valid until notAfter unless that notAfter is the zero
+// value.
+func generateAccessGrant(t *testing.T, notAfter time.Time) string {
+	t.Helper()
+
+	key := testrand.Key()
+	apiKey, err := macaroon.NewAPIKey(key[:])
+	require.NoError(t, err)
+
+	if !notAfter.IsZero() {
+		apiKey, err = apiKey.Restrict(macaroon.Caveat{NotAfter: &notAfter})
+		require.NoError(t, err)
+	}
+
+	inner := grant.Access{
+		SatelliteAddress: "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s",
+		APIKey:           apiKey,
+		EncAccess:        grant.NewEncryptionAccess(),
+	}
+
+	serialized, err := inner.Serialize()
+	require.NoError(t, err)
+
+	return serialized
+}
+
+// createAccess creates an access through the AuthService endpoint.
+func createAccess(t *testing.T, accessGrant string, res *Resources) (accessKeyID string) {
+	t.Helper()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	body := strings.NewReader(fmt.Sprintf(`{"access_grant": %q}`, accessGrant))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/v1/access", body)
+	require.NoError(t, err)
+
+	rc := httptest.NewRecorder()
+	res.ServeHTTP(rc, req)
+	require.Equal(t, http.StatusOK, rc.Code)
+
+	var resBody struct {
+		AccessKeyID string `json:"access_key_id"`
+	}
+
+	require.NoError(t, json.Unmarshal(rc.Body.Bytes(), &resBody))
+	return resBody.AccessKeyID
 }

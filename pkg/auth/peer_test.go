@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/auth/failrate"
 )
 
 // TestPeer_Close ensures that closing bare Peer with minimal config it needs to
@@ -22,6 +23,9 @@ func TestPeer_Close(t *testing.T) {
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
 		KVBackend:         "memory://",
+		GetAccessRateLimiters: failrate.LimitersConfig{
+			MaxReqsSecond: 1, Burst: 1, NumLimits: 10,
+		},
 	}, "")
 	require.NoError(t, err)
 
