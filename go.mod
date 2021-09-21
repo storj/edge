@@ -20,15 +20,15 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20210830144612-749c41c36e30
+	storj.io/common v0.0.0-20210916151047-6aaeb34bb916
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v0.0.24
+	storj.io/drpc v0.0.26
 	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0
-	storj.io/uplink v1.5.0-rc.1.0.20210827115050-6827e2032248
+	storj.io/uplink v1.5.0-rc.1.0.20210920080020-164b0597d1b0
 )
 
 replace github.com/minio/minio => storj.io/minio v0.0.0-20210914060719-27c1b4bf0b74
