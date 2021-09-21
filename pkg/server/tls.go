@@ -32,6 +32,7 @@ func LoadTLSConfigFromDir(configDir string) (*tls.Config, error) {
 		certificates = append(certificates, cert)
 	}
 	return &tls.Config{
+		NextProtos:   []string{"h2", "http/1.1"},
 		MinVersion:   tls.VersionTLS12,
 		Certificates: certificates,
 	}, nil

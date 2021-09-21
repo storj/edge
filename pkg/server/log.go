@@ -24,6 +24,7 @@ const requestURILogField = "request-uri"
 func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
 		fields := []zapcore.Field{
+			zap.String("protocol", r.Proto),
 			zap.String("method", r.Method),
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
@@ -124,6 +125,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 	}
 
 	fields := []zapcore.Field{
+		zap.String("protocol", r.Proto),
 		zap.String("method", r.Method),
 		zap.String("host", r.Host),
 		zap.Int("code", rw.StatusCode()),
