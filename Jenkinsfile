@@ -187,18 +187,18 @@ timeout(time: 26, unit: 'MINUTES') {
 				println output.join('\n')
 
 				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16'
-				sh 'docker network connect --alias mintsetup --ip $GATEWAY_IP minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER'
+				sh 'docker network connect --alias $GATEWAY_DOMAIN --ip $GATEWAY_IP minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER'
 				sh 'docker pull storjlabs/gateway-mint:latest'
 			}
 
 			stage('Integration') {
 				def branchedStages = [:]
 
-				tests = ['awscli', 'awscli_multipart', 'duplicity', 'duplicati']
+				tests = ['https', 'awscli', 'awscli_multipart', 'duplicity', 'duplicati']
 				tests.each { test ->
 					branchedStages["Test $test"] = {
 						stage("Test $test") {
-							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"http://\${GATEWAY_IP}:7777\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
+							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:7778\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
 						}
 					}
 				}
@@ -208,7 +208,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
-							sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
+							sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
 						}
 					}
 				}
@@ -224,10 +224,10 @@ timeout(time: 26, unit: 'MINUTES') {
 
 			// todo: aws-sdk-php test is disabled as the tests fail with multi-part validation disabled.
 			// stage('Integration Mint/PHP') {
-			// 	sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
+			// 	sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
 			// }
 			stage('Integration Mint/Ruby') {
-				sh "docker run --rm -e SERVER_ENDPOINT=mintsetup:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
+				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
 			}
 		}
 		catch(err) {

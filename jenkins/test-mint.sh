@@ -94,10 +94,40 @@ fi
 
 authtoken="bob"
 authservice_address="127.0.0.1:9191"
-minio_url="http://127.0.0.1:7777/"
+endpoint_url="https://${GATEWAY_DOMAIN}:7777/"
 
-authservice run --allowed-satellites "${satellite_node_url}" --auth-token "${authtoken}" --listen-addr "${authservice_address}"  --endpoint="${minio_url}" --kv-backend="memory://" &
-gateway-mt run --server.address 0.0.0.0:7777 --auth-url="http://${authservice_address}" --auth-token="${authtoken}" --domain-name="${GATEWAY_DOMAIN}" --insecure-log-all &
+CERT_DIR="${TMP}/certs"
+mkdir "$CERT_DIR"
+openssl req -nodes -new -x509 \
+    -subj "/CN=${GATEWAY_DOMAIN}/O=Test/C=US" \
+    -addext "subjectAltName=DNS:${GATEWAY_DOMAIN}" \
+    -keyout "${CERT_DIR}/cert.key" \
+    -out "${CERT_DIR}/cert.crt"
+
+authservice run \
+    --allowed-satellites "${satellite_node_url}" \
+    --auth-token "${authtoken}" \
+    --listen-addr "${authservice_address}" \
+    --endpoint "${endpoint_url}" \
+    --kv-backend "memory://" &
+
+# HTTP gateway
+gateway-mt run \
+    --server.address 0.0.0.0:7777 \
+    --auth-url "http://${authservice_address}" \
+    --auth-token "${authtoken}" \
+    --domain-name "${GATEWAY_DOMAIN}" \
+    --insecure-log-all &
+
+# HTTPS gateway
+gateway-mt run \
+    --server.address 0.0.0.0:7778 \
+    --auth-url "http://${authservice_address}" \
+    --auth-token "${authtoken}" \
+    --domain-name "${GATEWAY_DOMAIN}" \
+    --cert-dir "$CERT_DIR" \
+    --insecure-disable-tls=false \
+    --insecure-log-all &
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"

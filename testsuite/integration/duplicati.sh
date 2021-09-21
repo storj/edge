@@ -44,7 +44,7 @@ SERVER_NAME="${AWS_ENDPOINT#*//}"
 
 duplicati-cli backup "s3://$BUCKET" "$SRC_DIR" --s3-server-name="$SERVER_NAME" \
 	--passphrase=my-pass \
-	--use-ssl=false \
+	--use-ssl=true \
 	--debug-output=true \
 	--auth-username="$AWS_ACCESS_KEY_ID" \
 	--auth-password="$AWS_SECRET_ACCESS_KEY"
@@ -52,7 +52,7 @@ duplicati-cli backup "s3://$BUCKET" "$SRC_DIR" --s3-server-name="$SERVER_NAME" \
 duplicati-cli restore "s3://$BUCKET" --restore-path="$DST_DIR" \
 	--s3-server-name="$SERVER_NAME" \
 	--passphrase=my-pass \
-	--use-ssl=false \
+	--use-ssl=true \
 	--debug-output=true \
 	--auth-username="$AWS_ACCESS_KEY_ID" \
 	--auth-password="$AWS_SECRET_ACCESS_KEY"
