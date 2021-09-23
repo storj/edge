@@ -10,7 +10,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 
 	miniogo "github.com/minio/minio-go/v7"
@@ -24,19 +23,12 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/gwlog"
-	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 )
 
 var (
-	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
-
-	// ErrAccessGrant occurs when failing to parse the access grant from the request.
-	ErrAccessGrant = errs.Class("access grant")
-
 	// ErrProjectUsageLimit is a custom error for when a user has reached their
 	// Satellite project upload limit.
 	// Note: we went with 403 Forbidden over 507 Insufficient Storage, as 507
@@ -1024,42 +1016,6 @@ func minioObjectInfo(bucket, etag string, object *uplink.Object) minio.ObjectInf
 	}
 }
 
-func getAccessGrant(ctx context.Context) string {
-	reqInfo := logger.GetReqInfo(ctx)
-	if reqInfo == nil {
-		return ""
-	}
-	return reqInfo.AccessGrant
-}
-
-func getUserAgent(ctx context.Context) string {
-	userAgent := gatewayUserAgent
-	reqInfo := logger.GetReqInfo(ctx)
-	if reqInfo == nil {
-		return userAgent
-	}
-
-	if reqInfo.UserAgent != "" {
-		_, err := useragent.ParseEntries([]byte(reqInfo.UserAgent))
-		if err != nil {
-			return userAgent
-		}
-		userAgent = reqInfo.UserAgent + " " + userAgent
-	}
-	return userAgent
-}
-
-// minioError checks if the given error is a minio error.
-func minioError(err error) bool {
-	// some minio errors are not minio.GenericError, so we need to check for these specifically.
-	switch {
-	case errors.As(err, &miniogo.ErrorResponse{}):
-		return true
-	default:
-		return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
-	}
-}
-
 // log all errors and relevant request information.
 func (gateway *gateway) log(ctx context.Context, err error) {
 	reqInfo := logger.GetReqInfo(ctx)
@@ -1082,22 +1038,5 @@ func (gateway *gateway) log(ctx context.Context, err error) {
 	// modifying minio as much as we can help it.
 	if log, ok := gwlog.FromContext(ctx); ok {
 		copyReqInfo(log, reqInfo)
-	}
-}
-
-func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
-	dst.RemoteHost = src.RemoteHost
-	dst.Host = src.Host
-	dst.UserAgent = src.UserAgent
-	dst.DeploymentID = src.DeploymentID
-	dst.RequestID = src.RequestID
-	dst.API = src.API
-	dst.BucketName = src.BucketName
-	dst.ObjectName = src.ObjectName
-	dst.AccessKey = src.AccessKey
-	dst.AccessGrant = src.AccessGrant
-
-	for _, tag := range src.GetTags() {
-		dst.SetTags(tag.Key, tag.Val)
 	}
 }

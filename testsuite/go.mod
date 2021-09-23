@@ -7,7 +7,7 @@ replace storj.io/gateway-mt => ../
 require (
 	github.com/aws/aws-sdk-go v1.36.15
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/minio/minio v0.0.0-00010101000000-000000000000
+	github.com/minio/minio v0.0.0-20201216013454-c606c7632365
 	github.com/minio/minio-go/v7 v7.0.6
 	github.com/stretchr/testify v1.7.0
 	github.com/zeebo/errs v1.2.2

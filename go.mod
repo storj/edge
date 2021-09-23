@@ -6,10 +6,10 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.1.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/gorilla/mux v1.8.0
-	github.com/jackc/pgconn v1.8.0
-	github.com/jackc/pgx/v4 v4.10.1
+	github.com/jackc/pgconn v1.10.0
+	github.com/jackc/pgx/v4 v4.13.0
 	github.com/miekg/dns v1.1.35
-	github.com/minio/minio v0.0.0-00010101000000-000000000000
+	github.com/minio/minio v0.0.0-20201216013454-c606c7632365
 	github.com/minio/minio-go/v7 v7.0.6
 	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62 // indirect
@@ -18,16 +18,15 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	github.com/zeebo/errs v1.2.2
-	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20210916151047-6aaeb34bb916
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.26
-	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0
+	storj.io/gateway v1.2.1-0.20210923150841-0591ece4ac73
+	storj.io/private v0.0.0-20210810102517-434aeab3f17d
 	storj.io/uplink v1.6.0
 )
 
