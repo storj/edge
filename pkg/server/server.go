@@ -13,13 +13,13 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/version"
@@ -44,7 +44,7 @@ type Server struct {
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
 func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetInMemoryMiddleware bool,
-	trustedIPs trustedip.List, insecureLogAll bool) *Server {
+	trustedIPs trustedip.List, insecureLogAll bool, corsAllowedOrigins []string) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 
@@ -78,9 +78,9 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetIn
 	})
 
 	r.Use(middleware.Metrics)
-	r.Use(minio.RegisterMiddlewares)
+	r.Use(minio.GlobalHandlers...)
 
-	s.http.Handler = minio.CriticalErrorHandler(minio.CorsHandler(r))
+	s.http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information.

@@ -15,6 +15,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
@@ -28,6 +29,8 @@ import (
 )
 
 var (
+	mon = monkit.Package()
+
 	gatewayUserAgent = "Gateway-MT/" + version.Build.Version.String()
 
 	// ErrAccessGrant occurs when failing to parse the access grant from the

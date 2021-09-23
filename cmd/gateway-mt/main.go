@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -23,6 +23,7 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
@@ -158,7 +159,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer, strings.Split(runCfg.CorsOrigins, ","))
+	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -194,14 +195,16 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
-	s3 := server.New(listener, zap.L(), tlsConfig, runCfg.EncodeInMemory, trustedClientIPs, runCfg.InsecureLogAll)
+	corsAllowedOrigins := strings.Split(runCfg.CorsOrigins, ",")
+	s3 := server.New(listener, zap.L(), tlsConfig, runCfg.EncodeInMemory, trustedClientIPs,
+		runCfg.InsecureLogAll, corsAllowedOrigins)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)
 }
 
 // NewGateway creates a new minio Gateway.
-func (flags GatewayFlags) NewGateway(ctx context.Context) (minio.ObjectLayer, error) {
+func (flags GatewayFlags) NewGateway(ctx context.Context) (cmd.ObjectLayer, error) {
 	gw := miniogw.NewStorjGateway(flags.S3Compatibility)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
 	config := flags.newUplinkConfig(ctx)
