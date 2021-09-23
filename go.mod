@@ -28,7 +28,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.26
 	storj.io/private v0.0.0-20210719004409-d6bcdddb82e0
-	storj.io/uplink v1.5.0-rc.1.0.20210920080020-164b0597d1b0
+	storj.io/uplink v1.6.0
 )
 
 replace github.com/minio/minio => storj.io/minio v0.0.0-20210914060719-27c1b4bf0b74
