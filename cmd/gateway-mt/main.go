@@ -15,6 +15,7 @@ import (
 	"time"
 
 	minio "github.com/minio/minio/cmd"
+	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -24,6 +25,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/gateway/miniogw"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"
@@ -44,7 +46,7 @@ type GatewayFlags struct {
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
 
-	S3Compatibility server.S3CompatibilityConfig
+	S3Compatibility miniogw.S3CompatibilityConfig
 
 	Config
 	ConnectionPool ConnectionPoolConfig
@@ -199,11 +201,14 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 }
 
 // NewGateway creates a new minio Gateway.
-func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.ObjectLayer, err error) {
-	config := flags.newUplinkConfig(ctx)
+func (flags GatewayFlags) NewGateway(ctx context.Context) (minio.ObjectLayer, error) {
+	gw := miniogw.NewStorjGateway(flags.S3Compatibility)
 	pool := rpcpool.New(rpcpool.Options(flags.ConnectionPool))
+	config := flags.newUplinkConfig(ctx)
 
-	return server.NewGateway(config, pool, flags.S3Compatibility, flags.InsecureLogAll)
+	gmt := server.NewMultiTenantGateway(gw, pool, config, flags.InsecureLogAll)
+
+	return gmt.NewGatewayLayer(auth.Credentials{})
 }
 
 func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {

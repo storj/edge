@@ -16,7 +16,6 @@ import (
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
@@ -37,7 +36,6 @@ var (
 )
 
 type multiTenantGateway struct {
-	log            *zap.Logger
 	gateway        minio.Gateway
 	connectionPool *rpcpool.Pool
 
@@ -47,9 +45,8 @@ type multiTenantGateway struct {
 
 // NewMultiTenantGateway returns a wrapper of minio.Gateway that logs responses
 // and makes gateway multi-tenant.
-func NewMultiTenantGateway(log *zap.Logger, gateway minio.Gateway, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) minio.Gateway {
+func NewMultiTenantGateway(gateway minio.Gateway, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) minio.Gateway {
 	return &multiTenantGateway{
-		log:            log,
 		gateway:        gateway,
 		connectionPool: connectionPool,
 		config:         config,
@@ -63,7 +60,6 @@ func (g *multiTenantGateway) NewGatewayLayer(creds auth.Credentials) (minio.Obje
 	layer, err := g.gateway.NewGatewayLayer(creds)
 
 	return &multiTenancyLayer{
-		logger:         g.log,
 		layer:          layer,
 		connectionPool: g.connectionPool,
 		config:         g.config,
@@ -76,7 +72,6 @@ func (g *multiTenantGateway) Production() bool { return g.gateway.Production() }
 type multiTenancyLayer struct {
 	minio.GatewayUnsupported
 
-	logger         *zap.Logger
 	layer          minio.ObjectLayer
 	connectionPool *rpcpool.Pool
 
@@ -473,12 +468,12 @@ func (l *multiTenancyLayer) openProject(ctx context.Context, accessKey string) (
 	// this happens when an anonymous request hits the gateway endpoint, e.g.
 	// accessing http://localhost:7777 directly.
 	if accessKey == "" {
-		return nil, convertError(ErrAccessGrant.New("empty"), "", "")
+		return nil, ErrAccessGrant.New("empty")
 	}
 
 	access, err := uplink.ParseAccess(accessKey)
 	if err != nil {
-		return nil, convertError(ErrAccessGrant.Wrap(err), "", "")
+		return nil, ErrAccessGrant.Wrap(err)
 	}
 
 	return l.setupProject(ctx, access)
