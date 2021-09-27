@@ -52,4 +52,15 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 	ctypes, haveType = w.Header()["Content-Type"]
 	require.True(t, haveType)
 	require.Equal(t, "application/octet-stream", ctypes[0])
+
+	object.Custom = uplink.CustomMetadata{
+		"Content-Type": "image/somethingelse",
+	}
+
+	err = handler.showObject(ctx, w, r, pr, project, object)
+	require.NoError(t, err)
+
+	ctypes, haveType = w.Header()["Content-Type"]
+	require.True(t, haveType)
+	require.Equal(t, "image/somethingelse", ctypes[0])
 }

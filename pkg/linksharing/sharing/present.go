@@ -138,7 +138,10 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		w.Header().Set("Content-Disposition", "attachment")
 	}
 	if (download || !wrap) && !mapOnly {
-		contentType := mime.TypeByExtension(filepath.Ext(o.Key))
+		contentType := o.Custom["Content-Type"]
+		if contentType == "" {
+			contentType = mime.TypeByExtension(filepath.Ext(o.Key))
+		}
 		if contentType != "" {
 			w.Header().Set("Content-Type", contentType)
 		} else {
