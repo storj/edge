@@ -62,6 +62,12 @@ var GlobalNotificationSys *cmd.NotificationSys
 //go:linkname GlobalPolicyOPA storj.io/minio/cmd.globalPolicyOPA
 var GlobalPolicyOPA *opa.Opa
 
+// GlobalIsSSL exposes minio's cmd.globalIsSSL
+//
+//nolint: golint
+//go:linkname GlobalIsSSL github.com/minio/minio/cmd.globalIsSSL
+var GlobalIsSSL bool
+
 // GetAPIError exposes minio's cmd.getAPIError.
 //
 //nolint: golint
