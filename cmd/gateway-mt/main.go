@@ -159,7 +159,12 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	minio.StartMinio(address, runCfg.AuthURL, runCfg.AuthToken, gatewayLayer)
+	store, err := minio.NewIAMAuthStore(runCfg.AuthURL, runCfg.AuthToken)
+	if err != nil {
+		return err
+	}
+
+	minio.StartMinio(address, store, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {

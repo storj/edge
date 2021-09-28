@@ -6,9 +6,7 @@ package minio
 import (
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"strings"
-	"unsafe"
 
 	"storj.io/minio/cmd"
 	"storj.io/minio/cmd/config/policy/opa"
@@ -25,12 +23,8 @@ func (s allowAllOPA) RoundTrip(r *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-func setUnexportedField(field reflect.Value, value interface{}) {
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
-}
-
 // StartMinio starts up Minio directly without its normal configuration process.
-func StartMinio(address, authURL, authToken string, gatewayLayer cmd.ObjectLayer) {
+func StartMinio(address string, authStore, gatewayLayer cmd.ObjectLayer) {
 	// wire up domain names for Minio
 	// TODO (wthorp): can we set globalDomainNames directly instead?
 	HandleCommonEnvVars()
@@ -40,14 +34,13 @@ func StartMinio(address, authURL, authToken string, gatewayLayer cmd.ObjectLayer
 	GlobalCLIContext.Addr = address
 	GlobalCLIContext.StrictS3Compat = true
 
-	// wire up Auth
-	store := cmd.NewIAMStorjAuthStore(gatewayLayer, authURL, authToken)
+	// wire up object layer
 	// TODO (wthorp): can we set globalObjectAPI directly instead?
 	SetObjectLayer(gatewayLayer)
+
+	// wire up Auth layer
 	iamSys := cmd.NewIAMSys()
-	rs := reflect.ValueOf(iamSys).Elem()
-	setUnexportedField(rs.Field(1), cmd.UsersSysType("StorjAuthSys"))
-	setUnexportedField(rs.Field(8), store)
+	iamSys.InitStore(authStore)
 	GlobalIAMSys = iamSys
 
 	// force globalIAMSys.IsAllowed() to always return true
