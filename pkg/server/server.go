@@ -122,7 +122,7 @@ func (s *Peer) Run() error {
 		gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(s.config.S3Compatibility), connectionPool, uplinkConfig, s.config.InsecureLogAll)
 		var gatewayLayer cmd.ObjectLayer
 		gatewayLayer, err = gmt.NewGatewayLayer(auth.Credentials{})
-		minio.StartMinio(&minio.IAMAuthStore{}, gatewayLayer)
+		minio.StartMinio(&minio.IAMAuthStore{}, gatewayLayer, !s.config.InsecureDisableTLS)
 		// Ensure we log any minio system errors sent by minio logging.
 		// Error is ignored as we don't use validation of target.
 		_ = logger.AddTarget(NewMinioSystemLogTarget(s.log))

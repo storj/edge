@@ -24,7 +24,7 @@ func (s allowAllOPA) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 // StartMinio starts up Minio directly without its normal configuration process.
-func StartMinio(authStore, gatewayLayer cmd.ObjectLayer) {
+func StartMinio(authStore, gatewayLayer cmd.ObjectLayer, secureConn bool) {
 	// wire up domain names for Minio
 	// TODO (wthorp): can we set globalDomainNames directly instead?
 	HandleCommonEnvVars()
@@ -32,6 +32,7 @@ func StartMinio(authStore, gatewayLayer cmd.ObjectLayer) {
 	// make Minio not use random ETags
 	GlobalCLIContext.Quiet = true
 	GlobalCLIContext.StrictS3Compat = true
+	GlobalIsSSL = secureConn
 
 	// wire up object layer
 	// TODO (wthorp): can we set globalObjectAPI directly instead?
