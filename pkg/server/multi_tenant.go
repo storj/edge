@@ -18,7 +18,9 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
+	miniox "storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway/miniogw"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
@@ -458,11 +460,15 @@ func (l *multiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, ob
 }
 
 func getAccessGrant(ctx context.Context) string {
-	reqInfo := logger.GetReqInfo(ctx)
-	if reqInfo == nil {
+	accessKey, ok := middleware.GetAccessKey(ctx)
+	if !ok || accessKey == "" {
 		return ""
 	}
-	return reqInfo.AccessGrant
+	credentials, ok := miniox.GlobalIAMSys.GetUser(accessKey)
+	if !ok {
+		return ""
+	}
+	return credentials.AccessGrant
 }
 
 func (l *multiTenancyLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {

@@ -79,6 +79,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetIn
 	})
 
 	r.Use(middleware.Metrics)
+	r.Use(middleware.AccessKey)
 	r.Use(minio.GlobalHandlers...)
 
 	s.http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
