@@ -164,7 +164,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	minio.StartMinio(address, store, gatewayLayer)
+	minio.StartMinio(store, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
