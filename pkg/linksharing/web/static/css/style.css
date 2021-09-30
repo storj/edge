@@ -116,19 +116,36 @@ p, span, a {
 /* Content */
 
 .sidebar {
+  position: relative;
   border-left: 1px solid #EDEEEF;
   overflow-x: hidden;
   transition: all 400ms ease;
 }
 
-.expander {
-  width: 20px;
-  height: 20px;
+.expander,
+.collapser {
+  width: 26px;
+  height: 26px;
   cursor: pointer;
 }
 
+.expander {
+  display: none;
+  position: absolute;
+  top: 50vh;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.collapser {
+  position: absolute;
+  top: 50vh;
+  left: 0;
+  transform: translateY(-50%);
+}
+
 .expander.active {
-  transform: rotate(180deg);
+  display: block;
 }
 
 .card {
@@ -349,18 +366,23 @@ p, span, a {
 }
 
 .nodes-count {
+  box-sizing: border-box;
   height: auto;
-  line-height: 37px;
+  width: 100%;
+  font-size: 12px;
+  min-height: 37px;
   background: #F2F4F7;
   border-radius: 50px;
   font-style: normal;
   font-weight: bold;
-  color: #202020;
+  color: #5F5F5F;
+  padding: 14px 20px;
 }
 
 @media screen and (max-width: 1250px) {
   .footer {
     flex-direction: column;
+    text-align: center;
   }
 
   .footer > .buttons-area {
@@ -369,6 +391,10 @@ p, span, a {
 }
 
 @media screen and (max-width: 1000px) {
+  .collapser {
+    display: none;
+  }
+
   .footer > div:first-of-type {
     flex-direction: column;
   }
