@@ -127,21 +127,18 @@ p, span, a {
   width: 26px;
   height: 26px;
   cursor: pointer;
+  position: absolute;
+  top: 50vh;
+  transform: translateY(-50%);
 }
 
 .expander {
   display: none;
-  position: absolute;
-  top: 50vh;
   right: 0;
-  transform: translateY(-50%);
 }
 
 .collapser {
-  position: absolute;
-  top: 50vh;
   left: 0;
-  transform: translateY(-50%);
 }
 
 .expander.active {
