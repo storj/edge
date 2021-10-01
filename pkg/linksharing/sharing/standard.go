@@ -65,5 +65,7 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	pr.title = pr.bucket
 	pr.root = breadcrumb{Prefix: pr.bucket, URL: "/s/" + serializedAccess + "/" + pr.bucket + "/"}
 
+	pr.standard = true
+
 	return handler.present(ctx, w, r, &pr)
 }

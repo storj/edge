@@ -24,25 +24,29 @@ import (
 )
 
 // LinkSharing defines link sharing configuration.
+//
+// TODO(artur): some of these options could be grouped, e.g. into Security.
 type LinkSharing struct {
-	Address               string        `user:"true" help:"public address to listen on" default:":8080"`
-	AddressTLS            string        `user:"true" help:"public tls address to listen on" default:":8443"`
-	LetsEncrypt           bool          `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
-	CertFile              string        `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
-	KeyFile               string        `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
-	PublicURL             string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:8080" releaseDefault:""`
-	GeoLocationDB         string        `user:"true" help:"maxmind database file path" devDefault:"" releaseDefault:""`
-	TxtRecordTTL          time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
-	AuthService           authServiceConfig
-	DNSServer             string   `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
-	StaticSourcesPath     string   `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
-	Templates             string   `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
-	LandingRedirectTarget string   `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
-	RedirectHTTPS         bool     `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
-	UseQosAndCC           bool     `user:"true" help:"use congestion control and QOS settings" default:"true"`
-	ClientTrustedIPSList  []string `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
-	UseClientIPHeaders    bool     `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
-	ConnectionPool        connectionPoolConfig
+	Address                string        `user:"true" help:"public address to listen on" default:":8080"`
+	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":8443"`
+	LetsEncrypt            bool          `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
+	CertFile               string        `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
+	KeyFile                string        `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
+	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:8080" releaseDefault:""`
+	GeoLocationDB          string        `user:"true" help:"maxmind database file path" devDefault:"" releaseDefault:""`
+	TxtRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
+	AuthService            authServiceConfig
+	DNSServer              string   `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
+	StaticSourcesPath      string   `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
+	Templates              string   `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
+	LandingRedirectTarget  string   `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
+	RedirectHTTPS          bool     `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
+	UseQosAndCC            bool     `user:"true" help:"use congestion control and QOS settings" default:"true"`
+	ClientTrustedIPSList   []string `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
+	UseClientIPHeaders     bool     `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	StandardOnlyDownloads  bool     `user:"true" help:"make standard (non-hosting) always have download initiated and not content rendered" default:"true"`
+	HTMLToPlainForStandard bool     `user:"true" help:"serve HTML as text/plain instead of text/html for standard (non-hosting) requests" default:"true"`
+	ConnectionPool         connectionPoolConfig
 }
 
 type authServiceConfig struct {
@@ -137,11 +141,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 					},
 				),
 			},
-			DNSServer:            runCfg.DNSServer,
-			ConnectionPool:       sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
-			UseQosAndCC:          runCfg.UseQosAndCC,
-			ClientTrustedIPsList: runCfg.ClientTrustedIPSList,
-			UseClientIPHeaders:   runCfg.UseClientIPHeaders,
+			DNSServer:              runCfg.DNSServer,
+			ConnectionPool:         sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
+			UseQosAndCC:            runCfg.UseQosAndCC,
+			ClientTrustedIPsList:   runCfg.ClientTrustedIPSList,
+			UseClientIPHeaders:     runCfg.UseClientIPHeaders,
+			HTMLToPlainForStandard: runCfg.HTMLToPlainForStandard,
+			StandardOnlyDownloads:  runCfg.StandardOnlyDownloads,
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 	})

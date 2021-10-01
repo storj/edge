@@ -29,6 +29,7 @@ type parsedRequest struct {
 	root            breadcrumb
 	wrapDefault     bool
 	downloadDefault bool
+	standard        bool
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
@@ -134,7 +135,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	wrap := queryFlagLookup(q, "wrap",
 		!queryFlagLookup(q, "view", !pr.wrapDefault))
 
-	if download {
+	if download || (handler.standardOnlyDownloads && pr.standard) {
 		w.Header().Set("Content-Disposition", "attachment")
 	}
 	if (download || !wrap) && !mapOnly {
@@ -143,6 +144,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			contentType = mime.TypeByExtension(filepath.Ext(o.Key))
 		}
 		if contentType != "" {
+			if handler.htmlToPlainForStandard && pr.standard && strings.Contains(strings.ToLower(contentType), "html") {
+				contentType = "text/plain"
+			}
 			w.Header().Set("Content-Type", contentType)
 		} else {
 			w.Header().Set("Content-Type", "application/octet-stream")
