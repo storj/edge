@@ -92,6 +92,14 @@ type Config struct {
 	// When true it reads them only from the trusted IPs (ClientTrustedIPList) if
 	// it isn't empty.
 	UseClientIPHeaders bool
+
+	// StandardOnlyDownloads controls whether standard (non-hosting) requests
+	// will always have download initiated and not content rendered.
+	StandardOnlyDownloads bool
+
+	// HTMLToPlainForStandard controls whether to serve HTML as text/plain
+	// instead of text/html for standard (non-hosting) requests.
+	HTMLToPlainForStandard bool
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -105,17 +113,19 @@ type ConnectionPoolConfig struct {
 //
 // architecture: Service
 type Handler struct {
-	log                  *zap.Logger
-	urlBases             []*url.URL
-	templates            *template.Template
-	mapper               *objectmap.IPDB
-	txtRecords           *txtRecords
-	authConfig           AuthServiceConfig
-	static               http.Handler
-	redirectHTTPS        bool
-	landingRedirect      string
-	uplink               *uplink.Config
-	trustedClientIPsList trustedip.List
+	log                    *zap.Logger
+	urlBases               []*url.URL
+	templates              *template.Template
+	mapper                 *objectmap.IPDB
+	txtRecords             *txtRecords
+	authConfig             AuthServiceConfig
+	static                 http.Handler
+	redirectHTTPS          bool
+	landingRedirect        string
+	uplink                 *uplink.Config
+	trustedClientIPsList   trustedip.List
+	standardOnlyDownloads  bool
+	htmlToPlainForStandard bool
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -169,17 +179,19 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 	}
 
 	return &Handler{
-		log:                  log,
-		urlBases:             bases,
-		templates:            templates,
-		mapper:               mapper,
-		txtRecords:           newTxtRecords(config.TxtRecordTTL, dns, config.AuthServiceConfig),
-		authConfig:           config.AuthServiceConfig,
-		static:               http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
-		landingRedirect:      config.LandingRedirectTarget,
-		redirectHTTPS:        config.RedirectHTTPS,
-		uplink:               uplinkConfig,
-		trustedClientIPsList: trustedClientIPs,
+		log:                    log,
+		urlBases:               bases,
+		templates:              templates,
+		mapper:                 mapper,
+		txtRecords:             newTxtRecords(config.TxtRecordTTL, dns, config.AuthServiceConfig),
+		authConfig:             config.AuthServiceConfig,
+		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
+		landingRedirect:        config.LandingRedirectTarget,
+		redirectHTTPS:          config.RedirectHTTPS,
+		uplink:                 uplinkConfig,
+		trustedClientIPsList:   trustedClientIPs,
+		standardOnlyDownloads:  config.StandardOnlyDownloads,
+		htmlToPlainForStandard: config.HTMLToPlainForStandard,
 	}, nil
 }
 

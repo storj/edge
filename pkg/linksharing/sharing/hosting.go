@@ -58,13 +58,15 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}
 
 	err = handler.presentWithProject(ctx, w, r, &parsedRequest{
-		access:      access,
-		bucket:      bucket,
-		realKey:     key,
-		visibleKey:  visibleKey,
-		title:       host,
-		root:        breadcrumb{Prefix: host, URL: "/"},
-		wrapDefault: false,
+		access:          access,
+		bucket:          bucket,
+		realKey:         key,
+		visibleKey:      visibleKey,
+		title:           host,
+		root:            breadcrumb{Prefix: host, URL: "/"},
+		wrapDefault:     false,
+		downloadDefault: false,
+		standard:        false,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal
