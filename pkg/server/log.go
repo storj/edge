@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	xhttp "github.com/minio/minio/cmd/http"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	xhttp "storj.io/minio/cmd/http"
 )
 
 const requestURILogField = "request-uri"

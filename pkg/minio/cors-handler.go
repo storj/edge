@@ -23,11 +23,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/minio/minio/cmd"
-	xhttp "github.com/minio/minio/cmd/http"
-	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/wildcard"
 	"github.com/rs/cors"
+
+	"storj.io/minio/cmd"
+	xhttp "storj.io/minio/cmd/http"
+	"storj.io/minio/cmd/logger"
+	"storj.io/minio/pkg/wildcard"
 )
 
 // CorsHandler handler for CORS (Cross Origin Resource Sharing).

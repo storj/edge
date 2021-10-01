@@ -10,10 +10,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/minio/minio/cmd"
-	"github.com/minio/minio/cmd/config/policy/opa"
-	xhttp "github.com/minio/minio/cmd/http"
-	xnet "github.com/minio/minio/pkg/net"
+	"storj.io/minio/cmd"
+	"storj.io/minio/cmd/config/policy/opa"
+	xhttp "storj.io/minio/cmd/http"
+	xnet "storj.io/minio/pkg/net"
 )
 
 type allowAllOPA struct{}

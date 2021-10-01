@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/minio/minio/cmd/logger/message/log"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
+
+	"storj.io/minio/cmd/logger/message/log"
 )
 
 var accessRegexp = regexp.MustCompile("/access/.*\"")

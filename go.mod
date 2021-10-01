@@ -8,7 +8,6 @@ require (
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/miekg/dns v1.1.35
-	github.com/minio/minio v0.0.0-20201216013454-c606c7632365
 	github.com/minio/minio-go/v7 v7.0.6
 	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/rs/cors v1.7.0
@@ -26,9 +25,8 @@ require (
 	storj.io/common v0.0.0-20210922161202-47f5ba40a543
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.26
-	storj.io/gateway v1.3.1-0.20211003223318-bdc1165baf61
+	storj.io/gateway v1.3.1-0.20211004141903-f55ba9105164
+	storj.io/minio v0.0.0-20211001113105-a621e66615dd
 	storj.io/private v0.0.0-20210810102517-434aeab3f17d
 	storj.io/uplink v1.6.0
 )
-
-replace github.com/minio/minio => storj.io/minio v0.0.0-20210914060719-27c1b4bf0b74

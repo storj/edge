@@ -10,105 +10,102 @@ import (
 	_ "unsafe" // for go:linkname
 
 	"github.com/gorilla/mux"
-	"github.com/minio/minio/cmd"
-	"github.com/minio/minio/cmd/config/policy/opa"
-)
 
-// CLIContext exposes a struct corresponding to minio's GlobalCLIContext.
-type CLIContext struct {
-	JSON           bool
-	Quiet          bool
-	Anonymous      bool
-	Addr           string
-	StrictS3Compat bool
-}
+	"storj.io/minio/cmd"
+	"storj.io/minio/cmd/config/policy/opa"
+)
 
 // GlobalBucketQuotaSys exposes minio's cmd.globalBucketQuotaSys.
 //
 //nolint: golint
-//go:linkname GlobalBucketQuotaSys github.com/minio/minio/cmd.globalBucketQuotaSys
+//go:linkname GlobalBucketQuotaSys storj.io/minio/cmd.globalBucketQuotaSys
 var GlobalBucketQuotaSys *cmd.BucketQuotaSys
 
 // GlobalCLIContext exposes minio's cmd.globalCLIContext.
 //
 //nolint: golint
-//go:linkname GlobalCLIContext github.com/minio/minio/cmd.globalCLIContext
-var GlobalCLIContext CLIContext
+//go:linkname GlobalCLIContext storj.io/minio/cmd.globalCLIContext
+var GlobalCLIContext = struct {
+	JSON, Quiet    bool
+	Anonymous      bool
+	Addr           string
+	StrictS3Compat bool
+}{}
 
 // GlobalEndpoints exposes minio's cmd.globalEndpoints.
 //
 //nolint: golint
-//go:linkname GlobalEndpoints github.com/minio/minio/cmd.globalEndpoints
+//go:linkname GlobalEndpoints storj.io/minio/cmd.globalEndpoints
 var GlobalEndpoints cmd.EndpointServerPools
 
 // GlobalHandlers exposes minio's cmd.globalHandlers.
 //
 //nolint: golint
-//go:linkname GlobalHandlers github.com/minio/minio/cmd.globalHandlers
+//go:linkname GlobalHandlers storj.io/minio/cmd.globalHandlers
 var GlobalHandlers []mux.MiddlewareFunc
 
 // GlobalIAMSys exposes minio's cmd.globalIAMSys.
 //
 //nolint: golint
-//go:linkname GlobalIAMSys github.com/minio/minio/cmd.globalIAMSys
+//go:linkname GlobalIAMSys storj.io/minio/cmd.globalIAMSys
 var GlobalIAMSys *cmd.IAMSys
 
 // GlobalIsGateway exposes minio's cmd.globalIsGateway.
 //
 //nolint: golint
-//go:linkname GlobalIsGateway github.com/minio/minio/cmd.globalIsGateway
+//go:linkname GlobalIsGateway storj.io/minio/cmd.globalIsGateway
 var GlobalIsGateway bool
 
 // GlobalNotificationSys exposes minio's cmd.globalNotificationSys.
 //
 //nolint: golint
-//go:linkname GlobalNotificationSys github.com/minio/minio/cmd.globalNotificationSys
+//go:linkname GlobalNotificationSys storj.io/minio/cmd.globalNotificationSys
 var GlobalNotificationSys *cmd.NotificationSys
 
 // GlobalPolicyOPA exposes minio's cmd.globalPolicyOPA.
 //
 //nolint: golint
-//go:linkname GlobalPolicyOPA github.com/minio/minio/cmd.globalPolicyOPA
+//go:linkname GlobalPolicyOPA storj.io/minio/cmd.globalPolicyOPA
 var GlobalPolicyOPA *opa.Opa
 
 // GetAPIError exposes minio's cmd.getAPIError.
 //
 //nolint: golint
-//go:linkname GetAPIError github.com/minio/minio/cmd.getAPIError
+//go:linkname GetAPIError storj.io/minio/cmd.getAPIError
 func GetAPIError(code cmd.APIErrorCode) cmd.APIError
 
 // HandleCommonEnvVars exposes minio's cmd.handleCommonEnvVars.
 //
 //nolint: golint
-//go:linkname HandleCommonEnvVars github.com/minio/minio/cmd.handleCommonEnvVars
+//go:linkname HandleCommonEnvVars storj.io/minio/cmd.handleCommonEnvVars
 func HandleCommonEnvVars()
 
 // RegisterAPIRouter exposes minio's cmd.registerAPIRouter.
 //
 //nolint: golint
-//go:linkname RegisterAPIRouter github.com/minio/minio/cmd.registerAPIRouter
+//go:linkname RegisterAPIRouter storj.io/minio/cmd.registerAPIRouter
 func RegisterAPIRouter(router *mux.Router)
 
 // RegisterHealthCheckRouter exposes minio's cmd.registerHealthCheckRouter.
 //
 //nolint: golint
-//go:linkname RegisterHealthCheckRouter github.com/minio/minio/cmd.registerHealthCheckRouter
+//go:linkname RegisterHealthCheckRouter storj.io/minio/cmd.registerHealthCheckRouter
 func RegisterHealthCheckRouter(router *mux.Router)
 
 // RegisterMetricsRouter exposes minio's cmd.registerMetricsRouter.
 //
 //nolint: golint
-//go:linkname RegisterMetricsRouter github.com/minio/minio/cmd.registerMetricsRouter
+//go:linkname RegisterMetricsRouter storj.io/minio/cmd.registerMetricsRouter
 func RegisterMetricsRouter(router *mux.Router)
 
 // SetObjectLayer exposes minio's cmd.setObjectLayer.
 //
 //nolint: golint
-//go:linkname SetObjectLayer github.com/minio/minio/cmd.setObjectLayer
+//go:linkname SetObjectLayer storj.io/minio/cmd.setObjectLayer
 func SetObjectLayer(o cmd.ObjectLayer)
 
 // WriteErrorResponse exposes minio's cmd.writeErrorResponse.
 //
 //nolint: golint
-//go:linkname WriteErrorResponse github.com/minio/minio/cmd.writeErrorResponse
+//go:linkname WriteErrorResponse storj.io/minio/cmd.writeErrorResponse
 func WriteErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)

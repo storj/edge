@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio/cmd"
-	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -27,6 +25,8 @@ import (
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
+	"storj.io/minio/cmd"
+	"storj.io/minio/pkg/auth"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"

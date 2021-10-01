@@ -9,13 +9,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	xhttp "storj.io/minio/cmd/http"
 )
 
 func TestResponseNoPaths(t *testing.T) {

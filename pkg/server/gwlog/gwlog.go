@@ -8,7 +8,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/minio/minio/cmd/logger"
+	"storj.io/minio/cmd/logger"
 )
 
 type contextKeyType string

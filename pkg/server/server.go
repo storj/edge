@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	"github.com/minio/minio/cmd/logger"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -22,6 +21,7 @@ import (
 	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/minio/cmd/logger"
 	"storj.io/private/version"
 )
 

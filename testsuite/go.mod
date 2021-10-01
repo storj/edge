@@ -14,5 +14,3 @@ require (
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
 	storj.io/storj v0.12.1-0.20210819172313-a5371353bf62
 )
-
-replace github.com/minio/minio => storj.io/minio v0.0.0-20210914060719-27c1b4bf0b74

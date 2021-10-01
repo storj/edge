@@ -12,9 +12,6 @@ import (
 
 	miniogo "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/tags"
-	minio "github.com/minio/minio/cmd"
-	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/auth"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -23,6 +20,9 @@ import (
 	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/gateway/miniogw"
+	minio "storj.io/minio/cmd"
+	"storj.io/minio/cmd/logger"
+	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
