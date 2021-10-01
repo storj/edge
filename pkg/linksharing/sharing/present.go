@@ -135,7 +135,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	wrap := queryFlagLookup(q, "wrap",
 		!queryFlagLookup(q, "view", !pr.wrapDefault))
 
-	if download || (handler.standardOnlyDownloads && pr.standard) {
+	if download {
 		w.Header().Set("Content-Disposition", "attachment")
 	}
 	if (download || !wrap) && !mapOnly {
@@ -149,6 +149,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			w.Header().Set("Content-Type", "application/octet-stream")
 		}
 
+		if handler.standardOnlyDownloads && pr.standard {
+			w.Header().Set("Content-Disposition", "attachment")
+		}
 		httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		return nil
 	}
