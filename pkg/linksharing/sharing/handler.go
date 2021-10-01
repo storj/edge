@@ -93,13 +93,13 @@ type Config struct {
 	// it isn't empty.
 	UseClientIPHeaders bool
 
-	// StandardOnlyDownloads controls whether standard (non-hosting) requests
-	// will always have download initiated and not content rendered.
-	StandardOnlyDownloads bool
+	// StandardRendersContent controls whether to enable standard (non-hosting)
+	// requests to render content and not only download it.
+	StandardRendersContent bool
 
-	// HTMLToPlainForStandard controls whether to serve HTML as text/plain
-	// instead of text/html for standard (non-hosting) requests.
-	HTMLToPlainForStandard bool
+	// StandardViewsHTML controls whether to serve HTML as text/html instead of
+	// text/plain for standard (non-hosting) requests.
+	StandardViewsHTML bool
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -124,8 +124,8 @@ type Handler struct {
 	landingRedirect        string
 	uplink                 *uplink.Config
 	trustedClientIPsList   trustedip.List
-	standardOnlyDownloads  bool
-	htmlToPlainForStandard bool
+	standardRendersContent bool
+	standardViewsHTML      bool
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -190,8 +190,8 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,
 		trustedClientIPsList:   trustedClientIPs,
-		standardOnlyDownloads:  config.StandardOnlyDownloads,
-		htmlToPlainForStandard: config.HTMLToPlainForStandard,
+		standardRendersContent: config.StandardRendersContent,
+		standardViewsHTML:      config.StandardViewsHTML,
 	}, nil
 }
 

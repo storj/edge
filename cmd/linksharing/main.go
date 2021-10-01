@@ -44,8 +44,8 @@ type LinkSharing struct {
 	UseQosAndCC            bool     `user:"true" help:"use congestion control and QOS settings" default:"true"`
 	ClientTrustedIPSList   []string `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders     bool     `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
-	StandardOnlyDownloads  bool     `user:"true" help:"make standard (non-hosting) always have download initiated and not content rendered" default:"true"`
-	HTMLToPlainForStandard bool     `user:"true" help:"serve HTML as text/plain instead of text/html for standard (non-hosting) requests" default:"true"`
+	StandardRendersContent bool     `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
+	StandardViewsHTML      bool     `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ConnectionPool         connectionPoolConfig
 }
 
@@ -146,8 +146,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			UseQosAndCC:            runCfg.UseQosAndCC,
 			ClientTrustedIPsList:   runCfg.ClientTrustedIPSList,
 			UseClientIPHeaders:     runCfg.UseClientIPHeaders,
-			HTMLToPlainForStandard: runCfg.HTMLToPlainForStandard,
-			StandardOnlyDownloads:  runCfg.StandardOnlyDownloads,
+			StandardViewsHTML:      runCfg.StandardViewsHTML,
+			StandardRendersContent: runCfg.StandardRendersContent,
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 	})

@@ -66,7 +66,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		root:            breadcrumb{Prefix: host, URL: "/"},
 		wrapDefault:     false,
 		downloadDefault: false,
-		standard:        false,
+		hosting:         true,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal
