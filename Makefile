@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.14
+GO_VERSION ?= 1.17.1
 COMPONENTLIST := gateway-mt authservice linksharing
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 LATEST_DEV_TAG := dev
