@@ -88,11 +88,11 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		}
 
 		var val string
-		// obfuscate any credentials in the query value.
+		// obfuscate any credentials or confidential information in the query value.
 		// https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html
 		// https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 		switch k {
-		case xhttp.AmzAccessKeyID, xhttp.AmzSignatureV2, xhttp.AmzSignature, xhttp.AmzCredential:
+		case "prefix", xhttp.AmzAccessKeyID, xhttp.AmzSignatureV2, xhttp.AmzSignature, xhttp.AmzCredential:
 			val = "[...]"
 		default:
 			val = strings.Join(v, ",")

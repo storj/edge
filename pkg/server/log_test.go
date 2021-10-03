@@ -133,6 +133,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 		{query: xhttp.AmzSignatureV2, header: ""},
 		{query: xhttp.AmzSignature, header: ""},
 		{query: xhttp.AmzCredential, header: ""},
+		{query: "prefix", header: ""},
 		{header: xhttp.Authorization, query: ""},
 		{header: "Cookie", query: ""},
 	}
