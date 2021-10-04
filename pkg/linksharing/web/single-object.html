@@ -14,7 +14,6 @@
             <p class="mt-3">{{.Data.Size}}</p>
         </div>
         <div class="col-12 col-md-7 text-center text-md-right">
-            <p><img class="expander active" src="{{.Base}}/static/img/collapse-left.svg" onclick="toggleSideBar()" alt="expander icon"></p>
             <a href="?download" class="btn btn-primary btn-lg rounded-pill mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg" alt="Download" class="ml-2"></a>
             <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg rounded-pill mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg" alt="Share" class="ml-2"></button>
         </div>
@@ -43,8 +42,8 @@
           <div class="row justify-content-center">
             <div class="col py-3 py-lg-4 text-center text-md-left">
               <h3 class="mb-3">You’re getting this file from all over the world.</h3>
-              <p><b>Storj Decentralized Cloud Storage</b> splits files into smaller pieces, then distributes those pieces over a global network of Nodes and recompiles them securely on download. This map shows the real-time locations of this file’s pieces.</p>
-              <p class="nodes-count w-100 mt-2 text-center p-1">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file.</p>
+              <p>Storj Decentralized Cloud Storage splits files into smaller pieces, then distributes those pieces over a global network of Nodes and recompiles them securely on download. This map shows the real-time locations of this file’s pieces.</p>
+              <p class="nodes-count w-100 mt-2 text-center">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file</p>
             </div>
           </div>
           <div class="row">
@@ -54,9 +53,10 @@
           </div>
         </div>
       </div>
+      <p><img class="collapser" src="{{.Base}}/static/img/collapse.svg" onclick="toggleSideBar()" alt="collapse icon"></p>
     </div>
-
   </div>
+  <p><img class="expander" src="{{.Base}}/static/img/expand.svg" onclick="toggleSideBar()" alt="expand icon"></p>
 </div>
 
 <!-- Share Modal -->
