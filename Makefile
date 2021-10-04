@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.14
+GO_VERSION ?= 1.17.1
 COMPONENTLIST := gateway-mt authservice linksharing
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 LATEST_DEV_TAG := dev
@@ -110,7 +110,7 @@ binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	# freebsd/amd64 target is currently skipped until https://storjlabs.atlassian.net/browse/GMT-302
-	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}" --skip-osarches="freebsd/amd64"
+	storj-release --components="cmd/${COMPONENT}" --go-version="${GO_VERSION}" --branch="${BRANCH_NAME}" --skip-osarches="freebsd/amd64,darwin/amd64,darwin/arm64"
 
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries (jenkins)

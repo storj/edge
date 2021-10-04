@@ -29,6 +29,7 @@ type parsedRequest struct {
 	root            breadcrumb
 	wrapDefault     bool
 	downloadDefault bool
+	standard        bool
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
@@ -143,11 +144,17 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			contentType = mime.TypeByExtension(filepath.Ext(o.Key))
 		}
 		if contentType != "" {
+			if handler.htmlToPlainForStandard && pr.standard && strings.Contains(strings.ToLower(contentType), "html") {
+				contentType = "text/plain"
+			}
 			w.Header().Set("Content-Type", contentType)
 		} else {
 			w.Header().Set("Content-Type", "application/octet-stream")
 		}
 
+		if handler.standardOnlyDownloads && pr.standard {
+			w.Header().Set("Content-Disposition", "attachment")
+		}
 		httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		return nil
 	}
