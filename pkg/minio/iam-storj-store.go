@@ -6,165 +6,91 @@ package minio
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
-	"github.com/zeebo/errs"
-
-	"storj.io/gateway-mt/pkg/backoff"
+	"storj.io/gateway-mt/pkg/authclient"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
 )
 
-const (
-	identityPrefix string = "config/iam/users/"
-	authUserSuffix string = "/v1/access"
-)
+const identityPrefix string = "config/iam/users/"
+const identitySuffix string = "/identity.json"
 
 // IAMAuthStore implements ObjectLayer for use by Minio's IAMObjectStore.
 // Minio doesn't use the full ObjectLayer interface, so we only implement GetObject.
 // If using Minio's Admin APIs, we'd also need DeleteObject, PutObject, and GetObjectInfo.
 type IAMAuthStore struct {
 	minio.GatewayUnsupported
-	authURL   string
-	authToken string
-	timeout   time.Duration
+	authClient *authclient.AuthClient
 }
 
 // NewIAMAuthStore creates a Storj-specific Minio IAM store.
 func NewIAMAuthStore(authURL, authToken string) (*IAMAuthStore, error) {
 	u, err := url.Parse(authURL)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, errs.New("unexpected scheme found in endpoint parameter %s", u.Scheme)
+	authClient, err := authclient.New(u, authToken, time.Second*5)
+	if err != nil {
+		return nil, err
 	}
-	if u.Host == "" {
-		return nil, errs.New("host missing in parameter %s", u.Host)
-	}
-	if !strings.HasSuffix(authURL, authUserSuffix) {
-		u.Path = path.Join(u.Path, authUserSuffix)
-	}
-
-	return &IAMAuthStore{authURL: u.String(), authToken: authToken, timeout: 5 * time.Second}, nil
+	return &IAMAuthStore{authClient: authClient}, nil
 }
 
 // objectPathToUser extracts the user from the object identity path.
 // For example: "config/iam/users/myuser/identity.json" => "myuser".
 func objectPathToUser(key string) string {
 	// remove the "config/iam/users/" prefix, leaving "myuser/identity.json"
+	if !strings.HasPrefix(key, identityPrefix) {
+		return ""
+	}
 	user := strings.TrimPrefix(key, identityPrefix)
 
-	// remove the element after the user, e.g. "myuser/identity.json" => "myuser/"
-	user = strings.TrimSuffix(user, path.Base(key))
-
-	// clean the result, e.g. remove trailing "/"
-	user = path.Clean(user)
-
-	// path.Base() returns "." or "/" in some cases when the key is invalid.
-	// in those cases, we just want to return an empty string.
-	if user == "." || user == "/" {
-		user = ""
+	// remove the element after the user, e.g. "myuser/identity.json" => "myuser"
+	if !strings.HasSuffix(key, identitySuffix) {
+		return ""
 	}
-
+	user = strings.TrimSuffix(user, identitySuffix)
 	return user
 }
 
 // GetObject is called by Minio's IAMObjectStore, and in turn queries the Auth Service.
 // If passed an iamConfigUsers style objectPath, it returns a JSON-serialized UserIdentity.
 func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
-	defer func() { logger.LogIf(ctx, err) }()
-
 	user := objectPathToUser(objectPath)
 	if user == "" {
 		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
 	}
 
-	// path.Join() doesn't work with the protocol attached to the auth URL
-	// as it assumes it's one of the path elements and replaces double slashes
-	// with a single slash. Since authURL is already parsed, all we do here
-	// is suffix the user.
-	reqURL := iamOS.authURL + "/" + user
-
-	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	defer func() { logger.LogIf(ctx, err) }()
+	authResponse, err := iamOS.authClient.GetAccess(ctx, user, logger.GetReqInfo(ctx).RemoteHost)
 	if err != nil {
+		var httpError authclient.HTTPError
+		if errors.As(err, &httpError) {
+			if httpError == http.StatusUnauthorized {
+				return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
+			}
+		}
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+iamOS.authToken)
-	req.Header.Set("Forwarded", "for="+logger.GetReqInfo(ctx).RemoteHost)
 
-	// TODO (wthorp):  Handle Transports config holistically instead; this is here to pass Minio era tests.
-	httpClient := &http.Client{Transport: &http.Transport{ResponseHeaderTimeout: iamOS.timeout}}
-	delay := backoff.ExponentialBackoff{Min: 100 * time.Millisecond, Max: iamOS.timeout}
-
-	var response struct {
-		AccessGrant string `json:"access_grant"`
-		SecretKey   string `json:"secret_key"`
-		Public      bool   `json:"public"`
-	}
-
-	for {
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			if !delay.Maxed() {
-				if err := delay.Wait(ctx); err != nil {
-					return err
-				}
-				continue
-			}
-			return err
-		}
-
-		// Use an anonymous function for deferring the response close before the
-		// next retry and not pilling it up when the method returns.
-		retry, err := func() (retry bool, _ error) {
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode == http.StatusInternalServerError {
-				return true, nil // auth only returns this for unexpected issues
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				return false, fmt.Errorf("invalid status code: %d", resp.StatusCode)
-			}
-
-			if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-				if !delay.Maxed() {
-					return true, nil
-				}
-				return false, err
-			}
-			return false, nil
-		}()
-
-		if retry {
-			if err := delay.Wait(ctx); err != nil {
-				return err
-			}
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		// TODO: We need to eventually expire credentials.
-		// Using Store.watch()?  Using Credentials.Expiration?
-		return json.NewEncoder(writer).Encode(minio.UserIdentity{
-			Version: 1,
-			Credentials: auth.Credentials{
-				AccessKey:   user,
-				AccessGrant: response.AccessGrant,
-				SecretKey:   response.SecretKey,
-				Status:      "on",
-			},
-		})
-	}
+	// TODO: We need to eventually expire credentials.
+	// Using Store.watch()?  Using Credentials.Expiration?
+	return json.NewEncoder(writer).Encode(minio.UserIdentity{
+		Version: 1,
+		Credentials: auth.Credentials{
+			AccessKey:   user,
+			AccessGrant: authResponse.AccessGrant,
+			SecretKey:   authResponse.SecretKey,
+			Status:      "on",
+		},
+	})
 }
 
 // DeleteBucket is unimplemented, but required to meet the ObjectLayer interface.
