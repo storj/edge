@@ -18,7 +18,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
-	miniox "storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway/miniogw"
@@ -134,7 +133,6 @@ func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
 	dst.BucketName = src.BucketName
 	dst.ObjectName = src.ObjectName
 	dst.AccessKey = src.AccessKey
-	dst.AccessGrant = src.AccessGrant
 
 	for _, tag := range src.GetTags() {
 		dst.SetTags(tag.Key, tag.Val)
@@ -460,12 +458,8 @@ func (l *multiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, ob
 }
 
 func getAccessGrant(ctx context.Context) string {
-	accessKey, ok := middleware.GetAccessKey(ctx)
-	if !ok || accessKey == "" {
-		return ""
-	}
-	credentials, ok := miniox.GlobalIAMSys.GetUser(accessKey)
-	if !ok {
+	credentials := middleware.GetAccess(ctx)
+	if credentials == nil || credentials.AccessKey == "" {
 		return ""
 	}
 	return credentials.AccessGrant

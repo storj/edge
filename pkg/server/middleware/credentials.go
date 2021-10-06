@@ -14,12 +14,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 type credentialsCV struct{}
+
+// Credentials contains an AccessKey, SecretKey, AccessGrant, and IsPublic flag.
+type Credentials struct {
+	AccessKey string
+	authclient.Access
+	Error error
+}
 
 const (
 	iso8601Format = "20060102T150405Z"
@@ -27,24 +37,32 @@ const (
 )
 
 // AccessKey implements mux.Middlware and saves the accesskey to context.
-func AccessKey(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		// extract the access key id from the HTTP headers
-		accessKeyID, err := GetAccessKeyID(r)
-		if err != nil || accessKeyID == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// return a new context that contains the access key
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, accessKeyID)))
-	})
+func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			// extract the access key id from the HTTP headers
+			accessKeyID, err := GetAccessKeyID(r)
+			if err != nil || accessKeyID == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			authResponse, err := authClient.GetAccess(ctx, accessKeyID, trustedip.GetClientIP(trustedIPs, r))
+
+			// return a new context that contains the access grant
+			credentials := Credentials{AccessKey: accessKeyID, Access: *authResponse, Error: err}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &credentials)))
+		})
+	}
 }
 
-// GetAccessKey returns the credentials.
-func GetAccessKey(ctx context.Context) (string, bool) {
-	c, ok := ctx.Value(credentialsCV{}).(string)
-	return c, ok
+// GetAccess returns the credentials.
+func GetAccess(ctx context.Context) *Credentials {
+	creds, ok := ctx.Value(credentialsCV{}).(*Credentials)
+	if !ok {
+		return nil
+	}
+	return creds
 }
 
 // GetAccessKeyID returns the access key ID from the request and a signature validator.

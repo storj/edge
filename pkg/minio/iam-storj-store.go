@@ -9,11 +9,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
 	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/server/middleware"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
@@ -27,20 +26,6 @@ const identitySuffix string = "/identity.json"
 // If using Minio's Admin APIs, we'd also need DeleteObject, PutObject, and GetObjectInfo.
 type IAMAuthStore struct {
 	minio.GatewayUnsupported
-	authClient *authclient.AuthClient
-}
-
-// NewIAMAuthStore creates a Storj-specific Minio IAM store.
-func NewIAMAuthStore(authURL, authToken string) (*IAMAuthStore, error) {
-	u, err := url.Parse(authURL)
-	if err != nil {
-		return nil, err
-	}
-	authClient, err := authclient.New(u, authToken, time.Second*5)
-	if err != nil {
-		return nil, err
-	}
-	return &IAMAuthStore{authClient: authClient}, nil
 }
 
 // objectPathToUser extracts the user from the object identity path.
@@ -63,21 +48,25 @@ func objectPathToUser(key string) string {
 // GetObject is called by Minio's IAMObjectStore, and in turn queries the Auth Service.
 // If passed an iamConfigUsers style objectPath, it returns a JSON-serialized UserIdentity.
 func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
+	// filter out non-user requests (policy, etc).
 	user := objectPathToUser(objectPath)
 	if user == "" {
 		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
 	}
-
 	defer func() { logger.LogIf(ctx, err) }()
-	authResponse, err := iamOS.authClient.GetAccess(ctx, user, logger.GetReqInfo(ctx).RemoteHost)
-	if err != nil {
+
+	// Get credentials from request context.
+	// Note that this requires altering Minio to pass in the request context.
+	// See https://github.com/storj/minio/commit/df6c27823c8af00578433d49edba930d1e408c49
+	credentials := middleware.GetAccess(ctx)
+	if credentials.Error != nil {
 		var httpError authclient.HTTPError
-		if errors.As(err, &httpError) {
+		if errors.As(credentials.Error, &httpError) {
 			if httpError == http.StatusUnauthorized {
 				return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
 			}
 		}
-		return err
+		return credentials.Error
 	}
 
 	// TODO: We need to eventually expire credentials.
@@ -85,10 +74,9 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 	return json.NewEncoder(writer).Encode(minio.UserIdentity{
 		Version: 1,
 		Credentials: auth.Credentials{
-			AccessKey:   user,
-			AccessGrant: authResponse.AccessGrant,
-			SecretKey:   authResponse.SecretKey,
-			Status:      "on",
+			AccessKey: user,
+			SecretKey: credentials.SecretKey,
+			Status:    "on",
 		},
 	})
 }

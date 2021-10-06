@@ -5,12 +5,17 @@ package middleware
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 func TestV4MultipartCredentials(t *testing.T) {
@@ -40,10 +45,21 @@ This is some plain text.
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=---------------------------9051914041544843365972754266")
 
+	// mock the auth service
+	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/access/AccessKey", r.URL.Path)
+		_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
+		require.NoError(t, err)
+	}))
+	defer authService.Close()
+
+	// validate the auth middleware, including that the multipart form can be read from afterwards
 	verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, ok := GetAccessKey(r.Context())
-		require.True(t, ok)
-		require.Equal(t, "AccessKey", key)
+		access := GetAccess(r.Context())
+		require.NotNil(t, access)
+		require.Equal(t, "AccessKey", access.AccessKey)
+		require.Equal(t, "SecretKey", access.SecretKey)
+		require.Equal(t, "AccessGrant", access.AccessGrant)
 		require.Nil(t, r.MultipartForm)
 		err = r.ParseMultipartForm(4096)
 		require.NoError(t, err)
@@ -52,7 +68,11 @@ This is some plain text.
 		require.Equal(t, "X-Amz-Signature", r.MultipartForm.Value["X-Amz-Signature"][0])
 	})
 
-	AccessKey(verify).ServeHTTP(nil, req)
+	authURL, err := url.Parse(authService.URL)
+	require.NoError(t, err)
+	authClient, err := authclient.New(authURL, "token", 5*time.Second)
+	require.NoError(t, err)
+	AccessKey(authClient, trustedip.NewListTrustAll())(verify).ServeHTTP(nil, req)
 }
 
 func TestV2MultipartCredentials(t *testing.T) {
@@ -78,10 +98,21 @@ This is some plain text.
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=---------------------------9051914041544843365972754266")
 
+	// mock the auth service
+	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/access/AccessKey", r.URL.Path)
+		_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
+		require.NoError(t, err)
+	}))
+	defer authService.Close()
+
+	// validate the auth middleware, including that the multipart form can be read from afterwards
 	verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, ok := GetAccessKey(r.Context())
-		require.True(t, ok)
-		require.Equal(t, "AccessKey", key)
+		access := GetAccess(r.Context())
+		require.NotNil(t, access)
+		require.Equal(t, "AccessKey", access.AccessKey)
+		require.Equal(t, "SecretKey", access.SecretKey)
+		require.Equal(t, "AccessGrant", access.AccessGrant)
 		require.Nil(t, r.MultipartForm)
 		err = r.ParseMultipartForm(4096)
 		require.NoError(t, err)
@@ -89,5 +120,9 @@ This is some plain text.
 		require.Equal(t, "Signature", r.MultipartForm.Value["Signature"][0])
 	})
 
-	AccessKey(verify).ServeHTTP(nil, req)
+	authURL, err := url.Parse(authService.URL)
+	require.NoError(t, err)
+	authClient, err := authclient.New(authURL, "token", 5*time.Second)
+	require.NoError(t, err)
+	AccessKey(authClient, trustedip.NewListTrustAll())(verify).ServeHTTP(nil, req)
 }

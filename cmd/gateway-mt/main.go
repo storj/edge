@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -159,12 +161,7 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 		return err
 	}
 
-	store, err := minio.NewIAMAuthStore(runCfg.AuthURL, runCfg.AuthToken)
-	if err != nil {
-		return err
-	}
-
-	minio.StartMinio(store, gatewayLayer)
+	minio.StartMinio(&minio.IAMAuthStore{}, gatewayLayer)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -201,8 +198,16 @@ func (flags GatewayFlags) Run(ctx context.Context, address string) (err error) {
 	}
 
 	corsAllowedOrigins := strings.Split(runCfg.CorsOrigins, ",")
+	authURL, err := url.Parse(runCfg.AuthURL)
+	if err != nil {
+		return err
+	}
+	authClient, err := authclient.New(authURL, runCfg.AuthToken, 5*time.Minute)
+	if err != nil {
+		return err
+	}
 	s3 := server.New(listener, zap.L(), tlsConfig, runCfg.EncodeInMemory, trustedClientIPs,
-		runCfg.InsecureLogAll, corsAllowedOrigins)
+		runCfg.InsecureLogAll, corsAllowedOrigins, authClient)
 	runError := s3.Run(ctx)
 	closeError := s3.Close()
 	return errs.Combine(runError, closeError)

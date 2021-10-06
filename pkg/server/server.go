@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -44,7 +45,7 @@ type Server struct {
 // TODO: at the time of wiring the new Signature middleware we'll start to use/
 // pass around the trustedIPs parameter.
 func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetInMemoryMiddleware bool,
-	trustedIPs trustedip.List, insecureLogAll bool, corsAllowedOrigins []string) *Server {
+	trustedIPs trustedip.List, insecureLogAll bool, corsAllowedOrigins []string, authClient *authclient.AuthClient) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 	r.UseEncodedPath()
@@ -79,7 +80,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetIn
 	})
 
 	r.Use(middleware.Metrics)
-	r.Use(middleware.AccessKey)
+	r.Use(middleware.AccessKey(authClient, trustedIPs))
 	r.Use(minio.GlobalHandlers...)
 
 	s.http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
