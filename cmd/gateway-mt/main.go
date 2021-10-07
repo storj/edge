@@ -141,7 +141,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	s3, err := server.New(runCfg, zap.L(), tlsConfig, trustedClientIPs, corsAllowedOrigins, authClient)
+	s3, err := server.New(runCfg, zap.L(), tlsConfig, trustedClientIPs, corsAllowedOrigins,
+		authClient, strings.Split(runCfg.DomainName, ","))
 	if err != nil {
 		return err
 	}

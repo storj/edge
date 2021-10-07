@@ -43,14 +43,16 @@ var (
 // Once Peer.Run() has been called, new instances of a Peer will not update any configuration used
 // by Minio.
 type Peer struct {
-	http     http.Server
-	listener net.Listener
-	log      *zap.Logger
-	config   Config
+	http         http.Server
+	listener     net.Listener
+	log          *zap.Logger
+	config       Config
+	gatewayLayer cmd.ObjectLayer
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trustedip.List, corsAllowedOrigins []string, authClient *authclient.AuthClient) (*Peer, error) {
+func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trustedip.List, corsAllowedOrigins []string,
+	authClient *authclient.AuthClient, domainNames []string) (*Peer, error) {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 	r.UseEncodedPath()
@@ -78,7 +80,22 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	// to minio implementations if we haven't handled something
 	minio.RegisterHealthCheckRouter(r)
 	minio.RegisterMetricsRouter(r)
-	minio.RegisterAPIRouter(r)
+
+	// Create object API handler
+	uplinkConfig := uplink.Config{}
+	uplinkConfig.DialTimeout = s.config.Client.DialTimeout
+	if !s.config.Client.UseQosAndCC {
+		// an unset DialContext defaults to BackgroundDialer's CC and QOS settings
+		uplinkConfig.DialContext = (&net.Dialer{}).DialContext
+	}
+	connectionPool := rpcpool.New(rpcpool.Options(s.config.ConnectionPool))
+	gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(s.config.S3Compatibility), connectionPool, uplinkConfig, s.config.InsecureLogAll)
+	gatewayLayer, err := gmt.NewGatewayLayer(auth.Credentials{})
+	if err != nil {
+		return nil, err
+	}
+	s.gatewayLayer = gatewayLayer
+	minio.RegisterAPIRouter(r, gatewayLayer, domainNames)
 
 	r.Use(middleware.Metrics)
 	r.Use(middleware.AccessKey(authClient, trustedIPs))
@@ -111,25 +128,11 @@ func (s *Peer) Run() error {
 	// of each are added, such may be the case if starting multiple servers in parallel.
 	var err error
 	minioOnce.Do(func() {
-		// Create object API handler and start Minio
-		uplinkConfig := uplink.Config{}
-		uplinkConfig.DialTimeout = s.config.Client.DialTimeout
-		if !s.config.Client.UseQosAndCC {
-			// an unset DialContext defaults to BackgroundDialer's CC and QOS settings
-			uplinkConfig.DialContext = (&net.Dialer{}).DialContext
-		}
-		connectionPool := rpcpool.New(rpcpool.Options(s.config.ConnectionPool))
-		gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(s.config.S3Compatibility), connectionPool, uplinkConfig, s.config.InsecureLogAll)
-		var gatewayLayer cmd.ObjectLayer
-		gatewayLayer, err = gmt.NewGatewayLayer(auth.Credentials{})
-		minio.StartMinio(&minio.IAMAuthStore{}, gatewayLayer, !s.config.InsecureDisableTLS)
+		minio.StartMinio(&minio.IAMAuthStore{}, s.gatewayLayer, !s.config.InsecureDisableTLS)
 		// Ensure we log any minio system errors sent by minio logging.
 		// Error is ignored as we don't use validation of target.
 		_ = logger.AddTarget(NewMinioSystemLogTarget(s.log))
 	})
-	if err != nil {
-		return err
-	}
 
 	if err = s.http.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 		return Error.Wrap(err)

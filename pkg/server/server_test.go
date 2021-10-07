@@ -56,7 +56,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
 	}
 	config := server.Config{Server: server.AddrConfig{Address: "127.0.0.1:0"}, InsecureLogAll: true, EncodeInMemory: true}
-	s, err := server.New(config, zaptest.NewLogger(t), tlsConfig, trustedip.NewListTrustAll(), []string{}, nil)
+	s, err := server.New(config, zaptest.NewLogger(t), tlsConfig, trustedip.NewListTrustAll(), []string{}, nil, []string{})
 	require.NoError(t, err)
 
 	defer ctx.Check(s.Close)
