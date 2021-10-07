@@ -47,6 +47,7 @@ func New(listener net.Listener, log *zap.Logger, tlsConfig *tls.Config, useSetIn
 	trustedIPs trustedip.List, insecureLogAll bool, corsAllowedOrigins []string) *Server {
 	r := mux.NewRouter()
 	r.SkipClean(true)
+	r.UseEncodedPath()
 
 	s := &Server{listener: listener, log: log, http: http.Server{Handler: r}}
 
