@@ -28,5 +28,5 @@ require (
 	storj.io/gateway v1.3.1-0.20211004141903-f55ba9105164
 	storj.io/minio v0.0.0-20211001113105-a621e66615dd
 	storj.io/private v0.0.0-20210810102517-434aeab3f17d
-	storj.io/uplink v1.6.0
+	storj.io/uplink v1.7.0
 )
