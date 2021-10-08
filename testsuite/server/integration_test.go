@@ -8,11 +8,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,59 +19,24 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/minio/minio-go/v7"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
-	"storj.io/common/processgroup"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/auth"
 	"storj.io/gateway-mt/internal/minioclient"
+	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/server"
+	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/private/cfgstruct"
 	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
 )
-
-func compileAt(t *testing.T, ctx *testcontext.Context, workDir string, pkg string) string {
-	t.Helper()
-
-	var binName string
-	if pkg == "" {
-		dir, _ := os.Getwd()
-		binName = path.Base(dir)
-	} else {
-		binName = path.Base(pkg)
-	}
-
-	if absDir, err := filepath.Abs(workDir); err == nil {
-		workDir = absDir
-	} else {
-		t.Log(err)
-	}
-
-	exe := ctx.File("build", binName+".exe")
-
-	/* #nosec G204 */ // This package is only used for test
-	cmd := exec.Command("go",
-		"build",
-		"-race",
-		"-tags=unittest",
-		"-o", exe, pkg,
-	)
-	t.Log("exec:", cmd.Args, "dir:", workDir)
-	cmd.Dir = workDir
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Error(string(out))
-		t.Fatal(err)
-	}
-
-	return exe
-}
 
 var counter int64
 
@@ -89,14 +50,29 @@ func TestUploadDownload(t *testing.T) {
 
 		// TODO: make address not hardcoded the address selection here may
 		// conflict with some automatically bound address.
-		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 		authSvcAddrTLS := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
 
-		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
+		gwConfig := server.Config{}
+
+		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
+
+		gwConfig.Server.Address = "127.0.0.1:0"
+		gwConfig.AuthURL = "http://" + authSvcAddr
+		gwConfig.InsecureLogAll = true
+
+		authURL, err := url.Parse("http://" + authSvcAddr)
+		require.NoError(t, err)
+		authClient, err := authclient.New(authURL, "super-secret", 5*time.Minute)
+		require.NoError(t, err)
+
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient)
+		require.NoError(t, err)
+
+		defer ctx.Check(gateway.Close)
 
 		authConfig := auth.Config{
-			Endpoint:          "http://" + gatewayAddr,
+			Endpoint:          "http://" + gateway.Address(),
 			AuthToken:         "super-secret",
 			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
 			KVBackend:         "memory://",
@@ -111,14 +87,14 @@ func TestUploadDownload(t *testing.T) {
 
 		ctx.Go(func() error { return auth.Run(ctx) })
 
-		require.NoError(t, waitForAuthSvcStart(ctx, authSvcAddr, time.Second))
+		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
 
 		// todo: use the unused endpoint below
 		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
 		require.NoError(t, err)
 
 		client, err := minioclient.NewMinio(minioclient.Config{
-			S3Gateway: gatewayAddr,
+			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
 			AccessKey: accessKey,
 			SecretKey: secretKey,
@@ -127,13 +103,9 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		gateway, err := startGateway(ctx, t, client, gatewayExe, gatewayOptions{
-			Listen:      gatewayAddr,
-			AuthService: authSvcAddr,
-		})
-		require.NoError(t, err)
+		ctx.Go(gateway.Run)
 
-		defer func() { processgroup.Kill(gateway) }()
+		require.NoError(t, waitForGatewayStart(ctx, client, 5*time.Second))
 
 		{ // normal upload
 			bucket := "bucket"
@@ -215,7 +187,7 @@ func TestUploadDownload(t *testing.T) {
 			// set for aws
 			newSession, err := session.NewSession(&aws.Config{
 				Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-				Endpoint:         aws.String("http://" + gatewayAddr),
+				Endpoint:         aws.String("http://" + gateway.Address()),
 				Region:           aws.String("us-east-1"),
 				S3ForcePathStyle: aws.Bool(true),
 			})
@@ -237,81 +209,25 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
-// waitForAuthSvcStart checks if authservice is ready in a constant backoff
-// fashion.
-func waitForAuthSvcStart(ctx context.Context, authSvcAddress string, maxStartupWait time.Duration) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/v1/health/live", authSvcAddress), nil)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
+// waitForAuthSvcStart checks if authservice is ready using constant backoff.
+func waitForAuthSvcStart(ctx context.Context, authClient *authclient.AuthClient, maxStartupWait time.Duration) error {
 	for start := time.Now(); ; {
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			continue
-		}
-
-		if res.Body.Close() != nil {
-			continue
-		}
-
-		if res.StatusCode == http.StatusOK {
+		_, err := authClient.GetHealthLive(ctx)
+		if err == nil {
 			return nil
 		}
 
 		// wait a bit before retrying to reduce load
 		time.Sleep(50 * time.Millisecond)
-
 		if time.Since(start) > maxStartupWait {
 			return errs.New("exceeded maxStartupWait duration")
 		}
 	}
 }
 
-type gatewayOptions struct {
-	Listen      string
-	AuthService string
-
-	More []string
-}
-
-func startGateway(ctx context.Context, t *testing.T, client minioclient.Client, exe string, opts gatewayOptions) (*exec.Cmd, error) {
-	args := append([]string{"run",
-		"--server.address", opts.Listen,
-		"--auth-token", "super-secret",
-		"--auth-url", "http://" + opts.AuthService,
-		"--domain-name", "localhost",
-	}, opts.More...)
-
-	gateway := exec.Command(exe, args...)
-
-	log := zaptest.NewLogger(t)
-	gateway.Stdout = logWriter{log.Named("gateway:stdout")}
-	gateway.Stderr = logWriter{log.Named("gateway:stderr")}
-
-	err := gateway.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	err = waitForGatewayStart(ctx, client, opts.Listen, 5*time.Second, gateway)
-	if err != nil {
-		killErr := gateway.Process.Kill()
-		return nil, errs.Combine(err, killErr)
-	}
-
-	return gateway, nil
-}
-
-func cmdErr(app, action, address string, wait time.Duration, cmd *exec.Cmd) error {
-	return fmt.Errorf("%s [%s] did not %s in required time %v\n%s",
-		app, address, action, wait, strings.Join(cmd.Args, " "))
-}
-
-// waitForGatewayStart will monitor starting when we are able to start the process.
-func waitForGatewayStart(ctx context.Context, client minioclient.Client, gatewayAddress string, maxStartupWait time.Duration, cmd *exec.Cmd) error {
-	start := time.Now()
-	for {
+// waitForGatewayStart checks if Gateway-MT is ready using constant backoff.
+func waitForGatewayStart(ctx context.Context, client minioclient.Client, maxStartupWait time.Duration) error {
+	for start := time.Now(); ; {
 		_, err := client.ListBuckets(ctx)
 		if err == nil {
 			return nil
@@ -319,16 +235,8 @@ func waitForGatewayStart(ctx context.Context, client minioclient.Client, gateway
 
 		// wait a bit before retrying to reduce load
 		time.Sleep(50 * time.Millisecond)
-
 		if time.Since(start) > maxStartupWait {
-			return cmdErr("Gateway", "start", gatewayAddress, maxStartupWait, cmd)
+			return errs.New("exceeded maxStartupWait duration")
 		}
 	}
-}
-
-type logWriter struct{ log *zap.Logger }
-
-func (log logWriter) Write(p []byte) (n int, err error) {
-	log.log.Debug(string(p))
-	return len(p), nil
 }
