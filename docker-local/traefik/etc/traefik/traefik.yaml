@@ -1,0 +1,20 @@
+entryPoints:
+  HttpEntrypoint:
+    address: ":80"
+  HttpsEntrypoint:
+    address: ":443"
+  DrpcEntrypoint:
+    address: ":6666/tcp"
+  DrpcsEntrypoint:
+    address: ":7777/tcp"
+
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  file:
+    filename: "/etc/traefik/routers/routers.yaml"
+
+log:
+  level: DEBUG

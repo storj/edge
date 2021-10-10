@@ -1,0 +1,47 @@
+http:
+  routers:
+    AuthServiceHttpsRouter:
+      entryPoints:
+        - "HttpsEntrypoint"
+      service: AuthServiceHttpService
+      rule: "Host(`localhost`, `traefik-authservice.docker-local.docker`, `docker-local-traefik-authservice-1.docker`)"
+      tls: { }
+    AuthServiceHttpRouter:
+      entryPoints:
+        - HttpEntrypoint
+      rule: "Host(`localhost`, `traefik-authservice.docker-local.docker`, `docker-local-traefik-authservice-1.docker`)"
+      service: AuthServiceHttpService
+#      middlewares:
+#        - genericRedirectScheme
+  services:
+    AuthServiceHttpService:
+      loadBalancer:
+        servers:
+          - url: "http://authservice:20000"
+
+tcp:
+  routers:
+    AuthServiceDrpcsRouter:
+      entryPoints:
+        - DrpcsEntrypoint
+      service: AuthServiceDrpcService
+      rule: "HostSNI(`localhost`, `traefik-authservice.docker-local.docker`, `docker-local-traefik-authservice-1.docker`)"
+      tls: { }
+    AuthServiceDrpcRouter:
+      entryPoints:
+        - DrpcEntrypoint
+      service: AuthServiceDrpcService
+      rule: "HostSNI(`*`)"
+  services:
+    AuthServiceDrpcService:
+      loadBalancer:
+        servers:
+          - address: "authservice:20002"
+
+tls:
+  certificates:
+    - certFile: "/etc/traefik/certificates/authservice-cert.pem"
+      keyFile: "/etc/traefik/certificates/authservice-key.pem"
+  options:
+    default:
+      minVersion: VersionTLS12

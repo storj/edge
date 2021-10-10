@@ -59,6 +59,11 @@ services:
       - storjsim
       - authservice
       - tracing
+  traefik-authservice:
+    image: traefik:2.6.1
+    volumes:
+      - ./traefik/etc/traefik:/etc/traefik
+      - ./certificates:/etc/traefik/certificates
   tracing:
     image: jaegertracing/all-in-one:1.21
     ports:
