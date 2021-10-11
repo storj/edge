@@ -46,6 +46,12 @@ func StartMinio(authStore, gatewayLayer cmd.ObjectLayer) {
 	GlobalPolicyOPA = opa.New(opa.Args{URL: &xnet.URL{Scheme: "http"}, AuthToken: " ", Transport: allowAllOPA{}, CloseRespFn: xhttp.DrainBody})
 
 	GlobalIsGateway = true
-	GlobalNotificationSys = cmd.NewNotificationSys(GlobalEndpoints)
+
 	GlobalBucketQuotaSys = cmd.NewBucketQuotaSys()
+
+	// GlobalNotificationSys (minio/cmd.globalNotificationSys) can be left as a
+	// global and have passed endpoints as nil because all its methods do
+	// nothing when it's zero-valued. We don't care because we don't use it.
+	// MinIO also doesn't initialise it for gateways except for the NAS gateway.
+	GlobalNotificationSys = cmd.NewNotificationSys(nil)
 }
