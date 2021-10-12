@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -136,4 +137,138 @@ func TestLogError(t *testing.T) {
 
 	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
 	require.Equal(t, 1.0, c["gmt_unmapped_error,api=SYSTEM,error=Get\\ \"http://localhost:8000/v1[...]\":\\ dial\\ tcp,scope=storj.io/gateway-mt/pkg/server/middleware total"])
+}
+
+func TestAuthTypeMetrics(t *testing.T) {
+	tests := []struct {
+		desc          string
+		method        string
+		header        http.Header
+		body          string
+		url           string
+		authVersion   string
+		authType      string
+		expectedCount float64
+	}{
+		{
+			desc:          "not a v2 query request",
+			url:           "?something=123",
+			authVersion:   "2",
+			authType:      "query",
+			expectedCount: 0.0,
+		},
+		{
+			desc:          "not a v2 header request",
+			url:           "?AWSAccessKeyId=123&Signature=123",
+			authVersion:   "2",
+			authType:      "header",
+			expectedCount: 0.0,
+		},
+		{
+			desc:          "v2 query request",
+			url:           "?AWSAccessKeyId=123&Signature=123",
+			authVersion:   "2",
+			authType:      "query",
+			expectedCount: 1.0,
+		},
+		{
+			desc: "v2 header request",
+			header: http.Header{
+				"Authorization": {"AWS test:123"},
+			},
+			authVersion:   "2",
+			authType:      "header",
+			expectedCount: 1.0,
+		},
+		{
+			desc:   "v2 multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=---------------------------9051914041544843365972754266"},
+			},
+			body: `-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="Signature"
+
+Signature
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="AWSAccessKeyId"
+
+AccessKey
+-----------------------------9051914041544843365972754266--`,
+			authVersion:   "2",
+			authType:      "multipart",
+			expectedCount: 1.0,
+		},
+		{
+			desc:          "v4 query request",
+			url:           "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:   "4",
+			authType:      "query",
+			expectedCount: 1.0,
+		},
+		{
+			desc: "v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"X-Amz-Date":    {"20060102T150405Z"},
+			},
+			authVersion:   "4",
+			authType:      "header",
+			expectedCount: 1.0,
+		},
+		{
+			desc:   "v4 multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=---------------------------9051914041544843365972754266"},
+			},
+			body: `-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Signature"
+
+X-Amz-Signature
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Date"
+
+20060102T150405Z
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Credential"
+
+AccessKey/20000101/region/s3/aws4_request
+-----------------------------9051914041544843365972754266--`,
+			authVersion:   "4",
+			authType:      "multipart",
+			expectedCount: 1.0,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			req, err := http.NewRequestWithContext(ctx, tc.method, tc.url, strings.NewReader(tc.body))
+			require.NoError(t, err)
+
+			req.Header = tc.header
+
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// no-op
+			})
+			authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
+				require.NoError(t, err)
+			}))
+			defer authService.Close()
+
+			authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
+
+			metricKey := fmt.Sprintf("auth,scope=storj.io/gateway-mt/pkg/server/middleware,type=%s,version=%s value", tc.authType, tc.authVersion)
+			c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+			initialCount := c[metricKey]
+
+			AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(handler).ServeHTTP(nil, req)
+
+			c = monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+			require.Equal(t, initialCount+tc.expectedCount, c[metricKey])
+		})
+	}
 }

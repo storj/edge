@@ -261,6 +261,10 @@ func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
 		kvs = kvs[len(fields[0]):]
 	}
 
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "4"),
+		monkit.NewSeriesTag("type", "header")).Inc(1)
+
 	return v4, nil
 }
 
@@ -288,6 +292,11 @@ func ParseV4FromFormValues(formValues http.Header) (_ *V4, err error) {
 	if err != nil {
 		return nil, ParseV4FromMPartError.New("invalid X-Amz-Date")
 	}
+
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "4"),
+		monkit.NewSeriesTag("type", "multipart")).Inc(1)
+
 	return v4, nil
 }
 
@@ -301,6 +310,10 @@ func ParseV2FromFormValues(formValues http.Header) (_ *V2, err error) {
 	if Signature, ok = formValues["Signature"]; !ok {
 		return nil, ParseV2FromMPartError.New("no Signature field")
 	}
+
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "2"),
+		monkit.NewSeriesTag("type", "multipart")).Inc(1)
 
 	return &V2{AccessKeyID: AccessKeyID[0], Signature: Signature[0]}, nil
 
@@ -354,6 +367,10 @@ func ParseV4FromQuery(r *http.Request) (_ *V4, err error) {
 	if err != nil {
 		return nil, ParseV4FromHeaderError.New("invalid X-Amz-Date")
 	}
+
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "4"),
+		monkit.NewSeriesTag("type", "query")).Inc(1)
 
 	return v4, nil
 }
@@ -413,6 +430,10 @@ func ParseV2FromHeader(r *http.Request) (_ *V2, err error) {
 		FromHeader: true,
 	}
 
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "2"),
+		monkit.NewSeriesTag("type", "header")).Inc(1)
+
 	return v2, nil
 }
 
@@ -430,6 +451,10 @@ func ParseV2FromQuery(r *http.Request) (_ *V2, err error) {
 	if v2.Signature == "" {
 		return nil, ParseV2FromQueryError.New("no Signature field")
 	}
+
+	mon.Counter("auth",
+		monkit.NewSeriesTag("version", "2"),
+		monkit.NewSeriesTag("type", "query")).Inc(1)
 
 	return v2, nil
 }
