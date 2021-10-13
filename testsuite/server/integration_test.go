@@ -176,7 +176,7 @@ func TestUploadDownload(t *testing.T) {
 			satellite := planet.Satellites[0]
 			info, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), uplink.Projects[0].ID)
 			require.NoError(t, err)
-			require.False(t, info.PartnerID.IsZero())
+			require.Contains(t, string(info.UserAgent), "Gateway-MT")
 
 			// operating with aws-ask-go that has a default user-agent string
 			// set for aws
@@ -199,7 +199,7 @@ func TestUploadDownload(t *testing.T) {
 			// created using minio client
 			infoWithCustomUserAgent, err := satellite.DB.Buckets().GetBucket(ctx, []byte("aws-bucket"), uplink.Projects[0].ID)
 			require.NoError(t, err)
-			require.NotEqual(t, info.PartnerID.String(), infoWithCustomUserAgent.PartnerID.String())
+			require.Contains(t, string(infoWithCustomUserAgent.UserAgent), "Gateway-MT")
 		}
 	})
 }

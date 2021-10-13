@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,6 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
@@ -43,7 +45,10 @@ type Config struct {
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
 	ListenAddr    string `user:"true" help:"public HTTP address to listen on" default:":8000"`
-	ListenAddrTLS string `user:"true" help:"public HTTPS and DRPC+TLS address to listen on" default:":8443"`
+	ListenAddrTLS string `user:"true" help:"public HTTPS address to listen on" default:":8443"`
+
+	DRPCListenAddr    string `user:"true" help:"public DRPC address to listen on" default:":6666"`
+	DRPCListenAddrTLS string `user:"true" help:"public DRPC+TLS address to listen on" default:":7777"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	CertFile    string `user:"true" help:"server certificate file" default:""`
@@ -70,6 +75,7 @@ type Peer struct {
 	adb        *authdb.Database
 	res        *httpauth.Resources
 	httpServer *http.Server
+	drpcServer pb.DRPCEdgeAuthServer
 
 	config         Config
 	areSatsDynamic bool
@@ -147,12 +153,15 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		Handler: handler,
 	}
 
+	drpcServer := drpcauth.NewServer(log, adb, endpoint)
+
 	return &Peer{
 		log:        log,
 		kv:         kv,
 		adb:        adb,
 		res:        res,
 		httpServer: httpServer,
+		drpcServer: drpcServer,
 
 		config:         config,
 		areSatsDynamic: areSatsDynamic,
@@ -190,29 +199,49 @@ func (p *Peer) Run(ctx context.Context) error {
 		})
 	}
 
-	drpcServer := drpcauth.NewServer(p.log, p.adb, p.endpoint)
-
 	ctxWithCancel, cancel := context.WithCancel(groupCtx)
 
 	p.stopDRPCAuth = cancel
 
 	group.Go(func() error {
-		l, err := net.Listen("tcp", p.config.ListenAddr)
+		httpListener, err := net.Listen("tcp", p.config.ListenAddr)
 		if err != nil {
 			return err
 		}
 
-		return listenAndServePlain(ctxWithCancel, p.log, l, drpcServer, p.httpServer)
+		return p.ServeHTTP(httpListener)
 	})
 
 	group.Go(func() error {
-		l, err := net.Listen("tcp", p.config.ListenAddrTLS)
+		drpcListener, err := net.Listen("tcp", p.config.DRPCListenAddr)
 		if err != nil {
 			return err
 		}
 
-		return listenAndServeTLS(ctxWithCancel, p.log, l, p.tlsConfig, drpcServer, p.httpServer)
+		return p.ServeDRPC(ctxWithCancel, drpcListener)
 	})
+
+	if p.tlsConfig == nil {
+		p.log.Info("not starting DRPC+TLS and HTTPS because of missing TLS configuration")
+	} else {
+		group.Go(func() error {
+			httpsListener, err := tls.Listen("tcp", p.config.ListenAddrTLS, p.tlsConfig)
+			if err != nil {
+				return err
+			}
+
+			return p.ServeHTTP(httpsListener)
+		})
+
+		group.Go(func() error {
+			drpcTLSListener, err := tls.Listen("tcp", p.config.DRPCListenAddrTLS, p.tlsConfig)
+			if err != nil {
+				return err
+			}
+
+			return p.ServeDRPC(ctxWithCancel, drpcTLSListener)
+		})
+	}
 
 	p.res.SetStartupDone()
 
@@ -234,6 +263,23 @@ func (p *Peer) Close() error {
 		errs.Wrap(p.httpServer.Shutdown(ctx)),
 		errs.Wrap(p.kv.Close()),
 	)
+}
+
+// ServeHTTP starts serving HTTP clients.
+func (p *Peer) ServeHTTP(listener net.Listener) error {
+	p.log.Info("Starting HTTP server", zap.String("address", listener.Addr().String()))
+	err := p.httpServer.Serve(listener)
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+// ServeDRPC starts serving DRPC clients.
+func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) error {
+	p.log.Info("Starting DRPC server", zap.String("address", listener.Addr().String()))
+
+	return drpcauth.StartListen(ctx, p.drpcServer, listener)
 }
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {
