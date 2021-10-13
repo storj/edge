@@ -23,7 +23,6 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
-	"storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
@@ -43,11 +42,11 @@ var (
 // Once Peer.Run() has been called, new instances of a Peer will not update any configuration used
 // by Minio.
 type Peer struct {
-	http         http.Server
-	listener     net.Listener
-	log          *zap.Logger
-	config       Config
-	gatewayLayer cmd.ObjectLayer
+	http       http.Server
+	listener   net.Listener
+	log        *zap.Logger
+	config     Config
+	closeLayer func(context.Context) error
 }
 
 // New returns new instance of an S3 compatible http server.
@@ -94,7 +93,7 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	if err != nil {
 		return nil, err
 	}
-	s.gatewayLayer = gatewayLayer
+	s.closeLayer = gatewayLayer.Shutdown
 	minio.RegisterAPIRouter(r, gatewayLayer, domainNames)
 
 	r.Use(middleware.Metrics)
@@ -128,7 +127,7 @@ func (s *Peer) Run() error {
 	// of each are added, such may be the case if starting multiple servers in parallel.
 	var err error
 	minioOnce.Do(func() {
-		minio.StartMinio(&minio.IAMAuthStore{}, s.gatewayLayer, !s.config.InsecureDisableTLS)
+		minio.StartMinio(!s.config.InsecureDisableTLS)
 		// Ensure we log any minio system errors sent by minio logging.
 		// Error is ignored as we don't use validation of target.
 		_ = logger.AddTarget(NewMinioSystemLogTarget(s.log))
@@ -146,7 +145,7 @@ func (s *Peer) Close() error {
 	ctx, canc := context.WithTimeout(context.Background(), 10*time.Second)
 	defer canc()
 
-	return Error.Wrap(s.http.Shutdown(ctx))
+	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.http.Shutdown(ctx)))
 }
 
 // Address returns the web address the peer is listening on.

@@ -24,7 +24,7 @@ func (s allowAllOPA) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 // StartMinio starts up Minio directly without its normal configuration process.
-func StartMinio(authStore, gatewayLayer cmd.ObjectLayer, secureConn bool) {
+func StartMinio(secureConn bool) {
 	// wire up domain names for Minio
 	// TODO (wthorp): can we set globalDomainNames directly instead?
 	HandleCommonEnvVars()
@@ -34,13 +34,12 @@ func StartMinio(authStore, gatewayLayer cmd.ObjectLayer, secureConn bool) {
 	GlobalCLIContext.StrictS3Compat = true
 	GlobalIsSSL = secureConn
 
-	// wire up object layer
-	// TODO (wthorp): can we set globalObjectAPI directly instead?
-	SetObjectLayer(gatewayLayer)
+	// wire up dummy object layer
+	SetObjectLayer(&NotImplementedObjectStore{})
 
 	// wire up Auth layer
 	iamSys := cmd.NewIAMSys()
-	iamSys.InitStore(authStore)
+	iamSys.InitStore(&IAMAuthStore{})
 	GlobalIAMSys = iamSys
 
 	// force globalIAMSys.IsAllowed() to always return true

@@ -25,7 +25,7 @@ const identitySuffix string = "/identity.json"
 // Minio doesn't use the full ObjectLayer interface, so we only implement GetObject.
 // If using Minio's Admin APIs, we'd also need DeleteObject, PutObject, and GetObjectInfo.
 type IAMAuthStore struct {
-	minio.GatewayUnsupported
+	NotImplementedObjectStore
 }
 
 // objectPathToUser extracts the user from the object identity path.
@@ -81,62 +81,72 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 	})
 }
 
+// NotImplementedObjectStore implements the ObjectLayer interface, but returns NotImplemented for all receivers.
+type NotImplementedObjectStore struct {
+	minio.GatewayUnsupported
+}
+
+// GetObject is unimplemented, but required to meet the ObjectLayer interface.
+func (iamOS *NotImplementedObjectStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
+	return minio.NotImplemented{}
+}
+
 // DeleteBucket is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) DeleteBucket(ctx context.Context, bucket string, forceDelete bool) (err error) {
+func (iamOS *NotImplementedObjectStore) DeleteBucket(ctx context.Context, bucket string, forceDelete bool) (err error) {
 	return minio.NotImplemented{}
 }
 
 // DeleteObject is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) DeleteObject(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (iamOS *NotImplementedObjectStore) DeleteObject(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	return minio.ObjectInfo{Bucket: bucket, Name: object}, minio.NotImplemented{}
 }
 
 // DeleteObjects is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []error) {
+func (iamOS *NotImplementedObjectStore) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []error) {
 	return []minio.DeletedObject{}, []error{minio.NotImplemented{}}
 }
 
 // GetBucketInfo is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
+func (iamOS *NotImplementedObjectStore) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
 	return minio.BucketInfo{}, minio.NotImplemented{}
 }
 
 // GetObjectInfo is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (iamOS *NotImplementedObjectStore) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	return minio.ObjectInfo{Bucket: bucket, Name: object}, minio.NotImplemented{}
 }
 
 // GetObjectNInfo is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) GetObjectNInfo(ctx context.Context, bucket, object string, rs *minio.HTTPRangeSpec, h http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
+func (iamOS *NotImplementedObjectStore) GetObjectNInfo(ctx context.Context, bucket, object string, rs *minio.HTTPRangeSpec, h http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
 	return nil, minio.NotImplemented{}
 }
 
 // ListBuckets is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
+func (iamOS *NotImplementedObjectStore) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	return []minio.BucketInfo{}, minio.NotImplemented{}
 }
 
 // ListObjects is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (iamOS *NotImplementedObjectStore) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	return minio.ListObjectsInfo{}, minio.NotImplemented{}
 }
 
 // MakeBucketWithLocation is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) MakeBucketWithLocation(ctx context.Context, bucket string, opts minio.BucketOptions) error {
+func (iamOS *NotImplementedObjectStore) MakeBucketWithLocation(ctx context.Context, bucket string, opts minio.BucketOptions) error {
 	return minio.NotImplemented{}
 }
 
 // PutObject is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+func (iamOS *NotImplementedObjectStore) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	return minio.ObjectInfo{Bucket: bucket, Name: object}, minio.NotImplemented{}
 }
 
 // Shutdown is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) Shutdown(context.Context) error {
+func (iamOS *NotImplementedObjectStore) Shutdown(context.Context) error {
 	return minio.NotImplemented{}
 }
 
 // StorageInfo is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *IAMAuthStore) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
+func (iamOS *NotImplementedObjectStore) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
 	return minio.StorageInfo{}, []error{minio.NotImplemented{}}
 }
