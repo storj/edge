@@ -22,6 +22,7 @@ import (
 
 type parsedRequest struct {
 	access           *uplink.Access
+	serializedAccess string
 	bucket           string
 	realKey          string
 	visibleKey       string
@@ -30,7 +31,6 @@ type parsedRequest struct {
 	wrapDefault      bool
 	downloadDefault  bool
 	hosting          bool
-	serializedAccess string
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
