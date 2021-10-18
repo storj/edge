@@ -192,16 +192,14 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	path := "/s/" + pr.serializedAccess + "/" + pr.bucket + "/" + pr.realKey
-	input.TwitterImage = path
-	input.OgImage = path
 	fileExt := strings.ToLower(filepath.Ext(input.Key))
 	// Check for allowed preview extension and file size limitations from Twitter
-	if memory.Size(o.System.ContentLength) > 1*memory.MB || !twitterAllowedExtensions[fileExt] {
-		input.TwitterImage = "/static/img/file.png"
+	if memory.Size(o.System.ContentLength) < 1*memory.MB && twitterAllowedExtensions[fileExt] {
+		input.TwitterImage = path
 	}
 	// Check for allowed preview extension and file size limitations from Facebook
-	if memory.Size(o.System.ContentLength) > 5*memory.MB || !ogAllowedExtensions[fileExt] {
-		input.OgImage = "/static/img/file.png"
+	if memory.Size(o.System.ContentLength) < 5*memory.MB && ogAllowedExtensions[fileExt] {
+		input.OgImage = path
 	}
 
 	handler.renderTemplate(w, "single-object.html", pageData{

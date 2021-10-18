@@ -5,9 +5,19 @@
   <title>{{.Title}} | Storj DCS</title>
   <meta name="description" property="og:description" content="Shared content - Storj DCS">
   <meta property="og:title" content="{{.Title}} | Storj DCS">
+  {{ if or (ne .Data.OgImage "")}}
   <meta property="og:image" content="{{.Base}}{{.Data.OgImage}}">
+  {{ else }}
+  <meta property="og:image" content="{{.Base}}/static/img/file.png">
+  {{ end }}
+
   <meta property="og:url" content="{{.Base}}">
   <meta name="twitter:title" content="{{.Title}} | Storj DCS">
+  {{ if or (ne .Data.TwitterImage "")}}
+  <meta name="twitter:image" content="{{.Base}}{{.Data.TwitterImage}}">
+  {{ else }}
+  <meta name="twitter:image" content="{{.Base}}/static/img/file.png">
+  {{ end }}
   <meta name="twitter:description" content="Shared content - Storj DCS">
   <meta name="twitter:image" content="{{.Base}}{{.Data.TwitterImage}}">
   <meta name="twitter:card" content="summary">
