@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,7 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/authclient"
@@ -72,7 +76,7 @@ This is some plain text.
 	require.NoError(t, err)
 	authClient, err := authclient.New(authURL, "token", 5*time.Second)
 	require.NoError(t, err)
-	AccessKey(authClient, trustedip.NewListTrustAll())(verify).ServeHTTP(nil, req)
+	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
 }
 
 func TestV2MultipartCredentials(t *testing.T) {
@@ -124,5 +128,19 @@ This is some plain text.
 	require.NoError(t, err)
 	authClient, err := authclient.New(authURL, "token", 5*time.Second)
 	require.NoError(t, err)
-	AccessKey(authClient, trustedip.NewListTrustAll())(verify).ServeHTTP(nil, req)
+	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
+}
+
+func TestLogError(t *testing.T) {
+	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedLogger := zap.New(observedZapCore)
+
+	err := errors.New("Get \"http://localhost:8000/v1/access/12345\": dial tcp")
+	logError(observedLogger, err)
+
+	filteredLogs := observedLogs.FilterField(zap.String("error", "Get \"http://localhost:8000/v1[...]\": dial tcp"))
+	require.Len(t, filteredLogs.All(), 1)
+
+	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+	require.Equal(t, 1.0, c["gmt_unmapped_error,api=SYSTEM,error=Get\\ \"http://localhost:8000/v1[...]\":\\ dial\\ tcp,scope=storj.io/gateway-mt/pkg/server/middleware total"])
 }

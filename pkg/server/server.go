@@ -23,7 +23,6 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
-	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
 	"storj.io/uplink"
@@ -97,7 +96,7 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	minio.RegisterAPIRouter(r, gatewayLayer, domainNames)
 
 	r.Use(middleware.Metrics)
-	r.Use(middleware.AccessKey(authClient, trustedIPs))
+	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(minio.GlobalHandlers...)
 
 	s.http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
@@ -128,9 +127,6 @@ func (s *Peer) Run() error {
 	var err error
 	minioOnce.Do(func() {
 		minio.StartMinio(!s.config.InsecureDisableTLS)
-		// Ensure we log any minio system errors sent by minio logging.
-		// Error is ignored as we don't use validation of target.
-		_ = logger.AddTarget(NewMinioSystemLogTarget(s.log))
 	})
 
 	if err = s.http.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {

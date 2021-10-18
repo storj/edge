@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/authclient"
@@ -36,8 +38,10 @@ const (
 	yyyymmdd      = "20060102"
 )
 
+var accessRegexp = regexp.MustCompile("/access/.*\"")
+
 // AccessKey implements mux.Middlware and saves the accesskey to context.
-func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List) mux.MiddlewareFunc {
+func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log *zap.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -47,13 +51,33 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List) mux
 				next.ServeHTTP(w, r)
 				return
 			}
+			var creds Credentials
 			authResponse, err := authClient.GetAccess(ctx, accessKeyID, trustedip.GetClientIP(trustedIPs, r))
+			if err != nil {
+				logError(log, err)
+				creds.Error = err
+				next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &creds)))
+				return
+			}
 
 			// return a new context that contains the access grant
-			credentials := Credentials{AccessKey: accessKeyID, Access: *authResponse, Error: err}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &credentials)))
+			creds.AccessKey = accessKeyID
+			creds.Access = *authResponse
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &creds)))
 		})
 	}
+}
+
+func logError(log *zap.Logger, err error) {
+	// avoid logging access keys from errors, e.g.
+	// "Get \"http://localhost:8000/v1/access/12345\": dial tcp ..."
+	msg := accessRegexp.ReplaceAllString(err.Error(), "[...]\"")
+
+	mon.Event("gmt_unmapped_error",
+		monkit.NewSeriesTag("api", "SYSTEM"),
+		monkit.NewSeriesTag("error", msg))
+
+	log.Error("system", zap.String("error", msg))
 }
 
 // GetAccess returns the credentials.
