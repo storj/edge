@@ -19,6 +19,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway/miniogw"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
@@ -47,7 +48,8 @@ type multiTenantGateway struct {
 }
 
 // NewMultiTenantGateway returns a wrapper of minio.Gateway that logs responses
-// and makes gateway multi-tenant.
+// and makes gateway multi-tenant. The properly closed (Shutdown method) object
+// layer of the returned minio.Gateway will also close connectionPool.
 func NewMultiTenantGateway(gateway minio.Gateway, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) minio.Gateway {
 	return &multiTenantGateway{
 		gateway:        gateway,
@@ -132,7 +134,6 @@ func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
 	dst.BucketName = src.BucketName
 	dst.ObjectName = src.ObjectName
 	dst.AccessKey = src.AccessKey
-	dst.AccessGrant = src.AccessGrant
 
 	for _, tag := range src.GetTags() {
 		dst.SetTags(tag.Key, tag.Val)
@@ -140,14 +141,7 @@ func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
 }
 
 func (l *multiTenancyLayer) Shutdown(ctx context.Context) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
-	if err != nil {
-		return err
-	}
-
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	return l.log(ctx, errs.Combine(l.layer.Shutdown(miniogw.WithUplinkProject(ctx, project)), l.connectionPool.Close()))
+	return l.log(ctx, l.connectionPool.Close())
 }
 
 func (l *multiTenancyLayer) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
@@ -458,11 +452,11 @@ func (l *multiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, ob
 }
 
 func getAccessGrant(ctx context.Context) string {
-	reqInfo := logger.GetReqInfo(ctx)
-	if reqInfo == nil {
+	credentials := middleware.GetAccess(ctx)
+	if credentials == nil || credentials.AccessKey == "" {
 		return ""
 	}
-	return reqInfo.AccessGrant
+	return credentials.AccessGrant
 }
 
 func (l *multiTenancyLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {

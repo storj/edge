@@ -9,7 +9,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/auth"
 	"storj.io/private/cfgstruct"
@@ -73,9 +75,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, p.Close()) }()
 
-	return p.Run(ctx)
+	var g errgroup.Group
+
+	g.Go(func() error {
+		<-ctx.Done()
+		return errs2.IgnoreCanceled(p.Close())
+	})
+
+	g.Go(func() error {
+		return errs2.IgnoreCanceled(p.Run(ctx))
+	})
+
+	return g.Wait()
 }
 
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {

@@ -32,12 +32,6 @@ var GlobalCLIContext = struct {
 	StrictS3Compat bool
 }{}
 
-// GlobalEndpoints exposes minio's cmd.globalEndpoints.
-//
-//nolint: golint
-//go:linkname GlobalEndpoints storj.io/minio/cmd.globalEndpoints
-var GlobalEndpoints cmd.EndpointServerPools
-
 // GlobalHandlers exposes minio's cmd.globalHandlers.
 //
 //nolint: golint

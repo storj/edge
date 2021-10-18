@@ -4,6 +4,8 @@
 package linksharing_test
 
 import (
+	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -16,8 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/drpc"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
@@ -127,13 +132,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	defer validAuthServer.Close()
 
 	testCases := []struct {
-		name       string
-		method     string
-		path       string
-		status     int
-		header     http.Header
-		body       string
-		authserver string
+		name             string
+		method           string
+		path             string
+		status           int
+		header           http.Header
+		body             string
+		authserver       string
+		expectedRPCCalls []string
 	}{
 		{
 			name:   "invalid method",
@@ -195,44 +201,50 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:   "Object not found",
 		},
 		{
-			name:   "GET success",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "test/foo"),
-			status: http.StatusOK,
-			body:   "foo",
+			name:             "GET success",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			body:             "foo",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
-			name:   "GET bucket listing success",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket") + "/",
-			status: http.StatusOK,
-			body:   "test/",
+			name:             "GET bucket listing success",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket") + "/",
+			status:           http.StatusOK,
+			body:             "test/",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:   "GET prefix listing success",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "test") + "/",
-			status: http.StatusOK,
-			body:   "foo",
+			name:             "GET prefix listing success",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test") + "/",
+			status:           http.StatusOK,
+			body:             "foo",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:   "GET prefix listing empty",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
-			status: http.StatusNotFound,
+			name:             "GET prefix listing empty",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
+			status:           http.StatusNotFound,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:   "GET prefix redirect",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "test"),
-			status: http.StatusSeeOther,
+			name:             "GET prefix redirect",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test"),
+			status:           http.StatusSeeOther,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:   "HEAD missing access",
-			method: "HEAD",
-			path:   "s/",
-			status: http.StatusBadRequest,
-			body:   "Malformed request.",
+			name:             "HEAD missing access",
+			method:           "HEAD",
+			path:             "s/",
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			expectedRPCCalls: []string{},
 		},
 		{
 			name:       "HEAD misconfigured auth server",
@@ -267,33 +279,48 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			authserver: validAuthServer.URL,
 		},
 		{
-			name:   "HEAD missing bucket",
-			method: "HEAD",
-			path:   path.Join("s", serializedAccess),
-			status: http.StatusBadRequest,
-			body:   "Malformed request.",
+			name:             "HEAD missing bucket",
+			method:           "HEAD",
+			path:             path.Join("s", serializedAccess),
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "HEAD object not found",
-			method: "HEAD",
-			path:   path.Join("s", serializedAccess, "testbucket", "test/bar"),
-			status: http.StatusNotFound,
-			body:   "Object not found",
+			name:             "HEAD object not found",
+			method:           "HEAD",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
+			status:           http.StatusNotFound,
+			body:             "Object not found",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:   "HEAD success",
-			method: "HEAD",
-			path:   path.Join("s", serializedAccess, "testbucket", "test/foo"),
-			status: http.StatusOK,
-			body:   "",
+			name:             "HEAD success",
+			method:           "HEAD",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			body:             "",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 	}
 
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
 
+	callRecorder := rpctest.NewCallRecorder()
+	contextWithRecording := rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, dialer rpcpool.Dialer) rpcpool.Dialer {
+		return func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+			conn, state, err := dialer(ctx)
+			if err != nil {
+				return conn, state, err
+			}
+			return callRecorder.Attach(conn), state, nil
+		}
+	})
+
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
+			callRecorder.Reset()
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
 				URLBases:  []string{"http://localhost"},
 				Templates: "./../../pkg/linksharing/web/",
@@ -306,7 +333,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 
 			url := "http://localhost/" + testCase.path
 			w := httptest.NewRecorder()
-			r, err := http.NewRequestWithContext(ctx, testCase.method, url, nil)
+			r, err := http.NewRequestWithContext(contextWithRecording, testCase.method, url, nil)
 			require.NoError(t, err)
 			handler.ServeHTTP(w, r)
 
@@ -315,6 +342,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				assert.Equal(t, v, w.Header()[h], "%q header does not match", h)
 			}
 			assert.Contains(t, w.Body.String(), testCase.body, "body does not match")
+			if testCase.expectedRPCCalls != nil {
+				assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())
+			}
 		})
 	}
 }

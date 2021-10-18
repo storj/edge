@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -52,22 +51,20 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	defer ctx.Cleanup()
 
 	// create server
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
 	var tlsConfig *tls.Config
 	if useTLS {
 		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
 	}
-	s := server.New(
-		listener, zaptest.NewLogger(t), tlsConfig, true, trustedip.NewListTrustAll(), true, []string{},
-	)
-	ctx.Go(func() error {
-		return errs2.IgnoreCanceled(s.Run(ctx))
-	})
+	config := server.Config{Server: server.AddrConfig{Address: "127.0.0.1:0"}, InsecureLogAll: true, EncodeInMemory: true}
+	s, err := server.New(config, zaptest.NewLogger(t), tlsConfig, trustedip.NewListTrustAll(), []string{}, nil)
+	require.NoError(t, err)
+
 	defer ctx.Check(s.Close)
 
+	ctx.Go(s.Run)
+
 	// get url parameters
-	_, port, err := net.SplitHostPort(listener.Addr().String())
+	_, port, err := net.SplitHostPort(s.Address())
 	require.NoError(t, err)
 	urlBase := "http://127.0.0.1:" + port + "/"
 	if useTLS {
