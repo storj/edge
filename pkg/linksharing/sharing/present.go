@@ -21,15 +21,16 @@ import (
 )
 
 type parsedRequest struct {
-	access          *uplink.Access
-	bucket          string
-	realKey         string
-	visibleKey      string
-	title           string
-	root            breadcrumb
-	wrapDefault     bool
-	downloadDefault bool
-	hosting         bool
+	access           *uplink.Access
+	bucket           string
+	realKey          string
+	visibleKey       string
+	title            string
+	root             breadcrumb
+	wrapDefault      bool
+	downloadDefault  bool
+	hosting          bool
+	serializedAccess string
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
@@ -168,13 +169,40 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		return handler.serveMap(ctx, w, locations, pieces, o, q)
 	}
 	var input struct {
-		Key        string
-		Size       string
-		NodesCount int
+		Key          string
+		Size         string
+		NodesCount   int
+		TwitterImage string
+		OgImage      string
 	}
 	input.Key = filepath.Base(o.Key)
 	input.Size = memory.Size(o.System.ContentLength).Base10String()
 	input.NodesCount = len(locations)
+
+	twitterAllowedExtensions := map[string]bool{
+		".jpg":  true,
+		".png":  true,
+		".gif":  true,
+		".webp": true,
+	}
+	ogAllowedExtensions := map[string]bool{
+		".jpeg": true,
+		".png":  true,
+		".gif":  true,
+	}
+
+	path := "/s/" + pr.serializedAccess + "/" + pr.bucket + "/" + pr.realKey
+	input.TwitterImage = path
+	input.OgImage = path
+	fileExt := strings.ToLower(filepath.Ext(input.Key))
+	// Check for allowed preview extension and file size limitations from Twitter
+	if memory.Size(o.System.ContentLength) > 1*memory.MB || !twitterAllowedExtensions[fileExt] {
+		input.TwitterImage = "/static/img/file.png"
+	}
+	// Check for allowed preview extension and file size limitations from Facebook
+	if memory.Size(o.System.ContentLength) > 5*memory.MB || !ogAllowedExtensions[fileExt] {
+		input.OgImage = "/static/img/file.png"
+	}
 
 	handler.renderTemplate(w, "single-object.html", pageData{
 		Data:  input,
