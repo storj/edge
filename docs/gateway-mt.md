@@ -57,12 +57,7 @@ Gateway-MT requires the following command line parameters:
 
 # How to configure gateway-mt with a base and wildcard certificates
 
-Gateway-MT will load certificates from a certs directory (using the same
-mechanisms from
-[Minio](https://docs.min.io/docs/how-to-secure-access-to-minio-server-with-tls)).
-Multiple certificates can be placed in subdirectories to load more than one
-(using this undocumented [Minio
-feature](https://github.com/minio/minio/pull/10207)).
+Gateway-MT will load certificates from a directory provided.
 
 The following is a complete walk through for doing this locally.
 
@@ -75,16 +70,16 @@ mkdir -p certs
 
 pushd certs
 go run ../generate_cert.go -host 'gateway.local'
-ln -s cert.pem public.crt
-ln -s key.pem private.key
+ln -s cert.pem cert.crt
+ln -s key.pem cert.key
 popd
 
 mkdir -p certs/wildcard
 
 pushd certs/wildcard
 go run ../generate_cert.go -host '*.gateway.local'
-ln -s cert.pem public.crt
-ln -s key.pem private.key
+ln -s cert.pem cert.crt
+ln -s key.pem cert.key
 popd
 ```
 
@@ -110,38 +105,8 @@ openssl x509 -in certs/public.crt -text
 openssl x509 -in certs/wildcard/public.crt -text
 ```
 
-Update the docker-compose yaml to add this set of certs to the gateway-mt service:
-
-
-```diff
-diff --git a/docker-compose.yml b/docker-compose.yml
-index f38b7d1..cb024fb 100644
---- a/docker-compose.yml
-+++ b/docker-compose.yml
-@@ -7,6 +7,8 @@ services:
-       restart_policy:
-         condition: on-failure
-         max_attempts: 3
-+    volumes:
-+      - ./certs:/root/.local/share/storj/gateway/minio/certs
-     # volumes:
-     #   - ./public.crt:/root/.local/share/storj/gateway/minio/certs/public.crt
-     #   - ./private.key:/root/.local/share/storj/gateway/minio/certs/private.key
-@@ -15,6 +17,7 @@ services:
-       - STORJ_AUTH_ENABLED=enable
-       - MINIO_STORJ_AUTH_URL=http://auth:8000
-       - MINIO_STORJ_AUTH_TOKEN=staging
-+      - MINIO_DOMAIN=gateway.local
-     ports:
-       - "7777:7777"
-     command:
-```
-
-After the config is updated start the gateway-mt and auth services:
-
-```
-docker-compose up
-```
+Now you can start Gateway-MT with the `--cert-dir` and `--insecure-disable-tls=false`
+flags, which will configure the server to handle HTTPS traffic.
 
 Use the uplink CLI to register an access grant (replace `$ACCESS` with an access grant):
 
@@ -187,15 +152,11 @@ The following S3 methods are supported:
 - ListObjects
 - ListObjectsV2
 
-We use the minio mint testsuite to ensure our compatibility to the S3 API. As some S3 methods are not supported yet, we use a custom build that you can run it against any endpoint using docker.  The majority of these tests are defined in https://github.com/storj/minio/blob/main/mint/mint.sh.
+We use the minio mint testsuite to ensure our compatibility to the S3 API. As some S3 methods are not supported yet, we use a custom build that you can run it against any endpoint using docker.  The majority of these tests are defined in https://github.com/storj/gateway-mint/blob/main/mint.sh
 
-To build our custom image and tag it as storj/mint:
-```
-docker build --pull https://github.com/storj/minio.git#main -f Dockerfile.mint -t storj/mint
-```
 To run the tests against the endpoint `endpoint_address` (using the `HOST:PORT` format), use:
 ```
-docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECRET_KEY=mysecretkey -e ENABLE_HTTPS=0 storj/mint
+docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECRET_KEY=mysecretkey -e ENABLE_HTTPS=0 storjlabs/gateway-mint:latest
 ```
 The `ENABLE_HTTPS` flag indicates if https should be used (`ENABLE_HTTPS=1`)
 
