@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
 func TestKV(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/auth/authdb"
-	"storj.io/gateway-mt/auth/memauth"
-	"storj.io/gateway-mt/auth/sqlauth"
+	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/memauth"
+	"storj.io/gateway-mt/pkg/auth/sqlauth"
 	"storj.io/private/dbutil"
 )
 

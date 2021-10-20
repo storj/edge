@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth/sqlauth"
-	"storj.io/gateway-mt/auth/sqlauth/testdata"
+	"storj.io/gateway-mt/pkg/auth/sqlauth"
+	"storj.io/gateway-mt/pkg/auth/sqlauth/testdata"
 	"storj.io/private/dbutil/dbschema"
 	"storj.io/private/dbutil/pgtest"
 	"storj.io/private/dbutil/pgutil"

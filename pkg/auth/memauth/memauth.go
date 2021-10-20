@@ -11,7 +11,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
 var mon = monkit.Package()

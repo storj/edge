@@ -20,7 +20,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/auth/satellitelist"
+	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
 
 var mon = monkit.Package()

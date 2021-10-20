@@ -20,10 +20,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
-	"storj.io/gateway-mt/auth/authdb"
-	"storj.io/gateway-mt/auth/drpcauth"
-	"storj.io/gateway-mt/auth/httpauth"
-	"storj.io/gateway-mt/auth/satellitelist"
+	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/drpcauth"
+	"storj.io/gateway-mt/pkg/auth/httpauth"
+	"storj.io/gateway-mt/pkg/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/server"
 )
 

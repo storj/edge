@@ -21,7 +21,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
-	"storj.io/gateway-mt/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
 // Server is a collection of dependencies for the DRPC-based service
@@ -31,7 +31,7 @@ type Server struct {
 
 	log *zap.Logger
 
-	// This is duplicated with package storj.io/gateway-mt/auth/httpauth/resources
+	// This is duplicated with package storj.io/gateway-mt/pkg/auth/httpauth/resources
 	// TODO: factor out common functionality
 	db       *authdb.Database
 	endpoint *url.URL

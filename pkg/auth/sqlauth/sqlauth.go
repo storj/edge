@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/auth/authdb"
-	"storj.io/gateway-mt/auth/sqlauth/dbx"
+	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/sqlauth/dbx"
 	"storj.io/private/dbutil"
 	_ "storj.io/private/dbutil/cockroachutil" // register our custom driver
 	"storj.io/private/dbutil/pgutil"
