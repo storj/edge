@@ -95,7 +95,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	validate(runCfg.AuthURL, "auth-url")
 	validate(runCfg.DomainName, "domain-name")
 	set(runCfg.DomainName, "MINIO_DOMAIN") // MINIO_DOMAIN supports comma-separated domains.
-	set("enable", "STORJ_AUTH_ENABLED")
 	set("off", "MINIO_BROWSER")
 	set("dummy-key-to-satisfy-minio", "MINIO_ACCESS_KEY")
 	set("dummy-key-to-satisfy-minio", "MINIO_SECRET_KEY")
