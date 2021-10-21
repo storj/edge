@@ -8,12 +8,11 @@ import (
 	"time"
 )
 
-// ExponentialBackoff keeps track of how long we should sleep between
-// failing attempts.
+// ExponentialBackoff provides delays between failing attempts.
 type ExponentialBackoff struct {
-	delay time.Duration
-	Max   time.Duration
-	Min   time.Duration
+	delay time.Duration `help:"The active time between retries, typically not set" default:"0ms"`
+	Max   time.Duration `help:"The maximum total time to allow retries" default:"5m"`
+	Min   time.Duration `help:"The minimum time between retries" default:"100ms"`
 }
 
 func (e *ExponentialBackoff) init() {

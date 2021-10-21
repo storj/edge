@@ -25,6 +25,12 @@ type AuthServiceConfig struct {
 	// Authorization token used for the auth service to resolve access key ids.
 	Token string
 
+	// How long to wait for a single connection to complete before failing.
+	Timeout time.Duration
+
+	// Defines strategy for retrying requests to authservice.
+	Backoff backoff.ExponentialBackoff
+
 	// Cache is used for caching authservice's responses.
 	Cache *lrucache.ExpiringLRU
 }
@@ -59,12 +65,10 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
 
-	delay := backoff.ExponentialBackoff{
-		Min: 100 * time.Millisecond,
-		Max: 5 * time.Second,
-	}
+	delay := a.Backoff
+	client := http.Client{Timeout: a.Timeout}
 	for {
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			if !delay.Maxed() {
 				if err := delay.Wait(ctx); err != nil {

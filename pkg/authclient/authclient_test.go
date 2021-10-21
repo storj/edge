@@ -18,8 +18,9 @@ import (
 
 func TestLoadUserBadURL(t *testing.T) {
 	for _, badURL := range []string{"", "test.url.invalid", "http://test.url.invalid"} {
-		client, err := GetTestAuthClient(t, badURL, "token", 2*time.Second)
+		client, err := GetTestAuthClient(t, badURL, "token", 100*time.Millisecond)
 		if err == nil {
+			client.backoff.Max = 100 * time.Millisecond
 			_, err = client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
 		}
 		require.Error(t, err, badURL)
@@ -34,6 +35,7 @@ func TestLoadUserTimeout(t *testing.T) {
 	defer ts.Close()
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 100*time.Millisecond)
+	client.backoff.Max = 100 * time.Millisecond
 	require.NoError(t, err)
 
 	authErr := make(chan error, 1)

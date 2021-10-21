@@ -38,6 +38,7 @@ type AuthClient struct {
 	client  *http.Client
 	token   string
 	timeout time.Duration
+	backoff backoff.ExponentialBackoff
 
 	accessURL     *url.URL
 	healthLiveURL *url.URL
@@ -71,6 +72,7 @@ func New(baseURL *url.URL, token string, timeout time.Duration) (*AuthClient, er
 		accessURL:     accessURL,
 		healthLiveURL: healthLiveURL,
 		timeout:       timeout,
+		backoff:       backoff.ExponentialBackoff{Min: 100 * time.Millisecond, Max: 5 * time.Minute},
 	}, nil
 }
 
@@ -94,8 +96,7 @@ func (c *AuthClient) GetAccess(ctx context.Context, accessKeyID, forwardedFor st
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Forwarded", "for="+forwardedFor)
 
-	delay := backoff.ExponentialBackoff{Min: 100 * time.Millisecond, Max: c.timeout}
-
+	delay := c.backoff
 	for {
 		resp, err := c.client.Do(req)
 		if err != nil {
