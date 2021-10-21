@@ -35,13 +35,9 @@ type Config struct {
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool
 // options.
-//
-// NOTE: Capacity and KeyCapacity are set to -1 because in the current state the
-// connection pool is effectively a global and this is a problem in testplanet's
-// tests.
 type ConnectionPoolConfig struct {
-	Capacity       int           `help:"RPC connection pool capacity" releaseDefault:"100" devDefault:"-1"`
-	KeyCapacity    int           `help:"RPC connection pool key capacity" releaseDefault:"5" devDefault:"-1"`
+	Capacity       int           `help:"RPC connection pool capacity" default:"100"`
+	KeyCapacity    int           `help:"RPC connection pool key capacity" default:"5"`
 	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
 }
 

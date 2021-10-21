@@ -66,7 +66,7 @@ func TestUploadDownload(t *testing.T) {
 		authClient, err := authclient.New(authURL, "super-secret", 5*time.Minute)
 		require.NoError(t, err)
 
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient)
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient, []string{})
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
