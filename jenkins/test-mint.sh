@@ -114,16 +114,16 @@ authservice run \
 # HTTP gateway
 gateway-mt run \
     --server.address 0.0.0.0:7777 \
-    --auth-url "http://${authservice_address}" \
-    --auth-token "${authtoken}" \
+    --auth.base-url "http://${authservice_address}" \
+    --auth.token "${authtoken}" \
     --domain-name "${GATEWAY_DOMAIN}" \
     --insecure-log-all &
 
 # HTTPS gateway
 gateway-mt run \
     --server.address 0.0.0.0:7778 \
-    --auth-url "http://${authservice_address}" \
-    --auth-token "${authtoken}" \
+    --auth.base-url "http://${authservice_address}" \
+    --auth.token "${authtoken}" \
     --domain-name "${GATEWAY_DOMAIN}" \
     --cert-dir "$CERT_DIR" \
     --insecure-disable-tls=false \

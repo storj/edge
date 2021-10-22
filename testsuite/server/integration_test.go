@@ -8,7 +8,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -58,13 +57,9 @@ func TestUploadDownload(t *testing.T) {
 		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
 
 		gwConfig.Server.Address = "127.0.0.1:0"
-		gwConfig.AuthURL = "http://" + authSvcAddr
+		gwConfig.Auth.BaseURL = "http://" + authSvcAddr
 		gwConfig.InsecureLogAll = true
-
-		authURL, err := url.Parse("http://" + authSvcAddr)
-		require.NoError(t, err)
-		authClient, err := authclient.New(authURL, "super-secret", 5*time.Minute)
-		require.NoError(t, err)
+		authClient := authclient.New(gwConfig.Auth)
 
 		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient, []string{})
 		require.NoError(t, err)

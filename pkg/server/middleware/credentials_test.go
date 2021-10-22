@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -72,10 +71,7 @@ This is some plain text.
 		require.Equal(t, "X-Amz-Signature", r.MultipartForm.Value["X-Amz-Signature"][0])
 	})
 
-	authURL, err := url.Parse(authService.URL)
-	require.NoError(t, err)
-	authClient, err := authclient.New(authURL, "token", 5*time.Second)
-	require.NoError(t, err)
+	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
 }
 
@@ -124,10 +120,7 @@ This is some plain text.
 		require.Equal(t, "Signature", r.MultipartForm.Value["Signature"][0])
 	})
 
-	authURL, err := url.Parse(authService.URL)
-	require.NoError(t, err)
-	authClient, err := authclient.New(authURL, "token", 5*time.Second)
-	require.NoError(t, err)
+	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
 }
 

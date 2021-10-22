@@ -9,10 +9,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -92,8 +90,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	set := func(value, envName string) {
 		err = errs.Combine(err, Error.Wrap(os.Setenv(envName, value)))
 	}
-	validate(runCfg.AuthToken, "auth-token")
-	validate(runCfg.AuthURL, "auth-url")
 	validate(runCfg.DomainName, "domain-name")
 	set(runCfg.DomainName, "MINIO_DOMAIN") // MINIO_DOMAIN supports comma-separated domains.
 	set("off", "MINIO_BROWSER")
@@ -133,16 +129,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	corsAllowedOrigins := strings.Split(runCfg.CorsOrigins, ",")
-	authURL, err := url.Parse(runCfg.AuthURL)
-	if err != nil {
-		return err
-	}
-	authClient, err := authclient.New(authURL, runCfg.AuthToken, 5*time.Minute)
-	if err != nil {
+
+	if err := runCfg.Auth.Validate(); err != nil {
 		return err
 	}
 	s3, err := server.New(runCfg, zap.L(), tlsConfig, trustedClientIPs, corsAllowedOrigins,
-		authClient, strings.Split(runCfg.DomainName, ","))
+		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","))
 	if err != nil {
 		return err
 	}

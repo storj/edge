@@ -10,7 +10,7 @@ import (
 
 // ExponentialBackoff provides delays between failing attempts.
 type ExponentialBackoff struct {
-	delay time.Duration `help:"The active time between retries, typically not set" default:"0ms"`
+	Delay time.Duration `help:"The active time between retries, typically not set" default:"0ms"`
 	Max   time.Duration `help:"The maximum total time to allow retries" default:"5m"`
 	Min   time.Duration `help:"The minimum time between retries" default:"100ms"`
 }
@@ -30,20 +30,20 @@ func (e *ExponentialBackoff) init() {
 // it will sleep an exponentially longer time, up to a max.
 func (e *ExponentialBackoff) Wait(ctx context.Context) error {
 	e.init()
-	if e.delay == 0 {
-		e.delay = e.Min
+	if e.Delay == 0 {
+		e.Delay = e.Min
 	} else {
-		e.delay *= 2
+		e.Delay *= 2
 	}
-	if e.delay > e.Max {
-		e.delay = e.Max
+	if e.Delay > e.Max {
+		e.Delay = e.Max
 	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
-	t := time.NewTimer(e.delay)
+	t := time.NewTimer(e.Delay)
 	defer t.Stop()
 
 	select {
@@ -57,5 +57,5 @@ func (e *ExponentialBackoff) Wait(ctx context.Context) error {
 // Maxed returns true if the wait time has maxed out.
 func (e *ExponentialBackoff) Maxed() bool {
 	e.init()
-	return e.delay == e.Max
+	return e.Delay == e.Max
 }

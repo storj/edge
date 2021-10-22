@@ -6,6 +6,7 @@ package server
 import (
 	"time"
 
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway/miniogw"
 )
 
@@ -17,8 +18,6 @@ type AddrConfig struct {
 // Config determines how server listens for requests.
 type Config struct {
 	Server               AddrConfig
-	AuthURL              string   `help:"Auth Service endpoint URL to return to clients" releaseDefault:"" devDefault:"http://localhost:8000"`
-	AuthToken            string   `help:"Auth Service security token to authenticate requests" releaseDefault:"" devDefault:"super-secret"`
 	CertDir              string   `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
 	InsecureDisableTLS   bool     `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
 	DomainName           string   `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost"`
@@ -28,6 +27,7 @@ type Config struct {
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
 
+	Auth            authclient.Config
 	S3Compatibility miniogw.S3CompatibilityConfig
 	Client          ClientConfig
 	ConnectionPool  ConnectionPoolConfig

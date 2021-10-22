@@ -5,23 +5,23 @@ package authclient
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/gateway-mt/pkg/errdata"
 )
 
 func TestLoadUserBadURL(t *testing.T) {
 	for _, badURL := range []string{"", "test.url.invalid", "http://test.url.invalid"} {
 		client, err := GetTestAuthClient(t, badURL, "token", 100*time.Millisecond)
 		if err == nil {
-			client.backoff.Max = 100 * time.Millisecond
-			_, err = client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
+			client.BackOff.Max = 100 * time.Millisecond
+			_, err = client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
 		}
 		require.Error(t, err, badURL)
 	}
@@ -35,12 +35,12 @@ func TestLoadUserTimeout(t *testing.T) {
 	defer ts.Close()
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 100*time.Millisecond)
-	client.backoff.Max = 100 * time.Millisecond
+	client.BackOff.Max = 100 * time.Millisecond
 	require.NoError(t, err)
 
 	authErr := make(chan error, 1)
 	go func() {
-		_, err := client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
+		_, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
 		authErr <- err
 	}()
 
@@ -60,16 +60,17 @@ func TestLoadUserRetry(t *testing.T) {
 			firstAttempt = false
 			return // writing nothing will cause an http.Client error
 		}
-		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":""}`))
+		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag"}`))
 		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 	require.NoError(t, err)
-	_, err = client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
+	asr, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
 	require.NoError(t, err)
 	require.False(t, firstAttempt)
+	require.Equal(t, "ag", asr.AccessGrant)
 }
 
 func TestLoadUserResponse(t *testing.T) {
@@ -81,10 +82,10 @@ func TestLoadUserResponse(t *testing.T) {
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 	require.NoError(t, err)
-	access, err := client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
+	access, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
 	require.NoError(t, err)
 
-	require.Equal(t, true, access.IsPublic)
+	require.Equal(t, true, access.Public)
 	require.Equal(t, "myaccessgrant", access.AccessGrant)
 	require.Equal(t, "mysecretkey", access.SecretKey)
 }
@@ -97,15 +98,11 @@ func TestLoadUserNotFound(t *testing.T) {
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 	require.NoError(t, err)
-	_, err = client.GetAccess(context.Background(), "fakeUser", "127.0.0.1")
+	_, err = client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
 	require.Error(t, err)
-	var httpError HTTPError
-	require.True(t, errors.As(err, &httpError))
-	require.Equal(t, HTTPError(http.StatusUnauthorized), httpError)
+	require.Equal(t, http.StatusUnauthorized, errdata.GetStatus(err, http.StatusOK))
 }
 
 func GetTestAuthClient(t *testing.T, baseURL, token string, timeout time.Duration) (*AuthClient, error) {
-	u, err := url.Parse(baseURL)
-	require.NoError(t, err)
-	return New(u, token, timeout)
+	return New(Config{BaseURL: baseURL, Token: token, Timeout: timeout}), nil
 }

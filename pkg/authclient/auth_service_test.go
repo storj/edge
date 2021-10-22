@@ -1,10 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package sharing
+package authclient
 
 import (
-	"context"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -21,24 +20,7 @@ import (
 	"storj.io/gateway-mt/pkg/errdata"
 )
 
-func TestLoadUserRetry(t *testing.T) {
-	firstAttempt := true
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if firstAttempt {
-			firstAttempt = false
-			return // writing nothing will cause an http.Client error
-		}
-		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag"}`))
-		require.NoError(t, err)
-	}))
-	asc := AuthServiceConfig{BaseURL: ts.URL, Token: "token"}
-	asr, err := asc.Resolve(context.Background(), "fakeUser", "192.168.1.50")
-	require.NoError(t, err)
-	require.Equal(t, "ag", asr.AccessGrant)
-	require.False(t, firstAttempt)
-}
-
-func TestAuthServiceConfig_Resolve(t *testing.T) {
+func TestAuthClient_Resolve(t *testing.T) {
 	var (
 		token       = "the-authentication-token-" + strconv.Itoa(rand.Int())
 		accessKeyID = "key-id-" + strconv.Itoa(rand.Int())
@@ -54,10 +36,10 @@ func TestAuthServiceConfig_Resolve(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	svc := AuthServiceConfig{
+	svc := AuthClient{Config: Config{
 		BaseURL: testServer.URL,
 		Token:   token,
-	}
+	}}
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -78,7 +60,7 @@ func TestAuthServiceConfig_Resolve(t *testing.T) {
 	})
 }
 
-func TestAuthServiceConfig_ResolveWithCache(t *testing.T) {
+func TestAuthClient_ResolveWithCache(t *testing.T) {
 	const (
 		accessKeyID = "access-key-id"
 		token       = "token"
@@ -104,15 +86,9 @@ func TestAuthServiceConfig_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthServiceConfig{
-			BaseURL: ts.URL,
-			Token:   token,
-			Cache: lrucache.New(
-				lrucache.Options{
-					Expiration: time.Hour,
-					Capacity:   1,
-				},
-			),
+		service := AuthClient{
+			Config: Config{BaseURL: ts.URL, Token: token},
+			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: 1}),
 		}
 
 		ctx := testcontext.New(t)
@@ -142,15 +118,9 @@ func TestAuthServiceConfig_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthServiceConfig{
-			BaseURL: ts.URL,
-			Token:   token,
-			Cache: lrucache.New(
-				lrucache.Options{
-					Expiration: time.Hour,
-					Capacity:   1,
-				},
-			),
+		service := AuthClient{
+			Config: Config{BaseURL: ts.URL, Token: token},
+			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: 1}),
 		}
 
 		ctx := testcontext.New(t)
@@ -180,15 +150,9 @@ func TestAuthServiceConfig_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthServiceConfig{
-			BaseURL: ts.URL,
-			Token:   token,
-			Cache: lrucache.New(
-				lrucache.Options{
-					Expiration: time.Hour,
-					Capacity:   expectedCacheMisses,
-				},
-			),
+		service := AuthClient{
+			Config: Config{BaseURL: ts.URL, Token: token},
+			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: expectedCacheMisses}),
 		}
 
 		ctx := testcontext.New(t)

@@ -29,7 +29,7 @@ type credentialsCV struct{}
 // Credentials contains an AccessKey, SecretKey, AccessGrant, and IsPublic flag.
 type Credentials struct {
 	AccessKey string
-	authclient.Access
+	authclient.AuthServiceResponse
 	Error error
 }
 
@@ -52,7 +52,7 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 				return
 			}
 			var creds Credentials
-			authResponse, err := authClient.GetAccess(ctx, accessKeyID, trustedip.GetClientIP(trustedIPs, r))
+			authResponse, err := authClient.ResolveWithCache(ctx, accessKeyID, trustedip.GetClientIP(trustedIPs, r))
 			if err != nil {
 				logError(log, err)
 				creds.Error = err
@@ -61,9 +61,8 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 			}
 
 			// return a new context that contains the access grant
-			creds.AccessKey = accessKeyID
-			creds.Access = *authResponse
-			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &creds)))
+			credentials := Credentials{AccessKey: accessKeyID, AuthServiceResponse: *authResponse, Error: err}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &credentials)))
 		})
 	}
 }

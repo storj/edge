@@ -11,13 +11,14 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/uplink"
 )
 
 type txtRecords struct {
 	maxTTL time.Duration
 	dns    *DNSClient
-	auth   AuthServiceConfig
+	auth   *authclient.AuthClient
 
 	cache       sync.Map
 	updateLocks MutexGroup
@@ -36,7 +37,7 @@ type txtRecord struct {
 	expiration time.Time
 }
 
-func newTxtRecords(maxTTL time.Duration, dns *DNSClient, auth AuthServiceConfig) *txtRecords {
+func newTxtRecords(maxTTL time.Duration, dns *DNSClient, auth *authclient.AuthClient) *txtRecords {
 	return &txtRecords{
 		maxTTL: maxTTL,
 		dns:    dns,

@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
-	"storj.io/common/lrucache"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/linksharing"
 	"storj.io/gateway-mt/pkg/linksharing/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
@@ -35,7 +35,7 @@ type LinkSharing struct {
 	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:8080" releaseDefault:""`
 	GeoLocationDB          string        `user:"true" help:"maxmind database file path" devDefault:"" releaseDefault:""`
 	TxtRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
-	AuthService            authServiceConfig
+	AuthService            authclient.Config
 	DNSServer              string   `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
 	StaticSourcesPath      string   `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
 	Templates              string   `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
@@ -47,17 +47,6 @@ type LinkSharing struct {
 	StandardRendersContent bool     `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool     `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ConnectionPool         connectionPoolConfig
-}
-
-type authServiceConfig struct {
-	BaseURL string `user:"true" help:"base url to use for resolving access key ids" default:""`
-	Token   string `user:"true" help:"auth token for giving access to the auth service" default:""`
-	Cache   authServiceCacheConfig
-}
-
-type authServiceCacheConfig struct {
-	Expiration time.Duration `user:"true" help:"how long to keep cached access grants in cache" default:"24h"`
-	Capacity   int           `user:"true" help:"how many cached access grants to keep in cache" default:"1000"`
 }
 
 // connectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -125,22 +114,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			ShutdownTimeout: -1,
 		},
 		Handler: sharing.Config{
-			URLBases:              publicURLs,
-			Templates:             runCfg.Templates,
-			StaticSourcesPath:     runCfg.StaticSourcesPath,
-			RedirectHTTPS:         runCfg.RedirectHTTPS,
-			LandingRedirectTarget: runCfg.LandingRedirectTarget,
-			TxtRecordTTL:          runCfg.TxtRecordTTL,
-			AuthServiceConfig: sharing.AuthServiceConfig{
-				BaseURL: runCfg.AuthService.BaseURL,
-				Token:   runCfg.AuthService.Token,
-				Cache: lrucache.New(
-					lrucache.Options{
-						Expiration: runCfg.AuthService.Cache.Expiration,
-						Capacity:   runCfg.AuthService.Cache.Capacity,
-					},
-				),
-			},
+			URLBases:               publicURLs,
+			Templates:              runCfg.Templates,
+			StaticSourcesPath:      runCfg.StaticSourcesPath,
+			RedirectHTTPS:          runCfg.RedirectHTTPS,
+			LandingRedirectTarget:  runCfg.LandingRedirectTarget,
+			TxtRecordTTL:           runCfg.TxtRecordTTL,
+			AuthServiceConfig:      runCfg.AuthService,
 			DNSServer:              runCfg.DNSServer,
 			ConnectionPool:         sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
 			UseQosAndCC:            runCfg.UseQosAndCC,

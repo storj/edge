@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/grant"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )
@@ -32,10 +32,10 @@ func main() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
-	authService := sharing.AuthServiceConfig{
+	authService := authclient.AuthClient{Config: authclient.Config{
 		BaseURL: config.AuthServiceBaseURL,
 		Token:   config.AuthServiceToken,
-	}
+	}}
 	resp, err := authService.Resolve(ctx, args[0], "0.0.0.0")
 	if err != nil {
 		return err

@@ -23,6 +23,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/drpc"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
@@ -324,7 +325,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
 				URLBases:  []string{"http://localhost"},
 				Templates: "./../../pkg/linksharing/web/",
-				AuthServiceConfig: sharing.AuthServiceConfig{
+				AuthServiceConfig: authclient.Config{
 					BaseURL: testCase.authserver,
 					Token:   authToken,
 				},

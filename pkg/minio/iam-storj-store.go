@@ -6,12 +6,11 @@ package minio
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
 
-	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
@@ -64,11 +63,8 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
 	}
 	if credentials.Error != nil {
-		var httpError authclient.HTTPError
-		if errors.As(credentials.Error, &httpError) {
-			if httpError == http.StatusUnauthorized {
-				return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
-			}
+		if errdata.GetStatus(credentials.Error, http.StatusOK) == http.StatusUnauthorized {
+			return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
 		}
 		return credentials.Error
 	}

@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -59,7 +60,7 @@ type Config struct {
 
 	// AuthServiceConfig contains configuration required to use the auth service to resolve
 	// access key ids into access grants.
-	AuthServiceConfig AuthServiceConfig
+	AuthServiceConfig authclient.Config
 
 	// DNS Server address, for TXT record lookup
 	DNSServer string
@@ -119,7 +120,7 @@ type Handler struct {
 	templates              *template.Template
 	mapper                 *objectmap.IPDB
 	txtRecords             *txtRecords
-	authConfig             AuthServiceConfig
+	authClient             *authclient.AuthClient
 	static                 http.Handler
 	redirectHTTPS          bool
 	landingRedirect        string
@@ -179,13 +180,15 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
+	authClient := authclient.New(config.AuthServiceConfig)
+
 	return &Handler{
 		log:                    log,
 		urlBases:               bases,
 		templates:              templates,
 		mapper:                 mapper,
-		txtRecords:             newTxtRecords(config.TxtRecordTTL, dns, config.AuthServiceConfig),
-		authConfig:             config.AuthServiceConfig,
+		txtRecords:             newTxtRecords(config.TxtRecordTTL, dns, authClient),
+		authClient:             authClient,
 		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,

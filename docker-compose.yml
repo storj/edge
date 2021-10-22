@@ -14,8 +14,8 @@ services:
       - "7777:7777"
     command:
       - run
-      - --auth-token=staging
-      - --auth-url=http://auth:8000
+      - --auth.token=staging
+      - --auth.base-url=http://auth:8000
       - --domain-name=gateway.local
     networks:
       gateway-mt: {}
@@ -38,7 +38,7 @@ services:
       - run
       # this list can be updated from https://www.storj.io/dcs-satellites
       - --allowed-satellites=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:7777,1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake.tardigrade.io:7777,12rfG3sh9NCWiX3ivPjq2HtdLmbqCrvHVEzJubnzFzosMuawymB@europe-north-1.tardigrade.io:7777
-      - --auth-token=staging
+      - --auth.token=staging
       - --public-url=http://localhost:9000
       - --endpoint=http://localhost:7777
       - --debug.addr=0.0.0.0:5999

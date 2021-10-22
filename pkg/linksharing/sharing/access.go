@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/uplink"
 )
@@ -21,7 +22,7 @@ import (
 //
 // It returns an error if the access grant is correctly encoded but it doesn't
 // parse or if the Auth Service responds with an error.
-func parseAccess(ctx context.Context, access string, cfg AuthServiceConfig, clientIP string) (_ *uplink.Access, err error) {
+func parseAccess(ctx context.Context, access string, cfg *authclient.AuthClient, clientIP string) (_ *uplink.Access, err error) {
 	defer mon.Task()(&ctx)(&err)
 	wrappedParse := func(access string) (*uplink.Access, error) {
 		parsed, err := uplink.ParseAccess(access)
