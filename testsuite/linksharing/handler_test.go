@@ -18,12 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/geoip"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/drpc"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
 )
@@ -86,13 +86,13 @@ func TestNewHandler(t *testing.T) {
 		},
 	}
 
-	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
+	ipdb := geoip.NewIPDB(&geoip.MockReader{})
 
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			testCase.config.Templates = "./../../pkg/linksharing/web"
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, testCase.config)
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), ipdb, testCase.config)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -304,7 +304,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 	}
 
-	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
+	ipdb := geoip.NewIPDB(&geoip.MockReader{})
 
 	callRecorder := rpctest.NewCallRecorder()
 	contextWithRecording := rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, dialer rpcpool.Dialer) rpcpool.Dialer {
@@ -321,7 +321,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			callRecorder.Reset()
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), ipdb, sharing.Config{
 				URLBases:  []string{"http://localhost"},
 				Templates: "./../../pkg/linksharing/web/",
 				AuthServiceConfig: sharing.AuthServiceConfig{

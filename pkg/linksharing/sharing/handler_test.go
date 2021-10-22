@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/geoip"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 )
 
 func TestCompareHosts(t *testing.T) {
@@ -55,7 +55,7 @@ func TestHandler_CORS(t *testing.T) {
 			Templates: "../../../pkg/linksharing/web/",
 		}
 
-		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
+		handler, err := NewHandler(&zap.Logger{}, &geoip.IPDB{}, cfg)
 		require.NoError(t, err)
 		_ = handler.serveHTTP(testcontext.New(t), rec, req)
 

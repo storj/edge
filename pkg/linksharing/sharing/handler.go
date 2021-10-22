@@ -18,8 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/geoip"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -116,7 +116,7 @@ type Handler struct {
 	log                    *zap.Logger
 	urlBases               []*url.URL
 	templates              *template.Template
-	mapper                 *objectmap.IPDB
+	mapper                 *geoip.IPDB
 	txtRecords             *txtRecords
 	authConfig             AuthServiceConfig
 	static                 http.Handler
@@ -129,7 +129,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *geoip.IPDB, config Config) (*Handler, error) {
 	dns, err := NewDNSClient(config.DNSServer)
 	if err != nil {
 		return nil, err

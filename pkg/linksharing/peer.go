@@ -6,6 +6,7 @@ package linksharing
 import (
 	"context"
 	"errors"
+	"storj.io/common/geoip"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/zeebo/errs"
@@ -13,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/gateway-mt/pkg/linksharing/httpserver"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 )
 
@@ -31,7 +31,7 @@ type Config struct {
 // architecture: Peer
 type Peer struct {
 	Log    *zap.Logger
-	Mapper *objectmap.IPDB
+	IPDB   *geoip.IPDB
 	Server *httpserver.Server
 }
 
@@ -46,10 +46,10 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		if err != nil {
 			return nil, errs.New("unable to open geo location db: %w", err)
 		}
-		peer.Mapper = objectmap.NewIPDB(reader)
+		peer.IPDB = geoip.NewIPDB(reader)
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, config.Handler)
+	handle, err := sharing.NewHandler(log, peer.IPDB, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
@@ -82,8 +82,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Server.Close())
 	}
 
-	if peer.Mapper != nil {
-		errlist.Add(peer.Mapper.Close())
+	if peer.IPDB != nil {
+		errlist.Add(peer.IPDB.Close())
 	}
 
 	return errlist.Err()

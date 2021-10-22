@@ -17,3 +17,7 @@ require (
 	storj.io/private v0.0.0-20210810102517-434aeab3f17d
 	storj.io/storj v0.12.1-0.20210819172313-a5371353bf62
 )
+
+replace (
+	storj.io/common => ../../common
+)

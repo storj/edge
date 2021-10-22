@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/geoip"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 )
 
@@ -44,8 +44,8 @@ func TestServer(t *testing.T) {
 		URLBases:  []string{"https://localhost:15001"},
 		Templates: "../../../pkg/linksharing/web/",
 	}
-	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
-	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, handlerConfig)
+	ipdb := geoip.NewIPDB(&geoip.MockReader{})
+	handler, err := sharing.NewHandler(zaptest.NewLogger(t), ipdb, handlerConfig)
 	require.NoError(t, err)
 
 	tempdir := t.TempDir()
@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 
 	testCases := []serverTestCase{
 		{
-			Mapper:        mapper,
+			Mapper:        ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "missing address",
 			TLSConfig:     noTLSConfig,
@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "server address is required",
 		},
 		{
-			Mapper:        mapper,
+			Mapper:        ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "bad address",
 			Address:       "this is no good",
@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "unable to listen on this is no good: listen tcp: address this is no good: missing port in address",
 		},
 		{
-			Mapper:        mapper,
+			Mapper:        ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "missing handler",
 			Address:       address,
@@ -101,7 +101,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "server handler is required",
 		},
 		{
-			Mapper:        mapper,
+			Mapper:        ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "success via HTTP",
 			Address:       address,
@@ -109,7 +109,7 @@ func TestServer(t *testing.T) {
 			Handler:       handler,
 		},
 		{
-			Mapper:        mapper,
+			Mapper:        ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "success via HTTPS",
 			Address:       address,
@@ -142,7 +142,7 @@ func TestServer(t *testing.T) {
 }
 
 type serverTestCase struct {
-	Mapper        *objectmap.IPDB
+	Mapper        *geoip.IPDB
 	HandlerConfig sharing.Config
 	Name          string
 	Address       string

@@ -30,3 +30,7 @@ require (
 	storj.io/private v0.0.0-20210810102517-434aeab3f17d
 	storj.io/uplink v1.7.0
 )
+
+replace (
+	storj.io/common => ../common
+)
