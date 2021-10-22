@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
@@ -207,7 +208,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	status := http.StatusInternalServerError
 	message := "Internal server error. Please try again later."
-	action := GetAction(handlerErr, "unknown")
+	action := errdata.GetAction(handlerErr, "unknown")
 	skipLog := false
 	switch {
 	case errors.Is(handlerErr, uplink.ErrBucketNotFound):
@@ -239,11 +240,11 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		message = "Oops! Rate limited due too many request."
 		skipLog = true
 	case errors.Is(handlerErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled):
-		status = httpStatusClientClosedRequest
+		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
 		skipLog = true
 	default:
-		status = GetStatus(handlerErr, status)
+		status = errdata.GetStatus(handlerErr, status)
 		switch status {
 		case http.StatusForbidden:
 			message = "Access denied."
@@ -292,7 +293,7 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 		handler.cors(ctx, w, r)
 		return nil
 	} else if r.Method != http.MethodHead && r.Method != http.MethodGet {
-		return WithStatus(errs.New("method not allowed"), http.StatusMethodNotAllowed)
+		return errdata.WithStatus(errs.New("method not allowed"), http.StatusMethodNotAllowed)
 	}
 	handler.cors(ctx, w, r)
 
@@ -309,7 +310,7 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 	case handler.redirectHTTPS && r.URL.Scheme == "http":
 		u, err := url.ParseRequestURI(r.RequestURI)
 		if err != nil {
-			return WithStatus(errs.New("invalid request URI"), http.StatusInternalServerError)
+			return errdata.WithStatus(errs.New("invalid request URI"), http.StatusInternalServerError)
 		}
 		u.Scheme = "https"
 		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)

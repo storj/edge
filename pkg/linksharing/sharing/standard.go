@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
 )
 
@@ -40,9 +41,9 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 		return errs.New("unreachable")
 	case 1:
 		if parts[0] == "" {
-			return WithStatus(errs.New("missing access"), http.StatusBadRequest)
+			return errdata.WithStatus(errs.New("missing access"), http.StatusBadRequest)
 		}
-		return WithStatus(errs.New("missing bucket"), http.StatusBadRequest)
+		return errdata.WithStatus(errs.New("missing bucket"), http.StatusBadRequest)
 	case 2:
 		serializedAccess = parts[0]
 		pr.bucket = parts[1]

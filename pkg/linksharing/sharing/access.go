@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/uplink"
 )
 
@@ -25,7 +26,7 @@ func parseAccess(ctx context.Context, access string, cfg AuthServiceConfig, clie
 	wrappedParse := func(access string) (*uplink.Access, error) {
 		parsed, err := uplink.ParseAccess(access)
 		if err != nil {
-			return nil, WithStatus(err, http.StatusBadRequest)
+			return nil, errdata.WithStatus(err, http.StatusBadRequest)
 		}
 		return parsed, nil
 	}
@@ -41,7 +42,7 @@ func parseAccess(ctx context.Context, access string, cfg AuthServiceConfig, clie
 		return nil, err
 	}
 	if !authResp.Public {
-		return nil, WithStatus(errs.New("non-public access key id"), http.StatusForbidden)
+		return nil, errdata.WithStatus(errs.New("non-public access key id"), http.StatusForbidden)
 	}
 
 	return wrappedParse(authResp.AccessGrant)

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"storj.io/common/memory"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/uplink"
 )
 
@@ -71,11 +72,11 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 	}
 	err = objects.Err()
 	if err != nil {
-		return WithAction(err, "list objects")
+		return errdata.WithAction(err, "list objects")
 	}
 
 	if len(input.Objects) == 0 {
-		return WithAction(uplink.ErrObjectNotFound, "serve prefix - empty")
+		return errdata.WithAction(uplink.ErrObjectNotFound, "serve prefix - empty")
 	}
 
 	handler.renderTemplate(w, "prefix-listing.html", pageData{

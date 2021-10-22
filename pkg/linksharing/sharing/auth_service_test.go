@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/errdata"
 )
 
 func TestLoadUserRetry(t *testing.T) {
@@ -175,7 +176,7 @@ func TestAuthServiceConfig_ResolveWithCache(t *testing.T) {
 
 			cacheMisses++
 
-			w.WriteHeader(httpStatusClientClosedRequest)
+			w.WriteHeader(errdata.HTTPStatusClientClosedRequest)
 		}))
 		defer ts.Close()
 

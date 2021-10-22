@@ -15,6 +15,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/dotworld"
 	"storj.io/dotworld/reference"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/uplink"
 	"storj.io/uplink/private/object"
 )
@@ -29,7 +30,7 @@ func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (lo
 
 	ipSummary, err := object.GetObjectIPSummary(ctx, *handler.uplink, pr.access, pr.bucket, pr.realKey)
 	if err != nil {
-		return nil, 0, WithAction(err, "get locations")
+		return nil, 0, errdata.WithAction(err, "get locations")
 	}
 
 	// we explicitly don't want locations to be nil, so it doesn't
@@ -76,7 +77,7 @@ func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, loc
 	var buf bytes.Buffer
 	err = m.EncodeSVG(&buf, width, width/2)
 	if err != nil {
-		return WithAction(err, "svg encode")
+		return errdata.WithAction(err, "svg encode")
 	}
 
 	data := buf.Bytes()

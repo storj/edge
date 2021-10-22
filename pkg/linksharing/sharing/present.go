@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/ranger/httpranger"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectranger"
 	"storj.io/uplink"
 )
@@ -37,7 +38,7 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 
 	project, err := handler.uplink.OpenProject(ctx, pr.access)
 	if err != nil {
-		return WithStatus(WithAction(err, "open project"), http.StatusBadRequest)
+		return errdata.WithStatus(errdata.WithAction(err, "open project"), http.StatusBadRequest)
 	}
 	defer func() {
 		if err := project.Close(); err != nil {
@@ -78,10 +79,10 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 			return handler.showObject(ctx, w, r, pr, project, o)
 		}
 		if !errors.Is(err, uplink.ErrObjectNotFound) {
-			return WithAction(err, "stat object")
+			return errdata.WithAction(err, "stat object")
 		}
 		if !strings.HasSuffix(pr.realKey, "/") {
-			objNotFoundErr := WithAction(err, "stat object")
+			objNotFoundErr := errdata.WithAction(err, "stat object")
 
 			// s3 has interesting behavior, which is if the object doesn't exist
 			// but is a prefix, it will issue a redirect to have a trailing slash.
@@ -107,7 +108,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		return handler.showObject(ctx, w, r, pr, project, o)
 	}
 	if !errors.Is(err, uplink.ErrObjectNotFound) {
-		return WithAction(err, "stat object - index.html")
+		return errdata.WithAction(err, "stat object - index.html")
 	}
 
 	// special case for if the user requested a bucket but there's no trailing slash
@@ -161,7 +162,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 
 	locations, pieces, err := handler.getLocations(ctx, pr)
 	if err != nil {
-		return WithAction(err, "get locations")
+		return errdata.WithAction(err, "get locations")
 	}
 
 	if mapOnly {
@@ -191,7 +192,7 @@ func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, p
 		return true, nil
 	}
 	if !errors.Is(err, uplink.ErrObjectNotFound) {
-		return false, WithAction(err, "prefix determination stat")
+		return false, errdata.WithAction(err, "prefix determination stat")
 	}
 
 	// we need to do a brief list to find out if this object is a prefix.
@@ -205,7 +206,7 @@ func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, p
 		if errors.Is(err, uplink.ErrPermissionDenied) {
 			return false, nil
 		}
-		return false, WithAction(err, "prefix determination list")
+		return false, errdata.WithAction(err, "prefix determination list")
 	}
 	return isPrefix, nil
 }

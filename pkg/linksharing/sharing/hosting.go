@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 )
@@ -27,7 +28,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		if errors.As(err, &aerr) && aerr.Err == "missing port in address" {
 			host = r.Host
 		} else {
-			return WithStatus(err, http.StatusBadRequest)
+			return errdata.WithStatus(err, http.StatusBadRequest)
 		}
 	}
 
@@ -35,14 +36,14 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r),
 	)
 	if err != nil {
-		return WithAction(err, "fetch access")
+		return errdata.WithAction(err, "fetch access")
 	}
 
 	bucket, key := determineBucketAndObjectKey(root, r.URL.Path)
 
 	project, err := handler.uplink.OpenProject(ctx, access)
 	if err != nil {
-		return WithAction(err, "open project")
+		return errdata.WithAction(err, "open project")
 	}
 	defer func() {
 		if err := project.Close(); err != nil {
@@ -83,7 +84,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		// if this returns uplink.ErrObjectNotFound, then, that's still
 		// the right error, and we should return it and return our normal
 		// 404 page, so this is fine to just pass through.
-		return WithAction(err, "download 404")
+		return errdata.WithAction(err, "download 404")
 	}
 	defer func() {
 		if err := download.Close(); err != nil {
@@ -94,7 +95,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	w.WriteHeader(http.StatusNotFound)
 	_, err = io.Copy(w, download)
 	if err != nil {
-		return WithAction(err, "serve 404")
+		return errdata.WithAction(err, "serve 404")
 	}
 	return nil
 }

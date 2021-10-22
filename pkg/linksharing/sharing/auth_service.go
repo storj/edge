@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/backoff"
+	"storj.io/gateway-mt/pkg/errdata"
 )
 
 // AuthServiceConfig describes configuration necessary to interact with the auth service.
@@ -52,14 +53,14 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 
 	reqURL, err := url.Parse(a.BaseURL)
 	if err != nil {
-		return nil, WithStatus(AuthServiceError.Wrap(err),
+		return nil, errdata.WithStatus(AuthServiceError.Wrap(err),
 			http.StatusInternalServerError)
 	}
 
 	reqURL.Path = path.Join(reqURL.Path, "/v1/access", accessKeyID)
 	req, err := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
 	if err != nil {
-		return nil, WithStatus(AuthServiceError.Wrap(err),
+		return nil, errdata.WithStatus(AuthServiceError.Wrap(err),
 			http.StatusInternalServerError)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
@@ -72,11 +73,11 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 		if err != nil {
 			if !delay.Maxed() {
 				if err := delay.Wait(ctx); err != nil {
-					return nil, WithStatus(AuthServiceError.Wrap(err), httpStatusClientClosedRequest)
+					return nil, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
 				}
 				continue
 			}
-			return nil, WithStatus(AuthServiceError.Wrap(err),
+			return nil, errdata.WithStatus(AuthServiceError.Wrap(err),
 				http.StatusInternalServerError)
 		}
 
@@ -90,7 +91,7 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				return false, nil, WithStatus(
+				return false, nil, errdata.WithStatus(
 					AuthServiceError.New("invalid status code: %d", resp.StatusCode),
 					resp.StatusCode)
 			}
@@ -100,7 +101,7 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 				if !delay.Maxed() {
 					return true, nil, nil
 				}
-				return false, nil, WithStatus(AuthServiceError.Wrap(err),
+				return false, nil, errdata.WithStatus(AuthServiceError.Wrap(err),
 					http.StatusInternalServerError)
 			}
 
@@ -109,7 +110,7 @@ func (a AuthServiceConfig) Resolve(ctx context.Context, accessKeyID string, clie
 
 		if retry {
 			if err := delay.Wait(ctx); err != nil {
-				return nil, WithStatus(AuthServiceError.Wrap(err), httpStatusClientClosedRequest)
+				return nil, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
 			}
 			continue
 		}
@@ -136,7 +137,7 @@ func (a AuthServiceConfig) ResolveWithCache(ctx context.Context, accessKeyID str
 	v, err := a.Cache.Get(accessKeyID, func() (interface{}, error) {
 		response, err := a.Resolve(ctx, accessKeyID, clientIP)
 
-		switch GetStatus(err, http.StatusOK) {
+		switch errdata.GetStatus(err, http.StatusOK) {
 		case http.StatusOK, http.StatusNotFound:
 			return cachedAuthServiceResponse{response: response, err: err}, nil
 		default:
