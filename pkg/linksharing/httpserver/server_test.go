@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 
 	testCases := []serverTestCase{
 		{
-			Mapper:        ipdb,
+			IPDB:          ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "missing address",
 			TLSConfig:     noTLSConfig,
@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "server address is required",
 		},
 		{
-			Mapper:        ipdb,
+			IPDB:          ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "bad address",
 			Address:       "this is no good",
@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "unable to listen on this is no good: listen tcp: address this is no good: missing port in address",
 		},
 		{
-			Mapper:        ipdb,
+			IPDB:          ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "missing handler",
 			Address:       address,
@@ -101,7 +101,7 @@ func TestServer(t *testing.T) {
 			NewErr:        "server handler is required",
 		},
 		{
-			Mapper:        ipdb,
+			IPDB:          ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "success via HTTP",
 			Address:       address,
@@ -109,7 +109,7 @@ func TestServer(t *testing.T) {
 			Handler:       handler,
 		},
 		{
-			Mapper:        ipdb,
+			IPDB:          ipdb,
 			HandlerConfig: handlerConfig,
 			Name:          "success via HTTPS",
 			Address:       address,
@@ -142,7 +142,7 @@ func TestServer(t *testing.T) {
 }
 
 type serverTestCase struct {
-	Mapper        *geoip.IPDB
+	IPDB          *geoip.IPDB
 	HandlerConfig sharing.Config
 	Name          string
 	Address       string

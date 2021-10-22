@@ -6,13 +6,13 @@ package linksharing
 import (
 	"context"
 	"errors"
-	"storj.io/common/geoip"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/geoip"
 	"storj.io/gateway-mt/pkg/linksharing/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 )

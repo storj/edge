@@ -116,7 +116,7 @@ type Handler struct {
 	log                    *zap.Logger
 	urlBases               []*url.URL
 	templates              *template.Template
-	mapper                 *geoip.IPDB
+	ipdb                   *geoip.IPDB
 	txtRecords             *txtRecords
 	authConfig             AuthServiceConfig
 	static                 http.Handler
@@ -129,7 +129,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *geoip.IPDB, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, ipdb *geoip.IPDB, config Config) (*Handler, error) {
 	dns, err := NewDNSClient(config.DNSServer)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func NewHandler(log *zap.Logger, mapper *geoip.IPDB, config Config) (*Handler, e
 		log:                    log,
 		urlBases:               bases,
 		templates:              templates,
-		mapper:                 mapper,
+		ipdb:                   ipdb,
 		txtRecords:             newTxtRecords(config.TxtRecordTTL, dns, config.AuthServiceConfig),
 		authConfig:             config.AuthServiceConfig,
 		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),

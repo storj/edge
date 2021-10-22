@@ -35,9 +35,9 @@ func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (lo
 	// we explicitly don't want locations to be nil, so it doesn't
 	// render as null when we plop it into the output javascript.
 	locations := make([]location, 0, len(ipSummary.IPPorts))
-	if handler.mapper != nil {
+	if handler.ipdb != nil {
 		for _, ip := range ipSummary.IPPorts {
-			info, err := handler.mapper.GetIPInfos(ctx, string(ip))
+			info, err := handler.ipdb.GetIPInfos(ctx, string(ip))
 			if err != nil {
 				handler.log.Error("failed to get IP info", zap.Error(err))
 				continue
