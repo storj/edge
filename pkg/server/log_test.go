@@ -136,6 +136,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 		{query: "prefix", header: ""},
 		{header: xhttp.Authorization, query: ""},
 		{header: "Cookie", query: ""},
+		{header: xhttp.AmzCopySource, query: ""},
 	}
 	for i, test := range tests {
 		handler := func() http.Handler {

@@ -109,9 +109,9 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		}
 
 		var val string
-		// obfuscate any credentials in headers.
+		// obfuscate any credentials and sensitive information in headers.
 		switch k {
-		case xhttp.Authorization, "Cookie":
+		case xhttp.Authorization, "Cookie", xhttp.AmzCopySource:
 			val = "[...]"
 		default:
 			val = strings.Join(v, ",")
