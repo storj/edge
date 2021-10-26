@@ -59,6 +59,10 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 	// Note that this requires altering Minio to pass in the request context.
 	// See https://github.com/storj/minio/commit/df6c27823c8af00578433d49edba930d1e408c49
 	credentials := middleware.GetAccess(ctx)
+	if credentials == nil {
+		// TODO: is there a better error option here?
+		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
+	}
 	if credentials.Error != nil {
 		var httpError authclient.HTTPError
 		if errors.As(credentials.Error, &httpError) {
