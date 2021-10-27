@@ -24,12 +24,6 @@ type IPInfo struct {
 		Latitude  float64 `maxminddb:"latitude"`
 		Longitude float64 `maxminddb:"longitude"`
 	} `maxminddb:"location"`
-	Postal struct {
-		Code string `maxminddb:"code"`
-	} `maxminddb:"postal"`
-	Country struct {
-		IsoCode string `maxminddb:"iso_code"`
-	} `maxminddb:"country"`
 }
 
 // Reader is a maxmind database reader interface.
