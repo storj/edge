@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/pkg/authclient"
@@ -145,9 +146,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	runError := s3.Run()
-	closeError := s3.Close()
-	return errs.Combine(runError, closeError)
+
+	var g errgroup.Group
+
+	g.Go(func() error {
+		<-ctx.Done()
+		return s3.Close()
+	})
+
+	g.Go(s3.Run)
+
+	return g.Wait()
 }
 
 /*	`setUsageFunc` is a bit unconventional but cobra didn't leave much room for
