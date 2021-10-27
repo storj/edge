@@ -18,9 +18,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
 )
 
@@ -71,12 +73,27 @@ func logError(log *zap.Logger, err error) {
 	// avoid logging access keys from errors, e.g.
 	// "Get \"http://localhost:8000/v1/access/12345\": dial tcp ..."
 	msg := accessRegexp.ReplaceAllString(err.Error(), "[...]\"")
+	var level zapcore.Level
+	metricName := "gmt_authservice_error"
 
-	mon.Event("gmt_unmapped_error",
+	switch errdata.GetStatus(err, http.StatusOK) {
+	case http.StatusUnauthorized, http.StatusBadRequest:
+		level = zap.DebugLevel
+	case http.StatusInternalServerError:
+		level = zap.ErrorLevel
+	default:
+		level = zap.ErrorLevel
+		metricName = "gmt_unmapped_error"
+	}
+
+	mon.Event(metricName,
 		monkit.NewSeriesTag("api", "SYSTEM"),
 		monkit.NewSeriesTag("error", msg))
 
-	log.Error("system", zap.String("error", msg))
+	ce := log.Check(level, "system")
+	if ce != nil {
+		ce.Write(zap.String("error", msg))
+	}
 }
 
 // GetAccess returns the credentials.

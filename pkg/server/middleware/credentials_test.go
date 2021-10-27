@@ -4,7 +4,6 @@
 package middleware
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
@@ -125,18 +125,69 @@ This is some plain text.
 	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
 }
 
-func TestLogError(t *testing.T) {
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
-	observedLogger := zap.New(observedZapCore)
+func TestAuthResponseErrorLogging(t *testing.T) {
+	tests := []struct {
+		desc           string
+		status         int
+		expectedMetric string
+		expectedLevel  zapcore.Level
+	}{
+		{
+			desc:           "authservice 400 response logs to debug level",
+			status:         http.StatusBadRequest,
+			expectedMetric: "gmt_authservice_error",
+			expectedLevel:  zap.DebugLevel,
+		},
+		{
+			desc:           "authservice 401 response logs to debug level",
+			status:         http.StatusUnauthorized,
+			expectedMetric: "gmt_authservice_error",
+			expectedLevel:  zap.DebugLevel,
+		},
+		{
+			desc:           "authservice unmapped response logs to error level",
+			status:         http.StatusTeapot,
+			expectedMetric: "gmt_unmapped_error",
+			expectedLevel:  zap.ErrorLevel,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
 
-	err := errors.New("Get \"http://localhost:8000/v1/access/12345\": dial tcp")
-	logError(observedLogger, err)
+			req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=test/20211026/us-east-1/s3/aws4_request, Signature=test")
+			req.Header.Set("X-Amz-Date", "20211026T233405Z")
 
-	filteredLogs := observedLogs.FilterField(zap.String("error", "Get \"http://localhost:8000/v1[...]\": dial tcp"))
-	require.Len(t, filteredLogs.All(), 1)
+			authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+			}))
+			defer authService.Close()
 
-	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
-	require.Equal(t, 1.0, c["gmt_unmapped_error,api=SYSTEM,error=Get\\ \"http://localhost:8000/v1[...]\":\\ dial\\ tcp,scope=storj.io/gateway-mt/pkg/server/middleware total"])
+			observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+			observedLogger := zap.New(observedZapCore)
+
+			verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				creds := GetAccess(r.Context())
+				require.NotNil(t, creds)
+				require.Equal(t, "", creds.AccessGrant)
+				require.Equal(t, "", creds.SecretKey)
+				require.Error(t, creds.Error)
+			})
+
+			authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
+			AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(verify).ServeHTTP(nil, req)
+
+			filteredLogs := observedLogs.FilterField(zap.String("error", fmt.Sprintf("auth service: invalid status code: %d", tc.status)))
+			require.Len(t, filteredLogs.All(), 1)
+			require.Equal(t, tc.expectedLevel, filteredLogs.All()[0].Level)
+
+			c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+			require.Equal(t, 1.0, c[fmt.Sprintf("%s,api=SYSTEM,error=auth\\ service:\\ invalid\\ status\\ code:\\ %d,scope=storj.io/gateway-mt/pkg/server/middleware total", tc.expectedMetric, tc.status)])
+		})
+	}
 }
 
 func TestAuthTypeMetrics(t *testing.T) {
