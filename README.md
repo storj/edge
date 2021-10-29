@@ -11,3 +11,5 @@ Storj is building a decentralized cloud storage network.
 
 * Documentation for [Multitenant S3 Gateway](docs/gateway-mt.md)
 * Documentation for [Link Sharing Service](docs/linksharing.md)
+
+Team Edge's active sprint in the Storj Labs org can be viewed [here](https://github.com/orgs/storj/projects/12).
