@@ -120,9 +120,10 @@ func (res *Resources) SetStartupDone() {
 // database connection, finished database migrations).
 func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
 	res.mu.Lock()
-	defer res.mu.Unlock()
+	startup := res.startup
+	res.mu.Unlock()
 
-	if res.startup {
+	if startup {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -136,10 +137,11 @@ func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 	res.log.Debug("getLive request", zap.String("remote address", req.RemoteAddr))
 
 	res.mu.Lock()
-	defer res.mu.Unlock()
+	startup := res.startup
+	res.mu.Unlock()
 
 	// Confirm we have finished startup.
-	if !res.startup {
+	if !startup {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
