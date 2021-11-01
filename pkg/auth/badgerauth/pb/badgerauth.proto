@@ -1,0 +1,59 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+option go_package = "storj.io/gateway-mt/pkg/auth/badgerauth/pb";
+
+package badgerauth;
+
+message Record {
+  // record data
+  int64 created_at_unix = 1;
+  bool public = 2;
+
+  // denormalized information from access grant
+  string satellite_address = 3;
+  bytes macaroon_head = 4;
+  int64 expires_at_unix = 5;
+
+  // sensitive data
+  bytes encrypted_secret_key = 6;
+  bytes encrypted_access_grant = 7;
+
+  // invalidation tracking
+  string invalidation_reason = 8;
+  int64 invalidated_at_unix = 9;
+
+  enum State {
+    CREATED = 0;
+    INVALIDATED = 1;
+    DELETED = 2;
+  }
+
+  // synchronization-related data
+  State state = 10;
+}
+
+message ReplicationRequestEntry {
+  string authservice_id = 1;
+  uint64 counter = 2;
+}
+
+message ReplicationRequest {
+  string auth_token = 1;
+  repeated ReplicationRequestEntry entries = 2;
+}
+
+message ReplicationResponseEntry {
+  string authservice_id = 1;
+  uint64 counter = 2;
+  bytes encryption_key_hash = 3;
+  Record record = 4;
+}
+
+message ReplicationResponse { repeated ReplicationResponseEntry entries = 1; }
+
+service ReplicationService {
+  rpc Replicate(ReplicationRequest) returns (ReplicationResponse);
+}

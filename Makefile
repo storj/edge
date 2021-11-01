@@ -181,3 +181,33 @@ bump-dependencies:
 	cd testsuite;\
 		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
 		go mod tidy
+
+
+UNAME_S := $(shell uname -s)
+
+.PHONY: badgerauth-install-dependencies
+badgerauth-install-dependencies:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install storj.io/drpc/cmd/protoc-gen-go-drpc@latest
+
+ifneq ($(shell which apt-get),)
+	sudo apt-get install -y protobuf-compiler
+endif
+
+ifneq ($(shell which brew),)
+	brew install protobuf
+endif
+
+.PHONY: badgerauth-format-protobufs
+badgerauth-format-protobufs:
+# If clang-format isn't found, we want to install it first.
+ifeq ($(shell which clang-format),)
+	ifneq ($(shell which apt-get),)
+		sudo apt-get install -y clang-format
+	endif
+	ifneq ($(shell which brew),)
+		brew install clang-format
+	endif
+endif
+
+	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto

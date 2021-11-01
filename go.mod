@@ -19,6 +19,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20220215191549-ee3a77cfa9eb
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
@@ -172,7 +173,6 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
