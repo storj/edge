@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/webhelp.v1/whmon"
+	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
@@ -27,7 +29,6 @@ import (
 	"storj.io/gateway-mt/pkg/auth/failrate"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
-	"storj.io/gateway-mt/pkg/server"
 )
 
 const serverShutdownTimeout = 10 * time.Second
@@ -146,7 +147,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	// logging. do not log paths - paths have access keys in them.
-	handler = server.LogResponses(log, server.LogRequests(log, handler, false), false)
+	handler = LogResponses(log, LogRequests(log, handler))
 
 	httpServer := &http.Server{
 		Addr:    config.ListenAddr,
@@ -173,6 +174,49 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 
 		stopDRPCAuth: func() {},
 	}, nil
+}
+
+// LogRequests logs requests.
+func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
+	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
+		log.Info("request",
+			zap.String("protocol", r.Proto),
+			zap.String("method", r.Method),
+			zap.String("host", r.Host),
+			zap.String("user-agent", r.UserAgent()),
+		)
+		h.ServeHTTP(w, r)
+	})
+}
+
+// LogResponses logs responses.
+func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
+	return whmon.MonitorResponse(whroute.HandlerFunc(h,
+		func(w http.ResponseWriter, r *http.Request) {
+			rw := w.(whmon.ResponseWriter)
+			start := time.Now()
+			h.ServeHTTP(rw, r)
+
+			if !rw.WroteHeader() {
+				rw.WriteHeader(http.StatusOK)
+			}
+
+			logAtLevel := log.Info
+			if rw.StatusCode() >= 500 {
+				logAtLevel = log.Error
+			}
+
+			fields := []zapcore.Field{
+				zap.String("method", r.Method),
+				zap.String("host", r.Host),
+				zap.Int("code", rw.StatusCode()),
+				zap.String("user-agent", r.UserAgent()),
+				zap.Int64("content-length", r.ContentLength),
+				zap.Int64("written", rw.Written()),
+				zap.Duration("duration", time.Since(start)),
+			}
+			logAtLevel("response", fields...)
+		}))
 }
 
 // Run starts authservice.
