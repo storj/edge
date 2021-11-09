@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	miniogo "github.com/minio/minio-go/v7"
@@ -85,4 +86,12 @@ func TestLogAllErrors(t *testing.T) {
 		require.Error(t, (&multiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}).log(ctx, tc.input))
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
+}
+
+func TestInvalidAccessGrant(t *testing.T) {
+	layer := &multiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}
+	_, err := layer.ListBuckets(context.Background())
+	require.Error(t, err)
+	require.IsType(t, miniogo.ErrorResponse{}, err)
+	require.Equal(t, http.StatusUnauthorized, miniogo.ToErrorResponse(err).StatusCode)
 }

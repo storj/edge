@@ -37,6 +37,13 @@ var (
 	// ErrAccessGrant occurs when failing to parse the access grant from the
 	// request.
 	ErrAccessGrant = errs.Class("access grant")
+
+	// ErrAccessKeyEmpty occurs when no access key could be found in the request.
+	ErrAccessKeyEmpty = miniogo.ErrorResponse{
+		Code:       "XStorjAccessKeyEmpty",
+		StatusCode: http.StatusUnauthorized,
+		Message:    "Access key is empty.",
+	}
 )
 
 type multiTenantGateway struct {
@@ -465,7 +472,7 @@ func (l *multiTenancyLayer) openProject(ctx context.Context, accessKey string) (
 	// this happens when an anonymous request hits the gateway endpoint, e.g.
 	// accessing http://localhost:7777 directly.
 	if accessKey == "" {
-		return nil, ErrAccessGrant.New("empty")
+		return nil, ErrAccessKeyEmpty
 	}
 
 	access, err := uplink.ParseAccess(accessKey)
