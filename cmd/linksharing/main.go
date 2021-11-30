@@ -30,6 +30,7 @@ type LinkSharing struct {
 	Address                string        `user:"true" help:"public address to listen on" default:":8080"`
 	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":8443"`
 	LetsEncrypt            bool          `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
+	InsecureDisableTLS     bool          `user:"true" help:"listen using insecure connections only" releaseDefault:"false" devDefault:"true"`
 	CertFile               string        `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
 	KeyFile                string        `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
 	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:8080" releaseDefault:""`
@@ -99,18 +100,23 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
 
+	var tlsConfig *httpserver.TLSConfig
+	if !runCfg.InsecureDisableTLS {
+		tlsConfig = &httpserver.TLSConfig{
+			LetsEncrypt: runCfg.LetsEncrypt,
+			CertFile:    runCfg.CertFile,
+			KeyFile:     runCfg.KeyFile,
+			PublicURLs:  publicURLs,
+			ConfigDir:   confDir,
+		}
+	}
+
 	peer, err := linksharing.New(log, linksharing.Config{
 		Server: httpserver.Config{
-			Name:       "Link Sharing",
-			Address:    runCfg.Address,
-			AddressTLS: runCfg.AddressTLS,
-			TLSConfig: &httpserver.TLSConfig{
-				LetsEncrypt: runCfg.LetsEncrypt,
-				CertFile:    runCfg.CertFile,
-				KeyFile:     runCfg.KeyFile,
-				PublicURLs:  publicURLs,
-				ConfigDir:   confDir,
-			},
+			Name:            "Link Sharing",
+			Address:         runCfg.Address,
+			AddressTLS:      runCfg.AddressTLS,
+			TLSConfig:       tlsConfig,
 			ShutdownTimeout: -1,
 		},
 		Handler: sharing.Config{

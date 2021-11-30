@@ -218,6 +218,9 @@ func BaseTLSConfig() *tls.Config {
 }
 
 func configureTLS(config *TLSConfig, handler http.Handler) (*tls.Config, http.Handler, error) {
+	if config == nil {
+		return nil, handler, nil
+	}
 
 	if config.LetsEncrypt {
 		return configureLetsEncrypt(config, handler)
