@@ -81,6 +81,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
+	// to reduce cardinality we send
+	// TODO: it works only if one target address is configured which should be checked here
+	if err := process.InitMetricsWithHostname(ctx, zap.L(), server.StatRegistry); err != nil {
+		zap.S().Warn("Failed to initialize telemetry batcher for statistics: ", err)
+	}
+
 	// setup environment variables for Minio
 	validate := func(value, configName string) {
 		if value == "" {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -33,6 +34,10 @@ var (
 	Error = errs.Class("gateway")
 
 	minioOnce sync.Once
+
+	// StatRegistry is a specific registry which is reported only to one destination
+	// it makes it possible to reset bucket based statistics after each send.
+	StatRegistry = monkit.NewRegistry()
 )
 
 // Peer represents an S3 compatible http server.
@@ -105,6 +110,9 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	// sensitive information.
 	s.http.Handler = LogRequests(s.log, s.http.Handler, config.InsecureLogAll)
 	s.http.Handler = LogResponses(s.log, s.http.Handler, config.InsecureLogAll)
+
+	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.ScopeNamed("storj.io/gateway-mt/pkg/server"))
+	s.http.Handler = agentCollector.Wrap(s.http.Handler)
 
 	return s, nil
 }
