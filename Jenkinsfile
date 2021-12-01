@@ -60,7 +60,6 @@ timeout(time: 26, unit: 'MINUTES') {
 									sh 'check-errs ./...'
 									sh 'staticcheck ./...'
 									sh 'golangci-lint --concurrency 16 run --config /go/ci/.golangci.yml'
-									sh 'check-downgrades'
 									sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
 								}
 							}
