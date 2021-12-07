@@ -357,13 +357,6 @@ func deleteUnusedRecords(
 
 	monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
 	monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(rounds)
-
-	for h, c := range heads {
-		monkit.Package().IntVal(
-			"authservice_deleted_unused_records_deletes_per_head",
-			monkit.NewSeriesTag("head", hex.EncodeToString([]byte(h))),
-		).Observe(c)
-	}
 }
 
 func headsMapToLoggableHeads(heads map[string]int64) zapcore.ArrayMarshalerFunc {
