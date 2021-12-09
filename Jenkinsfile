@@ -44,7 +44,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'check-monkit ./...'
 								sh 'check-errs ./...'
 								sh 'staticcheck ./...'
-								sh 'golangci-lint --concurrency 16 run --config /go/ci/.golangci.yml'
+								sh 'golangci-lint run --config /go/ci/.golangci.yml'
 								sh 'check-downgrades'
 								sh 'check-mod-tidy -mod .build/go.mod.orig'
 
@@ -59,7 +59,7 @@ timeout(time: 26, unit: 'MINUTES') {
 									sh 'check-monkit ./...'
 									sh 'check-errs ./...'
 									sh 'staticcheck ./...'
-									sh 'golangci-lint --concurrency 16 run --config /go/ci/.golangci.yml'
+									sh 'golangci-lint run --config /go/ci/.golangci.yml'
 									sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
 								}
 							}
@@ -73,7 +73,7 @@ timeout(time: 26, unit: 'MINUTES') {
 									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
-										sh 'go test -parallel 16 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+										sh 'go test -parallel 4 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 										// TODO enable this later
 										// sh 'check-clean-directory'
 									}
@@ -106,8 +106,8 @@ timeout(time: 26, unit: 'MINUTES') {
 								]){
 									try {
 										dir('testsuite') {
-											sh 'go vet -p 16 ./...'
-											sh 'go test -parallel 16 -p 16 -vet=off -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
+											sh 'go vet ./...'
+											sh 'go test -parallel 4 -p 16 -vet=off -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
 										}
 									}
 									catch(err) {
@@ -119,15 +119,15 @@ timeout(time: 26, unit: 'MINUTES') {
 
 						branchedStages["Go Compatibility"] = {
 							stage("Go Compatibility") {
-								sh 'GOOS=linux   GOARCH=amd64 go vet -p 16 ./...'
-								sh 'GOOS=linux   GOARCH=386   go vet -p 16 ./...'
-								sh 'GOOS=linux   GOARCH=arm64 go vet -p 16 ./...'
-								sh 'GOOS=linux   GOARCH=arm   go vet -p 16 ./...'
-								sh 'GOOS=windows GOARCH=amd64 go vet -p 16 ./...'
-								sh 'GOOS=windows GOARCH=386   go vet -p 16 ./...'
+								sh 'GOOS=linux   GOARCH=amd64 go vet ./...'
+								sh 'GOOS=linux   GOARCH=386   go vet ./...'
+								sh 'GOOS=linux   GOARCH=arm64 go vet ./...'
+								sh 'GOOS=linux   GOARCH=arm   go vet ./...'
+								sh 'GOOS=windows GOARCH=amd64 go vet ./...'
+								sh 'GOOS=windows GOARCH=386   go vet ./...'
 								// Use kqueue to avoid needing cgo for verification.
-								sh 'GOOS=darwin  GOARCH=amd64 go vet -p 16 -tags kqueue ./...'
-								sh 'GOOS=darwin  GOARCH=arm64 go vet -p 16 -tags kqueue ./...'
+								sh 'GOOS=darwin  GOARCH=amd64 go vet -tags kqueue ./...'
+								sh 'GOOS=darwin  GOARCH=arm64 go vet -tags kqueue ./...'
 							}
 						}
 						parallel branchedStages
