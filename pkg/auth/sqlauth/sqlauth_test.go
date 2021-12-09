@@ -70,7 +70,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 		record.EncryptedAccessGrant = make([]byte, 32)
 		copy(record.EncryptedAccessGrant, rb)
 
-		// Round to a second for avoiding  mismatches with monotonic clock
+		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.
 		expAt := time.Now().UTC().Round(time.Second)
 		record.ExpiresAt = &expAt
@@ -79,22 +79,25 @@ func testKVFullCycle(t *testing.T, connStr string) {
 
 	require.NoError(t, kv.Put(ctx, keyHash, &record), "put")
 
-	retrievedRecord, err := kv.Get(ctx, keyHash)
+	// We need to get the record with the smallest AS OF SYSTEM TIME interval
+	// possible since with Get's default, we risk that the record doesn't yet
+	// exist.
+	retrievedRecord, err := kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
 	require.NoError(t, err, "get")
 
-	// Round to a second for avoiding  mismatches with monotonic clock
+	// Round to a second for avoiding mismatches with monotonic clock
 	// differences.
 	retrievedExpAt := retrievedRecord.ExpiresAt.UTC().Round(time.Second)
 	retrievedRecord.ExpiresAt = &retrievedExpAt
 	require.Equal(t, record, *retrievedRecord)
 
 	require.NoError(t, kv.Invalidate(ctx, keyHash, "invalidated for testing purpose"), "invalidate")
-	_, err = kv.Get(ctx, keyHash)
+	_, err = kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
 	require.Error(t, err, "get-invalid")
 	require.EqualError(t, err, authdb.Invalid.New("%s", "invalidated for testing purpose").Error(), "get-invalid")
 
 	require.NoError(t, kv.Delete(ctx, keyHash), "delete")
-	retrievedRecord, err = kv.Get(ctx, keyHash)
+	retrievedRecord, err = kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
 	require.Nil(t, retrievedRecord, "get-after-deleted")
 	require.NoError(t, err, "get-after-deleted")
 }
@@ -145,7 +148,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 		record.EncryptedAccessGrant = make([]byte, 32)
 		copy(record.EncryptedAccessGrant, rb)
 
-		// Round to a second for avoiding  mismatches with monotonic clock
+		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.
 		expAt := time.Now().UTC().Round(time.Second)
 		record.ExpiresAt = &expAt
@@ -172,7 +175,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	// nil.
 	require.NotNil(t, retrievedRecord, "get")
 
-	// Round to a second for avoiding  mismatches with monotonic clock
+	// Round to a second for avoiding mismatches with monotonic clock
 	// differences.
 	retrievedExpAt := retrievedRecord.ExpiresAt.UTC().Round(time.Second)
 	retrievedRecord.ExpiresAt = &retrievedExpAt
