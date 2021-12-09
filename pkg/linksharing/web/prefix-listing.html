@@ -37,39 +37,39 @@
             </div>
 
             {{if (gt (len .Data.Breadcrumbs) 1)}}
-              <a class="directory-link" href="../">
-                <div class="row">
-                  <div class="col">
-                    <img src="{{.Base}}/static/img/back.svg" alt="Back">
-                    <span class="directory-name">Back</span>
-                  </div>
+            <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/"> <!-- template comment: . instead of .. is a special case for going back inside a zip -->
+              <div class="row">
+                <div class="col">
+                  <img src="{{.Base}}/static/img/back.svg" alt="Back">
+                  <span class="directory-name">Back</span>
                 </div>
-              </a>
+              </div>
+            </a>
             {{end}}
 
             {{range .Data.Objects}}
-              {{if .Prefix}}
-                  <a class="directory-link" href="{{.URL}}?wrap=1">
-                      <div class="row">
-                          <div class="col">
-                              <img src="{{$.Base}}/static/img/folder.svg" alt="Prefix"/>
-                              <span class="directory-name">{{.Key}}</span>
-                          </div>
-                      </div>
-                  </a>
-              {{else}}
-                  <a class="directory-link" href="{{.URL}}?wrap=1">
-                      <div class="row">
-                          <div class="col-9 col-sm-10">
-                              <img src="{{$.Base}}/static/img/file.svg" alt="Object"/>
-                              <span class="directory-name">{{.Key}}</span>
-                          </div>
-                          <div class="col-3 col-sm-2 text-right">
-                              <p class="directory-size">{{.Size}}</p>
-                          </div>
-                      </div>
-                  </a>
-              {{end}}
+            {{if .Prefix}}
+            <a class="directory-link" href="{{.URL}}">
+              <div class="row">
+                <div class="col">
+                  <img src="{{$.Base}}/static/img/folder.svg" alt="Prefix" />
+                  <span class="directory-name">{{.Key}}</span>
+                </div>
+              </div>
+            </a>
+            {{else}}
+            <a class="directory-link" href="{{.URL}}">
+              <div class="row">
+                <div class="col-9 col-sm-10">
+                  <img src="{{$.Base}}/static/img/file.svg" alt="Object" />
+                  <span class="directory-name">{{.Key}}</span>
+                </div>
+                <div class="col-3 col-sm-2 text-right">
+                  <p class="directory-size">{{.Size}}</p>
+                </div>
+              </div>
+            </a>
+            {{end}}
             {{end}}
 
           </section>

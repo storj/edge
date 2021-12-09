@@ -19,6 +19,7 @@ import (
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectranger"
 	"storj.io/uplink"
+	"storj.io/zipper"
 )
 
 type parsedRequest struct {
@@ -118,7 +119,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		return nil
 	}
 
-	return handler.servePrefix(ctx, w, project, pr)
+	return handler.servePrefix(ctx, w, project, pr, "")
 }
 
 func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project, o *uplink.Object) (err error) {
@@ -134,31 +135,50 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	// if we're not downloading, and someone provides the 'wrap' flag on or off,
 	// we do that. otherwise, we *don't* wrap if someone provided the view flag
 	// on, otherwise we fall back to what wrapDefault was.
-	wrap := queryFlagLookup(q, "wrap",
-		!queryFlagLookup(q, "view", !pr.wrapDefault))
+	wrap := queryFlagLookup(q, "wrap", !queryFlagLookup(q, "view", !pr.wrapDefault))
+
+	var archivePath string
+
+	if len(q["path"]) > 0 {
+		archivePath = q["path"][0]
+	}
 
 	if download {
-		w.Header().Set("Content-Disposition", "attachment")
+		if len(archivePath) > 0 {
+			w.Header().Set("Content-Disposition", "attachment; filename="+archivePath)
+		} else {
+			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(o.Key))
+		}
 	}
 	if (download || !wrap) && !mapOnly {
-		contentType := o.Custom["Content-Type"]
-		if contentType == "" {
-			contentType = mime.TypeByExtension(filepath.Ext(o.Key))
-		}
-		if contentType != "" {
-			if !handler.standardViewsHTML && !pr.hosting && strings.Contains(strings.ToLower(contentType), "html") {
-				contentType = "text/plain"
+		if len(archivePath) > 0 { // handle zip archives
+			contentType := mime.TypeByExtension(filepath.Ext(archivePath))
+			handler.setHeaders(w, contentType, pr.hosting, archivePath)
+			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
+				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
-			w.Header().Set("Content-Type", contentType)
+			acceptsGz := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+			ranger, isGz, err := handler.archiveRanger(ctx, project, pr.bucket, o.Key, archivePath, acceptsGz)
+			if err != nil {
+				return errdata.WithStatus(err, http.StatusUnsupportedMediaType)
+			}
+			if isGz {
+				w.Header().Set("Content-Encoding", "gzip")
+			}
+			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
 		} else {
-			w.Header().Set("Content-Type", "application/octet-stream")
+			contentType := o.Custom["Content-Type"]
+			if contentType == "" {
+				contentType = mime.TypeByExtension(filepath.Ext(o.Key))
+			}
+			handler.setHeaders(w, contentType, pr.hosting, filepath.Base(o.Key))
+			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
-
-		if !handler.standardRendersContent && !pr.hosting {
-			w.Header().Set("Content-Disposition", "attachment")
-		}
-		httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		return nil
+	}
+
+	if archivePath == "/" {
+		return handler.servePrefix(ctx, w, project, pr, archivePath)
 	}
 
 	locations, pieces, err := handler.getLocations(ctx, pr)
@@ -169,24 +189,62 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	if mapOnly {
 		return handler.serveMap(ctx, w, locations, pieces, o, q)
 	}
+
 	var input struct {
 		Key        string
 		Size       string
 		NodesCount int
 	}
-	input.Key = filepath.Base(o.Key)
-	input.Size = memory.Size(o.System.ContentLength).Base10String()
+
 	input.NodesCount = len(locations)
 
+	// TODO(artur): fix image preview paths when the corresponding image is in
+	// the zip archive.
 	twitterImage, ogImage := imagePreviewPath(pr.serializedAccess, pr.bucket, o.Key, o.System.ContentLength)
 
-	handler.renderTemplate(w, "single-object.html", pageData{
-		Data:         input,
-		Title:        input.Key,
+	data := pageData{
 		TwitterImage: twitterImage,
 		OgImage:      ogImage,
-	})
+	}
+
+	if len(archivePath) > 0 {
+		zip, err := zipper.OpenPack(ctx, project, pr.bucket, o.Key)
+		if err != nil {
+			return errdata.WithStatus(err, http.StatusUnsupportedMediaType)
+		}
+		f, err := zip.FileInfo(ctx, archivePath)
+		if err != nil {
+			return err
+		}
+		input.Key = archivePath
+		input.Size = memory.Size(f.Size).Base10String()
+		data.ArchivePath = archivePath
+	} else {
+		input.Key = filepath.Base(o.Key)
+		input.Size = memory.Size(o.System.ContentLength).Base10String()
+		data.ShowViewContents = strings.HasSuffix(input.Key, ".zip")
+	}
+
+	data.Data = input
+	data.Title = input.Key
+
+	handler.renderTemplate(w, "single-object.html", data)
+
 	return nil
+}
+
+func (handler *Handler) setHeaders(w http.ResponseWriter, contentType string, hosting bool, filename string) {
+	if contentType != "" {
+		if !handler.standardViewsHTML && !hosting && strings.Contains(strings.ToLower(contentType), "html") {
+			contentType = "text/plain"
+		}
+		w.Header().Set("Content-Type", contentType)
+	} else {
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+	if !handler.standardRendersContent && !hosting {
+		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	}
 }
 
 func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest) (_ bool, err error) {

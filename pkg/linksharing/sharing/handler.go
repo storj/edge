@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/ranger"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
@@ -25,6 +26,7 @@ import (
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
+	"storj.io/zipper"
 )
 
 var mon = monkit.Package()
@@ -45,6 +47,9 @@ type pageData struct {
 	// linksharing URL pointing to an image is shared on Twitter and/or
 	// Facebook.
 	TwitterImage, OgImage string
+
+	ArchivePath      string
+	ShowViewContents bool
 }
 
 // Config specifies the handler configuration.
@@ -134,6 +139,7 @@ type Handler struct {
 	trustedClientIPsList   trustedip.List
 	standardRendersContent bool
 	standardViewsHTML      bool
+	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -202,6 +208,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		trustedClientIPsList:   trustedClientIPs,
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
+		archiveRanger:          defaultArchiveRanger,
 	}, nil
 }
 
@@ -264,11 +271,15 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case http.StatusBadRequest, http.StatusMethodNotAllowed:
 			message = "Malformed request. Please try again."
 			skipLog = true
+		case http.StatusRequestedRangeNotSatisfiable:
+			message = "Range header isn't compatible with path query."
+			skipLog = true
 		}
 	}
 
 	if !skipLog {
-		handler.log.Error("unable to handle request",
+		handler.log.Error(
+			"unable to handle request",
 			zap.Error(handlerErr),
 			zap.String("action", action),
 			zap.Int("status_code", status),
@@ -403,4 +414,20 @@ func parseURLBase(s string) (*url.URL, error) {
 		return nil, errors.New("URL base must not contain a fragment")
 	}
 	return u, nil
+}
+
+func defaultArchiveRanger(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (ranger.Ranger, bool, error) {
+	zip, err := zipper.OpenPack(ctx, project, bucket, key)
+	if err != nil {
+		return nil, false, err
+	}
+	fileInfo, err := zip.FileInfo(ctx, path)
+	if err != nil {
+		return nil, false, err
+	}
+	file, isGzip, size, err := fileInfo.OpenAsGzipOrUncompressed(ctx, canReturnGzip)
+	if err != nil {
+		return nil, false, err
+	}
+	return SimpleRanger(file.ReadCloser, size), isGzip, nil
 }
