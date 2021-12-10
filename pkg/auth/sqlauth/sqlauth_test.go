@@ -79,10 +79,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 
 	require.NoError(t, kv.Put(ctx, keyHash, &record), "put")
 
-	// We need to get the record with the smallest AS OF SYSTEM TIME interval
-	// possible since with Get's default, we risk that the record doesn't yet
-	// exist.
-	retrievedRecord, err := kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
+	retrievedRecord, err := kv.Get(ctx, keyHash)
 	require.NoError(t, err, "get")
 
 	// Round to a second for avoiding mismatches with monotonic clock
@@ -92,12 +89,12 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	require.Equal(t, record, *retrievedRecord)
 
 	require.NoError(t, kv.Invalidate(ctx, keyHash, "invalidated for testing purpose"), "invalidate")
-	_, err = kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
+	_, err = kv.Get(ctx, keyHash)
 	require.Error(t, err, "get-invalid")
 	require.EqualError(t, err, authdb.Invalid.New("%s", "invalidated for testing purpose").Error(), "get-invalid")
 
 	require.NoError(t, kv.Delete(ctx, keyHash), "delete")
-	retrievedRecord, err = kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -time.Microsecond)
+	retrievedRecord, err = kv.Get(ctx, keyHash)
 	require.Nil(t, retrievedRecord, "get-after-deleted")
 	require.NoError(t, err, "get-after-deleted")
 }

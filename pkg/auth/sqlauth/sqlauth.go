@@ -174,11 +174,10 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.K
 		}
 
 		if !errors.Is(err, sql.ErrNoRows) {
-			// Check that the error isn't about that the table isn't defined which can
-			// happen if the service runs just after the DB migration which creates
-			// the table and it starts to serve requests before the
-			// 'AS OF SYSTEM TIME' has passed since the migrations has ended.
-			if code := pgerrcode.FromError(err); code != "42P01" {
+			// Check whether the error code is not about the database or table
+			// not existing, which may happen if we run an AOST query right
+			// after migration.
+			if code := pgerrcode.FromError(err); code != "3D000" && code != "42P01" {
 				return nil, errs.Wrap(err)
 			}
 		}
