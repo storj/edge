@@ -202,6 +202,16 @@ timeout(time: 26, unit: 'MINUTES') {
 					}
 				}
 
+				// umask 0000 is used to ensure test result artifacts created
+				// in the container can be cleaned up by jenkins.
+				branchedStages["Test rclone"] = {
+					stage("Test rclone") {
+						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:7778\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; testsuite/integration/rclone.sh\'"
+						zip(zipFile: 'rclone-integration-tests.zip', archive: true, dir: '.build/rclone-integration-tests')
+						archiveArtifacts(artifacts: 'rclone-integration-tests.zip')
+					}
+				}
+
 				// todo: aws-sdk-go test is disabled as the tests fail with multi-part validation disabled.
 				mintTests = ['aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
 				mintTests.each { test ->
@@ -238,7 +248,13 @@ timeout(time: 26, unit: 'MINUTES') {
 			sh 'docker stop postgres-gateway-mt-$BUILD_NUMBER || true'
 			sh 'docker stop redis-gateway-mt-$BUILD_NUMBER || true'
 			sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
-			sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
+
+			// ensure Jenkins agent can delete the working directory
+			// this chmod command is allowed to fail, e.g. it may encounter
+			// operation denied errors trying to change permissions of root
+			// owned files put into the workspace by tests running inside
+			// docker containers, but these files can still be cleaned up.
+			sh "chmod -R 777 . || true"
 			deleteDir()
 		}
 	}
