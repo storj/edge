@@ -228,7 +228,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
-	storj.io/gateway v1.4.1 // indirect
+	storj.io/gateway v1.5.0 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 // indirect
 	storj.io/uplink v1.7.1-0.20211103104100-a785482780d8 // indirect
