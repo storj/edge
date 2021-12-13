@@ -166,9 +166,9 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-	-docker rmi storjlabs/gateway-mt:${TAG}
-	-docker rmi storjlabs/authservice:${TAG}
-	-docker rmi storjlabs/linksharing:${TAG}
+	-docker rmi -f $(shell docker images -q "storjlabs/gateway-mt:${TAG}-*")
+	-docker rmi -f $(shell docker images -q "storjlabs/authservice:${TAG}-*")
+	-docker rmi -f $(shell docker images -q "storjlabs/linksharing:${TAG}-*")
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target
