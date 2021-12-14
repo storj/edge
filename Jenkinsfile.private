@@ -43,6 +43,19 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Deploy to staging') {
+      lastStage = env.STAGE_NAME
+
+      // run the edge deployment job. propagate will ensure we mark this build
+      // as failed if the deployment job fails
+      build job: 'edge-deployment', wait: true, propagate: true, parameters: [
+        extendedChoice(name: 'REGIONS', value: 'Europe (Staging)'),
+        extendedChoice(name: 'SERVICES', value: 'Auth,Gateway-MT'),
+        booleanParam(name: 'CONFIRM', value: false)
+      ]
+
+      echo "Current build result ${currentBuild.result}"
+    }
   }
   catch (err) {
     echo "Caught errors! ${err}"
