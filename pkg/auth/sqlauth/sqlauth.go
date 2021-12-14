@@ -41,7 +41,9 @@ type Options struct {
 }
 
 // Open creates instance of KV.
-func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (*KV, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (_ *KV, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	driver, source, impl, err := dbutil.SplitConnStr(connstr)
 	if err != nil {
 		return nil, err
@@ -134,13 +136,13 @@ func (d *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Rec
 }
 
 // Get retrieves the record from the key/value store.
-func (d *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
+func (d *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (*authdb.Record, error) {
 	return d.GetWithNonDefaultAsOfInterval(ctx, keyHash, -10*time.Second)
 }
 
 // GetWithNonDefaultAsOfInterval retrieves the record from the key/value store
 // using the specific asOfSystemInterval.
-func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.KeyHash, asOfSystemInterval time.Duration) (record *authdb.Record, err error) {
+func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.KeyHash, asOfSystemInterval time.Duration) (_ *authdb.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if d.impl == dbutil.Cockroach {

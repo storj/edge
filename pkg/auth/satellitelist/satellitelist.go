@@ -12,11 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 )
+
+var mon = monkit.Package()
 
 // ErrAllowedSatelliteList is an error class for allowed satellite list errors.
 var ErrAllowedSatelliteList = errs.Class("allowed satellite list")
@@ -28,6 +31,8 @@ var ErrAllowedSatelliteList = errs.Class("allowed satellite list")
 // the same format as https://www.storj.io/dcs-satellites.  HasNodeList indicates
 // if any configValue is a node address list, indicating it should be polled for updates.
 func LoadSatelliteIDs(ctx context.Context, configValues []string) (satMap map[storj.NodeID]struct{}, hasNodeList bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	satMap = make(map[storj.NodeID]struct{})
 	for _, c := range configValues {
 		c = strings.TrimSpace(c)
@@ -79,7 +84,9 @@ func readSatelliteList(input []byte, satellites map[storj.NodeID]struct{}) (err 
 
 // getHTTPList downloads and returns bytes served under url and any error
 // encountered.
-func getHTTPList(ctx context.Context, url string) ([]byte, error) {
+func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, ErrAllowedSatelliteList.Wrap(err)

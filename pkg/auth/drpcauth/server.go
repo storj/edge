@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/url"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -23,6 +24,8 @@ import (
 	"storj.io/drpc/drpcserver"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 )
+
+var mon = monkit.Package()
 
 // Server is a collection of dependencies for the DRPC-based service
 // It is an interface for clients like Uplink to use the auth service.
@@ -55,7 +58,9 @@ func NewServer(
 func (g *Server) RegisterAccess(
 	ctx context.Context,
 	request *pb.EdgeRegisterAccessRequest,
-) (*pb.EdgeRegisterAccessResponse, error) {
+) (_ *pb.EdgeRegisterAccessResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	g.log.Debug("DRPC RegisterAccess request")
 
 	response, err := g.registerAccessImpl(ctx, request)
@@ -73,7 +78,9 @@ func (g *Server) RegisterAccess(
 func (g *Server) registerAccessImpl(
 	ctx context.Context,
 	request *pb.EdgeRegisterAccessRequest,
-) (*pb.EdgeRegisterAccessResponse, error) {
+) (_ *pb.EdgeRegisterAccessResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	accessKey, err := authdb.NewEncryptionKey()
 	if err != nil {
 		return nil, err
@@ -98,11 +105,12 @@ func StartListen(
 	ctx context.Context,
 	authServer pb.DRPCEdgeAuthServer,
 	listener net.Listener,
-) error {
+) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	mux := drpcmux.New()
 
-	err := pb.DRPCRegisterEdgeAuth(mux, authServer)
-	if err != nil {
+	if err = pb.DRPCRegisterEdgeAuth(mux, authServer); err != nil {
 		return err
 	}
 

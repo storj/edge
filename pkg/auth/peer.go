@@ -31,6 +31,8 @@ import (
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
 
+var mon = monkit.Package()
+
 const serverShutdownTimeout = 10 * time.Second
 
 // Config holds authservice's configuration.
@@ -93,6 +95,9 @@ type Peer struct {
 }
 
 // New constructs new Peer.
+//
+// TODO(artur): New and constructors, in general, shouldn't take context.Context
+// as a parameter.
 func New(ctx context.Context, log *zap.Logger, config Config, configDir string) (*Peer, error) {
 	if len(config.AllowedSatellites) == 0 {
 		return nil, errs.New("allowed satellites parameter '--allowed-satellites' is required")
@@ -220,7 +225,9 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 }
 
 // Run starts authservice.
-func (p *Peer) Run(ctx context.Context) error {
+func (p *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, groupCtx := errgroup.WithContext(ctx)
 
 	if p.areSatsDynamic {
@@ -320,7 +327,9 @@ func (p *Peer) ServeHTTP(listener net.Listener) error {
 }
 
 // ServeDRPC starts serving DRPC clients.
-func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) error {
+func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	p.log.Info("Starting DRPC server", zap.String("address", listener.Addr().String()))
 
 	return drpcauth.StartListen(ctx, p.drpcServer, listener)

@@ -137,8 +137,7 @@ func (db *Database) SetAllowedSatellites(allowedSatelliteIDs map[storj.NodeID]st
 
 // Put encrypts the access grant with the key and stores it in a key/value store under the
 // hash of the encryption key.
-func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (
-	secretKey SecretKey, err error) {
+func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	access, err := grant.ParseAccess(accessGrant)

@@ -16,7 +16,9 @@ import (
 )
 
 // OpenKV opens the database connection with the appropriate driver.
-func OpenKV(ctx context.Context, log *zap.Logger, kvurl string) (authdb.KV, error) {
+func OpenKV(ctx context.Context, log *zap.Logger, kvurl string) (_ authdb.KV, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	driver, _, _, err := dbutil.SplitConnStr(kvurl)
 	if err != nil {
 		return nil, err

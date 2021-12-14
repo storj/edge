@@ -126,11 +126,7 @@ func (d *KV) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason stri
 }
 
 // Ping attempts to do a database roundtrip and returns an error if it can't.
-func (d *KV) Ping(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return nil
-}
+func (d *KV) Ping(context.Context) error { return nil }
 
 // Close closes the database.
 func (d *KV) Close() error { return nil }
