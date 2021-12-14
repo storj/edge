@@ -352,7 +352,10 @@ func deleteUnusedRecords(
 	log.Info(
 		"Deleted unused records",
 		zap.Int64("count", count),
-		zap.Int64("rounds", rounds),
+		zap.Int64("rounds", rounds))
+
+	log.Debug(
+		"Heads deleted",
 		zap.Array("heads", headsMapToLoggableHeads(heads)))
 
 	monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
