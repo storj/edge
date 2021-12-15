@@ -46,7 +46,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (_
 
 	driver, source, impl, err := dbutil.SplitConnStr(connstr)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
 		return nil, Error.New("unsupported driver %q", driver)
@@ -54,7 +54,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (_
 
 	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	dbxDB, err := dbx.Open(driver, source)
@@ -76,12 +76,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (_
 func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*KV, error) {
 	tempDB, err := tempdb.OpenUnique(ctx, connstr, name)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	kv, err := Open(ctx, log, tempDB.ConnStr, Options{ApplicationName: "test"})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	kv.TestingSetCleanup(tempDB.Close)
@@ -113,7 +113,7 @@ func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 	migration := d.Migration(ctx)
 	err = migration.Run(ctx, log)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	return migration.ValidateVersions(ctx, log)
 }
@@ -180,7 +180,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.K
 			// not existing, which may happen if we run an AOST query right
 			// after migration.
 			if code := pgerrcode.FromError(err); code != "3D000" && code != "42P01" {
-				return nil, errs.Wrap(err)
+				return nil, Error.Wrap(err)
 			}
 		}
 
