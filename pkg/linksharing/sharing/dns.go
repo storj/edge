@@ -33,7 +33,8 @@ func NewDNSClient(dnsServerAddr string) (*DNSClient, error) {
 
 // Lookup is a helper method that never returns truncated DNS messages.
 // The current implementation does this by doing all lookups over TCP.
-func (cli *DNSClient) Lookup(ctx context.Context, host string, recordType uint16) (*dns.Msg, error) {
+func (cli *DNSClient) Lookup(ctx context.Context, host string, recordType uint16) (_ *dns.Msg, err error) {
+	defer mon.Task()(&ctx)(&err)
 	m := dns.Msg{}
 	m.SetQuestion(dns.Fqdn(host), recordType)
 	r, _, err := cli.c.ExchangeContext(ctx, &m, cli.dnsServer)

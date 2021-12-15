@@ -21,6 +21,8 @@ type breadcrumb struct {
 }
 
 func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	type Object struct {
 		Key    string
 		URL    template.URL

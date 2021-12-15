@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -16,6 +17,8 @@ import (
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 )
+
+var mon = monkit.Package()
 
 // Config contains configurable values for sno registration Peer.
 type Config struct {
@@ -63,7 +66,9 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 }
 
 // Run runs SNO registration service until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	// start SNO registration service as a separate goroutine.

@@ -184,10 +184,12 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	return nil
 }
 
-func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest) (bool, error) {
-	// we might not having listing permission. if this is the case,
-	// guess that we're looking for an index.html and look for that.
-	_, err := project.StatObject(ctx, pr.bucket, pr.realKey+"/index.html")
+func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// we might not having listing permission. if this is the case, guess that
+	// we're looking for an index.html and look for that.
+	_, err = project.StatObject(ctx, pr.bucket, pr.realKey+"/index.html")
 	if err == nil {
 		return true, nil
 	}

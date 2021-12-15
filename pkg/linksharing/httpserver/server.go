@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
@@ -20,6 +21,8 @@ import (
 
 	"storj.io/common/errs2"
 )
+
+var mon = monkit.Package()
 
 const (
 	// DefaultShutdownTimeout is the default ShutdownTimeout (see Config).
@@ -136,6 +139,8 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 
 // Run runs the server until it's either closed or it errors.
 func (server *Server) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 
