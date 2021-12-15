@@ -143,7 +143,9 @@ func (a *AuthClient) ResolveWithCache(ctx context.Context, accessKeyID string, c
 }
 
 // GetHealthLive returns the auth service health live status.
-func (a *AuthClient) GetHealthLive(ctx context.Context) (bool, error) {
+func (a *AuthClient) GetHealthLive(ctx context.Context) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	baseURL, err := url.Parse(a.BaseURL)
 	if err != nil {
 		return false, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusBadRequest)

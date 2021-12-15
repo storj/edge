@@ -6,7 +6,11 @@ package backoff
 import (
 	"context"
 	"time"
+
+	"github.com/spacemonkeygo/monkit/v3"
 )
+
+var mon = monkit.Package()
 
 // ExponentialBackoff provides delays between failing attempts.
 type ExponentialBackoff struct {
@@ -28,7 +32,9 @@ func (e *ExponentialBackoff) init() {
 
 // Wait should be called when there is a failure. Each time it is called
 // it will sleep an exponentially longer time, up to a max.
-func (e *ExponentialBackoff) Wait(ctx context.Context) error {
+func (e *ExponentialBackoff) Wait(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	e.init()
 	if e.Delay == 0 {
 		e.Delay = e.Min
