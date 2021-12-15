@@ -10,12 +10,16 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
+
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
 )
+
+var mon = monkit.Package()
 
 const identityPrefix string = "config/iam/users/"
 const identitySuffix string = "/identity.json"
@@ -47,6 +51,8 @@ func objectPathToUser(key string) string {
 // GetObject is called by Minio's IAMObjectStore, and in turn queries the Auth Service.
 // If passed an iamConfigUsers style objectPath, it returns a JSON-serialized UserIdentity.
 func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// filter out non-user requests (policy, etc).
 	user := objectPathToUser(objectPath)
 	if user == "" {
