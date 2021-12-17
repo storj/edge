@@ -4,16 +4,20 @@
 package failrate
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
 	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/trustedip"
 )
+
+var mon = monkit.Package()
 
 // LimitersConfig configures a failure rate limiter.
 type LimitersConfig struct {
@@ -67,33 +71,45 @@ func NewLimiters(c LimitersConfig) (*Limiters, error) {
 // subsequent Allow calls with key will be rate-limited. succeeded untrack the
 // key when the rate-limit doesn't apply anymore. For these reason the caller
 // MUST always call succeeded or failed when true is returned.
-func (irl *Limiters) Allow(key string) (allowed bool, succeeded func(), failed func(), delay time.Duration) {
+func (irl *Limiters) Allow(ctx context.Context, key string) (allowed bool, succeeded func(), failed func(), delay time.Duration) {
+	finish := mon.Task()(&ctx)
+
 	v, ok := irl.limiters.GetCached(key)
 	if ok {
 		rl := v.(*limiter)
-		allowed, delay, rollback := rl.Allow()
+		allowed, delay, rollback := rl.Allow(ctx)
 		if !allowed {
+			mon.Counter("fail_rate_limiting_banning", monkit.SeriesTag{Key: key}).Inc(1)
 			return false, nil, nil, delay
 		}
 
 		// When the key is already tracked, failed func doesn't have to do anything.
 		return true, func() {
+			defer finish(nil)
 			// The operations has succeeded, hence rollback the consumed rate-limit
 			// allowance.
 			rollback()
 
 			if rl.IsOnInitState() {
 				irl.limiters.Delete(key)
+				mon.Counter("fail_rate_limiting_entries").Dec(1)
+				mon.Counter("fail_rate_limiting_banning", monkit.SeriesTag{Key: key}).Set(0)
+				monkit.SpanFromCtx(ctx).Annotate("Delete rate-limiter for", key)
 			}
-		}, func() {}, 0
+		}, func() { finish(nil) }, 0
 	}
 
-	return true, func() {}, func() {
+	return true, func() { finish(nil) }, func() {
+		defer finish(nil)
+
 		// The operation is failed, hence we start to rate-limit the key.
 		rl := newRateLimiter(irl.limit, irl.burst)
 		irl.limiters.Add(key, rl)
+		mon.Counter("fail_rate_limiting_entries").Inc(1)
+		monkit.SpanFromCtx(ctx).Annotate("Create rate-limiter for", key)
+
 		// Consume one operation, which is this failed one.
-		rl.Allow()
+		rl.Allow(ctx)
 	}, 0
 }
 
@@ -109,8 +125,11 @@ var limitersAllowReqTrustAnyIP = trustedip.NewListTrustAll()
 // r.RemoteAddr.
 // It panics if r is nil.
 func (irl *Limiters) AllowReq(r *http.Request) (allowed bool, succeeded func(), failed func(), delay time.Duration) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
 	ip := trustedip.GetClientIP(limitersAllowReqTrustAnyIP, r)
-	return irl.Allow(ip)
+	return irl.Allow(ctx, ip)
 }
 
 // limiter is a wrapper around rate.Limiter to suit the Limiters reui
@@ -148,7 +167,9 @@ func (rl *limiter) IsOnInitState() bool {
 // and the time duration that the caller must wait until being allowed to
 // perform the operation and rollback is nil because there isn't an allowed
 // operations to roll it back.
-func (rl *limiter) Allow() (_ bool, _ time.Duration, rollback func()) {
+func (rl *limiter) Allow(ctx context.Context) (_ bool, _ time.Duration, rollback func()) {
+	defer mon.Task()(&ctx)(nil)
+
 	now := time.Now()
 
 	rl.mu.Lock()

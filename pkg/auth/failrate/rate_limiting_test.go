@@ -20,6 +20,8 @@ import (
 
 func TestLimiters(t *testing.T) {
 	const ip = "172.28.254.80"
+
+	ctx := testcontext.New(t)
 	req := &http.Request{
 		RemoteAddr: "10.5.2.23",
 		Header: map[string][]string{
@@ -28,6 +30,7 @@ func TestLimiters(t *testing.T) {
 			"X-Real-Ip":       {ip},
 		},
 	}
+	req = req.WithContext(ctx)
 
 	limiters, err := NewLimiters(LimitersConfig{MaxReqsSecond: 2, Burst: 3, NumLimits: 1})
 	require.NoError(t, err)
@@ -40,7 +43,7 @@ func TestLimiters(t *testing.T) {
 		}
 
 		for i := 1; i <= 10; i++ {
-			allowed, succeeded, _, _ := limiters.Allow(ip)
+			allowed, succeeded, _, _ := limiters.Allow(ctx, ip)
 			require.Truef(t, allowed, "Allow: request %d", i)
 			succeeded()
 		}
@@ -56,7 +59,7 @@ func TestLimiters(t *testing.T) {
 		}
 
 		// Execute the last one allowed but using directly the key (i.e. IP).
-		allowed, _, failed, _ := limiters.Allow(ip)
+		allowed, _, failed, _ := limiters.Allow(ctx, ip)
 		require.True(t, allowed, "Allow: request 3")
 		failed()
 
@@ -70,13 +73,13 @@ func TestLimiters(t *testing.T) {
 		}
 
 		// Execute another one not allowed but using directly the key (i.e. IP).
-		allowed, _, _, _ = limiters.Allow(ip)
+		allowed, _, _, _ = limiters.Allow(ctx, ip)
 		assert.False(t, allowed, "Allow: request 6")
 	}
 
 	{ // New key evicts the oldest one when the cache size is reached.
 		const key = "new-key-evicts-older-one"
-		allowed, _, failed, _ := limiters.Allow(key)
+		allowed, _, failed, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		failed()
 		assertLRUContains(t, limiters.limiters, ip, false, "previous key should have been removed")
@@ -86,7 +89,7 @@ func TestLimiters(t *testing.T) {
 		const key = "will-be-at-init-state"
 		assertLRUContains(t, limiters.limiters, ip, false, "new key should be in the cache")
 
-		allowed, _, failed, _ := limiters.Allow(key)
+		allowed, _, failed, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		// Failed operation counts for being rate-limited.
 		failed()
@@ -94,7 +97,7 @@ func TestLimiters(t *testing.T) {
 
 		assertLRUContains(t, limiters.limiters, key, true, "failed key should be in the cache")
 
-		allowed, succeeded, _, _ := limiters.Allow(key)
+		allowed, succeeded, _, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		assertLRUContains(t, limiters.limiters, key, true, "allow shouldn't remove the key from the cache")
 		succeeded()
@@ -103,7 +106,7 @@ func TestLimiters(t *testing.T) {
 		// it's initial state. That's the time that can reserve an amount of
 		// operations equal to the burst without any delay.
 		time.Sleep(time.Until(rateLimitStarted.Add(2 * time.Second)))
-		allowed, succeeded, _, _ = limiters.Allow(key)
+		allowed, succeeded, _, _ = limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		// Succeeded remove a tracked rate-limiter when it's to it's initial state.
 		succeeded()
@@ -115,14 +118,14 @@ func TestLimiters(t *testing.T) {
 		const key = "cheater"
 
 		for i := 1; i <= 2; i++ {
-			allowed, _, failed, _ := limiters.Allow(key)
+			allowed, _, failed, _ := limiters.Allow(ctx, key)
 			require.True(t, allowed, "Allow")
 			// Failed operation counts for being rate-limited.
 			failed()
 		}
 
 		// This operation is still allowed because of the burst allowance.
-		allowed, succeeded, _, _ := limiters.Allow(key)
+		allowed, succeeded, _, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		// Succeeded operation doesn't count for being rate-limited
 		succeeded()
@@ -132,14 +135,14 @@ func TestLimiters(t *testing.T) {
 
 		// This operation is still allowed because of the burst allowance and because
 		// the previous one succeeded, so it wasn't count by the rate-limited.
-		allowed, _, failed, _ := limiters.Allow(key)
+		allowed, _, failed, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow")
 		failed()
 
 		// This operation is rate limited because the rate limit has not been
 		// cleared due to the last succeeded operations and it has surpassed the
 		// burst allowance.
-		allowed, _, _, _ = limiters.Allow(key)
+		allowed, _, _, _ = limiters.Allow(ctx, key)
 		assert.False(t, allowed, "Allow")
 	}
 
@@ -153,11 +156,11 @@ func TestLimiters(t *testing.T) {
 		// the configuration allows for speeding the test up.
 		limiters.limit = rate.Every(time.Millisecond)
 
-		allowed, _, failed, _ := limiters.Allow(key)
+		allowed, _, failed, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow: call 1")
 		failed()
 
-		allowed, _, _, delay := limiters.Allow(key)
+		allowed, _, _, delay := limiters.Allow(ctx, key)
 		// NOTE: it would fail if this second call to Allow isn't executed at least
 		// one millisecond than the previous one, hence this test will be flaky and
 		// we should use a greater duration for the limiters.limit at the expense of
@@ -166,7 +169,7 @@ func TestLimiters(t *testing.T) {
 		assert.LessOrEqual(t, delay, time.Millisecond, "retry duration")
 
 		time.Sleep(time.Millisecond)
-		allowed, succeeded, _, _ := limiters.Allow(key)
+		allowed, succeeded, _, _ := limiters.Allow(ctx, key)
 		require.True(t, allowed, "Allow: call after wait")
 		succeeded()
 	})
@@ -240,7 +243,7 @@ func TestLimiters_concurrency(t *testing.T) {
 	// Target key1
 	ctx.Go(func() error {
 		for i := 0; i < iterations; i++ {
-			allow, succeeded, failed, delay := limiters.Allow("key1")
+			allow, succeeded, failed, delay := limiters.Allow(ctx, "key1")
 			if !allow {
 				time.Sleep(delay)
 			} else {
@@ -258,7 +261,7 @@ func TestLimiters_concurrency(t *testing.T) {
 	// Target key1
 	ctx.Go(func() error {
 		for i := 0; i < iterations; i++ {
-			allow, succeeded, failed, delay := limiters.Allow("key1")
+			allow, succeeded, failed, delay := limiters.Allow(ctx, "key1")
 			if !allow {
 				time.Sleep(delay)
 			} else {
@@ -276,7 +279,7 @@ func TestLimiters_concurrency(t *testing.T) {
 	// Target key2
 	ctx.Go(func() error {
 		for i := 0; i < iterations; i++ {
-			allow, succeeded, failed, delay := limiters.Allow("key2")
+			allow, succeeded, failed, delay := limiters.Allow(ctx, "key2")
 			if !allow {
 				time.Sleep(delay)
 			} else {
@@ -294,7 +297,7 @@ func TestLimiters_concurrency(t *testing.T) {
 	// Target key2
 	ctx.Go(func() error {
 		for i := 0; i < iterations; i++ {
-			allow, succeeded, failed, delay := limiters.Allow("key2")
+			allow, succeeded, failed, delay := limiters.Allow(ctx, "key2")
 			if !allow {
 				time.Sleep(delay)
 			} else {
