@@ -22,15 +22,16 @@ import (
 )
 
 type parsedRequest struct {
-	access          *uplink.Access
-	bucket          string
-	realKey         string
-	visibleKey      string
-	title           string
-	root            breadcrumb
-	wrapDefault     bool
-	downloadDefault bool
-	hosting         bool
+	access           *uplink.Access
+	serializedAccess string
+	bucket           string
+	realKey          string
+	visibleKey       string
+	title            string
+	root             breadcrumb
+	wrapDefault      bool
+	downloadDefault  bool
+	hosting          bool
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
@@ -177,9 +178,13 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	input.Size = memory.Size(o.System.ContentLength).Base10String()
 	input.NodesCount = len(locations)
 
+	twitterImage, ogImage := imagePreviewPath(pr.serializedAccess, pr.bucket, o.Key, o.System.ContentLength)
+
 	handler.renderTemplate(w, "single-object.html", pageData{
-		Data:  input,
-		Title: input.Key,
+		Data:         input,
+		Title:        input.Key,
+		TwitterImage: twitterImage,
+		OgImage:      ogImage,
 	})
 	return nil
 }
@@ -211,4 +216,36 @@ func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, p
 		return false, errdata.WithAction(err, "prefix determination list")
 	}
 	return isPrefix, nil
+}
+
+// imagePreviewPath returns a path to the requested image object for Twitter
+// (twitterImage) and Facebook (ogImage) if the object under key is an image,
+// meets the size and file format criteria.
+//
+// The paths are intended to be used as previews for when linksharing URL is
+// shared on these sites.
+func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogImage string) {
+	previewPath := "/raw/" + access + "/" + bucket + "/" + key
+
+	if access == "" { // hosting request
+		previewPath = "/raw/" + bucket + "/" + key
+	}
+
+	twitterLimit, facebookLimit := memory.MB.Int64(), 5*memory.MB.Int64()
+
+	switch strings.ToLower(filepath.Ext(key)) {
+	case ".jpg", ".jpeg", ".png", ".gif":
+		if size <= twitterLimit {
+			twitterImage = previewPath
+		}
+		if size <= facebookLimit {
+			ogImage = previewPath
+		}
+	case ".webp":
+		if size <= twitterLimit {
+			twitterImage = previewPath
+		}
+	}
+
+	return twitterImage, ogImage
 }

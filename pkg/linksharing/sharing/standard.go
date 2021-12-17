@@ -61,6 +61,7 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	}
 
 	pr.access = access
+	pr.serializedAccess = serializedAccess
 
 	pr.visibleKey = pr.realKey
 	pr.title = pr.bucket

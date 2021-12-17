@@ -39,6 +39,12 @@ type pageData struct {
 	// must use an absolute url. this is the base url they are all based off
 	// of. automatically filled in by renderTemplate.
 	Base string
+
+	// TwitterImage and OgImage are, when not empty, valid paths to an image
+	// object and intended to be used as links to image previews when a
+	// linksharing URL pointing to an image is shared on Twitter and/or
+	// Facebook.
+	TwitterImage, OgImage string
 }
 
 // Config specifies the handler configuration.
