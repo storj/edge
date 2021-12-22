@@ -79,7 +79,7 @@ func (irl *Limiters) Allow(ctx context.Context, key string) (allowed bool, succe
 		rl := v.(*limiter)
 		allowed, delay, rollback := rl.Allow(ctx)
 		if !allowed {
-			mon.Counter("fail_rate_limiting_banning", monkit.SeriesTag{Key: key}).Inc(1)
+			mon.Counter("fail_rate_limiting_banning").Inc(1)
 			return false, nil, nil, delay
 		}
 
@@ -93,7 +93,6 @@ func (irl *Limiters) Allow(ctx context.Context, key string) (allowed bool, succe
 			if rl.IsOnInitState() {
 				irl.limiters.Delete(key)
 				mon.Counter("fail_rate_limiting_entries").Dec(1)
-				mon.Counter("fail_rate_limiting_banning", monkit.SeriesTag{Key: key}).Set(0)
 				monkit.SpanFromCtx(ctx).Annotate("Delete rate-limiter for", key)
 			}
 		}, func() { finish(nil) }, 0
