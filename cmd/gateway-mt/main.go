@@ -6,7 +6,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
@@ -112,16 +112,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Insecurely logging all errors, paths, and headers")
 	}
 
-	// because existing configs contain most of these values, we don't have separate
-	// parameter bindings for the non-Minio server
-	var tlsConfig *tls.Config
-	if !runCfg.InsecureDisableTLS {
-		tlsConfig, err = server.LoadTLSConfigFromDir(runCfg.CertDir)
-		if err != nil {
-			return err
-		}
-	}
-
 	var trustedClientIPs trustedip.List
 
 	if runCfg.UseClientIPHeaders {
@@ -139,7 +129,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := runCfg.Auth.Validate(); err != nil {
 		return err
 	}
-	s3, err := server.New(runCfg, zap.L(), tlsConfig, trustedClientIPs, corsAllowedOrigins,
+	peer, err := server.New(runCfg, zap.L(), trustedClientIPs, corsAllowedOrigins,
 		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","))
 	if err != nil {
 		return err
@@ -149,10 +139,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	g.Go(func() error {
 		<-ctx.Done()
-		return s3.Close()
+		return errs2.IgnoreCanceled(peer.Close())
 	})
 
-	g.Go(s3.Run)
+	g.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Run(ctx))
+	})
 
 	return g.Wait()
 }

@@ -5,25 +5,34 @@ package server_test
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
+)
+
+var (
+	testKey = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgT8yIof+3qG3wQzXf
+eAOcuTgWmgqXRnHVwKJl2g1pCb2hRANCAARWxVAPyT1BRs2hqiDuHlPXr1kVDXuw
+7/a1USmgsVWiZ0W3JopcTbTMhvMZk+2MKqtWcc3gHF4vRDnHTeQl4lsx
+-----END PRIVATE KEY-----`
+	testCert = mustCreateLocalhostCert()
 )
 
 func TestPathStyle(t *testing.T) {
@@ -50,29 +59,54 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	// create server
-	var tlsConfig *tls.Config
+	var certDir string
 	if useTLS {
-		tlsConfig = &tls.Config{Certificates: []tls.Certificate{createCert(t, "localhost"), createCert(t, "*.localhost")}}
+		certDir = t.TempDir()
+		keyPath := filepath.Join(certDir, "cert.key")
+		certPath := filepath.Join(certDir, "cert.crt")
+
+		err := ioutil.WriteFile(keyPath, []byte(testKey), 0644)
+		require.NoError(t, err)
+
+		err = ioutil.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
+		require.NoError(t, err)
 	}
-	config := server.Config{Server: server.AddrConfig{Address: "127.0.0.1:0"}, InsecureLogAll: true, EncodeInMemory: true}
-	s, err := server.New(config, zaptest.NewLogger(t), tlsConfig, trustedip.NewListTrustAll(), []string{}, nil, []string{})
+
+	config := server.Config{
+		Server: server.AddrConfig{
+			Address:    "127.0.0.1:0",
+			AddressTLS: "127.0.0.1:0",
+		},
+		CertDir:        certDir,
+		InsecureLogAll: true,
+		EncodeInMemory: true,
+	}
+	s, err := server.New(config, zaptest.NewLogger(t), trustedip.NewListTrustAll(), []string{}, nil, []string{})
 	require.NoError(t, err)
 
 	defer ctx.Check(s.Close)
 
-	ctx.Go(s.Run)
+	ctx.Go(func() error {
+		return s.Run(ctx)
+	})
 
 	// get url parameters
+	scheme := "http"
 	_, port, err := net.SplitHostPort(s.Address())
 	require.NoError(t, err)
-	urlBase := "http://127.0.0.1:" + port + "/"
 	if useTLS {
-		urlBase = "https://127.0.0.1:" + port + "/"
+		scheme = "https"
+		_, port, err = net.SplitHostPort(s.AddressTLS())
+		require.NoError(t, err)
 	}
+	urlBase := scheme + "://127.0.0.1:" + port + "/"
 	client := &http.Client{Timeout: 5 * time.Second}
 	if useTLS {
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: certPoolFromCert(testCert),
+			},
+		}
 	}
 
 	testHealthCheck(ctx, t, urlBase+"-/health", client)
@@ -100,24 +134,32 @@ func testVersionInfo(ctx context.Context, t *testing.T, url string, client *http
 	require.Equal(t, "v0.0.0", string(body))
 }
 
-func createCert(t *testing.T, host string) tls.Certificate {
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-	require.NoError(t, err)
-	template := x509.Certificate{
-		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{Organization: []string{"Storj Labs"}},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		DNSNames:              []string{host},
-		IsCA:                  true,
+func mustCreateLocalhostCert() *x509.Certificate {
+	key, err := pkcrypto.PrivateKeyFromPEM([]byte(testKey))
+	if err != nil {
+		panic(err)
 	}
-	priv1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-	derBytes1, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv1.PublicKey, priv1)
-	require.NoError(t, err)
-	return tls.Certificate{Certificate: [][]byte{derBytes1}, PrivateKey: priv1}
+	privateKey := key.(crypto.Signer)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(0),
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1)},
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, privateKey.Public(), privateKey)
+	if err != nil {
+		panic(err)
+	}
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		panic(err)
+	}
+	return cert
+}
+
+func certPoolFromCert(cert *x509.Certificate) *x509.CertPool {
+	pool := x509.NewCertPool()
+	pool.AddCert(cert)
+	return pool
 }

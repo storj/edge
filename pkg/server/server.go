@@ -5,8 +5,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,6 +18,7 @@ import (
 
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/minio"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -31,7 +30,7 @@ import (
 )
 
 var (
-	// Error is an error class for internal Multinode Dashboard http server error.
+	// Error is an error class S3 Gateway http server error.
 	Error = errs.Class("gateway")
 
 	minioOnce sync.Once
@@ -47,34 +46,22 @@ var (
 // Once Peer.Run() has been called, new instances of a Peer will not update any configuration used
 // by Minio.
 type Peer struct {
-	http       http.Server
-	listener   net.Listener
+	server     *httpserver.Server
 	log        *zap.Logger
 	config     Config
 	closeLayer func(context.Context) error
 }
 
 // New returns new instance of an S3 compatible http server.
-func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trustedip.List, corsAllowedOrigins []string,
+func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedOrigins []string,
 	authClient *authclient.AuthClient, domainNames []string) (*Peer, error) {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 	r.UseEncodedPath()
 
-	listener, err := net.Listen("tcp", config.Server.Address)
-	if err != nil {
-		return nil, err
-	}
-	s := &Peer{listener: listener, log: log, http: http.Server{Handler: r}, config: config}
-
-	if tlsConfig != nil {
-		s.listener = tls.NewListener(listener, tlsConfig)
-		s.http.TLSConfig = tlsConfig
-	}
-
 	publicServices := r.PathPrefix("/-/").Subrouter()
-	publicServices.HandleFunc("/health", s.healthCheck)
-	publicServices.HandleFunc("/version", s.versionInfo)
+	publicServices.HandleFunc("/health", healthCheck)
+	publicServices.HandleFunc("/version", versionInfo)
 
 	if config.EncodeInMemory {
 		r.Use(middleware.SetInMemory)
@@ -86,33 +73,54 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	minio.RegisterMetricsRouter(r)
 
 	// Create object API handler
-	connectionPool := rpcpool.New(rpcpool.Options(s.config.ConnectionPool))
+	connectionPool := rpcpool.New(rpcpool.Options(config.ConnectionPool))
 
-	uplinkConfig := configureUplinkConfig(s.config.Client)
+	uplinkConfig := configureUplinkConfig(config.Client)
 
-	gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(s.config.S3Compatibility), connectionPool, uplinkConfig, s.config.InsecureLogAll)
+	gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
 	gatewayLayer, err := gmt.NewGatewayLayer(auth.Credentials{})
 	if err != nil {
 		return nil, err
 	}
-	s.closeLayer = gatewayLayer.Shutdown
 	minio.RegisterAPIRouter(r, gatewayLayer, domainNames)
 
 	r.Use(middleware.Metrics)
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(minio.GlobalHandlers...)
 
-	s.http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
-
 	// we deliberately don't log paths for this service because they have
 	// sensitive information.
-	s.http.Handler = LogRequests(s.log, s.http.Handler, config.InsecureLogAll)
-	s.http.Handler = LogResponses(s.log, s.http.Handler, config.InsecureLogAll)
+	handler := LogRequests(log, r, config.InsecureLogAll)
+	handler = LogResponses(log, handler, config.InsecureLogAll)
+
+	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(handler)}
 
 	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.ScopeNamed("storj.io/gateway-mt/pkg/server"))
-	s.http.Handler = agentCollector.Wrap(s.http.Handler)
+	handler = agentCollector.Wrap(handler)
 
-	return s, nil
+	var tlsConfig *httpserver.TLSConfig
+	if !config.InsecureDisableTLS {
+		tlsConfig = &httpserver.TLSConfig{
+			CertDir: config.CertDir,
+		}
+	}
+
+	server, err := httpserver.New(log, handler, httpserver.Config{
+		Address:        config.Server.Address,
+		AddressTLS:     config.Server.AddressTLS,
+		TLSConfig:      tlsConfig,
+		TrafficLogging: false, // gateway-mt has its own logging middleware for this
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Peer{
+		log:        log,
+		server:     server,
+		config:     config,
+		closeLayer: gatewayLayer.Shutdown,
+	}, nil
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.
@@ -132,42 +140,45 @@ func configureUplinkConfig(clientConfig ClientConfig) uplink.Config {
 	return ret
 }
 
-func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {
+func healthCheck(w http.ResponseWriter, r *http.Request) {
 	// TODO: should this function do any tests to confirm the server is operational before returning a 200?
 	// this function should be low-effort, in the sense that the load balancer is going to be hitting it regularly.
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Peer) versionInfo(w http.ResponseWriter, r *http.Request) {
+func versionInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, version.Build.Version.String())
 }
 
 // Run starts the S3 compatible http server.
-func (s *Peer) Run() error {
+func (s *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Minio, Gateway, and the LogTarget are global, so additionally ensure only one
 	// of each are added, such may be the case if starting multiple servers in parallel.
-	var err error
 	minioOnce.Do(func() {
 		minio.StartMinio(!s.config.InsecureDisableTLS)
 	})
 
-	if err = s.http.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return s.server.Run(ctx)
 }
 
-// Close closes server and underlying listener.
+// Close shuts down the server and all underlying resources.
 func (s *Peer) Close() error {
-	ctx, canc := context.WithTimeout(context.Background(), 10*time.Second)
-	defer canc()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.http.Shutdown(ctx)))
+	// note: httpserver.Shutdown has its own configured timeout
+	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.server.Shutdown()))
 }
 
 // Address returns the web address the peer is listening on.
 func (s *Peer) Address() string {
-	return s.listener.Addr().String()
+	return s.server.Addr()
+}
+
+// AddressTLS returns the TLS web address the peer is listening on.
+func (s *Peer) AddressTLS() string {
+	return s.server.AddrTLS()
 }

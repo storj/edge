@@ -61,7 +61,7 @@ func TestUploadDownload(t *testing.T) {
 		gwConfig.InsecureLogAll = true
 		authClient := authclient.New(gwConfig.Auth)
 
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient, []string{})
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, []string{})
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
@@ -98,7 +98,9 @@ func TestUploadDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		ctx.Go(gateway.Run)
+		ctx.Go(func() error {
+			return gateway.Run(ctx)
+		})
 
 		require.NoError(t, waitForGatewayStart(ctx, client, 5*time.Second))
 

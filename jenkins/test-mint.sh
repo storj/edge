@@ -111,17 +111,9 @@ authservice run \
     --endpoint "${endpoint_url}" \
     --kv-backend "memory://" &
 
-# HTTP gateway
 gateway-mt run \
-    --server.address 0.0.0.0:7777 \
-    --auth.base-url "http://${authservice_address}" \
-    --auth.token "${authtoken}" \
-    --domain-name "${GATEWAY_DOMAIN}" \
-    --insecure-log-all &
-
-# HTTPS gateway
-gateway-mt run \
-    --server.address 0.0.0.0:7778 \
+    --server.address :7777 \
+    --server.address-tls :7778 \
     --auth.base-url "http://${authservice_address}" \
     --auth.token "${authtoken}" \
     --domain-name "${GATEWAY_DOMAIN}" \

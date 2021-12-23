@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -18,8 +19,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
-
-	"storj.io/common/errs2"
 )
 
 var mon = monkit.Package()
@@ -41,6 +40,9 @@ type Config struct {
 	// AddressTLS is the address to bind the https server to. It must be set, but is not used if TLS is not configured.
 	AddressTLS string
 
+	// Whether requests and responses are logged or not. Sometimes you might provide your own logging middleware instead.
+	TrafficLogging bool
+
 	// TLSConfig is the TLS configuration for the server. It is optional.
 	TLSConfig *TLSConfig
 
@@ -53,11 +55,28 @@ type Config struct {
 
 // TLSConfig is a struct to handle the preferred/configured TLS options.
 type TLSConfig struct {
+	// LetsEncrypt controls whether certs from Let's Encrypt are obtained or not.
+	// Setting this to true will mean the server only obtains a Let's Encrypt
+	// certificate, and no other config such as CertDir, or CertFile will be considered.
 	LetsEncrypt bool
-	CertFile    string
-	KeyFile     string
-	PublicURLs  []string
-	ConfigDir   string
+
+	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
+	PublicURLs []string
+
+	// ConfigDir is a path for storing certificate cache data for Let's Encrypt.
+	ConfigDir string
+
+	// CertDir provides a path containing one or more certificates that should
+	// be loaded. Certs and key files must have the same filename so they can be
+	// paired, e.g. mycert.key, and mycert.crt. This config setting is mutually
+	// exclusive from CertFile and KeyFile.
+	CertDir string
+
+	// CertFile is a path to a file containing a corresponding cert for KeyFile.
+	CertFile string
+
+	// KeyFile is a path to a file containing a corresponding key for CertFile.
+	KeyFile string
 }
 
 // Server is the HTTP server.
@@ -103,8 +122,10 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 	}
 
 	// logging
-	httpHandler = logResponses(log, logRequests(log, httpHandler))
-	handler = logResponses(log, logRequests(log, handler))
+	if config.TrafficLogging {
+		httpHandler = logResponses(log, logRequests(log, httpHandler))
+		handler = logResponses(log, logRequests(log, handler))
+	}
 
 	server := &http.Server{
 		Handler:  httpHandler,
@@ -137,29 +158,14 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 	}, nil
 }
 
-// Run runs the server until it's either closed or it errors.
+// Run runs the server.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 
-	group.Go(func() error {
-		<-ctx.Done()
-		server.log.Info("Server shutting down")
-		return shutdownWithTimeout(server.server, server.shutdownTimeout)
-	})
-
-	group.Go(func() error {
-		<-ctx.Done()
-		server.log.Info("ServerTLS shutting down")
-		return shutdownWithTimeout(server.serverTLS, server.shutdownTimeout)
-	})
-
 	group.Go(func() (err error) {
-		defer cancel()
-
-		server.log.With(zap.String("addr", server.Addr())).Sugar().Info("HTTP Server started")
+		server.log.With(zap.String("addr", server.Addr())).Sugar().Info("HTTP server started")
 		err = server.server.Serve(server.listener)
 
 		if errors.Is(err, http.ErrServerClosed) {
@@ -171,9 +177,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 	group.Go(func() (err error) {
 		if server.serverTLS.TLSConfig != nil {
-			defer cancel()
-
-			server.log.With(zap.String("addr", server.AddrTLS())).Sugar().Info("HTTPS Server started")
+			server.log.With(zap.String("addr", server.AddrTLS())).Sugar().Info("HTTPS server started")
 			err = server.serverTLS.ServeTLS(server.listenerTLS, "", "")
 
 			if errors.Is(err, http.ErrServerClosed) {
@@ -181,6 +185,28 @@ func (server *Server) Run(ctx context.Context) (err error) {
 			}
 			server.log.With(zap.Error(err)).Error("Server closed unexpectedly")
 			return err
+		}
+		return nil
+	})
+
+	return group.Wait()
+}
+
+// Shutdown gracefully shuts the server down, with a given timeout.
+// If timeout is less than 0, all connections are closed immediately instead
+// of waiting.
+func (server *Server) Shutdown() (err error) {
+	var group errgroup.Group
+
+	group.Go(func() error {
+		server.log.Info("HTTP server shutting down")
+		return shutdownWithTimeout(server.server, server.shutdownTimeout)
+	})
+
+	group.Go(func() error {
+		if server.serverTLS.TLSConfig != nil {
+			server.log.Info("HTTPS server shutting down")
+			return shutdownWithTimeout(server.serverTLS, server.shutdownTimeout)
 		}
 		return nil
 	})
@@ -198,25 +224,11 @@ func (server *Server) AddrTLS() string {
 	return server.listenerTLS.Addr().String()
 }
 
-// Close closes server.
-func (server *Server) Close() error {
-	errlist := errs.Group{}
-
-	errlist.Add(server.server.Close())
-	errlist.Add(server.listener.Close())
-
-	if server.listenerTLS != nil {
-		errlist.Add(server.serverTLS.Close())
-		errlist.Add(server.listenerTLS.Close())
-	}
-
-	return errlist.Err()
-}
-
 // BaseTLSConfig returns a tls.Config with some good default settings for security.
 func BaseTLSConfig() *tls.Config {
 	// these settings give us a score of A on https://www.ssllabs.com/ssltest/index.html
 	return &tls.Config{
+		NextProtos:             []string{"h2", "http/1.1"},
 		MinVersion:             tls.VersionTLS12,
 		SessionTicketsDisabled: true, // thanks, jeff hodges! https://groups.google.com/g/golang-nuts/c/m3l0AesTdog/m/8CeLeVVyWw4J
 	}
@@ -229,6 +241,17 @@ func configureTLS(config *TLSConfig, handler http.Handler) (*tls.Config, http.Ha
 
 	if config.LetsEncrypt {
 		return configureLetsEncrypt(config, handler)
+	}
+
+	tlsConfig := BaseTLSConfig()
+
+	if config.CertDir != "" {
+		certs, err := loadCertsFromDir(config.CertDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		tlsConfig.Certificates = certs
+		return tlsConfig, handler, nil
 	}
 
 	switch {
@@ -246,9 +269,31 @@ func configureTLS(config *TLSConfig, handler http.Handler) (*tls.Config, http.Ha
 		return nil, nil, errs.New("unable to load server keypair: %v", err)
 	}
 
-	tlsConfig := BaseTLSConfig()
 	tlsConfig.Certificates = []tls.Certificate{cert}
 	return tlsConfig, handler, nil
+}
+
+func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
+	certFiles, err := filepath.Glob(filepath.Join(configDir, "*.crt"))
+	if err != nil {
+		return nil, errs.New("Error reading certificate directory '%s'", certFiles)
+	}
+	var certificates []tls.Certificate
+	for _, crt := range certFiles {
+		key := crt[0:len(crt)-4] + ".key"
+		_, err := os.Stat(key)
+		if err != nil {
+			return nil, errs.New("unable to locate key for cert %s (expecting %s): %v", crt, key, err)
+		}
+
+		cert, err := tls.LoadX509KeyPair(crt, key)
+		if err != nil {
+			return nil, errs.New("unable to load server keypair: %v", err)
+		}
+		certificates = append(certificates, cert)
+	}
+
+	return certificates, nil
 }
 
 func configureLetsEncrypt(config *TLSConfig, handler http.Handler) (*tls.Config, http.Handler, error) {
@@ -276,5 +321,6 @@ func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return errs2.IgnoreCanceled(server.Shutdown(ctx))
+
+	return server.Shutdown(ctx)
 }

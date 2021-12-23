@@ -108,6 +108,8 @@ openssl x509 -in certs/wildcard/public.crt -text
 Now you can start Gateway-MT with the `--cert-dir` and `--insecure-disable-tls=false`
 flags, which will configure the server to handle HTTPS traffic.
 
+You can change the interface and port the server listens on using `--server.address-tls`.
+
 Use the uplink CLI to register an access grant (replace `$ACCESS` with an access grant):
 
 ```

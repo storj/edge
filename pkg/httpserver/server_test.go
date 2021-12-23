@@ -42,7 +42,7 @@ func TestServer(t *testing.T) {
 	address := "localhost:15001"
 	handlerConfig := sharing.Config{
 		URLBases:  []string{"https://localhost:15001"},
-		Templates: "../../../pkg/linksharing/web/",
+		Templates: "../../pkg/linksharing/web/",
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
 	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, handlerConfig)
@@ -130,10 +130,10 @@ func TestServer(t *testing.T) {
 				return
 			}
 
-			runCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
+			defer ctx.Check(s.Shutdown)
+
 			ctx.Go(func() error {
-				return s.Run(runCtx)
+				return s.Run(ctx)
 			})
 
 			testCase.DoGet(ctx, t)

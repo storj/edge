@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing"
-	"storj.io/gateway-mt/pkg/linksharing/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -117,6 +118,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			Name:            "Link Sharing",
 			Address:         runCfg.Address,
 			AddressTLS:      runCfg.AddressTLS,
+			TrafficLogging:  true,
 			TLSConfig:       tlsConfig,
 			ShutdownTimeout: -1,
 		},
@@ -145,10 +147,18 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	runError := peer.Run(ctx)
-	closeError := peer.Close()
+	var g errgroup.Group
 
-	return errs.Combine(runError, closeError)
+	g.Go(func() error {
+		<-ctx.Done()
+		return errs2.IgnoreCanceled(peer.Close())
+	})
+
+	g.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Run(ctx))
+	})
+
+	return g.Wait()
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

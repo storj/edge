@@ -5,15 +5,13 @@ package linksharing
 
 import (
 	"context"
-	"errors"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
-	"storj.io/gateway-mt/pkg/linksharing/httpserver"
+	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 )
@@ -65,26 +63,19 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	return peer, nil
 }
 
-// Run runs SNO registration service until it's either closed or it errors.
+// Run starts the server.
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	group, ctx := errgroup.WithContext(ctx)
-
-	// start SNO registration service as a separate goroutine.
-	group.Go(func() error {
-		return ignoreCancel(peer.Server.Run(ctx))
-	})
-
-	return group.Wait()
+	return peer.Server.Run(ctx)
 }
 
-// Close closes all underlying resources.
+// Close shuts down the server and all underlying resources.
 func (peer *Peer) Close() error {
-	errlist := errs.Group{}
+	var errlist errs.Group
 
 	if peer.Server != nil {
-		errlist.Add(peer.Server.Close())
+		errlist.Add(peer.Server.Shutdown())
 	}
 
 	if peer.Mapper != nil {
@@ -92,12 +83,4 @@ func (peer *Peer) Close() error {
 	}
 
 	return errlist.Err()
-}
-
-// we ignore cancellation and stopping errors since they are expected.
-func ignoreCancel(err error) error {
-	if errors.Is(err, context.Canceled) {
-		return nil
-	}
-	return err
 }
