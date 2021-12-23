@@ -135,7 +135,12 @@ func (records *txtRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 		root = set.Lookup("storj-path")
 	}
 
-	access, err := parseAccess(ctx, serializedAccess, records.auth, clientIP)
+	// NOTE(artur): due to cache shared among all clients per hostname for
+	// hosting requests, signed requests cannot be served. One client with a
+	// valid signed request could update the cache for all other clients. One
+	// way to circumvent this would be to guess the signed request before and
+	// disable cache in that path. However, this requires major refactoring.
+	access, err := parseAccess(ctx, nil, serializedAccess, 0, records.auth, clientIP)
 	if err != nil {
 		return nil, errs.New("failure with hostname %q: %w", hostname, err)
 	}

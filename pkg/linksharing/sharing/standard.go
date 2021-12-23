@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -53,9 +54,8 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 		pr.realKey = parts[2]
 	}
 
-	access, err := parseAccess(ctx, serializedAccess, handler.authClient,
-		trustedip.GetClientIP(handler.trustedClientIPsList, r),
-	)
+	// TODO(artur): make signedAccessValidityTolerance a configuration attribute.
+	access, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, handler.authClient, trustedip.GetClientIP(handler.trustedClientIPsList, r))
 	if err != nil {
 		return err
 	}
