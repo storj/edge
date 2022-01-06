@@ -68,9 +68,9 @@ func TestKV(t *testing.T) {
 	require.NoError(t, kv.Ping(ctx))
 
 	for i := 0; i < 100; i += 2 {
-		t := time.Now()
+		oneSecondAgo := time.Now().Add(-1 * time.Second)
 		if i != 10 { // Don't include one of the previously invalidated records.
-			kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &t
+			kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &oneSecondAgo
 		}
 	}
 
