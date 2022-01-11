@@ -15,13 +15,14 @@ func TestAccessKeyHash(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"test123", "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae"},
+		{"test123", ""},
+		{"jwtx7ngonjgwh6icz5omblkyfhxa", "32bf8c1f116fc383bbdc7462c8f0f575b8f1d25088a39ebbb68aad1e308812a7"},
 		{"", ""},
 	}
 	for i, tc := range tests {
 		log := New()
 		log.AccessKey = tc.input
-		require.Equal(t, tc.expected, log.AccessKeyHash(), i)
+		require.Equal(t, tc.expected, log.EncryptionKeyHash(), i)
 	}
 }
 
