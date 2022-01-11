@@ -133,7 +133,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("api", gl.API),
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", gl.RequestID),
-		zap.String("access-key-sha256", gl.AccessKeyHash()),
+		zap.String("encryption-key-hash", gl.EncryptionKeyHash()),
 		zap.Int64("content-length", r.ContentLength),
 		zap.Int64("written", rw.Written()),
 		zap.Duration("duration", d),

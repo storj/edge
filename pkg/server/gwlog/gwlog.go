@@ -5,9 +5,9 @@ package gwlog
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/minio/cmd/logger"
 )
 
@@ -28,15 +28,18 @@ func (log *Log) WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKey, log)
 }
 
-// AccessKeyHash returns a SHA-256 hash of the access key.
-func (log *Log) AccessKeyHash() string {
+// EncryptionKeyHash returns the authservice table key for this access key.
+func (log *Log) EncryptionKeyHash() string {
 	if log.AccessKey == "" {
 		return ""
 	}
 
-	h := sha256.New()
-	h.Write([]byte(log.AccessKey))
-	return fmt.Sprintf("%x", h.Sum(nil))
+	var key authdb.EncryptionKey
+	err := key.FromBase32(log.AccessKey)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", key.Hash())
 }
 
 // TagValue returns the value for the given key in tags, if it exists.
