@@ -26,7 +26,7 @@ require (
 	storj.io/drpc v0.0.26
 	storj.io/gateway v1.5.0
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a
-	storj.io/private v0.0.0-20210810102517-434aeab3f17d
+	storj.io/private v0.0.0-20211223043353-3108400256d3
 	storj.io/uplink v1.7.1
 )
 
@@ -171,6 +171,7 @@ require (
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b // indirect
