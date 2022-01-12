@@ -21,6 +21,7 @@ import (
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/uplink"
 )
 
 // LinkSharing defines link sharing configuration.
@@ -134,6 +135,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			UseClientIPHeaders:     runCfg.UseClientIPHeaders,
 			StandardViewsHTML:      runCfg.StandardViewsHTML,
 			StandardRendersContent: runCfg.StandardRendersContent,
+			Uplink: &uplink.Config{
+				UserAgent: "linksharing",
+			},
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 	})
