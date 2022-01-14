@@ -212,6 +212,12 @@ timeout(time: 26, unit: 'MINUTES') {
 					}
 				}
 
+				branchedStages["splunk-s3-tests"] = {
+					stage("splunk-s3-tests") {
+						sh "docker run --rm -e ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -e SECURE=0 --network minttest-gateway-mt-\$BUILD_NUMBER --name s3-tests-\${BUILD_NUMBER} storjlabs/splunk-s3-tests:latest"
+					}
+				}
+
 				// todo: aws-sdk-go test is disabled as the tests fail with multi-part validation disabled.
 				mintTests = ['aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
 				mintTests.each { test ->
