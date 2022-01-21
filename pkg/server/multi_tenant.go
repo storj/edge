@@ -462,7 +462,7 @@ func (l *multiTenancyLayer) openProject(ctx context.Context, accessKey string) (
 	defer mon.Task()(&ctx)(&err)
 
 	// this happens when an anonymous request hits the gateway endpoint, e.g.
-	// accessing http://localhost:7777 directly.
+	// accessing http://localhost:20010 directly.
 	if accessKey == "" {
 		return nil, ErrAccessKeyEmpty
 	}

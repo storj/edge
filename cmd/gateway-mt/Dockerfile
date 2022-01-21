@@ -6,7 +6,7 @@ ARG GOARCH
 
 ENV GOARCH ${GOARCH}
 
-EXPOSE 7777
+EXPOSE 20010
 WORKDIR /app
 
 VOLUME /root/.local/share/storj/gateway-mt
@@ -18,6 +18,6 @@ COPY cmd/gateway-mt/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]
 
 ENV STORJ_CONFIG_DIR=/root/.local/share/storj/gateway-mt
-ENV STORJ_SERVER_ADDRESS=0.0.0.0:7777
+ENV STORJ_SERVER_ADDRESS=0.0.0.0:20010
 
-# Healthcheck URL: http://<host>:7777/-/health
+# Healthcheck URL: http://<host>:20010/-/health

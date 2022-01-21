@@ -13,8 +13,8 @@ import (
 
 // AddrConfig honestly only exists to preserve legacy CLI parameter naming.
 type AddrConfig struct {
-	Address    string `help:"Address to serve gateway on" default:"127.0.0.1:7777"`
-	AddressTLS string `help:"Address to securely serve (TLS) gateway on" default:"127.0.0.1:7778"`
+	Address    string `help:"Address to serve gateway on" default:"127.0.0.1:20010"`
+	AddressTLS string `help:"Address to securely serve (TLS) gateway on" default:"127.0.0.1:20011"`
 }
 
 // Config determines how server listens for requests.

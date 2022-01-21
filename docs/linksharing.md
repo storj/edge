@@ -11,7 +11,7 @@ $ go install storj.io/gateway-mt
 ### Development
 
 Default development configuration has the link sharing service hosted on
-`localhost:8080` serving plain HTTP.
+`localhost:20020` serving plain HTTP.
 
 ```
 $ linksharing setup --defaults dev
@@ -32,7 +32,7 @@ $ linksharing setup --defaults release --geo-location-db <PATH TO FILE> --public
 **NOTE**: Please follow this link for instructions how to install/download the geo-location database:
 https://dev.maxmind.com/geoip/geoipupdate/
 
-Default release configuration has the link sharing service hosted on `:8443`
+Default release configuration has the link sharing service hosted on `:20021`
 serving HTTPS using a server certificate (`server.crt.pem`) and
 key (`server.key.pem`) residing in the working directory where the linksharing
 service is run.
@@ -44,7 +44,7 @@ In order to run the link sharing service in release mode serving HTTP, you must
 clear the certificate and key file configurables:
 
 ```
-$ linksharing setup --defaults release --public-url <PUBLIC URL> --cert-file="" --key-file="" --address=":8080"
+$ linksharing setup --defaults release --public-url <PUBLIC URL> --cert-file="" --key-file="" --address=":20020"
 ```
 
 **WARNING** HTTP is only recommended if you are doing TLS termination on the

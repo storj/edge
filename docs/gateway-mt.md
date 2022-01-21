@@ -38,10 +38,10 @@ retrieve those files!
 
 Gateway-MT requires the following command line parameters:
       - `--auth.token` sets the auth token that's used to authenticate with our auth service. This should be set to the same value as the `--auth.token` in `authservice` command.
-      - `--auth.base-url` defines the address of our auth service instance. It's default to `http://localhost:8000`.
+      - `--auth.base-url` defines the address of our auth service instance. It's default to `http://localhost:20000`.
       - `--domain-name` allows the gateway-mt to work with virtual hosted style requests. For example, if the `MINIO_DOMAIN` variable is set to `asdf.com`, then a request to `bob.asdf.com` will be interpreted as specifying the bucket `bob`.
 
-    gateway-mt run --auth.token="super-secret" --auth.base-url=http://localhost:8000 --domain-name=localhost
+    gateway-mt run --auth.token="super-secret" --auth.base-url=http://localhost:20000 --domain-name=localhost
 
     - Enable debug server
         - by default, the debug server is disabled
@@ -49,7 +49,7 @@ Gateway-MT requires the following command line parameters:
 
 ## Register an access grant with auth service
     ```
-    uplink access register "my-access-grant" --auth-service https://localhost:8000
+    uplink access register "my-access-grant" --auth-service https://localhost:20000
     ```
     After registering an access grant with the auth service, you will have the s3 credential, `Access Key Id` and `Secret Key`
     You can use that credential to configure an s3 client to talk to storj network through the gateway-mt
@@ -113,7 +113,7 @@ You can change the interface and port the server listens on using `--server.addr
 Use the uplink CLI to register an access grant (replace `$ACCESS` with an access grant):
 
 ```
-uplink access register --auth-service http://127.0.0.1:9000 $ACCESS
+uplink access register --auth-service http://127.0.0.1:20000 $ACCESS
 ```
 
 Export the provided access key id and secret:
@@ -134,7 +134,7 @@ docker run -it --rm --net=host \
   -e AWS_ACCESS_KEY_ID \
   --entrypoint /bin/bash amazon/aws-cli
 aws configure set default.s3.addressing_style virtual
-aws s3 ls --endpoint https://gateway.local:7777 --no-verify-ssl --debug
+aws s3 ls --endpoint https://gateway.local:20011 --no-verify-ssl --debug
 ```
 
 The request should succeed and the debug output should contain lines like
@@ -198,7 +198,7 @@ gateway-mt_1   | ===============================================================
 gateway-mt_1   | ========== CREDENTIALS ===================================================================
 gateway-mt_1   | Access Key ID:  jxjlhpevlqi6wg5y4lqj3kg5gu3a
 gateway-mt_1   | Secret Key   :  jzzqymrvhwxos7hfynucwnr4sn2zphxfxyq52k7guicuarmhc5gta
-gateway-mt_1   | Endpoint     :  http://localhost:7777
+gateway-mt_1   | Endpoint     :  http://localhost:20010
 gateway-mt_1   | ===================================================================
 ```
 
@@ -208,7 +208,7 @@ else. (See NOTE below.)
 The gateway-mt registers this access with the authservice for you, and the
 access key and secret key are printed out also.
 
-You now should be able to connect to the gateway-mt at `http://localhost:7777`
+You now should be able to connect to the gateway-mt at `http://localhost:20010`
 using those credentials.
 
 NOTE: The satellite address embedded in the access is strange: something like
@@ -237,19 +237,19 @@ storj-sim network run
 ```
 
 ```
-authservice run  --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ID)@" --endpoint=http://localhost:7777 --kv-backend="memory://"
+authservice run --auth-token "super-secret" --allowed-satellites="$(storj-sim network env SATELLITE_0_ID)@" --endpoint=http://localhost:20010 --kv-backend="memory://"
 ```
 
 ```
-gateway-mt run --auth.token="super-secret" --auth.base-url=http://localhost:8000 --domain-name=localhost
+gateway-mt run --auth.token="super-secret" --auth.base-url=http://localhost:20000 --domain-name=localhost
 ```
 
 ```
 docker build . -f Dockerfile.mint -t storj/mint
-export $(uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:8000 --format env)
-docker run -e SERVER_ENDPOINT=host.docker.internal:7777 -e ACCESS_KEY=$AWS_ACCESS_KEY_ID -e SECRET_KEY=$AWS_SECRET_ACCESS_KEY -e ENABLE_HTTPS=0 storj/mint
+export $(uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:20000 --format env)
+docker run -e SERVER_ENDPOINT=host.docker.internal:20010 -e ACCESS_KEY=$AWS_ACCESS_KEY_ID -e SECRET_KEY=$AWS_SECRET_ACCESS_KEY -e ENABLE_HTTPS=0 storj/mint
 ```
-Note that Linux users may need alter the above commmand to `SERVER_ENDPOINT=localhost:7777` to use or the `--add-host=host.docker.internal:host-gateway` flag.
+Note that Linux users may need alter the above commmand to `SERVER_ENDPOINT=localhost:20010` to use or the `--add-host=host.docker.internal:host-gateway` flag.
 
 # License
 

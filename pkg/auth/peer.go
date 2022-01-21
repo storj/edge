@@ -47,16 +47,16 @@ type Config struct {
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
-	ListenAddr    string `user:"true" help:"public HTTP address to listen on" default:":8000"`
-	ListenAddrTLS string `user:"true" help:"public HTTPS address to listen on" default:":8443"`
+	ListenAddr    string `user:"true" help:"public HTTP address to listen on" default:":20000"`
+	ListenAddrTLS string `user:"true" help:"public HTTPS address to listen on" default:":20001"`
 
-	DRPCListenAddr    string `user:"true" help:"public DRPC address to listen on" default:":6666"`
-	DRPCListenAddrTLS string `user:"true" help:"public DRPC+TLS address to listen on" default:":7777"`
+	DRPCListenAddr    string `user:"true" help:"public DRPC address to listen on" default:":20002"`
+	DRPCListenAddrTLS string `user:"true" help:"public DRPC+TLS address to listen on" default:":20003"`
 
 	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	CertFile    string `user:"true" help:"server certificate file" default:""`
 	KeyFile     string `user:"true" help:"server key file" default:""`
-	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:8080" releaseDefault:""`
+	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:20000" releaseDefault:""`
 
 	DeleteUnused DeleteUnusedConfig
 }

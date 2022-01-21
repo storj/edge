@@ -19,7 +19,7 @@ var AuthServiceError = errs.Class("auth service")
 
 // Config describes configuration necessary to interact with the auth service.
 type Config struct {
-	BaseURL string        `user:"true" help:"base url to use for resolving access key ids" releaseDefault:"" devDefault:"http://localhost:8000"`
+	BaseURL string        `user:"true" help:"base url to use for resolving access key ids" releaseDefault:"" devDefault:"http://localhost:20000"`
 	Token   string        `user:"true" help:"auth token for giving access to the auth service" releaseDefault:"" devDefault:"super-secret"`
 	Timeout time.Duration `user:"true" help:"how long to wait for a single auth service connection" default:"10s"`
 	BackOff backoff.ExponentialBackoff

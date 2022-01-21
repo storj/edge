@@ -29,13 +29,13 @@ import (
 //
 // TODO(artur): some of these options could be grouped, e.g. into Security.
 type LinkSharing struct {
-	Address                string        `user:"true" help:"public address to listen on" default:":8080"`
-	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":8443"`
+	Address                string        `user:"true" help:"public address to listen on" default:":20020"`
+	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":20021"`
 	LetsEncrypt            bool          `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	InsecureDisableTLS     bool          `user:"true" help:"listen using insecure connections only" releaseDefault:"false" devDefault:"true"`
 	CertFile               string        `user:"true" help:"server certificate file"`
 	KeyFile                string        `user:"true" help:"server key file"`
-	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:8080" releaseDefault:""`
+	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:20020" releaseDefault:""`
 	GeoLocationDB          string        `user:"true" help:"maxmind database file path"`
 	TxtRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
 	AuthService            authclient.Config

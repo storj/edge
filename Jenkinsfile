@@ -197,7 +197,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				tests.each { test ->
 					branchedStages["Test $test"] = {
 						stage("Test $test") {
-							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:7778\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
+							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
 						}
 					}
 				}
@@ -206,7 +206,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				// in the container can be cleaned up by jenkins.
 				branchedStages["Test rclone"] = {
 					stage("Test rclone") {
-						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:7778\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; testsuite/integration/rclone.sh\'"
+						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; testsuite/integration/rclone.sh\'"
 						zip(zipFile: 'rclone-integration-tests.zip', archive: true, dir: '.build/rclone-integration-tests')
 						archiveArtifacts(artifacts: 'rclone-integration-tests.zip')
 					}
@@ -214,7 +214,7 @@ timeout(time: 26, unit: 'MINUTES') {
 
 				branchedStages["splunk-s3-tests"] = {
 					stage("splunk-s3-tests") {
-						sh "docker run --rm -e ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -e SECURE=0 --network minttest-gateway-mt-\$BUILD_NUMBER --name s3-tests-\${BUILD_NUMBER} storjlabs/splunk-s3-tests:latest"
+						sh "docker run --rm -e ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -e SECURE=0 --network minttest-gateway-mt-\$BUILD_NUMBER --name s3-tests-\${BUILD_NUMBER} storjlabs/splunk-s3-tests:latest"
 					}
 				}
 
@@ -222,7 +222,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
-							sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
+							sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
 						}
 					}
 				}
@@ -236,10 +236,10 @@ timeout(time: 26, unit: 'MINUTES') {
 			//
 			// TODO: run each Mint test with different credentials.
 			stage('Integration Mint/PHP') {
-				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
+				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
 			}
 			stage('Integration Mint/Ruby') {
-				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
+				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
 			}
 		}
 		catch(err) {

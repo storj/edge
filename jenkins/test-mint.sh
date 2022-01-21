@@ -93,8 +93,8 @@ if [ -z "${satellite_node_url}" ]; then
 fi
 
 authtoken="bob"
-authservice_address="127.0.0.1:9191"
-endpoint_url="https://${GATEWAY_DOMAIN}:7777/"
+authservice_address="127.0.0.1:20000"
+endpoint_url="https://${GATEWAY_DOMAIN}:20011/"
 
 CERT_DIR="${TMP}/certs"
 mkdir "$CERT_DIR"
@@ -112,8 +112,8 @@ authservice run \
     --kv-backend "memory://" &
 
 gateway-mt run \
-    --server.address :7777 \
-    --server.address-tls :7778 \
+    --server.address :20010 \
+    --server.address-tls :20011 \
     --auth.base-url "http://${authservice_address}" \
     --auth.token "${authtoken}" \
     --domain-name "${GATEWAY_DOMAIN}" \

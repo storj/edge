@@ -71,7 +71,7 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 
 func logError(log *zap.Logger, err error) {
 	// avoid logging access keys from errors, e.g.
-	// "Get \"http://localhost:8000/v1/access/12345\": dial tcp ..."
+	// "Get \"http://localhost:20000/v1/access/12345\": dial tcp ..."
 	msg := accessRegexp.ReplaceAllString(err.Error(), "[...]\"")
 	var level zapcore.Level
 	metricName := "gmt_authservice_error"

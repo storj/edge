@@ -37,7 +37,7 @@ services:
       - ./start-auth-service.sh:/scripts/start-auth-service.sh
       - storjsimconfig:/config
     ports:
-      - "8000:8000"
+      - "20000:20000"
     depends_on:
       - storjsim
     env_file:
@@ -52,8 +52,8 @@ services:
     env_file:
       - service.env
     ports:
-      - "7777:7777"
-      - "5999:5999"
+      - "20010:20010"
+      - "20019:20019"
     entrypoint: /scripts/start-gateway-mt.sh
     depends_on:
       - storjsim
