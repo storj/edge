@@ -232,5 +232,5 @@ require (
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 // indirect
 	storj.io/uplink v1.7.1 // indirect
-	storj.io/zipper v0.0.0-20220107194546-837fd9860182 // indirect
+	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )

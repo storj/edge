@@ -28,7 +28,7 @@ require (
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a
 	storj.io/private v0.0.0-20211223043353-3108400256d3
 	storj.io/uplink v1.7.1
-	storj.io/zipper v0.0.0-20220107194546-837fd9860182
+	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
 require (
