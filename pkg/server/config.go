@@ -6,6 +6,7 @@ package server
 import (
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway/miniogw"
 )
@@ -41,9 +42,15 @@ type ConnectionPoolConfig struct {
 	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
 }
 
-// ClientConfig is a configuration struct for the uplink that controls how
-// to talk to the rest of the network.
+// ClientConfig is a configuration struct for the uplink that controls how to
+// talk to the rest of the network.
+//
+// MaximumBufferSize has a default of 304 kB, as this seems to be around the
+// maximum buffer size drpcstream.(*Stream).MsgSend allocates when it's used
+// from libuplink from Gateway-MT (see https://pprof.host/0w/). Deployments
+// struggling with memory consumption problems should decrease the default.
 type ClientConfig struct {
-	DialTimeout time.Duration `help:"timeout for dials" default:"0h2m00s"`
-	UseQosAndCC bool          `help:"use congestion control and QOS settings" default:"true"`
+	DialTimeout       time.Duration `help:"timeout for dials" default:"0h2m00s"`
+	UseQosAndCC       bool          `help:"use congestion control and QOS settings" default:"true"`
+	MaximumBufferSize memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
 }

@@ -27,6 +27,7 @@ import (
 	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
 	"storj.io/uplink"
+	"storj.io/uplink/private/transport"
 )
 
 var (
@@ -85,13 +86,10 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	minio.RegisterMetricsRouter(r)
 
 	// Create object API handler
-	uplinkConfig := uplink.Config{}
-	uplinkConfig.DialTimeout = s.config.Client.DialTimeout
-	if !s.config.Client.UseQosAndCC {
-		// an unset DialContext defaults to BackgroundDialer's CC and QOS settings
-		uplinkConfig.DialContext = (&net.Dialer{}).DialContext
-	}
 	connectionPool := rpcpool.New(rpcpool.Options(s.config.ConnectionPool))
+
+	uplinkConfig := configureUplinkConfig(s.config.Client)
+
 	gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(s.config.S3Compatibility), connectionPool, uplinkConfig, s.config.InsecureLogAll)
 	gatewayLayer, err := gmt.NewGatewayLayer(auth.Credentials{})
 	if err != nil {
@@ -115,6 +113,23 @@ func New(config Config, log *zap.Logger, tlsConfig *tls.Config, trustedIPs trust
 	s.http.Handler = agentCollector.Wrap(s.http.Handler)
 
 	return s, nil
+}
+
+// configureUplinkConfig configures new uplink.Config using clientConfig.
+func configureUplinkConfig(clientConfig ClientConfig) uplink.Config {
+	ret := uplink.Config{
+		DialTimeout: clientConfig.DialTimeout,
+	}
+
+	if !clientConfig.UseQosAndCC {
+		// An unset DialContext defaults to BackgroundDialer's CC and QOS
+		// settings.
+		ret.DialContext = (&net.Dialer{}).DialContext
+	}
+
+	transport.SetMaximumBufferSize(&ret, clientConfig.MaximumBufferSize.Int())
+
+	return ret
 }
 
 func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {
