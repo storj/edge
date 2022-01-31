@@ -3,7 +3,6 @@ module storj.io/gateway-mt
 go 1.17
 
 require (
-	github.com/btcsuite/btcutil v1.0.3-0.20211129182920-9c4bbabe7acd
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0
@@ -21,13 +20,13 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220125134057-6b6307c1aefe
+	storj.io/common v0.0.0-20220131120956-e74f624a3d55
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v0.0.28
+	storj.io/drpc v0.0.29
 	storj.io/gateway v1.5.1
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a
-	storj.io/private v0.0.0-20211223043353-3108400256d3
-	storj.io/uplink v1.7.2-0.20220125161439-f5547b59bf3d
+	storj.io/private v0.0.0-20220131131751-c913260b9ec2
+	storj.io/uplink v1.7.2-0.20220131124001-c1db742c840d
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -195,5 +194,5 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
 )

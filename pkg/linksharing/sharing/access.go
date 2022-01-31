@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/base58"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/sharing/internal/signed"
