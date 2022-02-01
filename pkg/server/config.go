@@ -28,6 +28,7 @@ type Config struct {
 	ClientTrustedIPSList []string `help:"list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool     `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	InsecureLogAll       bool     `help:"insecurely log all errors, paths, and headers" default:"false"`
+	ConcurrentAllowed    uint     `help:"number of allowed concurrent uploads or downloads per macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 
 	Auth            authclient.Config
 	S3Compatibility miniogw.S3CompatibilityConfig

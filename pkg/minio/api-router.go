@@ -4,20 +4,34 @@
 package minio
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 
+	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/minio/cmd"
 	xhttp "storj.io/minio/cmd/http"
 )
 
 // RegisterAPIRouter - registers S3 compatible APIs.
-func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []string) {
+func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []string, concurrentAllowed uint) {
 	api := objectAPIHandlers{
 		ObjectAPI: func() cmd.ObjectLayer { return layer },
 		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
 	}
+
+	// limit the conccurrency of uploads and downloads per macaroon head
+	limit := middleware.NewMacaroonLimiter(concurrentAllowed,
+		func(w http.ResponseWriter, r *http.Request) {
+			err := cmd.APIError{
+				Code:           "SlowDown",                 // necessary to return a RetryAfter header
+				HTTPStatusCode: http.StatusTooManyRequests, // Minio's ErrSlowDown yields a 503, but 429 seems clearer
+				Description:    fmt.Sprintf("Only %d concurrent uploads or downloads are allowed per credential", concurrentAllowed),
+			}
+			WriteErrorResponse(r.Context(), w, err, r.URL, false)
+		},
+	).Limit
 
 	apiRouter := router.PathPrefix(cmd.SlashSeparator).Subrouter()
 
@@ -39,8 +53,8 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 			HandlerFunc(MaxClients(CollectAPIStats("copyobjectpart", HTTPTraceAll(api.CopyObjectPartHandler)))).
 			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
 		// PutObjectPart
-		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(
-			MaxClients(CollectAPIStats("putobjectpart", HTTPTraceHdrs(api.PutObjectPartHandler)))).Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
+		bucket.Methods(http.MethodPut).Path("/{object:.+}").Handler(
+			limit(MaxClients(CollectAPIStats("putobjectpart", HTTPTraceHdrs(api.PutObjectPartHandler))))).Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
 		// ListObjectParts
 		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(
 			MaxClients(CollectAPIStats("listobjectparts", HTTPTraceAll(api.ListObjectPartsHandler)))).Queries("uploadId", "{uploadId:.*}")
@@ -78,8 +92,8 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(
 			MaxClients(CollectAPIStats("getobjectlegalhold", HTTPTraceAll(api.GetObjectLegalHoldHandler)))).Queries("legal-hold", "")
 		// GetObject
-		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(
-			MaxClients(CollectAPIStats("getobject", HTTPTraceHdrs(api.GetObjectHandler))))
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").Handler(
+			limit(MaxClients(CollectAPIStats("getobject", HTTPTraceHdrs(api.GetObjectHandler)))))
 		// CopyObject
 		bucket.Methods(http.MethodPut).Path("/{object:.+}").HeadersRegexp(xhttp.AmzCopySource, ".*?(\\/|%2F).*?").
 			HandlerFunc(MaxClients(CollectAPIStats("copyobject", HTTPTraceAll(api.CopyObjectHandler))))
@@ -91,8 +105,8 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 			MaxClients(CollectAPIStats("putobjectlegalhold", HTTPTraceAll(api.PutObjectLegalHoldHandler)))).Queries("legal-hold", "")
 
 		// PutObject
-		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(
-			MaxClients(CollectAPIStats("putobject", HTTPTraceHdrs(api.PutObjectHandler))))
+		bucket.Methods(http.MethodPut).Path("/{object:.+}").Handler(
+			limit(MaxClients(CollectAPIStats("putobject", HTTPTraceHdrs(api.PutObjectHandler)))))
 		// DeleteObject
 		bucket.Methods(http.MethodDelete).Path("/{object:.+}").HandlerFunc(
 			MaxClients(CollectAPIStats("deleteobject", HTTPTraceAll(api.DeleteObjectHandler))))
@@ -211,8 +225,8 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 		bucket.Methods(http.MethodHead).HandlerFunc(
 			MaxClients(CollectAPIStats("headbucket", HTTPTraceAll(api.HeadBucketHandler))))
 		// PostPolicy
-		bucket.Methods(http.MethodPost).HeadersRegexp(xhttp.ContentType, "multipart/form-data*").HandlerFunc(
-			MaxClients(CollectAPIStats("postpolicybucket", HTTPTraceHdrs(api.PostPolicyBucketHandler))))
+		bucket.Methods(http.MethodPost).HeadersRegexp(xhttp.ContentType, "multipart/form-data*").Handler(
+			limit(MaxClients(CollectAPIStats("postpolicybucket", HTTPTraceHdrs(api.PostPolicyBucketHandler)))))
 		// DeleteMultipleObjects
 		bucket.Methods(http.MethodPost).HandlerFunc(
 			MaxClients(CollectAPIStats("deletemultipleobjects", HTTPTraceAll(api.DeleteMultipleObjectsHandler)))).Queries("delete", "")

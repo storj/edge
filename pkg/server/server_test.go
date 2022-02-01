@@ -81,7 +81,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		InsecureLogAll: true,
 		EncodeInMemory: true,
 	}
-	s, err := server.New(config, zaptest.NewLogger(t), trustedip.NewListTrustAll(), []string{}, nil, []string{})
+	s, err := server.New(config, zaptest.NewLogger(t), trustedip.NewListTrustAll(), []string{}, nil, []string{}, 10)
 	require.NoError(t, err)
 
 	defer ctx.Check(s.Close)

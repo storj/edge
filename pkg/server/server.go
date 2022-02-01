@@ -54,7 +54,7 @@ type Peer struct {
 
 // New returns new instance of an S3 compatible http server.
 func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedOrigins []string,
-	authClient *authclient.AuthClient, domainNames []string) (*Peer, error) {
+	authClient *authclient.AuthClient, domainNames []string, concurrentAllowed uint) (*Peer, error) {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 	r.UseEncodedPath()
@@ -82,7 +82,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	if err != nil {
 		return nil, err
 	}
-	minio.RegisterAPIRouter(r, gatewayLayer, domainNames)
+	minio.RegisterAPIRouter(r, gatewayLayer, domainNames, concurrentAllowed)
 
 	r.Use(middleware.Metrics)
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))

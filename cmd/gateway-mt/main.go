@@ -130,7 +130,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	peer, err := server.New(runCfg, zap.L(), trustedClientIPs, corsAllowedOrigins,
-		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","))
+		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","), runCfg.ConcurrentAllowed)
 	if err != nil {
 		return err
 	}

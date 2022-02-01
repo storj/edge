@@ -12,8 +12,8 @@ import (
 
 // NewMacaroonLimiter constructs a Limiter that limits based on macaroon credentials.
 // It relies on the AccessKey middleware being run to append credentials to the request context.
-func NewMacaroonLimiter(allowed uint, errFunc, limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
-	return NewLimiter(allowed, getRequestMacaroonHead, errFunc, limitFunc)
+func NewMacaroonLimiter(allowed uint, limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
+	return NewLimiter(allowed, getRequestMacaroonHead, limitFunc)
 }
 
 // getRequestMacaroonHead gets the macaroon head corresponding to the current request.
@@ -34,7 +34,6 @@ func getRequestMacaroonHead(r *http.Request) (ip string, err error) {
 type Limiter struct {
 	allowed   uint // maximum concurrent allowed
 	keyFunc   func(*http.Request) (string, error)
-	errFunc   func(w http.ResponseWriter, r *http.Request)
 	limitFunc func(w http.ResponseWriter, r *http.Request)
 
 	limits map[string]uint
@@ -43,12 +42,11 @@ type Limiter struct {
 
 // NewLimiter constructs a concurrency Limiter.  Error and Limit functions are user defined
 // in part because referencing the "minio" package here would cause an import loop.
-func NewLimiter(allowed uint, keyFunc func(*http.Request) (string, error), errFunc, limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
+func NewLimiter(allowed uint, keyFunc func(*http.Request) (string, error), limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
 	return &Limiter{
 		allowed:   allowed,
 		limits:    make(map[string]uint),
 		keyFunc:   keyFunc,
-		errFunc:   errFunc,
 		limitFunc: limitFunc,
 	}
 }
@@ -58,8 +56,9 @@ func (l *Limiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key, err := l.keyFunc(r)
 		if err != nil {
-			l.errFunc(w, r)
-			return
+			// its easiest to let other parts of the code handle auth errors
+			// we do want to continue rate limiting all unauthorized users
+			key = ""
 		}
 		l.m.Lock()
 		l.limits[key]++

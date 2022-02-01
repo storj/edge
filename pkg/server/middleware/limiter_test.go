@@ -29,10 +29,6 @@ func TestNewMacaroonLimiter(t *testing.T) {
 	rateLimiter := NewMacaroonLimiter(maxConncurrent,
 		func(w http.ResponseWriter, r *http.Request) {
 			next <- struct{}{} // create in-order results
-			http.Error(w, "", http.StatusInternalServerError)
-		},
-		func(w http.ResponseWriter, r *http.Request) {
-			next <- struct{}{} // create in-order results
 			http.Error(w, "", http.StatusTooManyRequests)
 		},
 	)
@@ -143,7 +139,7 @@ func benchmarkLimiter(l *Limiter) error {
 	return g.Wait()
 }
 func BenchmarkLimiter(b *testing.B) {
-	l := NewLimiter(10, simpleKeyFunc, noopHandler, noopHandler)
+	l := NewLimiter(10, simpleKeyFunc, noopHandler)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		require.NoError(b, benchmarkLimiter(l))
