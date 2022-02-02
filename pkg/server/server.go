@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/eventstat"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/httpserver"
@@ -36,8 +36,8 @@ var (
 	minioOnce sync.Once
 
 	// StatRegistry is a specific registry which is reported only to one destination
-	// it makes it possible to reset bucket based statistics after each send.
-	StatRegistry = monkit.NewRegistry()
+	// it is used for event statistics with unbounded cardinality.
+	StatRegistry = eventstat.Registry{}
 )
 
 // Peer represents an S3 compatible http server.
@@ -90,7 +90,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(handler)}
 
-	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.ScopeNamed("storj.io/gateway-mt/pkg/server"))
+	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.NewTagCounter("s3_http_user_agent", "agent"))
 	handler = agentCollector.Wrap(handler)
 
 	var tlsConfig *httpserver.TLSConfig

@@ -172,7 +172,10 @@ require (
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
+	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
+	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect
