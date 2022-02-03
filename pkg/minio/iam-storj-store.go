@@ -4,9 +4,9 @@
 package minio
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"strings"
 
@@ -48,15 +48,16 @@ func objectPathToUser(key string) string {
 	return user
 }
 
-// GetObject is called by Minio's IAMObjectStore, and in turn queries the Auth Service.
-// If passed an iamConfigUsers style objectPath, it returns a JSON-serialized UserIdentity.
-func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
+// GetObjectNInfo is called by Minio's IAMObjectStore, and in turn, queries the
+// Auth Service. If passed an iamConfigUsers style objectPath, it returns a
+// JSON-serialized UserIdentity.
+func (iamOS *IAMAuthStore) GetObjectNInfo(ctx context.Context, bucket, object string, _ *minio.HTTPRangeSpec, _ http.Header, _ minio.LockType, _ minio.ObjectOptions) (_ *minio.GetObjectReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// filter out non-user requests (policy, etc).
-	user := objectPathToUser(objectPath)
+	user := objectPathToUser(object)
 	if user == "" {
-		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
+		return nil, minio.ObjectNotFound{Bucket: bucket, Object: object}
 	}
 	defer func() { logger.LogIf(ctx, err) }()
 
@@ -66,18 +67,26 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 	credentials := middleware.GetAccess(ctx)
 	if credentials == nil {
 		// TODO: is there a better error option here?
-		return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
+		return nil, minio.ObjectNotFound{Bucket: bucket, Object: object}
 	}
 	if credentials.Error != nil {
 		if errdata.GetStatus(credentials.Error, http.StatusOK) == http.StatusUnauthorized {
-			return minio.ObjectNotFound{Bucket: bucketName, Object: objectPath}
+			return nil, minio.ObjectNotFound{Bucket: bucket, Object: object}
 		}
-		return credentials.Error
+		return nil, credentials.Error
 	}
 
 	// TODO: We need to eventually expire credentials.
 	// Using Store.watch()?  Using Credentials.Expiration?
-	return json.NewEncoder(writer).Encode(minio.UserIdentity{
+
+	b := bytes.NewBuffer(nil)
+
+	r, err := minio.NewGetObjectReaderFromReader(b, minio.ObjectInfo{}, minio.ObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return r, json.NewEncoder(b).Encode(minio.UserIdentity{
 		Version: 1,
 		Credentials: auth.Credentials{
 			AccessKey: user,
@@ -90,11 +99,6 @@ func (iamOS *IAMAuthStore) GetObject(ctx context.Context, bucketName, objectPath
 // NotImplementedObjectStore implements the ObjectLayer interface, but returns NotImplemented for all receivers.
 type NotImplementedObjectStore struct {
 	minio.GatewayUnsupported
-}
-
-// GetObject is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *NotImplementedObjectStore) GetObject(ctx context.Context, bucketName, objectPath string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) (err error) {
-	return minio.NotImplemented{}
 }
 
 // DeleteBucket is unimplemented, but required to meet the ObjectLayer interface.
@@ -153,6 +157,6 @@ func (iamOS *NotImplementedObjectStore) Shutdown(context.Context) error {
 }
 
 // StorageInfo is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *NotImplementedObjectStore) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
+func (iamOS *NotImplementedObjectStore) StorageInfo(ctx context.Context) (minio.StorageInfo, []error) {
 	return minio.StorageInfo{}, []error{minio.NotImplemented{}}
 }

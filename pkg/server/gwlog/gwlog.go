@@ -46,7 +46,9 @@ func (log *Log) EncryptionKeyHash() string {
 func (log *Log) TagValue(key string) string {
 	for _, tag := range log.GetTags() {
 		if tag.Key == key {
-			return tag.Val
+			if v, ok := tag.Val.(string); ok {
+				return v
+			}
 		}
 	}
 	return ""

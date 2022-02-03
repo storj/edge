@@ -6,7 +6,6 @@ package server
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"reflect"
 
@@ -151,7 +150,7 @@ func (l *multiTenancyLayer) Shutdown(ctx context.Context) error {
 	return l.log(ctx, l.connectionPool.Close())
 }
 
-func (l *multiTenancyLayer) StorageInfo(ctx context.Context, local bool) (minio.StorageInfo, []error) {
+func (l *multiTenancyLayer) StorageInfo(ctx context.Context) (minio.StorageInfo, []error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.StorageInfo{}, []error{err}
@@ -159,7 +158,7 @@ func (l *multiTenancyLayer) StorageInfo(ctx context.Context, local bool) (minio.
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, errors := l.layer.StorageInfo(miniogw.WithUplinkProject(ctx, project), false)
+	info, errors := l.layer.StorageInfo(miniogw.WithUplinkProject(ctx, project))
 
 	for _, err := range errors {
 		_ = l.log(ctx, err)
@@ -187,7 +186,7 @@ func (l *multiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (b
 	// `minio.NotImplemented`, which seems to be the most appropriate response
 	// in this case.
 	if accessGrant == "" {
-		return minio.BucketInfo{}, minio.NotImplemented{API: "GetBucketInfo (anonymous)"}
+		return minio.BucketInfo{}, minio.NotImplemented{Message: "GetBucketInfo (anonymous)"}
 	}
 
 	project, err := l.openProject(ctx, accessGrant)
@@ -258,17 +257,6 @@ func (l *multiTenancyLayer) GetObjectNInfo(ctx context.Context, bucket, object s
 
 	reader, err = l.layer.GetObjectNInfo(miniogw.WithUplinkProject(ctx, project), bucket, object, rs, h, lockType, opts)
 	return reader, l.log(ctx, err)
-}
-
-func (l *multiTenancyLayer) GetObject(ctx context.Context, bucket, object string, startOffset, length int64, writer io.Writer, etag string, opts minio.ObjectOptions) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
-	if err != nil {
-		return err
-	}
-
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	return l.log(ctx, l.layer.GetObject(miniogw.WithUplinkProject(ctx, project), bucket, object, startOffset, length, writer, etag, opts))
 }
 
 func (l *multiTenancyLayer) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
@@ -424,15 +412,17 @@ func (l *multiTenancyLayer) IsTaggingSupported() bool {
 	return l.layer.IsTaggingSupported()
 }
 
-func (l *multiTenancyLayer) PutObjectTags(ctx context.Context, bucketName, objectPath string, tags string, opts minio.ObjectOptions) error {
+func (l *multiTenancyLayer) PutObjectTags(ctx context.Context, bucketName, objectPath string, tags string, opts minio.ObjectOptions) (minio.ObjectInfo, error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return err
+		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.PutObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, tags, opts))
+	objInfo, err := l.layer.PutObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, tags, opts)
+
+	return objInfo, l.log(ctx, err)
 }
 
 func (l *multiTenancyLayer) GetObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (t *tags.Tags, err error) {
@@ -447,15 +437,17 @@ func (l *multiTenancyLayer) GetObjectTags(ctx context.Context, bucketName, objec
 	return t, l.log(ctx, err)
 }
 
-func (l *multiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) error {
+func (l *multiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (minio.ObjectInfo, error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return err
+		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.DeleteObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, opts))
+	objInfo, err := l.layer.DeleteObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, opts)
+
+	return objInfo, l.log(ctx, err)
 }
 
 func getAccessGrant(ctx context.Context) string {
