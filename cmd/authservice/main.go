@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
+	"storj.io/gateway-mt/internal/register"
 	"storj.io/gateway-mt/pkg/auth"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -34,9 +36,22 @@ var (
 		Short: "Create or update the database schema, then quit",
 		RunE:  cmdMigrationRun,
 	}
+	registerCmd = &cobra.Command{
+		Use:    "register",
+		Short:  "Register credentials @ authservice via HTTP or DRPC",
+		Args:   cobra.ExactArgs(1),
+		RunE:   cmdRegister,
+		Hidden: true,
+	}
 
 	config  auth.Config
 	confDir string
+
+	registerConfig struct {
+		Address   string `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.us1.storjshare.io:7777"`
+		Public    bool   `help:"whether access grant can be retrieved from authservice by providing only Access Key ID without Secret Access Key" default:"false"`
+		FormatEnv bool   `help:"environmental-variable format of credentials; for using in scripts" default:"false"`
+	}
 )
 
 func init() {
@@ -45,11 +60,13 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(registerCmd)
 
 	runCmd.AddCommand(runMigrationCmd)
 
 	process.Bind(runCmd, &config, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(runMigrationCmd, &config, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(registerCmd, &registerConfig, defaults)
 }
 
 func main() {
@@ -108,6 +125,24 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := migrator.MigrateToLatest(ctx); err != nil {
 		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
+func cmdRegister(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	res, err := register.Access(ctx, registerConfig.Address, args[0], registerConfig.Public)
+	if err != nil {
+		return err
+	}
+
+	if registerConfig.FormatEnv {
+		fmt.Printf("AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_ENDPOINT=%s\n",
+			res.AccessKeyID, res.SecretKey, res.Endpoint)
+	} else {
+		fmt.Println(res)
 	}
 
 	return nil
