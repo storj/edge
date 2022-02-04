@@ -236,11 +236,9 @@ timeout(time: 26, unit: 'MINUTES') {
 			// with other tests that run in parallel.
 			//
 			// TODO: run each Mint test with different credentials.
-
-			// todo: aws-sdk-php test is disabled as the tests fail with multi-part validation disabled.
-			// stage('Integration Mint/PHP') {
-			//	sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
-			// }
+			stage('Integration Mint/PHP') {
+				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
+			}
 			stage('Integration Mint/Ruby') {
 				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:7777 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
 			}
