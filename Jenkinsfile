@@ -218,8 +218,7 @@ timeout(time: 26, unit: 'MINUTES') {
 					}
 				}
 
-				// todo: aws-sdk-go test is disabled as the tests fail with multi-part validation disabled.
-				mintTests = ['aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
+				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
 				mintTests.each { test ->
 					branchedStages["Mint $test"] = {
 						stage("Mint $test") {
