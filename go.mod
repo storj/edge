@@ -18,13 +18,13 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20220203111346-5c3b59fd0b9b
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.29
-	storj.io/gateway v1.5.2-0.20220203172211-4b721d3c5e03
-	storj.io/minio v0.0.0-20220202140544-9ac531da7cb4
+	storj.io/gateway v1.6.0
+	storj.io/minio v0.0.0-20220207122753-7689b5c00c37
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2
 	storj.io/uplink v1.7.2-0.20220203120550-299484e42318
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
@@ -117,9 +117,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/montanaflynn/stats v0.5.0 // indirect
-	github.com/nats-io/jwt v1.1.0 // indirect
-	github.com/nats-io/nats.go v1.10.0 // indirect
-	github.com/nats-io/nkeys v0.2.0 // indirect
+	github.com/nats-io/nats.go v1.10.1-0.20210228004050-ed743748acac // indirect
+	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nats-io/stan.go v0.8.3 // indirect
 	github.com/ncw/directio v1.0.5 // indirect
@@ -147,9 +146,9 @@ require (
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	github.com/tidwall/gjson v1.6.8 // indirect
-	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.0.2 // indirect
+	github.com/tidwall/gjson v1.9.3 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.0.4 // indirect
 	github.com/tinylib/msgp v1.1.3 // indirect
 	github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a // indirect

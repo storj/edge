@@ -129,9 +129,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/montanaflynn/stats v0.5.0 // indirect
-	github.com/nats-io/jwt v1.1.0 // indirect
-	github.com/nats-io/nats.go v1.10.0 // indirect
-	github.com/nats-io/nkeys v0.2.0 // indirect
+	github.com/nats-io/nats.go v1.10.1-0.20210228004050-ed743748acac // indirect
+	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nats-io/stan.go v0.8.3 // indirect
 	github.com/ncw/directio v1.0.5 // indirect
@@ -168,9 +167,9 @@ require (
 	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/stripe/stripe-go/v72 v72.51.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	github.com/tidwall/gjson v1.6.8 // indirect
-	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.0.2 // indirect
+	github.com/tidwall/gjson v1.9.3 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.0.4 // indirect
 	github.com/tinylib/msgp v1.1.3 // indirect
 	github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a // indirect
@@ -219,8 +218,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
-	storj.io/gateway v1.5.2-0.20220203172211-4b721d3c5e03 // indirect
-	storj.io/minio v0.0.0-20220202140544-9ac531da7cb4 // indirect
+	storj.io/gateway v1.6.0 // indirect
+	storj.io/minio v0.0.0-20220207122753-7689b5c00c37 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
 	storj.io/uplink v1.7.2-0.20220203120550-299484e42318 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
