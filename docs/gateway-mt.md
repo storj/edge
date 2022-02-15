@@ -15,6 +15,7 @@ retrieve those files!
 # Documentation
 
 * [Using the S3 Gateway](https://docs.storj.io/api-reference/s3-gateway)
+* [S3 Compatibility](https://github.com/storj/gateway-st/blob/main/docs/s3-compatibility.md)
 
 # How to run gateway-mt with auth service
 
@@ -141,18 +142,32 @@ The request should succeed and the debug output should contain lines like
 `MainThread - botocore.utils - DEBUG - Using S3 virtual host style addressing.`
 
 # S3 API Compatibility using Docker
-The following S3 methods are supported:
-- HeadBucket
-- CreateBucket
-- DeleteBucket
-- ListBuckets
-- HeadObject
-- PutObject
-- GetObject
-- DeleteObject
-- DeleteObjects
-- ListObjects
-- ListObjectsV2
+
+We support all essential API actions, like
+
+* AbortMultipartUpload
+* CompleteMultipartUpload
+* CopyObject
+* CreateBucket
+* CreateMultipartUpload
+* DeleteBucket
+* DeleteObject
+* DeleteObjects
+* GetObject
+* HeadBucket
+* HeadObject
+* ListBuckets
+* ListMultipartUploads
+* ListObjects
+* ListObjectsV2
+* ListParts
+* PutObject
+* UploadPart
+
+as well as (Get/Put/Delete)ObjectTagging actions.
+
+For more details on gateway's S3 compatibility, please refer to [Compatibility
+Table](https://github.com/storj/gateway-st/blob/main/docs/s3-compatibility.md).
 
 We run a fork of the minio/mint repository at [storj/gateway-mint](https://github.com/storj/gateway-mint/)
 used to test correctness of the gateway.
