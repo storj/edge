@@ -119,7 +119,8 @@ gateway-mt run \
     --domain-name "${GATEWAY_DOMAIN}" \
     --cert-dir "$CERT_DIR" \
     --insecure-disable-tls=false \
-    --insecure-log-all &
+    --insecure-log-all \
+    --s3compatibility.fully-compatible-listing & # Enabled for s3-tests. See https://github.com/storj/splunk-s3-tests/pull/3.
 
 for i in {1..60}; do
     echo "Trying ${i} time to register access_grant with authservice"
