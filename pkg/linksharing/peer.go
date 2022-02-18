@@ -14,6 +14,7 @@ import (
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
 var mon = monkit.Package()
@@ -55,7 +56,9 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	peer.Server, err = httpserver.New(log, handle, config.Server)
+	instrumentedHandle := middleware.Metrics("linksharing", handle)
+
+	peer.Server, err = httpserver.New(log, instrumentedHandle, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}
