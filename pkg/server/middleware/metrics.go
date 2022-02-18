@@ -4,10 +4,11 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/gateway-mt/pkg/server/gwlog"
@@ -15,39 +16,103 @@ import (
 
 var mon = monkit.Package()
 
-// StatusRecorder wraps ResponseWrite to store the HTTP response status code.
-type StatusRecorder struct {
+var (
+	_ http.ResponseWriter = (*flusherDelegator)(nil)
+	_ http.Flusher        = (*flusherDelegator)(nil)
+)
+
+// flusherDelegator acts as a gatherer of status code and bytes written.
+//
+// It calls atWriteHeaderFunc only once for WriteHeader (so that
+// atWriteHeaderFunc executes expectedly), but it still delegates WriteHeader
+// from the caller. It's "illegal" to call WriteHeader twice, but we don't want
+// to mask any bugs.
+//
+// flusherDelegator is loosely inspired by the design of
+// prometheus/client_golang/prometheus/promhttp package.
+type flusherDelegator struct {
 	http.ResponseWriter
-	Status int
+
+	// atWriteHeaderFunc is called at the call to WriteHeader.
+	atWriteHeaderFunc func(int)
+
+	status      int
+	written     int64
+	wroteHeader bool
 }
 
-// Write implements Write to ensure HTTP 200s without making it default.
-func (r *StatusRecorder) Write(data []byte) (int, error) {
-	if r.Status == 0 {
-		r.Status = 200
+func (f *flusherDelegator) WriteHeader(code int) {
+	if f.atWriteHeaderFunc != nil && !f.wroteHeader {
+		f.atWriteHeaderFunc(code)
 	}
-	return r.ResponseWriter.Write(data)
+	f.status = code
+	f.wroteHeader = true
+	f.ResponseWriter.WriteHeader(code)
 }
 
-// Flush implements Flusher, which is checked at runtime.
-func (r *StatusRecorder) Flush() {
-	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
+func (f *flusherDelegator) Write(b []byte) (int, error) {
+	if !f.wroteHeader {
+		f.WriteHeader(http.StatusOK)
+	}
+	n, err := f.ResponseWriter.Write(b)
+	f.written += int64(n)
+	return n, err
+}
+
+func (f flusherDelegator) Flush() {
+	if !f.wroteHeader {
+		f.WriteHeader(http.StatusOK)
+	}
+	f.ResponseWriter.(http.Flusher).Flush()
+}
+
+func makeMetricName(prefix, name string) string {
+	return prefix + "_" + name
+}
+
+// sanitizeMethod returns a known HTTP method if m is such method. Otherwise, it
+// returns "unknown".
+//
+// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods for known
+// methods.
+func sanitizeMethod(m string) string {
+	switch m {
+	case http.MethodGet, "get":
+		return "get"
+	case http.MethodPut, "put":
+		return "put"
+	case http.MethodHead, "head":
+		return "head"
+	case http.MethodPost, "post":
+		return "post"
+	case http.MethodDelete, "delete":
+		return "delete"
+	case http.MethodConnect, "connect":
+		return "connect"
+	case http.MethodOptions, "options":
+		return "options"
+	case "NOTIFY", "notify":
+		return "notify"
+	case http.MethodTrace, "trace":
+		return "trace"
+	case http.MethodPatch, "patch":
+		return "patch"
+	default:
+		return "unknown"
 	}
 }
 
-// WriteHeader wraps ResponseWriter to store the status code.
-func (r *StatusRecorder) WriteHeader(status int) {
-	r.Status = status
-	r.ResponseWriter.WriteHeader(status)
-}
-
-// Metrics sends metrics to Monkit, such as HTTP status code.
-func Metrics(next http.Handler) http.Handler {
+// Metrics sends a bunch of useful metrics using monkit:
+// - response time
+// - time to write header
+// - bytes written
+// partitioned by method, status code, API.
+//
+// It also sends unmapped errors (in the case of Gateway-MT).
+//
+// TODO(artur): calculate approximate request size.
+func Metrics(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		recorder := &StatusRecorder{ResponseWriter: w}
-
 		ctx := r.Context()
 		log, ok := gwlog.FromContext(ctx)
 		if !ok {
@@ -55,20 +120,42 @@ func Metrics(next http.Handler) http.Handler {
 			r = r.WithContext(log.WithContext(ctx))
 		}
 
-		next.ServeHTTP(recorder, r)
+		now := time.Now()
 
-		mon.DurationVal("gmt_request_times",
+		d := &flusherDelegator{
+			ResponseWriter: w,
+			atWriteHeaderFunc: func(code int) {
+				tags := []monkit.SeriesTag{
+					monkit.NewSeriesTag("api", log.API),
+					monkit.NewSeriesTag("method", sanitizeMethod(r.Method)),
+					monkit.NewSeriesTag("status_code", strconv.Itoa(code)),
+				}
+				mon.DurationVal(makeMetricName(prefix, "time_to_header"), tags...).Observe(time.Since(now))
+			},
+		}
+
+		next.ServeHTTP(d, r)
+
+		tags := []monkit.SeriesTag{
 			monkit.NewSeriesTag("api", log.API),
-			monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status)),
-		).Observe(time.Since(start))
+			monkit.NewSeriesTag("method", sanitizeMethod(r.Method)),
+			monkit.NewSeriesTag("status_code", strconv.Itoa(d.status)),
+		}
 
-		err := log.TagValue("error")
-		if err != "" {
-			mon.Event("gmt_unmapped_error",
-				monkit.NewSeriesTag("api", log.API),
-				monkit.NewSeriesTag("status_code", fmt.Sprint(recorder.Status)),
-				monkit.NewSeriesTag("error", err),
-			)
+		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(time.Since(now))
+		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
+
+		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
+			tags = append(tags, monkit.NewSeriesTag("error", err))
+			mon.Event(makeMetricName(prefix, "unmapped_error"), tags...)
 		}
 	})
+}
+
+// NewMetrics is a convenience wrapper around Metrics that returns Metrics with
+// prefix as mux.MiddlewareFunc.
+func NewMetrics(prefix string) mux.MiddlewareFunc {
+	return func(h http.Handler) http.Handler {
+		return Metrics(prefix, h)
+	}
 }

@@ -84,7 +84,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	}
 	minio.RegisterAPIRouter(r, gatewayLayer, domainNames, concurrentAllowed)
 
-	r.Use(middleware.Metrics)
+	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(minio.GlobalHandlers...)
 
