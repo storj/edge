@@ -154,13 +154,19 @@ The following S3 methods are supported:
 - ListObjects
 - ListObjectsV2
 
-We use the minio mint testsuite to ensure our compatibility to the S3 API. As some S3 methods are not supported yet, we use a custom build that you can run it against any endpoint using docker.  The majority of these tests are defined in https://github.com/storj/gateway-mint/blob/main/mint.sh
+We run a fork of the minio/mint repository at [storj/gateway-mint](https://github.com/storj/gateway-mint/)
+used to test correctness of the gateway.
 
-To run the tests against the endpoint `endpoint_address` (using the `HOST:PORT` format), use:
+To run the tests:
+
 ```
-docker run -e SERVER_ENDPOINT=endpoint_address -e ACCESS_KEY=myaccesskey -e SECRET_KEY=mysecretkey -e ENABLE_HTTPS=0 storjlabs/gateway-mint:latest
+docker run --rm \
+	-e SERVER_ENDPOINT=endpoint_address \
+	-e ACCESS_KEY=myaccesskey \
+	-e SECRET_KEY=mysecretkey \
+	-e ENABLE_HTTPS=0 \
+	storjlabs/gateway-mint
 ```
-The `ENABLE_HTTPS` flag indicates if https should be used (`ENABLE_HTTPS=1`)
 
 # Using docker-compose for local development
 
@@ -245,9 +251,8 @@ gateway-mt run --auth.token="super-secret" --auth.base-url=http://localhost:2000
 ```
 
 ```
-docker build . -f Dockerfile.mint -t storj/mint
 export $(uplink access register $(storj-sim network env GATEWAY_0_ACCESS) --auth-service http://localhost:20000 --format env)
-docker run -e SERVER_ENDPOINT=host.docker.internal:20010 -e ACCESS_KEY=$AWS_ACCESS_KEY_ID -e SECRET_KEY=$AWS_SECRET_ACCESS_KEY -e ENABLE_HTTPS=0 storj/mint
+docker run -e SERVER_ENDPOINT=host.docker.internal:20010 -e ACCESS_KEY=$AWS_ACCESS_KEY_ID -e SECRET_KEY=$AWS_SECRET_ACCESS_KEY -e ENABLE_HTTPS=0 storjlabs/gateway-mint
 ```
 Note that Linux users may need alter the above commmand to `SERVER_ENDPOINT=localhost:20010` to use or the `--add-host=host.docker.internal:host-gateway` flag.
 
