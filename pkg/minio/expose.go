@@ -116,18 +116,6 @@ func MethodNotAllowedHandler(api string) http.HandlerFunc
 //go:linkname ErrorResponseHandler storj.io/minio/cmd.errorResponseHandler
 func ErrorResponseHandler(w http.ResponseWriter, r *http.Request)
 
-// RegisterHealthCheckRouter exposes minio's cmd.registerHealthCheckRouter.
-//
-//nolint: golint
-//go:linkname RegisterHealthCheckRouter storj.io/minio/cmd.registerHealthCheckRouter
-func RegisterHealthCheckRouter(router *mux.Router)
-
-// RegisterMetricsRouter exposes minio's cmd.registerMetricsRouter.
-//
-//nolint: golint
-//go:linkname RegisterMetricsRouter storj.io/minio/cmd.registerMetricsRouter
-func RegisterMetricsRouter(router *mux.Router)
-
 // SetObjectLayer exposes minio's cmd.setObjectLayer.
 //
 //nolint: golint

@@ -67,11 +67,6 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		r.Use(middleware.SetInMemory)
 	}
 
-	// Gorilla matches in the order things are defined, so fall back
-	// to minio implementations if we haven't handled something
-	minio.RegisterHealthCheckRouter(r)
-	minio.RegisterMetricsRouter(r)
-
 	// Create object API handler
 	connectionPool := rpcpool.New(rpcpool.Options(config.ConnectionPool))
 
