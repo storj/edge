@@ -51,7 +51,7 @@ func TestMetrics(t *testing.T) {
 
 	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
 
-	for _, v := range []string{"response_time", "time_to_header", "bytes_written"} {
+	for _, v := range []string{"time_to_first_byte", "response_time", "time_to_header", "bytes_written"} {
 		assert.Equal(t, 1.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 count", v)])
 		assert.Equal(t, 2.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 count", v)])
 		assert.Equal(t, 3.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 count", v)])

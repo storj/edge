@@ -21,6 +21,11 @@ var (
 	_ http.Flusher        = (*flusherDelegator)(nil)
 )
 
+// measureFunc is a common type for functions called at particular points of the
+// request that we wish to measure, such as when a header is written. It receives
+// the HTTP status code that was written as an argument.
+type measureFunc func(int)
+
 // flusherDelegator acts as a gatherer of status code and bytes written.
 //
 // It calls atWriteHeaderFunc only once for WriteHeader (so that
@@ -34,11 +39,15 @@ type flusherDelegator struct {
 	http.ResponseWriter
 
 	// atWriteHeaderFunc is called at the call to WriteHeader.
-	atWriteHeaderFunc func(int)
+	atWriteHeaderFunc measureFunc
 
-	status      int
-	written     int64
-	wroteHeader bool
+	// atTimeToFirstByteFunc is called when bytes are first written.
+	atTimeToFirstByteFunc measureFunc
+
+	status                  int
+	written                 int64
+	wroteHeader             bool
+	observedTimeToFirstByte bool
 }
 
 func (f *flusherDelegator) WriteHeader(code int) {
@@ -55,6 +64,10 @@ func (f *flusherDelegator) Write(b []byte) (int, error) {
 		f.WriteHeader(http.StatusOK)
 	}
 	n, err := f.ResponseWriter.Write(b)
+	if f.atTimeToFirstByteFunc != nil && !f.observedTimeToFirstByte {
+		f.atTimeToFirstByteFunc(f.status)
+		f.observedTimeToFirstByte = true
+	}
 	f.written += int64(n)
 	return n, err
 }
@@ -120,18 +133,23 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 			r = r.WithContext(log.WithContext(ctx))
 		}
 
-		now := time.Now()
+		start := time.Now()
 
-		d := &flusherDelegator{
-			ResponseWriter: w,
-			atWriteHeaderFunc: func(code int) {
-				tags := []monkit.SeriesTag{
+		mf := func(name string) measureFunc {
+			return func(code int) {
+				mon.DurationVal(
+					makeMetricName(prefix, name),
 					monkit.NewSeriesTag("api", log.API),
 					monkit.NewSeriesTag("method", sanitizeMethod(r.Method)),
 					monkit.NewSeriesTag("status_code", strconv.Itoa(code)),
-				}
-				mon.DurationVal(makeMetricName(prefix, "time_to_header"), tags...).Observe(time.Since(now))
-			},
+				).Observe(time.Since(start))
+			}
+		}
+
+		d := &flusherDelegator{
+			ResponseWriter:        w,
+			atWriteHeaderFunc:     mf("time_to_header"),
+			atTimeToFirstByteFunc: mf("time_to_first_byte"),
 		}
 
 		next.ServeHTTP(d, r)
@@ -142,7 +160,7 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 			monkit.NewSeriesTag("status_code", strconv.Itoa(d.status)),
 		}
 
-		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(time.Since(now))
+		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(time.Since(start))
 		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
 
 		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
