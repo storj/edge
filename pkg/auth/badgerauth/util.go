@@ -9,6 +9,7 @@ import (
 
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -106,8 +107,6 @@ func nextClockValue(txn *badger.Txn, id []byte) (uint64, error) {
 	return current, txn.Set(key, b[:])
 }
 
-//lint:ignore U1000, it will be used for #123
-//nolint: deadcode
 func readClockValue(txn *badger.Txn, id []byte) (uint64, error) {
 	item, err := txn.Get(makeClockValueKey(id))
 	if err != nil {
@@ -144,4 +143,20 @@ func timeToTimestamp(t *time.Time) int64 {
 		return t.Unix()
 	}
 	return 0
+}
+
+// Logger wraps zap's SugaredLogger, so it's possible to use it as badger's
+// Logger.
+type Logger struct {
+	*zap.SugaredLogger
+}
+
+// Warningf wraps zap's Warnf.
+func (l Logger) Warningf(format string, v ...interface{}) {
+	l.Warnf(format, v)
+}
+
+// NewLogger returns new Logger.
+func NewLogger(s *zap.SugaredLogger) Logger {
+	return Logger{s.Named("BadgerDB")}
 }

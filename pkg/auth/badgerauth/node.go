@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/protobuf/proto"
 
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
@@ -306,4 +307,14 @@ func (n Node) Ping(ctx context.Context) (err error) {
 // Close closes the underlying BadgerDB database.
 func (n Node) Close() error {
 	return Error.Wrap(n.db.Close())
+}
+
+// NewTestNode creates an instance of Node suitable for testing by wrapping
+// around the passed db.
+func NewTestNode(db *badger.DB, tombstoneExpiration time.Duration) *Node {
+	return &Node{
+		db:                  db,
+		id:                  testrand.UUID().Bytes(),
+		tombstoneExpiration: tombstoneExpiration,
+	}
 }
