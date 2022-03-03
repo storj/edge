@@ -18,13 +18,30 @@ import (
 	"storj.io/gateway-mt/pkg/backoff"
 )
 
-var mon = monkit.Package()
+const (
+	recordTerminatedEventName = "record_terminated"
+	recordExpiredEventName    = "record_expired"
+)
 
-// Error is the default error class for the badgerauth package.
-var Error = errs.Class("badgerauth")
+var (
+	// Below is a compile-time check ensuring Node implements the KV interface.
+	_ authdb.KV = (*Node)(nil)
 
-// Below is a compile-time check ensuring Node implements the KV interface.
-var _ authdb.KV = (*Node)(nil)
+	mon = monkit.Package()
+
+	// Error is the default error class for the badgerauth package.
+	Error = errs.Class("badgerauth")
+
+	// ProtoError is a class of proto errors.
+	ProtoError = errs.Class("proto")
+
+	// ErrKeyAlreadyExists is an error returned when putting a key that exists.
+	ErrKeyAlreadyExists = errs.New("key already exists")
+)
+
+func init() {
+	monkit.AddErrorNameHandler(errorName)
+}
 
 // NodeID is a unique id for BadgerDB node.
 type NodeID []byte
@@ -37,6 +54,30 @@ func (id *NodeID) SetBytes(v []byte) error {
 
 // Bytes returns the bytes for nodeID.
 func (id NodeID) Bytes() []byte { return id[:] }
+
+type action int
+
+const (
+	put action = iota
+	get
+	delete
+	invalidate
+)
+
+func (a action) String() string {
+	switch a {
+	case put:
+		return "put"
+	case get:
+		return "get"
+	case delete:
+		return "delete"
+	case invalidate:
+		return "invalidate"
+	default:
+		return "unknown"
+	}
+}
 
 // Node represents authservice's storage based on BadgerDB in a distributed
 // environment.
@@ -73,7 +114,7 @@ func (n Node) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 // PutAtTime stores the record at a specific time.
 // It is an error if the key already exists.
 func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(n.eventTags(put)...)(&ctx)(&err)
 
 	r := pb.Record{
 		CreatedAtUnix:        now.Unix(),
@@ -87,12 +128,12 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}
 	marshaled, err := proto.Marshal(&r)
 	if err != nil {
-		return Error.Wrap(err)
+		return Error.Wrap(ProtoError.Wrap(err))
 	}
 
 	if err = n.db.View(func(txn *badger.Txn) error {
 		if _, err = txn.Get(keyHash[:]); err == nil {
-			return errs.New("key already exists")
+			return ErrKeyAlreadyExists
 		} else if !errs.Is(err, badger.ErrKeyNotFound) {
 			return err
 		}
@@ -137,7 +178,7 @@ func (n Node) Get(ctx context.Context, keyHash authdb.KeyHash) (*authdb.Record, 
 // It returns nil if the key does not exist.
 // If the record is invalid, the error contains why.
 func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (record *authdb.Record, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(n.eventTags(get)...)(&ctx)(&err)
 
 	return record, Error.Wrap(n.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
@@ -152,7 +193,7 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 			var r pb.Record
 
 			if err := proto.Unmarshal(val, &r); err != nil {
-				return err
+				return ProtoError.Wrap(err)
 			}
 
 			expiresAt := timestampToTime(r.ExpiresAtUnix)
@@ -160,15 +201,18 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 			// can have safer TTL specified (see PutAtTime), and BadgerDB will
 			// still return it. We shouldn't return it in this case.
 			if expiresAt != nil && expiresAt.Before(now) {
+				n.monitorEvent(recordExpiredEventName, get)
 				return nil
 			}
 
 			switch r.State {
 			case pb.Record_INVALIDATED:
+				n.monitorEvent(recordTerminatedEventName, get)
 				return authdb.Invalid.New("%s", r.InvalidationReason)
 			case pb.Record_DELETED:
 				// We encountered the record's tombstone. It's gone from the
 				// user's perspective.
+				n.monitorEvent(recordTerminatedEventName, get)
 				return nil
 			}
 
@@ -195,7 +239,7 @@ func (n Node) Delete(ctx context.Context, keyHash authdb.KeyHash) error {
 // DeleteAtTime removes the record at a specific time.
 // It is not an error if the key does not exist.
 func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(n.eventTags(delete)...)(&ctx)(&err)
 
 	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
@@ -211,10 +255,11 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 		if err = item.Value(func(val []byte) error {
 			return proto.Unmarshal(val, &record)
 		}); err != nil {
-			return err
+			return ProtoError.Wrap(err)
 		}
 
 		if record.State == pb.Record_DELETED {
+			n.monitorEvent(recordTerminatedEventName, delete)
 			return nil // nothing to do here
 		}
 
@@ -222,6 +267,7 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 		// have safer TTL specified (see PutAtTime), and BadgerDB will still
 		// return it. We shouldn't process it in this case.
 		if t := timestampToTime(record.ExpiresAtUnix); t != nil && t.Before(now) {
+			n.monitorEvent(recordExpiredEventName, delete)
 			return nil
 		}
 
@@ -229,7 +275,7 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 
 		marshaled, err := proto.Marshal(&record)
 		if err != nil {
-			return err
+			return ProtoError.Wrap(err)
 		}
 		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
@@ -273,7 +319,7 @@ func (n Node) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason str
 // It is not an error if the key does not exist.
 // It does not update the invalid reason if the record is already invalid.
 func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reason string, now time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(n.eventTags(invalidate)...)(&ctx)(&err)
 
 	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
@@ -289,10 +335,11 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		if err = item.Value(func(val []byte) error {
 			return proto.Unmarshal(val, &record)
 		}); err != nil {
-			return err
+			return ProtoError.Wrap(err)
 		}
 
 		if record.State == pb.Record_INVALIDATED || record.State == pb.Record_DELETED {
+			n.monitorEvent(recordTerminatedEventName, invalidate)
 			return nil // nothing to do here
 		}
 
@@ -300,6 +347,7 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		// have safer TTL specified (see PutAtTime), and BadgerDB will still
 		// return it. We shouldn't process it in this case.
 		if t := timestampToTime(record.ExpiresAtUnix); t != nil && t.Before(now) {
+			n.monitorEvent(recordExpiredEventName, invalidate)
 			return nil
 		}
 
@@ -308,7 +356,7 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 
 		marshaled, err := proto.Marshal(&record)
 		if err != nil {
-			return err
+			return ProtoError.Wrap(err)
 		}
 		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
@@ -320,10 +368,7 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		mainEntry.ExpiresAt = item.ExpiresAt()
 		rlogEntry.ExpiresAt = item.ExpiresAt()
 
-		return errs.Combine(
-			txn.SetEntry(mainEntry),
-			txn.SetEntry(rlogEntry),
-		)
+		return errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry))
 	}))
 }
 
@@ -354,4 +399,92 @@ func (n Node) update(ctx context.Context, fn func(txn *badger.Txn) error) error 
 		}
 		return nil
 	}
+}
+
+func (n Node) eventTags(a action) []monkit.SeriesTag {
+	return []monkit.SeriesTag{
+		monkit.NewSeriesTag("action", a.String()),
+		monkit.NewSeriesTag("node_id", string(n.id)),
+	}
+}
+
+func (n Node) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
+	mon.Event("as_badgerauth_"+name, n.eventTags(a)...)
+}
+
+// errorName fits the requirements for monkit.AddErrorNameHandler so that we
+// can provide a useful error tag with mon.Task().
+func errorName(err error) (name string, ok bool) {
+	switch {
+	case authdb.Invalid.Has(err):
+		name = "InvalidRecord"
+	case ProtoError.Has(err):
+		name = "Proto"
+	case ClockError.Has(err):
+		// We have a wrapped badger error, but we want to distinguish this as
+		// relating to clock value error to gain insight into where potential
+		// problems may be. e.g. txn conflicts with the clock value.
+		name = "Clock"
+		if clockName, ok := errorName(errs.Unwrap(err)); ok {
+			name = "Clock:" + clockName
+		}
+	case errs.Is(err, ErrKeyAlreadyExists):
+		name = "KeyAlreadyExists"
+	case errs.Is(err, badger.ErrKeyNotFound):
+		name = "KeyNotFound"
+	case errs.Is(err, badger.ErrValueLogSize):
+		name = "ValueLogSize"
+	case errs.Is(err, badger.ErrTxnTooBig):
+		name = "TxnTooBig"
+	case errs.Is(err, badger.ErrConflict):
+		name = "Conflict"
+	case errs.Is(err, badger.ErrReadOnlyTxn):
+		name = "ReadonlyTxn"
+	case errs.Is(err, badger.ErrDiscardedTxn):
+		name = "DiscardedTxn"
+	case errs.Is(err, badger.ErrEmptyKey):
+		name = "EmptyKey"
+	case errs.Is(err, badger.ErrInvalidKey):
+		name = "InvalidKey"
+	case errs.Is(err, badger.ErrBannedKey):
+		name = "BannedKey"
+	case errs.Is(err, badger.ErrThresholdZero):
+		name = "ThresholdZero"
+	case errs.Is(err, badger.ErrNoRewrite):
+		name = "NoRewrite"
+	case errs.Is(err, badger.ErrRejected):
+		name = "Rejected"
+	case errs.Is(err, badger.ErrInvalidRequest):
+		name = "InvalidRequest"
+	case errs.Is(err, badger.ErrManagedTxn):
+		name = "ManagedTxn"
+	case errs.Is(err, badger.ErrNamespaceMode):
+		name = "NamespaceMode"
+	case errs.Is(err, badger.ErrInvalidDump):
+		name = "InvalidDump"
+	case errs.Is(err, badger.ErrZeroBandwidth):
+		name = "ZeroBandwidth"
+	case errs.Is(err, badger.ErrWindowsNotSupported):
+		name = "WindowsNotSupported"
+	case errs.Is(err, badger.ErrPlan9NotSupported):
+		name = "Plan9NotSupported"
+	case errs.Is(err, badger.ErrTruncateNeeded):
+		name = "TruncateNeeded"
+	case errs.Is(err, badger.ErrBlockedWrites):
+		name = "BlockedWrites"
+	case errs.Is(err, badger.ErrNilCallback):
+		name = "NilCallback"
+	case errs.Is(err, badger.ErrEncryptionKeyMismatch):
+		name = "EncryptionKeyMismatch"
+	case errs.Is(err, badger.ErrInvalidDataKeyID):
+		name = "InvalidDataKeyID"
+	case errs.Is(err, badger.ErrInvalidEncryptionKey):
+		name = "InvalidEncryptionKey"
+	case errs.Is(err, badger.ErrGCInMemoryMode):
+		name = "GCInMemoryMode"
+	case errs.Is(err, badger.ErrDBClosed):
+		name = "DBClosed"
+	}
+
+	return name, len(name) > 0
 }

@@ -10,13 +10,16 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// ClockError is a class of clock errors.
+var ClockError = errs.Class("clock")
+
 // Clock represents logical time on a single Node.
 type Clock uint64
 
 // SetBytes parses []byte for the clock value.
 func (clock *Clock) SetBytes(v []byte) error {
 	if len(v) != 8 {
-		return Error.New("invalid clock length: %v", len(v))
+		return ClockError.New("invalid length: %v", len(v))
 	}
 	*clock = Clock(binary.BigEndian.Uint64(v))
 	return nil
@@ -33,12 +36,12 @@ func (clock Clock) Bytes() []byte {
 func ReadClock(txn *badger.Txn, id NodeID) (Clock, error) {
 	item, err := txn.Get(makeClockKey(id))
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return 0, ClockError.Wrap(err)
 	}
 
 	var current Clock
 	err = item.Value(current.SetBytes)
-	return current, Error.Wrap(err)
+	return current, ClockError.Wrap(err)
 }
 
 // makeClockKey creates a badgerDB key for reading clock value
@@ -55,13 +58,13 @@ func advanceClock(txn *badger.Txn, id NodeID) (next Clock, _ error) {
 
 	item, err := txn.Get(key)
 	if err != nil && !errs.Is(err, badger.ErrKeyNotFound) {
-		return 0, err
+		return 0, ClockError.Wrap(err)
 	} else if err == nil {
 		if err = item.Value(current.SetBytes); err != nil {
-			return 0, Error.Wrap(err)
+			return 0, ClockError.Wrap(err)
 		}
 	}
 
 	current++
-	return current, txn.Set(key, current.Bytes())
+	return current, ClockError.Wrap(txn.Set(key, current.Bytes()))
 }

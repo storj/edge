@@ -9,6 +9,7 @@ import (
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/testcontext"
@@ -184,7 +185,7 @@ func TestClockState(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{1},
 			Record:  &r,
-			Error:   badgerauth.Error.New("key already exists"),
+			Error:   badgerauth.Error.Wrap(badgerauth.ErrKeyAlreadyExists),
 		}.Check(ctx, t, node)
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'!', 'b', 'a', 'd', 'g', 'e', 'r', '!'},
@@ -331,7 +332,14 @@ func TestBasicCycle(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: time.Hour,
+		ID:                  badgerauth.NodeID{'b', 'a', 's', 'i', 'c'},
 	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
+		// put invalid key
+		badgerauthtest.Put{
+			KeyHash: authdb.KeyHash{'!', 'b', 'a', 'd', 'g', 'e', 'r', '!'},
+			Record:  record,
+			Error:   badgerauth.Error.Wrap(badger.ErrInvalidKey),
+		}.Check(ctx, t, node)
 		// put
 		badgerauthtest.Put{
 			KeyHash: keyHash,
@@ -341,7 +349,7 @@ func TestBasicCycle(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: keyHash,
 			Record:  record,
-			Error:   badgerauth.Error.New("key already exists"),
+			Error:   badgerauth.Error.Wrap(badgerauth.ErrKeyAlreadyExists),
 		}.Check(ctx, t, node)
 		// get unknown record
 		badgerauthtest.Get{
@@ -393,6 +401,26 @@ func TestBasicCycle(t *testing.T) {
 		badgerauthtest.Get{
 			KeyHash: keyHash,
 		}.Check(ctx, t, node)
+
+		scope := "storj.io/gateway-mt/pkg/auth/badgerauth"
+		c := monkit.Collect(monkit.ScopeNamed(scope))
+
+		for name, count := range map[string]float64{
+			"function,action=put,error_name=InvalidKey,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count":       1.0,
+			"function,action=put,error_name=KeyAlreadyExists,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count": 1.0,
+			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " errors":                            2.0,
+			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " total":                             5.0,
+			"function,action=invalidate,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " total":               3.0,
+			"function,action=invalidate,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " errors":              0.0,
+			"function,action=get,error_name=InvalidRecord,name=Node.GetAtTime,node_id=basic,scope=" + scope + " count":    1.0,
+			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " errors":                            1.0,
+			"function,action=delete,name=Node.DeleteAtTime,node_id=basic,scope=" + scope + " total":                       3.0,
+			"function,action=delete,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " errors":                  0.0,
+			"as_badgerauth_record_terminated,action=delete,node_id=basic,scope=" + scope + " total":                       1.0,
+			"as_badgerauth_record_terminated,action=get,node_id=basic,scope=" + scope + " total":                          2.0,
+		} {
+			assert.Equal(t, count, c[name], name)
+		}
 	})
 }
 
