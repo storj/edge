@@ -18,5 +18,10 @@ release/
 *.dylib
 *.log
 
+# CI test data
+.build/
+volumes/
+gateway-st/
+
 # avoid pushing maxmind databases
 *.mmdb

@@ -40,17 +40,33 @@ TODO(artur): write about this. Present different approaches, including storj/up.
 
 #### Correctness
 
+A suite of integration tests for Gateway-MT can be run on the checked out code.
+
+`make integration-run` will start a new integration environment using Docker and run all the integration tests.
+
+At the end of the run, you can run `make integration-env-purge` to remove the integration environment.
+
+This requires `docker`, `git`, and `openssl` to be installed on your local machine for this to work.
+
 ##### mint
 
 We run mint tests based on MinIO's mint ([gateway-mint](https://github.com/storj/gateway-mint)) on every commit to Gateway-MT against Gateway-MT, as well as in the fork's repository itself.
 
-See [documentation on how to run them locally](https://github.com/storj/gateway-mint/blob/main/jenkins/README.md).
+To run the tests:
+
+`make integration-env-start integration-mint-tests`
+
+You can also run a specific test using the `TEST` environment variable:
+
+`TEST=aws-sdk-php make integration-mint-tests`
 
 ##### ceph/splunk-s3-tests
 
 We run S3 tests based on Splunk's fork (which is better suited for us) of Ceph's S3 tests ([splunk-s3-tests](https://github.com/storj/splunk-s3-tests)) on every commit to Gateway-MT against Gateway-MT, as well as in the fork's repository itself.
 
-See [documentation on how to run them locally](https://github.com/storj/splunk-s3-tests/blob/main/jenkins/README.md).
+To run the tests:
+
+`make integration-env-start integration-splunk-tests`
 
 #### Performance
 

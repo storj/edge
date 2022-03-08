@@ -142,101 +142,33 @@ timeout(time: 26, unit: 'MINUTES') {
 			}
 		}
 		try {
-			stage('Integration set up') {
+			stage('Start integration environment') {
 				checkout scm
-				dir('gateway-st') {
-					checkout([
-						changelog: false,
-						poll: false,
-						scm: [
-							$class: 'GitSCM',
-							branches: [[name: '*/main']],
-							extensions: [[$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true], [$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: 'testsuite/integration']]]],
-							 userRemoteConfigs: [[url: 'https://github.com/storj/gateway-st']]
-						]
-					])
-				}
-
-				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
-				env.STORJ_SIM_REDIS = 'redis:6379'
-				env.GATEWAY_DOMAIN = 'gateway.local'
-				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER'
-				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER --network-alias postgres --network minttest-gateway-mt-$BUILD_NUMBER postgres:12.3'
-				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER --network-alias redis --network minttest-gateway-mt-$BUILD_NUMBER redis:latest'
-				sh '''until $(docker logs postgres-gateway-mt-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
-					do printf '.'
-					sleep 5
-					done
-				'''
-				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER --network-alias $GATEWAY_DOMAIN --network minttest-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS storjlabs/golang:1.17.12'
-				// Wait until the docker command above prints out the keys before proceeding
-				output = sh (script: '''#!/bin/bash
-					set -e +x
-					echo "listing"
-					ls $PWD/jenkins
-					t="0"
-					while true; do
-						logs=$(docker logs mintsetup-gateway-mt-$BUILD_NUMBER -t --since "$t" 2>&1)
-						keys=$(echo "$logs" | grep "Finished access_key_id" || true)
-						if [ ! -z "$keys" ]; then
-							echo "$logs"
-							echo "found keys $keys"
-							echo "ACCESS_KEY_ID=$(echo "$keys" | rev |  cut -d "," -f2 | cut -d ":" -f1 | rev)"
-							echo "SECRET_KEY=$(echo "$keys" | rev |  cut -d "," -f1 | cut -d ":" -f1 | rev)"
-							break
-						fi
-						t=$(echo -E "$logs" | tail -n 1 | cut -d " " -f1)
-						echo "printing logs"
-						echo "$logs"
-						sleep 5
-					done
-				''', returnStdout: true).trim().split('\n')
-				env.ACCESS_KEY_ID = output.findAll{ it.startsWith('ACCESS_KEY_ID=') }[0].split('=')[1]
-				env.SECRET_KEY = output.findAll{ it.startsWith('SECRET_KEY=') }[0].split('=')[1]
-				println output.join('\n')
-
-				sh 'docker pull storjlabs/gateway-mint:latest'
+				sh 'make integration-env-start'
 			}
 
-			stage('Integration') {
-				def branchedStages = [:]
-
-				tests = ['https', 'awscli', 'awscli_multipart', 'duplicity', 'duplicati']
-				tests.each { test ->
-					branchedStages["Test $test"] = {
-						stage("Test $test") {
-							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/gateway-st/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
+			stage('Run integration tests') {
+				def tests = [:]
+				tests['splunk-tests'] = {
+					stage('splunk-tests') {
+						sh 'make integration-splunk-tests'
+					}
+				}
+				['awscli', 'awscli_multipart', 'duplicity', 'duplicati', 'rclone'].each { test ->
+					tests["gateway-st-test ${test}"] = {
+						stage("gateway-st-test ${test}") {
+							sh "TEST=${test} make integration-gateway-st-tests"
 						}
 					}
 				}
-
-				// umask 0000 is used to ensure test result artifacts created
-				// in the container can be cleaned up by jenkins.
-				branchedStages["Test rclone"] = {
-					stage("Test rclone") {
-						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; gateway-st/testsuite/integration/rclone.sh\'"
-						zip(zipFile: 'rclone-integration-tests.zip', archive: true, dir: 'gateway-st/.build/rclone-integration-tests')
-						archiveArtifacts(artifacts: 'rclone-integration-tests.zip')
-					}
-				}
-
-				branchedStages["splunk-s3-tests"] = {
-					stage("splunk-s3-tests") {
-						sh "docker run --rm -e ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -e SECURE=0 --network minttest-gateway-mt-\$BUILD_NUMBER --name s3-tests-\${BUILD_NUMBER} storjlabs/splunk-s3-tests:latest"
-					}
-				}
-
-				mintTests = ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd']
-				mintTests.each { test ->
-					branchedStages["Mint $test"] = {
-						stage("Mint $test") {
-							sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-$test-\$BUILD_NUMBER storjlabs/gateway-mint:latest $test"
+				['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd'].each { test ->
+					tests["mint-test ${test}"] = {
+						stage("mint-test ${test}") {
+							sh "TEST=${test} make integration-mint-tests"
 						}
 					}
 				}
-
-				parallel branchedStages
+				parallel tests
 			}
 
 			// We run aws-sdk-php and aws-sdk-ruby tests sequentially because
@@ -244,20 +176,23 @@ timeout(time: 26, unit: 'MINUTES') {
 			// with other tests that run in parallel.
 			//
 			// TODO: run each Mint test with different credentials.
-			stage('Integration Mint/PHP') {
-				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-php-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-php"
+			stage('mint-test aws-sdk-php') {
+				sh 'TEST=aws-sdk-php make integration-mint-tests'
 			}
-			stage('Integration Mint/Ruby') {
-				sh "docker run --rm -e SERVER_ENDPOINT=\${GATEWAY_DOMAIN}:20010 -e ACCESS_KEY=\${ACCESS_KEY_ID} -e SECRET_KEY=\${SECRET_KEY} -e ENABLE_HTTPS=0 --network minttest-gateway-mt-\${BUILD_NUMBER} --name mint-aws-sdk-ruby-\$BUILD_NUMBER storjlabs/gateway-mint:latest aws-sdk-ruby"
+			stage('mint-test aws-sdk-ruby') {
+				sh 'TEST=aws-sdk-ruby make integration-mint-tests'
 			}
 		}
 		catch(err) {
+			sh 'make integration-env-logs'
 			throw err
 		}
 		finally {
-			sh 'docker logs mintsetup-gateway-mt-$BUILD_NUMBER || true'
-			sh 'docker stop --time=1 $(docker ps -qf network=minttest-gateway-mt-$BUILD_NUMBER) || true'
-			sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
+			if(fileExists('gateway-st/.build/rclone-integration-tests')) {
+				zip zipFile: 'rclone-integration-tests.zip', archive: true, dir: 'gateway-st/.build/rclone-integration-tests'
+				archiveArtifacts artifacts: 'rclone-integration-tests.zip'
+			}
+			sh 'make integration-env-purge'
 
 			// ensure Jenkins agent can delete the working directory
 			// this chmod command is allowed to fail, e.g. it may encounter

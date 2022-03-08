@@ -213,3 +213,159 @@ endif
 
 	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto
 	clang-format -i pkg/auth/badgerauth/pb/badgerauth_admin.proto
+
+##@ Local development/Public Jenkins/Integration Test
+
+BUILD_NUMBER ?= ${TAG}
+
+.PHONY: integration-run
+integration-run: integration-env-start integration-all-tests ## Start the integration environment and run all tests
+
+.PHONY: integration-env-start
+integration-env-start: integration-checkout integration-image-build integration-network-create integration-services-start ## Start the integration environment
+
+.PHONY: integration-env-stop
+integration-env-stop: ## Stop all running services in the integration environment
+	-docker stop --time=1 $$(docker ps -qf network=integration-network-${BUILD_NUMBER})
+
+.PHONY: integration-env-clean
+integration-env-clean:
+	-docker rm $$(docker ps -aqf network=integration-network-${BUILD_NUMBER})
+	-docker rmi $$(docker image ls -qf label=build=${BUILD_NUMBER})
+	-docker rmi redis:latest
+	-docker rmi postgres:latest
+	-docker rmi storjlabs/gateway-mint:latest
+	-docker rmi storjlabs/splunk-s3-tests:latest
+	-rm -r volumes
+	-rm -rf gateway-st
+
+.PHONY: integration-env-purge
+integration-env-purge: integration-env-stop integration-env-clean integration-network-remove ## Purge the integration environment
+
+.PHONY: integration-env-logs
+integration-env-logs: ## Retrieve logs from integration services
+	-docker logs integration-sim-${BUILD_NUMBER}
+	-docker logs integration-authservice-${BUILD_NUMBER}
+	-docker logs integration-gateway-${BUILD_NUMBER}
+
+.PHONY: integration-all-tests
+integration-all-tests: integration-gateway-st-tests integration-mint-tests integration-splunk-tests ## Run all integration tests (environment needs to be started first)
+
+# note: umask 0000 is needed for rclone tests so files can be cleaned up.
+.PHONY: integration-gateway-st-tests
+integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to be started first)
+	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	docker run \
+	--network integration-network-${BUILD_NUMBER} \
+	-e AWS_ENDPOINT=https://gateway:20011 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	-v $$PWD:/build \
+	-w /build \
+	--name integration-gateway-st-tests-${BUILD_NUMBER}-$$TEST \
+	--entrypoint /bin/bash \
+	--rm storjlabs/ci:latest \
+	-c "umask 0000; scripts/run-integration-tests.sh $$TEST" \
+
+.PHONY: integration-mint-tests
+integration-mint-tests: ## Run mint test suite (environment needs to be started first)
+	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	docker run \
+	--network integration-network-${BUILD_NUMBER} \
+	-e SERVER_ENDPOINT=gateway:20010 -e "ACCESS_KEY=$$AWS_ACCESS_KEY_ID" -e "SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" -e ENABLE_HTTPS=0 \
+	--name integration-mint-tests-${BUILD_NUMBER}-$$TEST \
+	--rm storjlabs/gateway-mint:latest $$TEST
+
+.PHONY: integration-splunk-tests
+integration-splunk-tests: ## Run splunk test suite (environment needs to be started first)
+	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	docker run \
+	--network integration-network-${BUILD_NUMBER} \
+	-e ENDPOINT=gateway:20010 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" -e SECURE=0 \
+	--name integration-splunk-tests-${BUILD_NUMBER} \
+	--rm storjlabs/splunk-s3-tests:latest
+
+.PHONY: integration-checkout
+integration-checkout:
+	git clone --filter blob:none --depth 1 --no-tags --no-checkout https://github.com/storj/gateway-st gateway-st
+	cd gateway-st && \
+		git config core.sparsecheckout true && \
+		echo "testsuite/integration" >> .git/info/sparse-checkout && \
+		git checkout
+
+.PHONY: integration-image-build
+integration-image-build:
+	for C in gateway-mt authservice; do \
+		./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
+	; done
+
+.PHONY: integration-network-create
+integration-network-create:
+	docker network create integration-network-${BUILD_NUMBER}
+
+.PHONY: integration-network-remove
+integration-network-remove:
+	-docker network remove integration-network-${BUILD_NUMBER}
+
+.PHONY: integration-services-start
+integration-services-start:
+	docker run \
+	--network integration-network-${BUILD_NUMBER} --network-alias postgres \
+	-e POSTGRES_DB=sim -e POSTGRES_HOST_AUTH_METHOD=trust \
+	--name integration-postgres-${BUILD_NUMBER} \
+	--rm -d postgres:latest
+
+	docker run \
+	--network integration-network-${BUILD_NUMBER} --network-alias redis \
+	--name integration-redis-${BUILD_NUMBER} \
+	--rm -d redis:latest
+
+	docker run \
+	--network integration-network-${BUILD_NUMBER} --network-alias sim \
+	-e STORJ_SIM_POSTGRES='postgres://postgres@postgres/sim?sslmode=disable' -e STORJ_SIM_REDIS=redis:6379 \
+	-v $$PWD/scripts:/scripts:ro \
+	--name integration-sim-${BUILD_NUMBER} \
+	--rm -d storjlabs/golang:${GO_VERSION} /scripts/start_storj-sim.sh
+
+	until docker exec integration-sim-${BUILD_NUMBER} storj-sim network env SATELLITE_0_URL > /dev/null; do \
+		echo "*** storj-sim is not yet available; waiting for 3s..." && sleep 3; \
+	done
+
+	docker run \
+	--network integration-network-${BUILD_NUMBER} --network-alias authservice \
+	--name integration-authservice-${BUILD_NUMBER} \
+	--rm -d storjlabs/authservice:${BUILD_NUMBER} run \
+		--listen-addr 0.0.0.0:20000 \
+		--drpc-listen-addr 0.0.0.0:20002 \
+		--allowed-satellites $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env SATELLITE_0_URL) \
+		--auth-token super-secret \
+		--endpoint http://gateway:20010 \
+		--kv-backend memory://
+
+	mkdir -p volumes/gateway
+	openssl req \
+		-x509 \
+		-newkey rsa:4096 \
+		-keyout volumes/gateway/cert.key \
+		-out volumes/gateway/cert.crt \
+		-nodes \
+		-subj '/CN=gateway' \
+		-addext "subjectAltName = DNS:gateway"
+
+	docker run \
+	--network integration-network-${BUILD_NUMBER} --network-alias gateway \
+	--name integration-gateway-${BUILD_NUMBER} \
+	--volume $$PWD/volumes/gateway:/cert:ro \
+	--rm -d storjlabs/gateway-mt:${BUILD_NUMBER} run \
+		--server.address 0.0.0.0:20010 \
+		--server.address-tls 0.0.0.0:20011 \
+		--auth.base-url http://authservice:20000 \
+		--auth.token super-secret \
+		--domain-name gateway \
+		--insecure-log-all \
+		--cert-dir /cert \
+		--insecure-disable-tls=false \
+		--s3compatibility.fully-compatible-listing \
+		--s3compatibility.disable-copy-object=false
+
+	until [ ! -z $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS) ]; do \
+		echo "*** main access grant is not yet available; waiting for 3s..." && sleep 3; \
+	done
