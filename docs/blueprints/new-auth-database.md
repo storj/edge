@@ -210,6 +210,10 @@ state to Invalidated/Deleted and from Invalidated to Deleted. Once the record is
 in a subsequent state, it can never go back. Nodes apply operations following
 these rules.
 
+On any conflict on `created_at`, `expires_at`, `invalid_at, invalid_reason`
+the algorithm should choose minimum of both of these. If `invalid_at` is
+equal, it should choose `invalid_reason` that is lexicographically smaller.
+
 ### Deletes and pruning replication log
 
 Deleting a record will transition it to the Deleted state and set a Time To Live
