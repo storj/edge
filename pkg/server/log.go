@@ -34,7 +34,7 @@ func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Ha
 			fields = append(fields, zap.String(requestURILogField, r.RequestURI))
 		}
 
-		log.Info("access", fields...)
+		log.Debug("access", fields...)
 		h.ServeHTTP(w, r)
 	})
 }
@@ -76,8 +76,10 @@ func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Han
 }
 
 func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
-	level := log.Info
-	if rw.StatusCode() >= 500 {
+	level := log.Debug
+	if rw.StatusCode() >= 300 {
+		level = log.Info
+	} else if rw.StatusCode() >= 500 {
 		level = log.Error
 	}
 
@@ -150,8 +152,10 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 }
 
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
-	level := log.Info
-	if rw.StatusCode() >= 500 {
+	level := log.Debug
+	if rw.StatusCode() >= 300 {
+		level = log.Info
+	} else if rw.StatusCode() >= 500 {
 		level = log.Error
 	}
 

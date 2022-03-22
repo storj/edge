@@ -31,7 +31,7 @@ func TestResponseNoPaths(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 	observedLogger := zap.New(observedZapCore)
 
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
@@ -56,7 +56,7 @@ func TestResponsePathsIncluded(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 	observedLogger := zap.New(observedZapCore)
 
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
@@ -83,7 +83,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 	observedLogger := zap.New(observedZapCore)
 
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
@@ -112,7 +112,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test?q=123", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 	observedLogger := zap.New(observedZapCore)
 
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
@@ -160,7 +160,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 			req.Header.Add(test.header, "test")
 		}
 
-		observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 		observedLogger := zap.New(observedZapCore)
 
 		LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
