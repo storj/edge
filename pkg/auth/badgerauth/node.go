@@ -5,6 +5,7 @@ package badgerauth
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/gateway-mt/pkg/backoff"
 )
 
 var mon = monkit.Package()
@@ -43,11 +45,13 @@ type Node struct {
 
 	id                  NodeID
 	tombstoneExpiration time.Duration
+	conflictBackoff     backoff.ExponentialBackoff
 }
 
 // Config provides options for creating a Node.
 type Config struct {
 	TombstoneExpiration time.Duration
+	ConflictBackoff     backoff.ExponentialBackoff
 	ID                  NodeID
 }
 
@@ -57,6 +61,7 @@ func New(db *badger.DB, c Config) *Node {
 		db:                  db,
 		id:                  c.ID,
 		tombstoneExpiration: c.TombstoneExpiration,
+		conflictBackoff:     c.ConflictBackoff,
 	}
 }
 
@@ -96,7 +101,7 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		return Error.Wrap(err)
 	}
 
-	return Error.Wrap(n.db.Update(func(txn *badger.Txn) error {
+	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
 		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
 			return err
@@ -192,7 +197,7 @@ func (n Node) Delete(ctx context.Context, keyHash authdb.KeyHash) error {
 func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(n.db.Update(func(txn *badger.Txn) error {
+	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
@@ -270,7 +275,7 @@ func (n Node) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason str
 func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reason string, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(n.db.Update(func(txn *badger.Txn) error {
+	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
@@ -333,4 +338,20 @@ func (n Node) Ping(ctx context.Context) (err error) {
 // Close closes the underlying BadgerDB database.
 func (n Node) Close() error {
 	return Error.Wrap(n.db.Close())
+}
+
+func (n Node) update(ctx context.Context, fn func(txn *badger.Txn) error) error {
+	for {
+		err := n.db.Update(fn)
+		if err != nil {
+			if errors.Is(err, badger.ErrConflict) && !n.conflictBackoff.Maxed() {
+				if err := n.conflictBackoff.Wait(ctx); err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
+		return nil
+	}
 }
