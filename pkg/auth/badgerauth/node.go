@@ -25,12 +25,24 @@ var Error = errs.Class("badgerauth")
 // Below is a compile-time check ensuring Node implements the KV interface.
 var _ authdb.KV = (*Node)(nil)
 
+// NodeID is a unique id for BadgerDB node.
+type NodeID []byte
+
+// SetBytes sets the node id from bytes.
+func (id *NodeID) SetBytes(v []byte) error {
+	*id = append(NodeID{}, v...)
+	return nil
+}
+
+// Bytes returns the bytes for nodeID.
+func (id NodeID) Bytes() []byte { return id[:] }
+
 // Node represents authservice's storage based on BadgerDB in a distributed
 // environment.
 type Node struct {
 	db *badger.DB
 
-	id                  []byte
+	id                  NodeID
 	tombstoneExpiration time.Duration
 }
 
@@ -71,13 +83,13 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}
 
 	return Error.Wrap(n.db.Update(func(txn *badger.Txn) error {
-		clockValue, err := nextClockValue(txn, n.id) // vector clock for this operation
+		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
 			return err
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clockValue, keyHash, pb.Record_CREATED)
+		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_CREATED)
 		if record.ExpiresAt != nil {
 			// The reason we're overwriting expiresAt with safer TTL (if
 			// necessary) is because someone could insert a record with short
@@ -200,14 +212,14 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 		if err != nil {
 			return err
 		}
-		clockValue, err := nextClockValue(txn, n.id) // vector clock for this operation
+		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
 			return err
 		}
 
 		expiresAt := uint64(now.Add(n.tombstoneExpiration).Unix())
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clockValue, keyHash, pb.Record_DELETED)
+		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_DELETED)
 		mainEntry.ExpiresAt = expiresAt
 		rlogEntry.ExpiresAt = expiresAt
 
@@ -279,13 +291,13 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		if err != nil {
 			return err
 		}
-		clockValue, err := nextClockValue(txn, n.id) // vector clock for this operation
+		clock, err := advanceClock(txn, n.id) // vector clock for this operation
 		if err != nil {
 			return err
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clockValue, keyHash, pb.Record_INVALIDATED)
+		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_INVALIDATED)
 		mainEntry.ExpiresAt = item.ExpiresAt()
 		rlogEntry.ExpiresAt = item.ExpiresAt()
 

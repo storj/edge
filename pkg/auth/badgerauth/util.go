@@ -8,7 +8,6 @@ import (
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -27,19 +26,15 @@ const (
 //
 // Key layout reference:
 // https://github.com/storj/gateway-mt/blob/3ef75f412a50118d9d910e1b372e126e6ffb7503/docs/blueprints/new-auth-database.md#replication-log-entry
-func newReplicationLogEntry(id []byte, clockValue uint64, keyHash authdb.KeyHash, state pb.Record_State) *badger.Entry {
-	var (
-		clockValueBytes [8]byte
-		stateBytes      [4]byte
-	)
-	binary.BigEndian.PutUint64(clockValueBytes[:], clockValue)
+func newReplicationLogEntry(id NodeID, clock Clock, keyHash authdb.KeyHash, state pb.Record_State) *badger.Entry {
+	var stateBytes [4]byte
 	binary.BigEndian.PutUint32(stateBytes[:], uint32(state))
 
 	key := make([]byte, 0, lenReplicationLogPrefix+3*lenReplicationLogSeparator+len(id)+lenKeyHash+8+4)
 	key = append(key, replicationLogPrefix...)
-	key = append(key, id...)
+	key = append(key, id.Bytes()...)
 	key = append(key, replicationLogSeparator...)
-	key = append(key, clockValueBytes[:]...)
+	key = append(key, clock.Bytes()...)
 	key = append(key, replicationLogSeparator...)
 	key = append(key, keyHash[:]...)
 	key = append(key, replicationLogSeparator...)
@@ -48,20 +43,29 @@ func newReplicationLogEntry(id []byte, clockValue uint64, keyHash authdb.KeyHash
 	return badger.NewEntry(key, nil)
 }
 
-func parseReplicationLogEntry(entry []byte) ([]byte, uint64, authdb.KeyHash, pb.Record_State) {
+func parseReplicationLogEntry(entry []byte) (NodeID, Clock, authdb.KeyHash, pb.Record_State) {
 	entry = entry[lenReplicationLogPrefix:] // trim leftmost replicationLogPrefix
 	stateBytes, entry := entry[len(entry)-4:], entry[:len(entry)-4]
 	entry = entry[:len(entry)-lenReplicationLogSeparator] // trim rightmost separator
 	keyHash, entry := entry[len(entry)-lenKeyHash:], entry[:len(entry)-lenKeyHash]
 	entry = entry[:len(entry)-lenReplicationLogSeparator] // trim rightmost separator
-	clockValueBytes, entry := entry[len(entry)-8:], entry[:len(entry)-8]
+	clockBytes, entry := entry[len(entry)-8:], entry[:len(entry)-8]
 	entry = entry[:len(entry)-lenReplicationLogSeparator] // trim rightmost separator
-	id := entry                                           // ID is the remainder
+	idBytes := entry                                      // ID is the remainder
 
-	clockValue := binary.BigEndian.Uint64(clockValueBytes)
+	var clock Clock
+	if err := clock.SetBytes(clockBytes); err != nil {
+		panic(err)
+	}
+
+	var id NodeID
+	if err := id.SetBytes(idBytes); err != nil {
+		panic(err)
+	}
+
 	state := pb.Record_State(binary.BigEndian.Uint32(stateBytes))
 
-	return id, clockValue, *(*[32]byte)(keyHash), state
+	return id, clock, *(*[32]byte)(keyHash), state
 }
 
 func findReplicationLogEntriesByKeyHash(txn *badger.Txn, keyHash authdb.KeyHash) [][]byte {
@@ -81,49 +85,6 @@ func findReplicationLogEntriesByKeyHash(txn *badger.Txn, keyHash authdb.KeyHash)
 	}
 
 	return entries
-}
-
-func nextClockValue(txn *badger.Txn, id []byte) (uint64, error) {
-	key := makeClockValueKey(id)
-
-	var current uint64
-
-	item, err := txn.Get(key)
-	if err != nil && !errs.Is(err, badger.ErrKeyNotFound) {
-		return 0, err
-	} else if err == nil {
-		if err = item.Value(func(v []byte) error {
-			current = binary.BigEndian.Uint64(v)
-			return nil
-		}); err != nil {
-			return 0, err
-		}
-	}
-
-	current++
-
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], current)
-	return current, txn.Set(key, b[:])
-}
-
-func readClockValue(txn *badger.Txn, id []byte) (uint64, error) {
-	item, err := txn.Get(makeClockValueKey(id))
-	if err != nil {
-		return 0, err
-	}
-
-	var current uint64
-	err = item.Value(func(v []byte) error {
-		current = binary.BigEndian.Uint64(v)
-		return nil
-	})
-
-	return current, err
-}
-
-func makeClockValueKey(id []byte) []byte {
-	return append([]byte("clock_value/"), id...)
 }
 
 // timestampToTime converts Unix time to *time.Time. It checks whether the
