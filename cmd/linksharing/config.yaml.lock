@@ -1,0 +1,152 @@
+# public address to listen on
+address: :20020
+
+# public tls address to listen on
+address-tls: :20021
+
+# The active time between retries, typically not set
+# auth-service.back-off.delay: 0s
+
+# The maximum total time to allow retries
+# auth-service.back-off.max: 5m0s
+
+# The minimum time between retries
+# auth-service.back-off.min: 100ms
+
+# base url to use for resolving access key ids
+auth-service.base-url: ""
+
+# how many cached access grants to keep in cache
+auth-service.cache.capacity: 1000
+
+# how long to keep cached access grants in cache
+auth-service.cache.expiration: 24h0m0s
+
+# how long to wait for a single auth service connection
+auth-service.timeout: 10s
+
+# auth token for giving access to the auth service
+auth-service.token: ""
+
+# server certificate file
+cert-file: ""
+
+# list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
+client-trusted-ips-list: '[]'
+
+# RPC connection pool capacity
+connection-pool.capacity: 100
+
+# RPC connection pool idle expiration
+connection-pool.idle-expiration: 2m0s
+
+# RPC connection pool key capacity
+connection-pool.key-capacity: 5
+
+# address to listen on for debug endpoints
+# debug.addr: 127.0.0.1:0
+
+# If set, a path to write a process trace SVG to
+# debug.trace-out: ""
+
+# dns server address to use for TXT resolution
+dns-server: 1.1.1.1:53
+
+# maxmind database file path
+geo-location-db: ""
+
+# listen using insecure connections only
+insecure-disable-tls: false
+
+# server key file
+key-file: ""
+
+# the url to redirect empty requests to
+landing-redirect-target: https://www.storj.io/
+
+# use lets-encrypt to handle TLS certificates
+lets-encrypt: false
+
+# if true, log function filename and line number
+# log.caller: false
+
+# if true, set logging to development mode
+# log.development: false
+
+# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# log.encoding: ""
+
+# the minimum log level to log
+# log.level: info
+
+# can be stdout, stderr, or a filename
+# log.output: stderr
+
+# if true, log stack traces
+# log.stack: false
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.addr: collectora.storj.io:9000
+
+# application name for telemetry identification. Ignored for certain applications.
+# metrics.app: linksharing
+
+# application suffix. Ignored for certain applications.
+# metrics.app-suffix: -release
+
+# instance id prefix
+# metrics.instance-prefix: ""
+
+# how frequently to send up telemetry. Ignored for certain applications.
+# metrics.interval: 1m0s
+
+# comma separated list of public urls for the server
+public-url: ""
+
+# redirect to HTTPS
+redirect-https: true
+
+# enable standard (non-hosting) requests to render content and not only download it
+standard-renders-content: false
+
+# serve HTML as text/html instead of text/plain for standard (non-hosting) requests
+standard-views-html: false
+
+# the path to where web assets are located
+static-sources-path: ./pkg/linksharing/web/static
+
+# the path to where renderable templates are located
+templates: ./pkg/linksharing/web
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: linksharing
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: false
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
+
+# max ttl (seconds) for website hosting txt record cache
+txt-record-ttl: 1h0m0s
+
+# use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used
+use-client-ip-headers: true
+
+# use congestion control and QOS settings
+use-qos-and-cc: true

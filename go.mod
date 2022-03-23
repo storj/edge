@@ -3,6 +3,7 @@ module storj.io/gateway-mt
 go 1.17
 
 require (
+	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0

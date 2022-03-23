@@ -1,0 +1,158 @@
+# if used in with -h, print advanced flags help
+# advanced: false
+
+# The active time between retries, typically not set
+# auth.back-off.delay: 0s
+
+# The maximum total time to allow retries
+# auth.back-off.max: 5m0s
+
+# The minimum time between retries
+# auth.back-off.min: 100ms
+
+# base url to use for resolving access key ids
+auth.base-url: ""
+
+# how many cached access grants to keep in cache
+auth.cache.capacity: 1000
+
+# how long to keep cached access grants in cache
+auth.cache.expiration: 24h0m0s
+
+# how long to wait for a single auth service connection
+auth.timeout: 10s
+
+# auth token for giving access to the auth service
+auth.token: ""
+
+# directory path to search for TLS certificates
+# cert-dir: testdata/certs
+
+# list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
+# client-trusted-ips-list: '[]'
+
+# timeout for dials
+# client.dial-timeout: 2m0s
+
+# maximum buffer size for DRPC streams
+# client.maximum-buffer-size: 304.00 KB
+
+# use congestion control and QOS settings
+# client.use-qos-and-cc: true
+
+# number of allowed concurrent uploads or downloads per macaroon head
+# concurrent-allowed: "500"
+
+# RPC connection pool capacity
+# connection-pool.capacity: 100
+
+# RPC connection pool idle expiration
+# connection-pool.idle-expiration: 2m0s
+
+# RPC connection pool key capacity
+# connection-pool.key-capacity: 5
+
+# list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway
+# cors-origins: '*'
+
+# address to listen on for debug endpoints
+# debug.addr: 127.0.0.1:0
+
+# If set, a path to write a process trace SVG to
+# debug.trace-out: ""
+
+# comma-separated domain suffixes to serve on
+# domain-name: ""
+
+# tells libuplink to perform in-memory encoding on file upload
+# encode-in-memory: true
+
+# listen using insecure connections
+# insecure-disable-tls: false
+
+# insecurely log all errors, paths, and headers
+# insecure-log-all: false
+
+# if true, log function filename and line number
+# log.caller: false
+
+# if true, set logging to development mode
+# log.development: false
+
+# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# log.encoding: ""
+
+# the minimum log level to log
+# log.level: info
+
+# can be stdout, stderr, or a filename
+# log.output: stderr
+
+# if true, log stack traces
+# log.stack: false
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.addr: collectora.storj.io:9000
+
+# application name for telemetry identification. Ignored for certain applications.
+# metrics.app: gateway-mt
+
+# application suffix. Ignored for certain applications.
+# metrics.app-suffix: -release
+
+# instance id prefix
+# metrics.instance-prefix: ""
+
+# how frequently to send up telemetry. Ignored for certain applications.
+# metrics.interval: 1m0s
+
+# return 501 (Not Implemented) for CopyObject calls
+# s3compatibility.disable-copy-object: true
+
+# make ListObjects(V2) fully S3-compatible (specifically: always return lexicographically ordered results) but slow
+# s3compatibility.fully-compatible-listing: false
+
+# include custom metadata in S3's ListObjects, ListObjectsV2 and ListMultipartUploads responses
+# s3compatibility.include-custom-metadata-listing: true
+
+# maximum number of items to list for gateway-side filtering using arbitrary delimiter/prefix
+# s3compatibility.max-keys-exhaustive-limit: 100000
+
+# MaxKeys parameter limit for S3's ListObjects and ListObjectsV2 responses
+# s3compatibility.max-keys-limit: 1000
+
+# minimum part size for multipart uploads
+# s3compatibility.min-part-size: 5242880
+
+# Address to serve gateway on
+# server.address: 127.0.0.1:20010
+
+# Address to securely serve (TLS) gateway on
+# server.address-tls: 127.0.0.1:20011
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: gateway-mt
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: false
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
+
+# use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used
+# use-client-ip-headers: true
