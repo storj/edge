@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,18 +30,31 @@ import (
 var (
 	// Error is the default gateway setup errs class.
 	Error = errs.Class("gateway setup")
-	// rootCmd represents the base gateway command when called without any subcommands.
+
+	// rootCmd represents the base gateway command when called without any
+	// subcommands.
 	rootCmd = &cobra.Command{
 		Use:   "gateway",
-		Short: "The Storj client-side S3 gateway",
+		Short: "Multi-tenant, S3-compatible gateway",
 		Args:  cobra.OnlyValidArgs,
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the classic S3-compatible gateway",
+		Short: "Run the service",
+		Args:  cobra.ExactArgs(0),
 		RunE:  cmdRun,
 	}
-	runCfg server.Config
+	setupCmd = &cobra.Command{
+		Use:         "setup",
+		Short:       "Create configuration file",
+		Args:        cobra.ExactArgs(0),
+		Annotations: map[string]string{"type": "setup"},
+		RunE:        cmdSetup,
+		Hidden:      true,
+	}
+
+	runCfg   server.Config
+	setupCfg server.Config
 
 	confDir string
 )
@@ -51,7 +65,10 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(setupCmd)
+
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 
 	// The loop below sets all flags in GatewayFlags to show up without the
 	// `--advanced` flag until we decide which flags we want to hide.
@@ -65,7 +82,7 @@ func init() {
 	setUsageFunc(rootCmd)
 }
 
-func cmdRun(cmd *cobra.Command, args []string) (err error) {
+func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 	address := runCfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -147,6 +164,24 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	})
 
 	return g.Wait()
+}
+
+func cmdSetup(cmd *cobra.Command, _ []string) error {
+	setupDir, err := filepath.Abs(confDir)
+	if err != nil {
+		return err
+	}
+
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return errs.New("configuration already exists (%v)", setupDir)
+	}
+
+	if err = os.MkdirAll(setupDir, 0700); err != nil {
+		return err
+	}
+
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
 /*	`setUsageFunc` is a bit unconventional but cobra didn't leave much room for

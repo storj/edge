@@ -6,6 +6,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -23,18 +25,26 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "authservice",
-		Short: "The hosted gateway auth service",
-		Args:  cobra.OnlyValidArgs,
+		Short: "Auth Service (used mainly with Gateway-MT and Link Sharing Service)",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the auth service",
+		Short: "Run the service",
 		RunE:  cmdRun,
 	}
 	runMigrationCmd = &cobra.Command{
 		Use:   "migration",
 		Short: "Create or update the database schema, then quit",
+		Args:  cobra.ExactArgs(0),
 		RunE:  cmdMigrationRun,
+	}
+	setupCmd = &cobra.Command{
+		Use:         "setup",
+		Short:       "Create configuration file",
+		Args:        cobra.ExactArgs(0),
+		Annotations: map[string]string{"type": "setup"},
+		RunE:        cmdSetup,
+		Hidden:      true,
 	}
 	registerCmd = &cobra.Command{
 		Use:    "register",
@@ -44,10 +54,12 @@ var (
 		Hidden: true,
 	}
 
-	config  auth.Config
+	runCfg   auth.Config
+	setupCfg auth.Config
+
 	confDir string
 
-	registerConfig struct {
+	registerCfg struct {
 		Address   string `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.us1.storjshare.io:7777"`
 		Public    bool   `help:"whether access grant can be retrieved from authservice by providing only Access Key ID without Secret Access Key" default:"false"`
 		FormatEnv bool   `help:"environmental-variable format of credentials; for using in scripts" default:"false"`
@@ -60,13 +72,15 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(registerCmd)
 
 	runCmd.AddCommand(runMigrationCmd)
 
-	process.Bind(runCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(runMigrationCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(registerCmd, &registerConfig, defaults)
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
+	process.Bind(registerCmd, &registerCfg, defaults)
 }
 
 func main() {
@@ -76,7 +90,7 @@ func main() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	if config.Migration {
+	if runCfg.Migration {
 		if err = cmdMigrationRun(cmd, args); err != nil {
 			return err
 		}
@@ -88,7 +102,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	p, err := auth.New(ctx, log, config, confDir)
+	p, err := auth.New(ctx, log, runCfg, confDir)
 	if err != nil {
 		return err
 	}
@@ -107,10 +121,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return g.Wait()
 }
 
-func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
+func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), config.KVBackend)
+	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg.KVBackend)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -130,15 +144,33 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func cmdRegister(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	res, err := register.Access(ctx, registerConfig.Address, args[0], registerConfig.Public)
+func cmdSetup(cmd *cobra.Command, _ []string) error {
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 
-	if registerConfig.FormatEnv {
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return errs.New("configuration already exists (%v)", setupDir)
+	}
+
+	if err = os.MkdirAll(setupDir, 0700); err != nil {
+		return err
+	}
+
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
+}
+
+func cmdRegister(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
+	res, err := register.Access(ctx, registerCfg.Address, args[0], registerCfg.Public)
+	if err != nil {
+		return err
+	}
+
+	if registerCfg.FormatEnv {
 		fmt.Printf("AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_ENDPOINT=%s\n",
 			res.AccessKeyID, res.SecretKey, res.Endpoint)
 	} else {
