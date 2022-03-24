@@ -22,13 +22,13 @@ require (
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220215191549-ee3a77cfa9eb
+	storj.io/common v0.0.0-20220317162831-b0b4a044a95f
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.29
-	storj.io/gateway v1.6.1-0.20220217113302-9cdd9d4bd674
-	storj.io/minio v0.0.0-20220215210608-f35d7bc00e6e
+	storj.io/gateway v1.6.2
+	storj.io/minio v0.0.0-20220309151502-d6f2ba63d1c6
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2
-	storj.io/uplink v1.8.0
+	storj.io/uplink v1.8.1
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -42,6 +42,7 @@ require (
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/alecthomas/participle v0.2.1 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
+	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/bcicen/jstream v1.0.1 // indirect
 	github.com/beevik/ntp v0.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
