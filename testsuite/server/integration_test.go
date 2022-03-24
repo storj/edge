@@ -28,12 +28,12 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/internal/minioclient"
+	"storj.io/gateway-mt/internal/register"
 	"storj.io/gateway-mt/pkg/auth"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/cfgstruct"
-	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -84,15 +84,17 @@ func TestUploadDownload(t *testing.T) {
 
 		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
 
-		// todo: use the unused endpoint below
-		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
+		serialized, err := access.Serialize()
+		require.NoError(t, err)
+
+		s3Credentials, err := register.Access(ctx, "http://"+authSvcAddr, serialized, false)
 		require.NoError(t, err)
 
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
-			AccessKey: accessKey,
-			SecretKey: secretKey,
+			AccessKey: s3Credentials.AccessKeyID,
+			SecretKey: s3Credentials.SecretKey,
 			APIKey:    planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
 			NoSSL:     true,
 		})
@@ -183,7 +185,7 @@ func TestUploadDownload(t *testing.T) {
 			// operating with aws-ask-go that has a default user-agent string
 			// set for aws
 			newSession, err := session.NewSession(&aws.Config{
-				Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
+				Credentials:      credentials.NewStaticCredentials(s3Credentials.AccessKeyID, s3Credentials.SecretKey, ""),
 				Endpoint:         aws.String("http://" + gateway.Address()),
 				Region:           aws.String("us-east-1"),
 				S3ForcePathStyle: aws.Bool(true),
