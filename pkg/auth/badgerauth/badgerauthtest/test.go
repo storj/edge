@@ -193,3 +193,21 @@ func (step VerifyReplicationLogEntries) Check(ctx *testcontext.Context, t testin
 
 	assert.Equal(t, expected, actual)
 }
+
+// Clock is for verifying the db state of the clock.
+type Clock struct {
+	NodeID badgerauth.NodeID
+	Value  int
+}
+
+// Check runs the test.
+func (step Clock) Check(t testing.TB, db *badger.DB) {
+	require.NoError(t, db.View(func(txn *badger.Txn) error {
+		current, err := badgerauth.ReadClock(txn, step.NodeID)
+		if err != nil {
+			return err
+		}
+		assert.EqualValues(t, step.Value, current)
+		return nil
+	}))
+}

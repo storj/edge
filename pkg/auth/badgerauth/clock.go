@@ -29,6 +29,18 @@ func (clock Clock) Bytes() []byte {
 	return r[:]
 }
 
+// ReadClock reads the current clock value for the node.
+func ReadClock(txn *badger.Txn, id NodeID) (Clock, error) {
+	item, err := txn.Get(makeClockKey(id))
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	var current Clock
+	err = item.Value(current.SetBytes)
+	return current, Error.Wrap(err)
+}
+
 // makeClockKey creates a badgerDB key for reading clock value
 // for the specified node.
 func makeClockKey(id NodeID) []byte {
@@ -52,16 +64,4 @@ func advanceClock(txn *badger.Txn, id NodeID) (next Clock, _ error) {
 
 	current++
 	return current, txn.Set(key, current.Bytes())
-}
-
-// readClock reads the current clock value for the node.
-func readClock(txn *badger.Txn, id NodeID) (Clock, error) {
-	item, err := txn.Get(makeClockKey(id))
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	var current Clock
-	err = item.Value(current.SetBytes)
-	return current, Error.Wrap(err)
 }

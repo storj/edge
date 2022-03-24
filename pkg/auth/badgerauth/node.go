@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/protobuf/proto"
 
-	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
@@ -44,6 +43,21 @@ type Node struct {
 
 	id                  NodeID
 	tombstoneExpiration time.Duration
+}
+
+// Config provides options for creating a Node.
+type Config struct {
+	TombstoneExpiration time.Duration
+	ID                  NodeID
+}
+
+// New creates an instance of Node.
+func New(db *badger.DB, c Config) *Node {
+	return &Node{
+		db:                  db,
+		id:                  c.ID,
+		tombstoneExpiration: c.TombstoneExpiration,
+	}
 }
 
 // Put is like PutAtTime, but it uses current time to store the record.
@@ -319,14 +333,4 @@ func (n Node) Ping(ctx context.Context) (err error) {
 // Close closes the underlying BadgerDB database.
 func (n Node) Close() error {
 	return Error.Wrap(n.db.Close())
-}
-
-// NewTestNode creates an instance of Node suitable for testing by wrapping
-// around the passed db.
-func NewTestNode(db *badger.DB, tombstoneExpiration time.Duration) *Node {
-	return &Node{
-		db:                  db,
-		id:                  testrand.UUID().Bytes(),
-		tombstoneExpiration: tombstoneExpiration,
-	}
 }

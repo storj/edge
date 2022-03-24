@@ -25,26 +25,26 @@ func TestAdvanceClock(t *testing.T) {
 		for i := 0; i < 1234; i++ {
 			fromNext, err := advanceClock(txn, id)
 			require.NoError(t, err)
-			fromRead, err := readClock(txn, id)
+			fromRead, err := ReadClock(txn, id)
 			require.NoError(t, err)
 			assert.Equal(t, fromRead, fromNext)
 			counter++
 		}
-		v, err := readClock(txn, id)
+		v, err := ReadClock(txn, id)
 		assert.NoError(t, err)
 		assert.Equal(t, counter, v)
 		return err
 	}))
 
 	require.NoError(t, db.View(func(txn *badger.Txn) error {
-		v, err := readClock(txn, id)
+		v, err := ReadClock(txn, id)
 		assert.NoError(t, err)
 		assert.Equal(t, counter, v)
 		return err
 	}))
 
 	assert.ErrorIs(t, db.View(func(txn *badger.Txn) error {
-		_, err := readClock(txn, NodeID("A different ID"))
+		_, err := ReadClock(txn, NodeID("A different ID"))
 		return err
 	}), badger.ErrKeyNotFound)
 }
