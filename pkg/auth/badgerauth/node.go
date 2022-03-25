@@ -91,9 +91,9 @@ type Node struct {
 
 // Config provides options for creating a Node.
 type Config struct {
+	ID                  NodeID
 	TombstoneExpiration time.Duration
 	ConflictBackoff     backoff.ExponentialBackoff
-	ID                  NodeID
 }
 
 // New creates an instance of Node.
@@ -149,7 +149,7 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_CREATED)
+		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_CREATED)
 		if record.ExpiresAt != nil {
 			// The reason we're overwriting expiresAt with safer TTL (if
 			// necessary) is because someone could insert a record with short
@@ -284,7 +284,7 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 
 		expiresAt := uint64(now.Add(n.tombstoneExpiration).Unix())
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_DELETED)
+		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_DELETED)
 		mainEntry.ExpiresAt = expiresAt
 		rlogEntry.ExpiresAt = expiresAt
 
@@ -364,7 +364,7 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := newReplicationLogEntry(n.id, clock, keyHash, pb.Record_INVALIDATED)
+		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_INVALIDATED)
 		mainEntry.ExpiresAt = item.ExpiresAt()
 		rlogEntry.ExpiresAt = item.ExpiresAt()
 

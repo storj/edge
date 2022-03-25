@@ -22,11 +22,11 @@ const (
 	lenKeyHash                 = len(authdb.KeyHash{})
 )
 
-// newReplicationLogEntry constructs new *badger.Entry for replication log.
+// NewReplicationLogEntry constructs new *badger.Entry for replication log.
 //
 // Key layout reference:
 // https://github.com/storj/gateway-mt/blob/3ef75f412a50118d9d910e1b372e126e6ffb7503/docs/blueprints/new-auth-database.md#replication-log-entry
-func newReplicationLogEntry(id NodeID, clock Clock, keyHash authdb.KeyHash, state pb.Record_State) *badger.Entry {
+func NewReplicationLogEntry(id NodeID, clock Clock, keyHash authdb.KeyHash, state pb.Record_State) *badger.Entry {
 	var stateBytes [4]byte
 	binary.BigEndian.PutUint32(stateBytes[:], uint32(state))
 

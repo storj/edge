@@ -161,14 +161,21 @@ func (step InvalidateAtTime) Check(ctx *testcontext.Context, t testing.TB, node 
 	}
 }
 
+// ReplicationLogEntry resembles the most important replication log entry
+// contents, suitable for testing.
+type ReplicationLogEntry struct {
+	Key       []byte
+	ExpiresAt time.Time
+}
+
 // VerifyReplicationLog is for verifying the state of the replication log.
 type VerifyReplicationLog struct {
-	Entries [][]byte
+	Entries []ReplicationLogEntry
 }
 
 // Check runs the test.
 func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, db *badger.DB) {
-	var actual [][]byte
+	var actual []ReplicationLogEntry
 
 	err := db.View(func(txn *badger.Txn) error {
 		opt := badger.DefaultIteratorOptions
@@ -177,20 +184,29 @@ func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, d
 		it := txn.NewIterator(opt)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
-			actual = append(actual, it.Item().KeyCopy(nil))
+			e := ReplicationLogEntry{Key: it.Item().KeyCopy(nil)}
+			if it.Item().ExpiresAt() > 0 {
+				e.ExpiresAt = time.Unix(int64(it.Item().ExpiresAt()), 0)
+			}
+			actual = append(actual, e)
 		}
 		return nil
 	})
 	require.NoError(t, err)
 
 	// copy step.Entries so we don't sort the original slice
-	expected := make([][]byte, len(step.Entries))
+	expected := make([]ReplicationLogEntry, len(step.Entries))
 	copy(expected, step.Entries)
 	sort.Slice(expected, func(i, j int) bool {
-		return bytes.Compare(expected[i], expected[j]) == -1
+		return bytes.Compare(expected[i].Key, expected[j].Key) == -1
 	})
 
-	assert.Equal(t, expected, actual)
+	require.Len(t, actual, len(expected))
+
+	for i, e := range expected {
+		assert.Equal(t, e.Key, actual[i].Key, i)
+		assert.WithinDuration(t, e.ExpiresAt, actual[i].ExpiresAt, time.Second, i)
+	}
 }
 
 // Clock is for verifying the db state of the clock.

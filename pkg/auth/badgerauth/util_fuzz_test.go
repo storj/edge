@@ -33,7 +33,7 @@ func FuzzParseReplicationLogEntry(f *testing.F) {
 		var keyHash authdb.KeyHash
 		copy(keyHash[:], keyHashBytes)
 
-		e := newReplicationLogEntry(id, clock, keyHash, pb.Record_State(state))
+		e := NewReplicationLogEntry(id, clock, keyHash, pb.Record_State(state))
 		assert.Len(t, e.Key, cap(e.Key)) // make sure we don't over-allocate
 
 		parsedID, parsedClock, parsedKeyHash, parsedState := parseReplicationLogEntry(e.Key)
