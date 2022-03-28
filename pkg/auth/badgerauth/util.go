@@ -78,9 +78,12 @@ func findReplicationLogEntriesByKeyHash(txn *badger.Txn, keyHash authdb.KeyHash)
 	it := txn.NewIterator(opt)
 	defer it.Close()
 	for it.Rewind(); it.Valid(); it.Next() {
-		entry := it.Item().Key()
-		if _, _, k, _ := parseReplicationLogEntry(entry); k == keyHash {
-			entries = append(entries, entry)
+		if _, _, k, _ := parseReplicationLogEntry(it.Item().Key()); k == keyHash {
+			// We need to call KeyCopy because the underlying slice of bytes is
+			// only valid in this iteration.
+			//
+			// As an optimization, we copy it only when we are sure we need it.
+			entries = append(entries, it.Item().KeyCopy(nil))
 		}
 	}
 

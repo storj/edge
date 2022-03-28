@@ -161,13 +161,13 @@ func (step InvalidateAtTime) Check(ctx *testcontext.Context, t testing.TB, node 
 	}
 }
 
-// VerifyReplicationLogEntries is for verifying the state of the replication log.
-type VerifyReplicationLogEntries struct {
-	Entries []string
+// VerifyReplicationLog is for verifying the state of the replication log.
+type VerifyReplicationLog struct {
+	Entries [][]byte
 }
 
 // Check runs the test.
-func (step VerifyReplicationLogEntries) Check(ctx *testcontext.Context, t testing.TB, db *badger.DB) {
+func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, db *badger.DB) {
 	var actual [][]byte
 
 	err := db.View(func(txn *badger.Txn) error {
@@ -177,16 +177,15 @@ func (step VerifyReplicationLogEntries) Check(ctx *testcontext.Context, t testin
 		it := txn.NewIterator(opt)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
-			actual = append(actual, it.Item().Key())
+			actual = append(actual, it.Item().KeyCopy(nil))
 		}
 		return nil
 	})
 	require.NoError(t, err)
 
-	var expected [][]byte
-	for _, e := range step.Entries {
-		expected = append(expected, []byte(e))
-	}
+	// copy step.Entries so we don't sort the original slice
+	expected := make([][]byte, len(step.Entries))
+	copy(expected, step.Entries)
 	sort.Slice(expected, func(i, j int) bool {
 		return bytes.Compare(expected[i], expected[j]) == -1
 	})
