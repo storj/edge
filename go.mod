@@ -16,20 +16,20 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
-	github.com/zeebo/errs v1.2.2
+	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220317162831-b0b4a044a95f
+	storj.io/common v0.0.0-20220328200721-dd5c8642e8cf
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v0.0.29
+	storj.io/drpc v0.0.30
 	storj.io/gateway v1.6.2
 	storj.io/minio v0.0.0-20220309151502-d6f2ba63d1c6
-	storj.io/private v0.0.0-20220131131751-c913260b9ec2
-	storj.io/uplink v1.8.1
+	storj.io/private v0.0.0-20220323114243-08c4b5e752f4
+	storj.io/uplink v1.8.2-0.20220328201716-2ca4df442232
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
