@@ -161,21 +161,21 @@ func (step InvalidateAtTime) Check(ctx *testcontext.Context, t testing.TB, node 
 	}
 }
 
-// ReplicationLogEntry resembles the most important replication log entry
-// contents, suitable for testing.
-type ReplicationLogEntry struct {
-	Key       []byte
+// ReplicationLogEntryWithTTL wraps ReplicationLogEntry with an expiration time,
+// so it's convenient while verifying the state of the replication log.
+type ReplicationLogEntryWithTTL struct {
+	Entry     badgerauth.ReplicationLogEntry
 	ExpiresAt time.Time
 }
 
 // VerifyReplicationLog is for verifying the state of the replication log.
 type VerifyReplicationLog struct {
-	Entries []ReplicationLogEntry
+	Entries []ReplicationLogEntryWithTTL
 }
 
 // Check runs the test.
 func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, db *badger.DB) {
-	var actual []ReplicationLogEntry
+	var actual []ReplicationLogEntryWithTTL
 
 	err := db.View(func(txn *badger.Txn) error {
 		opt := badger.DefaultIteratorOptions
@@ -184,27 +184,30 @@ func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, d
 		it := txn.NewIterator(opt)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
-			e := ReplicationLogEntry{Key: it.Item().KeyCopy(nil)}
-			if it.Item().ExpiresAt() > 0 {
-				e.ExpiresAt = time.Unix(int64(it.Item().ExpiresAt()), 0)
+			var entry ReplicationLogEntryWithTTL
+			if err := entry.Entry.SetBytes(it.Item().Key()); err != nil {
+				return err
 			}
-			actual = append(actual, e)
+			if it.Item().ExpiresAt() > 0 {
+				entry.ExpiresAt = time.Unix(int64(it.Item().ExpiresAt()), 0)
+			}
+			actual = append(actual, entry)
 		}
 		return nil
 	})
 	require.NoError(t, err)
 
 	// copy step.Entries so we don't sort the original slice
-	expected := make([]ReplicationLogEntry, len(step.Entries))
+	expected := make([]ReplicationLogEntryWithTTL, len(step.Entries))
 	copy(expected, step.Entries)
 	sort.Slice(expected, func(i, j int) bool {
-		return bytes.Compare(expected[i].Key, expected[j].Key) == -1
+		return bytes.Compare(expected[i].Entry.Bytes(), expected[j].Entry.Bytes()) == -1
 	})
 
 	require.Len(t, actual, len(expected))
 
 	for i, e := range expected {
-		assert.Equal(t, e.Key, actual[i].Key, i)
+		assert.Equal(t, e.Entry, actual[i].Entry, i)
 		assert.WithinDuration(t, e.ExpiresAt, actual[i].ExpiresAt, time.Second, i)
 	}
 }

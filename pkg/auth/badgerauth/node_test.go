@@ -331,7 +331,7 @@ func TestBasicCycle(t *testing.T) {
 		ID:                  id,
 		TombstoneExpiration: time.Hour,
 	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
-		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntry
+		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
@@ -354,8 +354,8 @@ func TestBasicCycle(t *testing.T) {
 		// verify replication log after put
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key: badgerauth.NewReplicationLogEntry(id, 1, keyHash, pb.Record_CREATED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry: badgerauth.ReplicationLogEntry{id, 1, keyHash, pb.Record_CREATED},
 			},
 		)
 		badgerauthtest.VerifyReplicationLog{
@@ -414,8 +414,8 @@ func TestBasicCycle(t *testing.T) {
 		// verify replication log after invalidation
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key: badgerauth.NewReplicationLogEntry(id, 2, keyHash, pb.Record_INVALIDATED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry: badgerauth.ReplicationLogEntry{id, 2, keyHash, pb.Record_INVALIDATED},
 			},
 		)
 		badgerauthtest.VerifyReplicationLog{
@@ -463,8 +463,8 @@ func TestBasicCycle(t *testing.T) {
 		}
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key:       badgerauth.NewReplicationLogEntry(id, 3, keyHash, pb.Record_DELETED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry:     badgerauth.ReplicationLogEntry{id, 3, keyHash, pb.Record_DELETED},
 				ExpiresAt: time.Now().Add(time.Hour),
 			},
 		)
@@ -562,7 +562,7 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		ID:                  id,
 		TombstoneExpiration: tombstoneExpiration,
 	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
-		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntry
+		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
@@ -576,8 +576,8 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		// verify replication log after put
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key:       badgerauth.NewReplicationLogEntry(id, 1, keyHash, pb.Record_CREATED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry:     badgerauth.ReplicationLogEntry{id, 1, keyHash, pb.Record_CREATED},
 				ExpiresAt: maxTime(now.Add(expiration), now.Add(tombstoneExpiration)),
 			},
 		)
@@ -603,8 +603,8 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		// verify replication log after invalidation
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key:       badgerauth.NewReplicationLogEntry(id, 2, keyHash, pb.Record_INVALIDATED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry:     badgerauth.ReplicationLogEntry{id, 2, keyHash, pb.Record_INVALIDATED},
 				ExpiresAt: maxTime(now.Add(expiration), now.Add(tombstoneExpiration)),
 			},
 		)
@@ -632,8 +632,8 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		}
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntry{
-				Key:       badgerauth.NewReplicationLogEntry(id, 3, keyHash, pb.Record_DELETED).Key,
+			badgerauthtest.ReplicationLogEntryWithTTL{
+				Entry:     badgerauth.ReplicationLogEntry{id, 3, keyHash, pb.Record_DELETED},
 				ExpiresAt: now.Add(tombstoneExpiration),
 			},
 		)

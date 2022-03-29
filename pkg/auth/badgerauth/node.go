@@ -149,7 +149,13 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_CREATED)
+		rlogEntry := ReplicationLogEntry{
+			ID:      n.id,
+			Clock:   clock,
+			KeyHash: keyHash,
+			State:   pb.Record_CREATED,
+		}.ToBadgerEntry()
+
 		if record.ExpiresAt != nil {
 			// The reason we're overwriting expiresAt with safer TTL (if
 			// necessary) is because someone could insert a record with short
@@ -284,15 +290,25 @@ func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time
 
 		expiresAt := uint64(now.Add(n.tombstoneExpiration).Unix())
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_DELETED)
+		rlogEntry := ReplicationLogEntry{
+			ID:      n.id,
+			Clock:   clock,
+			KeyHash: keyHash,
+			State:   pb.Record_DELETED,
+		}.ToBadgerEntry()
+
 		mainEntry.ExpiresAt = expiresAt
 		rlogEntry.ExpiresAt = expiresAt
 
 		var errors []error
 		// We have to re-add entries for keyHash with tombstoneExpiration as
 		// they also need to be deleted, like the main entry, after this period.
-		for _, entry := range findReplicationLogEntriesByKeyHash(txn, keyHash) {
-			e := badger.NewEntry(entry, nil)
+		entries, err := findReplicationLogEntriesByKeyHash(txn, keyHash)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			e := entry.ToBadgerEntry()
 			e.ExpiresAt = expiresAt
 			errors = append(errors, txn.SetEntry(e))
 		}
@@ -364,7 +380,13 @@ func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reas
 		}
 
 		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := NewReplicationLogEntry(n.id, clock, keyHash, pb.Record_INVALIDATED)
+		rlogEntry := ReplicationLogEntry{
+			ID:      n.id,
+			Clock:   clock,
+			KeyHash: keyHash,
+			State:   pb.Record_INVALIDATED,
+		}.ToBadgerEntry()
+
 		mainEntry.ExpiresAt = item.ExpiresAt()
 		rlogEntry.ExpiresAt = item.ExpiresAt()
 
@@ -412,21 +434,29 @@ func (n Node) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
 	mon.Event("as_badgerauth_"+name, n.eventTags(a)...)
 }
 
-// errorName fits the requirements for monkit.AddErrorNameHandler so that we
-// can provide a useful error tag with mon.Task().
+// errorName fits the requirements for monkit.AddErrorNameHandler so that we can
+// provide a useful error tag with mon.Task().
 func errorName(err error) (name string, ok bool) {
 	switch {
 	case authdb.Invalid.Has(err):
 		name = "InvalidRecord"
 	case ProtoError.Has(err):
 		name = "Proto"
+	case ReplicationLogError.Has(err):
+		// We have a wrapped error, but we want to gain more insight into
+		// whether the error contains some other error we know about.
+		//
+		// We check ReplicationLogError first because it can contain ClockError
+		// and not the other way around. TODO(artur, sean): how to make sure we
+		// don't make a mistake regarding this relation in the future?
+		name = "ReplicationLog"
+		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
+			name += ":" + unwrapped
+		}
 	case ClockError.Has(err):
-		// We have a wrapped badger error, but we want to distinguish this as
-		// relating to clock value error to gain insight into where potential
-		// problems may be. e.g. txn conflicts with the clock value.
 		name = "Clock"
-		if clockName, ok := errorName(errs.Unwrap(err)); ok {
-			name = "Clock:" + clockName
+		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
+			name += ":" + unwrapped
 		}
 	case errs.Is(err, ErrKeyAlreadyExists):
 		name = "KeyAlreadyExists"

@@ -11,12 +11,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
 
-func FuzzParseReplicationLogEntry(f *testing.F) {
+func FuzzParsingReplicationLogEntry(f *testing.F) {
 	// Add some cases to the seed corpus. They will also serve as normal test cases when not fuzzing.
 	f.Add([]byte{}, uint64(0), []byte{}, int32(0))
 	f.Add([]byte("test"), uint64(12345), []byte{'t', 'e', 's', 't'}, int32(pb.Record_CREATED))
@@ -33,13 +34,18 @@ func FuzzParseReplicationLogEntry(f *testing.F) {
 		var keyHash authdb.KeyHash
 		copy(keyHash[:], keyHashBytes)
 
-		e := NewReplicationLogEntry(id, clock, keyHash, pb.Record_State(state))
-		assert.Len(t, e.Key, cap(e.Key)) // make sure we don't over-allocate
+		e1 := ReplicationLogEntry{
+			ID:      id,
+			Clock:   clock,
+			KeyHash: keyHash,
+			State:   pb.Record_State(state),
+		}
 
-		parsedID, parsedClock, parsedKeyHash, parsedState := parseReplicationLogEntry(e.Key)
-		assert.Equal(t, id, parsedID)
-		assert.Equal(t, clock, parsedClock)
-		assert.Equal(t, keyHash, parsedKeyHash)
-		assert.Equal(t, pb.Record_State(state), parsedState)
+		assert.Len(t, e1.Bytes(), cap(e1.Bytes())) // make sure we don't over-allocate
+
+		var e2 ReplicationLogEntry
+		require.NoError(t, e2.SetBytes(e1.Bytes()))
+
+		assert.Equal(t, e1, e2)
 	})
 }
