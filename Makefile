@@ -76,8 +76,8 @@ gateway-mt-image: ## Build gateway-mt Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/gateway-mt/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-aarch64 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/gateway-mt/Dockerfile .
 	docker tag storjlabs/gateway-mt:${TAG}-amd64 storjlabs/gateway-mt:${LATEST_DEV_TAG}
 
@@ -88,8 +88,8 @@ authservice-image: ## Build authservice Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/authservice/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-aarch64 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/authservice/Dockerfile .
 	docker tag storjlabs/authservice:${TAG}-amd64 storjlabs/authservice:${LATEST_DEV_TAG}
 
@@ -100,8 +100,8 @@ linksharing-image: ## Build linksharing Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/linksharing/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-aarch64 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/linksharing/Dockerfile .
 	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
 
@@ -126,15 +126,15 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	for c in ${COMPONENTLIST}; do \
 		docker push storjlabs/$$c:${TAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}-arm32v6 \
-		&& docker push storjlabs/$$c:${TAG}-aarch64 \
+		&& docker push storjlabs/$$c:${TAG}-arm64v8 \
 		&& for t in ${TAG} ${LATEST_DEV_TAG} ${LATEST_STABLE_TAG}; do \
 			docker manifest create storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}-amd64 \
 			storjlabs/$$c:${TAG}-arm32v6 \
-			storjlabs/$$c:${TAG}-aarch64 \
+			storjlabs/$$c:${TAG}-arm64v8 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}-amd64 --os linux --arch amd64 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}-arm32v6 --os linux --arch arm --variant v6 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}-aarch64 --os linux --arch arm64 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}-arm64v8 --os linux --arch arm64 \
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
