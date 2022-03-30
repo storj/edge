@@ -4,7 +4,6 @@
 package memauth
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
@@ -129,34 +129,25 @@ func TestKVParallel(t *testing.T) {
 	kv := New()
 
 	ctx.Go(func() error { // Put
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 		for i := 0; i < 10000; i++ {
-			_ = kv.Put(ctx, authdb.KeyHash{byte(r.Intn(100))}, nil)
+			_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, nil)
 		}
-
 		return nil
 	})
 
 	ctx.Go(func() error { // Get
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 		for i := 0; i < 10000; i++ {
-			_, _ = kv.Get(ctx, authdb.KeyHash{byte(r.Intn(100))})
+			_, _ = kv.Get(ctx, authdb.KeyHash{byte(testrand.Intn(100))})
 		}
-
 		return nil
 	})
 
 	ctx.Go(func() error { // Delete
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 		for i := 0; i < 10000; i++ {
-			if err := kv.Delete(ctx, authdb.KeyHash{byte(r.Intn(100))}); err != nil {
+			if err := kv.Delete(ctx, authdb.KeyHash{byte(testrand.Intn(100))}); err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 
@@ -166,19 +157,15 @@ func TestKVParallel(t *testing.T) {
 				return err
 			}
 		}
-
 		return nil
 	})
 
 	ctx.Go(func() error { // Invalidate
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 		for i := 0; i < 10000; i++ {
-			if err := kv.Invalidate(ctx, authdb.KeyHash{byte(r.Intn(100))}, ""); err != nil {
+			if err := kv.Invalidate(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, ""); err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 
@@ -188,7 +175,6 @@ func TestKVParallel(t *testing.T) {
 				return err
 			}
 		}
-
 		return nil
 	})
 

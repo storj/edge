@@ -4,7 +4,6 @@
 package sqlauth_test
 
 import (
-	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/sqlauth"
 	"storj.io/private/dbutil/pgtest"
@@ -39,36 +39,15 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	require.NoError(t, kv.Ping(ctx), "ping")
 	require.NoError(t, kv.MigrateToLatest(ctx), "migrateToLatest")
 
-	randBytes := func(b []byte) {
-		_, err := rand.Read(b)
-		require.NoError(t, err, "randBytes")
-	}
-	rb := make([]byte, 32)
-
 	var keyHash authdb.KeyHash
-	{
-		randBytes(rb)
-		var rh [32]byte
-		for i, b := range rb {
-			rh[i] = b
-		}
-	}
+	testrand.Read(keyHash[:])
 
 	var record authdb.Record
 	{
 		record.SatelliteAddress = "sat.storj.test"
-
-		randBytes(rb)
-		record.MacaroonHead = make([]byte, 32)
-		copy(record.MacaroonHead, rb)
-
-		randBytes(rb)
-		record.EncryptedSecretKey = make([]byte, 32)
-		copy(record.EncryptedSecretKey, rb)
-
-		randBytes(rb)
-		record.EncryptedAccessGrant = make([]byte, 32)
-		copy(record.EncryptedAccessGrant, rb)
+		record.MacaroonHead = testrand.Bytes(32)
+		record.EncryptedSecretKey = testrand.Bytes(32)
+		record.EncryptedAccessGrant = testrand.Bytes(32)
 
 		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.
@@ -114,36 +93,15 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	require.NoError(t, kv.Ping(ctx), "ping")
 	require.NoError(t, kv.MigrateToLatest(ctx), "migrateToLatest")
 
-	randBytes := func(b []byte) {
-		_, err := rand.Read(b)
-		require.NoError(t, err, "randBytes")
-	}
-	rb := make([]byte, 32)
-
 	var keyHash authdb.KeyHash
-	{
-		randBytes(rb)
-		var rh [32]byte
-		for i, b := range rb {
-			rh[i] = b
-		}
-	}
+	testrand.Read(keyHash[:])
 
 	var record authdb.Record
 	{
 		record.SatelliteAddress = "sat.storj.test"
-
-		randBytes(rb)
-		record.MacaroonHead = make([]byte, 32)
-		copy(record.MacaroonHead, rb)
-
-		randBytes(rb)
-		record.EncryptedSecretKey = make([]byte, 32)
-		copy(record.EncryptedSecretKey, rb)
-
-		randBytes(rb)
-		record.EncryptedAccessGrant = make([]byte, 32)
-		copy(record.EncryptedAccessGrant, rb)
+		record.MacaroonHead = testrand.Bytes(32)
+		record.EncryptedSecretKey = testrand.Bytes(32)
+		record.EncryptedAccessGrant = testrand.Bytes(32)
 
 		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.

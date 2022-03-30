@@ -5,7 +5,6 @@ package authclient
 
 import (
 	"encoding/json"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,15 +16,16 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/errdata"
 )
 
 func TestAuthClient_Resolve(t *testing.T) {
 	var (
-		token       = "the-authentication-token-" + strconv.Itoa(rand.Int())
-		accessKeyID = "key-id-" + strconv.Itoa(rand.Int())
-		clientIP    = "192.168.50." + strconv.Itoa(rand.Intn(256))
-		accessGrant = "thisIsTheAccessGrant" + strconv.Itoa(rand.Int())
+		token       = "the-authentication-token-" + strconv.Itoa(testrand.Intn(1e6))
+		accessKeyID = "key-id-" + strconv.Itoa(testrand.Intn(1e6))
+		clientIP    = "192.168.50." + strconv.Itoa(testrand.Intn(256))
+		accessGrant = "thisIsTheAccessGrant" + strconv.Itoa(testrand.Intn(1e6))
 	)
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

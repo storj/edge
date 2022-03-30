@@ -4,7 +4,6 @@
 package badgerauth_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest"
@@ -253,9 +253,8 @@ func TestKVParallel(t *testing.T) {
 		ID:                  nodeID,
 	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.Node) {
 		ctx.Go(func() error {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for i := 0; i < ops; i++ {
-				_ = kv.Put(ctx, authdb.KeyHash{byte(r.Intn(100))}, &authdb.Record{
+				_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
 					SatelliteAddress:     "test",
 					MacaroonHead:         []byte{5},
 					EncryptedSecretKey:   []byte{6},
@@ -266,26 +265,23 @@ func TestKVParallel(t *testing.T) {
 			return nil
 		})
 		ctx.Go(func() error {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for i := 0; i < ops; i++ {
-				_, _ = kv.Get(ctx, authdb.KeyHash{byte(r.Intn(100))})
+				_, _ = kv.Get(ctx, authdb.KeyHash{byte(testrand.Intn(100))})
 			}
 			return nil
 		})
 		ctx.Go(func() error {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for i := 0; i < ops; i++ {
 				badgerauthtest.Delete{
-					KeyHash: authdb.KeyHash{byte(r.Intn(100))},
+					KeyHash: authdb.KeyHash{byte(testrand.Intn(100))},
 				}.Check(ctx, t, kv)
 			}
 			return nil
 		})
 		ctx.Go(func() error {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for i := 0; i < ops; i++ {
 				badgerauthtest.Invalidate{
-					KeyHash: authdb.KeyHash{byte(r.Intn(100))},
+					KeyHash: authdb.KeyHash{byte(testrand.Intn(100))},
 					Reason:  "test",
 				}.Check(ctx, t, kv)
 			}

@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -407,7 +406,7 @@ func TestResources_getAccess_noLimiters(t *testing.T) {
 	require.Equal(t, http.StatusOK, rc.Code)
 
 	// Request an access grant that doesn't exist several times.
-	for i := 0; i < rand.Intn(100)+10; i++ {
+	for i := 0; i < testrand.Intn(100)+10; i++ {
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+deletedAccess, nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer authToken")

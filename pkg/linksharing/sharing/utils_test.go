@@ -5,7 +5,6 @@ package sharing
 
 import (
 	"fmt"
-	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,14 +13,11 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func randSleep() {
-	time.Sleep(time.Duration(rand.Int31n(50)) * time.Microsecond)
+	time.Sleep(time.Duration(testrand.Intn(50)) * time.Microsecond)
 }
 
 func TestMutexGroup(t *testing.T) {

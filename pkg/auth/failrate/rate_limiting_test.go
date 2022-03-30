@@ -5,7 +5,6 @@ package failrate
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 )
 
 func TestLimiters(t *testing.T) {
@@ -247,14 +247,13 @@ func TestLimiters_concurrency(t *testing.T) {
 			if !allow {
 				time.Sleep(delay)
 			} else {
-				if rand.Int()%2 == 0 {
+				if testrand.Intn(2) == 0 {
 					failed()
 				} else {
 					succeeded()
 				}
 			}
 		}
-
 		return nil
 	})
 
@@ -265,14 +264,13 @@ func TestLimiters_concurrency(t *testing.T) {
 			if !allow {
 				time.Sleep(delay)
 			} else {
-				if rand.Int()%2 == 0 {
+				if testrand.Intn(2) == 0 {
 					failed()
 				} else {
 					succeeded()
 				}
 			}
 		}
-
 		return nil
 	})
 
@@ -283,14 +281,13 @@ func TestLimiters_concurrency(t *testing.T) {
 			if !allow {
 				time.Sleep(delay)
 			} else {
-				if rand.Int()%2 == 0 {
+				if testrand.Intn(2) == 0 {
 					failed()
 				} else {
 					succeeded()
 				}
 			}
 		}
-
 		return nil
 	})
 
@@ -301,14 +298,13 @@ func TestLimiters_concurrency(t *testing.T) {
 			if !allow {
 				time.Sleep(delay)
 			} else {
-				if rand.Int()%2 == 0 {
+				if testrand.Intn(2) == 0 {
 					failed()
 				} else {
 					succeeded()
 				}
 			}
 		}
-
 		return nil
 	})
 
