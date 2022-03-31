@@ -145,6 +145,18 @@ timeout(time: 26, unit: 'MINUTES') {
 		try {
 			stage('Integration set up') {
 				checkout scm
+				dir('gateway-st') {
+					checkout([
+						changelog: false,
+						poll: false,
+						scm: [
+							$class: 'GitSCM',
+							branches: [[name: '*/main']],
+							extensions: [[$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true], [$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: 'testsuite/integration']]]],
+							 userRemoteConfigs: [[url: 'https://github.com/storj/gateway-st']]
+						]
+					])
+				}
 
 				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
 				env.STORJ_SIM_REDIS = 'redis:6379'
@@ -197,7 +209,7 @@ timeout(time: 26, unit: 'MINUTES') {
 				tests.each { test ->
 					branchedStages["Test $test"] = {
 						stage("Test $test") {
-							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
+							sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-$test-\$BUILD_NUMBER --entrypoint \$PWD/gateway-st/testsuite/integration/${test}.sh --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest"
 						}
 					}
 				}
@@ -206,8 +218,8 @@ timeout(time: 26, unit: 'MINUTES') {
 				// in the container can be cleaned up by jenkins.
 				branchedStages["Test rclone"] = {
 					stage("Test rclone") {
-						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; testsuite/integration/rclone.sh\'"
-						zip(zipFile: 'rclone-integration-tests.zip', archive: true, dir: '.build/rclone-integration-tests')
+						sh "docker run -u root:root --rm -e AWS_ENDPOINT=\"https://\${GATEWAY_DOMAIN}:20011\" -e AWS_ACCESS_KEY_ID=\${ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=\${SECRET_KEY} -v \$PWD:\$PWD -w \$PWD --name test-rclone-\$BUILD_NUMBER --entrypoint /bin/bash --network minttest-gateway-mt-\$BUILD_NUMBER storjlabs/ci:latest -c \'umask 0000; gateway-st/testsuite/integration/rclone.sh\'"
+						zip(zipFile: 'rclone-integration-tests.zip', archive: true, dir: 'gateway-st/.build/rclone-integration-tests')
 						archiveArtifacts(artifacts: 'rclone-integration-tests.zip')
 					}
 				}
