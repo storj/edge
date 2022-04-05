@@ -21,7 +21,7 @@ func FuzzParsingReplicationLogEntry(f *testing.F) {
 	// Add some cases to the seed corpus. They will also serve as normal test cases when not fuzzing.
 	f.Add([]byte{}, uint64(0), []byte{}, int32(0))
 	f.Add([]byte("test"), uint64(12345), []byte{'t', 'e', 's', 't'}, int32(pb.Record_CREATED))
-	f.Add([]byte("fuzz!!1"), uint64(67890), []byte{'f', 'u', 'z', 'z'}, int32(pb.Record_INVALIDATED))
+	f.Add([]byte("fuzz!!1"), uint64(67890), []byte{'f', 'u', 'z', 'z'}, int32(pb.Record_CREATED))
 
 	zeroKeyHash := authdb.KeyHash{}
 	f.Add([]byte("a bit longer ID"), uint64(math.MaxUint64), zeroKeyHash[:], int32(math.MaxInt32))

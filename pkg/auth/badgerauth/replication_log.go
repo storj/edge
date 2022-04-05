@@ -93,28 +93,3 @@ func (e *ReplicationLogEntry) SetBytes(entry []byte) error {
 
 	return nil
 }
-
-func findReplicationLogEntriesByKeyHash(txn *badger.Txn, keyHash authdb.KeyHash) ([]ReplicationLogEntry, error) {
-	var entries []ReplicationLogEntry
-
-	opt := badger.DefaultIteratorOptions      // TODO(artur): should we also set SinceTs?
-	opt.PrefetchValues = false                // fasten your seatbelts; see: https://dgraph.io/docs/badger/get-started/#key-only-iteration
-	opt.Prefix = []byte(replicationLogPrefix) // don't roll through everything
-
-	it := txn.NewIterator(opt)
-	defer it.Close()
-	for it.Rewind(); it.Valid(); it.Next() {
-		var entry ReplicationLogEntry
-		if err := entry.SetBytes(it.Item().Key()); err != nil {
-			return nil, err
-		}
-		if keyHash == entry.KeyHash {
-			// Normally, we would have to call KeyCopy to append the key to use
-			// it outside of iteration, but SetBytes is already safe in the
-			// sense that it copies.
-			entries = append(entries, entry)
-		}
-	}
-
-	return entries, nil
-}

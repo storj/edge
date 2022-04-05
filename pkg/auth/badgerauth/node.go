@@ -60,8 +60,6 @@ type action int
 const (
 	put action = iota
 	get
-	delete
-	invalidate
 )
 
 func (a action) String() string {
@@ -70,10 +68,6 @@ func (a action) String() string {
 		return "put"
 	case get:
 		return "get"
-	case delete:
-		return "delete"
-	case invalidate:
-		return "invalidate"
 	default:
 		return "unknown"
 	}
@@ -211,15 +205,9 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 				return nil
 			}
 
-			switch r.State {
-			case pb.Record_INVALIDATED:
+			if r.InvalidationReason != "" {
 				n.monitorEvent(recordTerminatedEventName, get)
 				return authdb.Invalid.New("%s", r.InvalidationReason)
-			case pb.Record_DELETED:
-				// We encountered the record's tombstone. It's gone from the
-				// user's perspective.
-				n.monitorEvent(recordTerminatedEventName, get)
-				return nil
 			}
 
 			record = &authdb.Record{
@@ -236,162 +224,10 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 	}))
 }
 
-// Delete is like DeleteAtTime, but it uses the current time to remove the
-// record.
-func (n Node) Delete(ctx context.Context, keyHash authdb.KeyHash) error {
-	return n.DeleteAtTime(ctx, keyHash, time.Now())
-}
-
-// DeleteAtTime removes the record at a specific time.
-// It is not an error if the key does not exist.
-func (n Node) DeleteAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (err error) {
-	defer mon.Task(n.eventTags(delete)...)(&ctx)(&err)
-
-	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
-		item, err := txn.Get(keyHash[:])
-		if err != nil {
-			if errs.Is(err, badger.ErrKeyNotFound) {
-				return nil
-			}
-			return err
-		}
-
-		var record pb.Record
-
-		if err = item.Value(func(val []byte) error {
-			return proto.Unmarshal(val, &record)
-		}); err != nil {
-			return ProtoError.Wrap(err)
-		}
-
-		if record.State == pb.Record_DELETED {
-			n.monitorEvent(recordTerminatedEventName, delete)
-			return nil // nothing to do here
-		}
-
-		// The record might have expired from a logical perspective, but it can
-		// have safer TTL specified (see PutAtTime), and BadgerDB will still
-		// return it. We shouldn't process it in this case.
-		if t := timestampToTime(record.ExpiresAtUnix); t != nil && t.Before(now) {
-			n.monitorEvent(recordExpiredEventName, delete)
-			return nil
-		}
-
-		record.State = pb.Record_DELETED
-
-		marshaled, err := proto.Marshal(&record)
-		if err != nil {
-			return ProtoError.Wrap(err)
-		}
-		clock, err := advanceClock(txn, n.id) // vector clock for this operation
-		if err != nil {
-			return err
-		}
-
-		expiresAt := uint64(now.Add(n.tombstoneExpiration).Unix())
-		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := ReplicationLogEntry{
-			ID:      n.id,
-			Clock:   clock,
-			KeyHash: keyHash,
-			State:   pb.Record_DELETED,
-		}.ToBadgerEntry()
-
-		mainEntry.ExpiresAt = expiresAt
-		rlogEntry.ExpiresAt = expiresAt
-
-		var errors []error
-		// We have to re-add entries for keyHash with tombstoneExpiration as
-		// they also need to be deleted, like the main entry, after this period.
-		entries, err := findReplicationLogEntriesByKeyHash(txn, keyHash)
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			e := entry.ToBadgerEntry()
-			e.ExpiresAt = expiresAt
-			errors = append(errors, txn.SetEntry(e))
-		}
-		errors = append(errors, txn.SetEntry(mainEntry))
-		errors = append(errors, txn.SetEntry(rlogEntry))
-
-		return errs.Combine(errors...)
-	}))
-}
-
 // DeleteUnused always returns an error because expiring records are deleted by
 // default.
 func (n Node) DeleteUnused(context.Context, time.Duration, int, int) (int64, int64, map[string]int64, error) {
 	return 0, 0, nil, Error.New("expiring records are deleted by default")
-}
-
-// Invalidate is like InvalidateAtTime, but it uses current time to invalidate
-// the record.
-func (n Node) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason string) error {
-	return n.InvalidateAtTime(ctx, keyHash, reason, time.Now())
-}
-
-// InvalidateAtTime causes the record to become invalid.
-// It is not an error if the key does not exist.
-// It does not update the invalid reason if the record is already invalid.
-func (n Node) InvalidateAtTime(ctx context.Context, keyHash authdb.KeyHash, reason string, now time.Time) (err error) {
-	defer mon.Task(n.eventTags(invalidate)...)(&ctx)(&err)
-
-	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
-		item, err := txn.Get(keyHash[:])
-		if err != nil {
-			if errs.Is(err, badger.ErrKeyNotFound) {
-				return nil
-			}
-			return err
-		}
-
-		var record pb.Record
-
-		if err = item.Value(func(val []byte) error {
-			return proto.Unmarshal(val, &record)
-		}); err != nil {
-			return ProtoError.Wrap(err)
-		}
-
-		if record.State == pb.Record_INVALIDATED || record.State == pb.Record_DELETED {
-			n.monitorEvent(recordTerminatedEventName, invalidate)
-			return nil // nothing to do here
-		}
-
-		// The record might have expired from a logical perspective, but it can
-		// have safer TTL specified (see PutAtTime), and BadgerDB will still
-		// return it. We shouldn't process it in this case.
-		if t := timestampToTime(record.ExpiresAtUnix); t != nil && t.Before(now) {
-			n.monitorEvent(recordExpiredEventName, invalidate)
-			return nil
-		}
-
-		record.InvalidationReason, record.InvalidatedAtUnix = reason, now.Unix()
-		record.State = pb.Record_INVALIDATED
-
-		marshaled, err := proto.Marshal(&record)
-		if err != nil {
-			return ProtoError.Wrap(err)
-		}
-		clock, err := advanceClock(txn, n.id) // vector clock for this operation
-		if err != nil {
-			return err
-		}
-
-		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := ReplicationLogEntry{
-			ID:      n.id,
-			Clock:   clock,
-			KeyHash: keyHash,
-			State:   pb.Record_INVALIDATED,
-		}.ToBadgerEntry()
-
-		mainEntry.ExpiresAt = item.ExpiresAt()
-		rlogEntry.ExpiresAt = item.ExpiresAt()
-
-		return errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry))
-	}))
 }
 
 // Ping attempts to do a database roundtrip and returns an error if it can't.

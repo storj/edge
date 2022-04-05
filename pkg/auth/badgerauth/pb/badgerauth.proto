@@ -25,11 +25,7 @@ message Record {
   string invalidation_reason = 8;
   int64 invalidated_at_unix = 9;
 
-  enum State {
-    CREATED = 0;
-    INVALIDATED = 1;
-    DELETED = 2;
-  }
+  enum State { CREATED = 0; }
 
   // synchronization-related data
   State state = 10;

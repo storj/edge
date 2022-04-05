@@ -56,36 +56,16 @@ func TestKV(t *testing.T) {
 			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, kv)
 		}
 
-		badgerauthtest.Invalidate{KeyHash: authdb.KeyHash{10}, Reason: "test"}.Check(ctx, t, kv)
-		badgerauthtest.Invalidate{KeyHash: authdb.KeyHash{11}, Reason: "test"}.Check(ctx, t, kv)
-		badgerauthtest.Invalidate{KeyHash: authdb.KeyHash{12}, Reason: "test"}.Check(ctx, t, kv)
-		badgerauthtest.Invalidate{KeyHash: authdb.KeyHash{12}, Reason: "test"}.Check(ctx, t, kv)
-
-		badgerauthtest.Delete{KeyHash: authdb.KeyHash{43}}.Check(ctx, t, kv)
-		badgerauthtest.Delete{KeyHash: authdb.KeyHash{11}}.Check(ctx, t, kv)
-		badgerauthtest.Delete{KeyHash: authdb.KeyHash{99}}.Check(ctx, t, kv)
-		badgerauthtest.Delete{KeyHash: authdb.KeyHash{99}}.Check(ctx, t, kv)
-
 		for i := 0; i < 100; i++ {
 			kh := authdb.KeyHash{byte(i)}
 
-			switch i {
-			case 11, 43, 99:
-				badgerauthtest.Get{KeyHash: kh}.Check(ctx, t, kv)
-			case 10, 12:
-				badgerauthtest.Get{
-					KeyHash: kh,
-					Error:   badgerauth.Error.Wrap(authdb.Invalid.New("test")),
-				}.Check(ctx, t, kv)
-			default:
-				var r authdb.Record
-				if i%2 == 0 {
-					r = r1
-				} else {
-					r = r2
-				}
-				badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
+			var r authdb.Record
+			if i%2 == 0 {
+				r = r1
+			} else {
+				r = r2
 			}
+			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
 		}
 
 		// Test deletion of expiring records:
@@ -125,36 +105,30 @@ func TestKV(t *testing.T) {
 			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, kv)
 		}
 
-		for i := 0; i <= 200; i++ {
+		// (3) Check everything.
+		for i := 0; i < 100; i++ {
 			kh := authdb.KeyHash{byte(i)}
 
-			switch i {
-			case 200:
-				badgerauthtest.Get{KeyHash: kh, Result: &r3}.Check(ctx, t, kv)
-			case 11, 43, 99:
-				badgerauthtest.Get{KeyHash: kh}.Check(ctx, t, kv)
-			case 10, 12:
-				badgerauthtest.Get{
-					KeyHash: kh,
-					Error:   badgerauth.Error.Wrap(authdb.Invalid.New("test")),
-				}.Check(ctx, t, kv)
-			default:
-				if i >= 100 {
-					badgerauthtest.GetAtTime{
-						KeyHash: kh,
-						Time:    expiresAt.Add(time.Second),
-					}.Check(ctx, t, kv)
-					continue
-				}
-				var r authdb.Record
-				if i%2 == 0 {
-					r = r1
-				} else {
-					r = r2
-				}
-				badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
+			var r authdb.Record
+			if i%2 == 0 {
+				r = r1
+			} else {
+				r = r2
 			}
+			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
 		}
+		for i := 100; i < 200; i++ {
+			kh := authdb.KeyHash{byte(i)}
+
+			badgerauthtest.GetAtTime{
+				KeyHash: kh,
+				Time:    expiresAt.Add(1),
+			}.Check(ctx, t, kv)
+		}
+		badgerauthtest.Get{
+			KeyHash: authdb.KeyHash{200},
+			Result:  &r3,
+		}.Check(ctx, t, kv)
 	})
 }
 
@@ -195,26 +169,7 @@ func TestClockState(t *testing.T) {
 
 		badgerauthtest.Clock{NodeID: nodeID, Value: 100}.Check(t, db)
 
-		for i := 0; i < 100; i++ {
-			kh := authdb.KeyHash{byte(i)}
-
-			badgerauthtest.Invalidate{KeyHash: kh}.Check(ctx, t, node)
-			badgerauthtest.Invalidate{KeyHash: kh}.Check(ctx, t, node)
-		}
-
-		badgerauthtest.Clock{NodeID: nodeID, Value: 200}.Check(t, db)
-
-		for i := 0; i < 100; i++ {
-			kh := authdb.KeyHash{byte(i)}
-
-			badgerauthtest.Delete{KeyHash: kh}.Check(ctx, t, node)
-			badgerauthtest.Delete{KeyHash: kh}.Check(ctx, t, node)
-		}
-
-		badgerauthtest.Clock{NodeID: nodeID, Value: 300}.Check(t, db)
-
-		now := time.Unix(time.Now().Unix(), 0)
-		expiresAt := now.Add(24 * time.Hour)
+		expiresAt := time.Unix(time.Now().Unix(), 0).Add(24 * time.Hour)
 
 		r2 := authdb.Record{
 			SatelliteAddress:     "test",
@@ -227,22 +182,16 @@ func TestClockState(t *testing.T) {
 
 		for i := 100; i < 200; i++ {
 			kh := authdb.KeyHash{byte(i)}
-			at := expiresAt.Add(time.Second)
 
 			badgerauthtest.Put{KeyHash: kh, Record: &r2}.Check(ctx, t, node)
-			badgerauthtest.InvalidateAtTime{KeyHash: kh, Time: at}.Check(ctx, t, node)
-			badgerauthtest.InvalidateAtTime{KeyHash: kh, Time: at}.Check(ctx, t, node)
-			badgerauthtest.DeleteAtTime{KeyHash: kh, Time: at}.Check(ctx, t, node)
-			badgerauthtest.DeleteAtTime{KeyHash: kh, Time: at}.Check(ctx, t, node)
-			badgerauthtest.InvalidateAtTime{KeyHash: kh, Time: at}.Check(ctx, t, node)
+			badgerauthtest.Get{KeyHash: kh, Result: &r2}.Check(ctx, t, node)
 		}
 
-		badgerauthtest.Clock{NodeID: nodeID, Value: 400}.Check(t, db)
+		badgerauthtest.Clock{NodeID: nodeID, Value: 200}.Check(t, db)
 	})
 }
 
 func TestKVParallel(t *testing.T) {
-	nodeID := badgerauth.NodeID{'k', 'v', 'p'}
 	ops := 10000
 	if testing.Short() {
 		ops = 100
@@ -250,15 +199,30 @@ func TestKVParallel(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: time.Hour,
-		ID:                  nodeID,
 	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.Node) {
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
+				e := randTime(time.Hour)
 				_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
 					SatelliteAddress:     "test",
-					MacaroonHead:         []byte{5},
-					EncryptedSecretKey:   []byte{6},
-					EncryptedAccessGrant: []byte{7},
+					MacaroonHead:         []byte{1},
+					EncryptedSecretKey:   []byte{2},
+					EncryptedAccessGrant: []byte{3},
+					ExpiresAt:            &e,
+					Public:               false,
+				})
+			}
+			return nil
+		})
+		ctx.Go(func() error {
+			for i := 0; i < ops; i++ {
+				e := randTime(time.Hour)
+				_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
+					SatelliteAddress:     "tset",
+					MacaroonHead:         []byte{4},
+					EncryptedSecretKey:   []byte{5},
+					EncryptedAccessGrant: []byte{6},
+					ExpiresAt:            &e,
 					Public:               true,
 				})
 			}
@@ -270,25 +234,12 @@ func TestKVParallel(t *testing.T) {
 			}
 			return nil
 		})
-		ctx.Go(func() error {
-			for i := 0; i < ops; i++ {
-				badgerauthtest.Delete{
-					KeyHash: authdb.KeyHash{byte(testrand.Intn(100))},
-				}.Check(ctx, t, kv)
-			}
-			return nil
-		})
-		ctx.Go(func() error {
-			for i := 0; i < ops; i++ {
-				badgerauthtest.Invalidate{
-					KeyHash: authdb.KeyHash{byte(testrand.Intn(100))},
-					Reason:  "test",
-				}.Check(ctx, t, kv)
-			}
-			return nil
-		})
 		ctx.Wait()
 	})
+}
+
+func randTime(d time.Duration) time.Time {
+	return time.Now().Add(time.Duration(testrand.Int63n(int64(d))))
 }
 
 func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
@@ -314,8 +265,8 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestBasicCycle tests basic create → invalidate → delete single record
-// lifecycle sequentially, verifying fundamental KV interface guarantees.
+// TestBasicCycle sequentially tests the basic create → retrieve lifecycle of a
+// single record, verifying fundamental KV interface guarantees.
 func TestBasicCycle(t *testing.T) {
 	id := badgerauth.NodeID{'b', 'a', 's', 'i', 'c'}
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
@@ -397,113 +348,17 @@ func TestBasicCycle(t *testing.T) {
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
 		}.Check(ctx, t, db)
-		// invalidate unknown record
-		badgerauthtest.Invalidate{
-			KeyHash: authdb.KeyHash{2},
-			Reason:  "test",
-		}.Check(ctx, t, node)
-		// verify replication log after invalid invalidation
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// invalidate
-		badgerauthtest.Invalidate{
-			KeyHash: keyHash,
-			Reason:  "test",
-		}.Check(ctx, t, node)
-		// verify replication log after invalidation
-		currentReplicationLogEntries = append(
-			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntryWithTTL{
-				Entry: badgerauth.ReplicationLogEntry{id, 2, keyHash, pb.Record_INVALIDATED},
-			},
-		)
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// invalidate again
-		badgerauthtest.Invalidate{
-			KeyHash: keyHash,
-			Reason:  "a different reason",
-		}.Check(ctx, t, node)
-		// verify replication log after invalid invalidation
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// get after invalidation
-		badgerauthtest.Get{
-			KeyHash: keyHash,
-			Error:   badgerauth.Error.Wrap(authdb.Invalid.New("test")),
-		}.Check(ctx, t, node)
-		// verify replication log after get
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// delete unknown record
-		badgerauthtest.Delete{
-			KeyHash: authdb.KeyHash{3},
-		}.Check(ctx, t, node)
-		// verify replication log after invalid deletion
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// delete
-		badgerauthtest.Delete{
-			KeyHash: keyHash,
-		}.Check(ctx, t, node)
-		// verify replication log after deletion
-		//
-		// NOTE(artur): This has the potential to get flaky because
-		// non-...AtTime methods use the current time, and the badgerauthtest
-		// asserts expected and actual expiration time within the duration. But
-		// it should work on most machines, and it's the best I came up with for
-		// the time being.
-		for i := range currentReplicationLogEntries {
-			currentReplicationLogEntries[i].ExpiresAt = time.Now().Add(time.Hour)
-		}
-		currentReplicationLogEntries = append(
-			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntryWithTTL{
-				Entry:     badgerauth.ReplicationLogEntry{id, 3, keyHash, pb.Record_DELETED},
-				ExpiresAt: time.Now().Add(time.Hour),
-			},
-		)
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// delete again
-		badgerauthtest.Delete{
-			KeyHash: keyHash,
-		}.Check(ctx, t, node)
-		// verify replication log after invalid deletion
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// get after deletion
-		badgerauthtest.Get{
-			KeyHash: keyHash,
-		}.Check(ctx, t, node)
-		// verify replication log after get
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
 
 		scope := "storj.io/gateway-mt/pkg/auth/badgerauth"
 		c := monkit.Collect(monkit.ScopeNamed(scope))
 
 		for name, count := range map[string]float64{
-			"function,action=put,error_name=InvalidKey,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count":       1.0,
-			"function,action=put,error_name=KeyAlreadyExists,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count": 1.0,
-			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " errors":                            2.0,
-			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " total":                             5.0,
-			"function,action=invalidate,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " total":               3.0,
-			"function,action=invalidate,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " errors":              0.0,
-			"function,action=get,error_name=InvalidRecord,name=Node.GetAtTime,node_id=basic,scope=" + scope + " count":    1.0,
-			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " errors":                            1.0,
-			"function,action=delete,name=Node.DeleteAtTime,node_id=basic,scope=" + scope + " total":                       3.0,
-			"function,action=delete,name=Node.InvalidateAtTime,node_id=basic,scope=" + scope + " errors":                  0.0,
-			"as_badgerauth_record_terminated,action=delete,node_id=basic,scope=" + scope + " total":                       1.0,
-			"as_badgerauth_record_terminated,action=get,node_id=basic,scope=" + scope + " total":                          2.0,
+			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
+			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
+			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " total":                             3,
+			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " errors":                            0,
+			"function,action=put,error_name=InvalidKey,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count":       1,
+			"function,action=put,error_name=KeyAlreadyExists,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count": 1,
 		} {
 			assert.Equal(t, count, c[name], name)
 		}
@@ -567,7 +422,7 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
 		}.Check(ctx, t, db)
-		// first put
+		// put
 		badgerauthtest.PutAtTime{
 			KeyHash: keyHash,
 			Record:  record,
@@ -584,65 +439,10 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
 		}.Check(ctx, t, db)
-		// first get
+		// get
 		getExhaustively(ctx, t, node, badgerauthtest.GetAtTime{
 			KeyHash: keyHash,
 			Result:  record,
-			Time:    now,
-		}, expiration)
-		// verify replication log after get
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// invalidate
-		badgerauthtest.InvalidateAtTime{
-			KeyHash: keyHash,
-			Reason:  "test",
-			Time:    now,
-		}.Check(ctx, t, node)
-		// verify replication log after invalidation
-		currentReplicationLogEntries = append(
-			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntryWithTTL{
-				Entry:     badgerauth.ReplicationLogEntry{id, 2, keyHash, pb.Record_INVALIDATED},
-				ExpiresAt: maxTime(now.Add(expiration), now.Add(tombstoneExpiration)),
-			},
-		)
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// get after invalidation
-		getExhaustively(ctx, t, node, badgerauthtest.GetAtTime{
-			KeyHash: keyHash,
-			Error:   badgerauth.Error.Wrap(authdb.Invalid.New("test")),
-			Time:    now,
-		}, expiration)
-		// verify replication log after get
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// delete
-		badgerauthtest.DeleteAtTime{
-			KeyHash: keyHash,
-			Time:    now,
-		}.Check(ctx, t, node)
-		// verify replication log after deletion
-		for i := range currentReplicationLogEntries {
-			currentReplicationLogEntries[i].ExpiresAt = now.Add(tombstoneExpiration)
-		}
-		currentReplicationLogEntries = append(
-			currentReplicationLogEntries,
-			badgerauthtest.ReplicationLogEntryWithTTL{
-				Entry:     badgerauth.ReplicationLogEntry{id, 3, keyHash, pb.Record_DELETED},
-				ExpiresAt: now.Add(tombstoneExpiration),
-			},
-		)
-		badgerauthtest.VerifyReplicationLog{
-			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
-		// get after deletion
-		getExhaustively(ctx, t, node, badgerauthtest.GetAtTime{
-			KeyHash: keyHash,
 			Time:    now,
 		}, expiration)
 		// verify replication log after get
