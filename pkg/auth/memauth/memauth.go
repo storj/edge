@@ -20,14 +20,12 @@ var mon = monkit.Package()
 type KV struct {
 	mu      sync.Mutex
 	entries map[authdb.KeyHash]*authdb.Record
-	invalid map[authdb.KeyHash]string
 }
 
 // New constructs a KV.
 func New() *KV {
 	return &KV{
 		entries: make(map[authdb.KeyHash]*authdb.Record),
-		invalid: make(map[authdb.KeyHash]string),
 	}
 }
 
@@ -55,24 +53,7 @@ func (d *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Re
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if reason, ok := d.invalid[keyHash]; ok {
-		return nil, authdb.Invalid.New("%s", reason)
-	}
-
 	return d.entries[keyHash], nil
-}
-
-// Delete removes the record from the key/value store.
-// It is not an error if the key does not exist.
-func (d *KV) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	delete(d.entries, keyHash)
-	delete(d.invalid, keyHash)
-	return nil
 }
 
 // DeleteUnused deletes expired and invalid records from the key/value store and
@@ -85,19 +66,6 @@ func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	for k := range d.invalid {
-		count++
-
-		if v := d.entries[k]; v != nil {
-			deletesPerHead[string(d.entries[k].MacaroonHead)]++
-		} else {
-			deletesPerHead[""]++
-		}
-
-		delete(d.entries, k)
-		delete(d.invalid, k)
-	}
-
 	for k, v := range d.entries {
 		if v != nil && v.ExpiresAt != nil && time.Now().After(*v.ExpiresAt) {
 			count++
@@ -107,22 +75,6 @@ func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count
 	}
 
 	return count, 1, deletesPerHead, nil
-}
-
-// Invalidate causes the record to become invalid.
-// It is not an error if the key does not exist.
-// It does not update the invalid reason if the record is already invalid.
-func (d *KV) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if _, ok := d.invalid[keyHash]; !ok {
-		d.invalid[keyHash] = reason
-	}
-
-	return nil
 }
 
 // Ping attempts to do a database roundtrip and returns an error if it can't.

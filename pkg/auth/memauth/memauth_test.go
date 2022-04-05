@@ -33,33 +33,13 @@ func TestKV(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{10}, ""))
-	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{11}, ""))
-	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{12}, ""))
-	require.NoError(t, kv.Invalidate(ctx, authdb.KeyHash{12}, ""))
-
-	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{43}))
-	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{11}))
-	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{99}))
-	require.NoError(t, kv.Delete(ctx, authdb.KeyHash{99}))
-
 	for i := 0; i < 100; i++ {
 		v, err := kv.Get(ctx, authdb.KeyHash{byte(i)})
-
-		switch i {
-		case 11, 43, 99:
-			require.NoError(t, err)
-			assert.Nil(t, v)
-		case 10, 12:
-			require.Error(t, err)
-			assert.Nil(t, v)
-		default:
-			require.NoError(t, err)
-			if i%2 == 0 {
-				assert.Equal(t, r1, v)
-			} else {
-				assert.Equal(t, r2, v)
-			}
+		require.NoError(t, err)
+		if i%2 == 0 {
+			assert.Equal(t, r1, v)
+		} else {
+			assert.Equal(t, r2, v)
 		}
 	}
 
@@ -69,9 +49,7 @@ func TestKV(t *testing.T) {
 
 	for i := 0; i < 100; i += 2 {
 		oneSecondAgo := time.Now().Add(-1 * time.Second)
-		if i != 10 { // Don't include one of the previously invalidated records.
-			kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &oneSecondAgo
-		}
+		kv.entries[authdb.KeyHash{byte(i)}].ExpiresAt = &oneSecondAgo
 	}
 
 	maxTime := time.Unix(1<<62, 0)
@@ -80,8 +58,7 @@ func TestKV(t *testing.T) {
 
 	require.NoError(t, kv.Put(ctx, authdb.KeyHash{byte(253)}, r3))
 
-	// Confirm DeleteUnused is idempotent and deletes only expired/invalid
-	// records.
+	// Confirm DeleteUnused is idempotent and deletes only expired records.
 	for i := 0; i < 10; i++ {
 		count, rounds, heads, err := kv.DeleteUnused(ctx, 0, 0, 0)
 		require.NoError(t, err)
@@ -99,18 +76,11 @@ func TestKV(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		v, err := kv.Get(ctx, authdb.KeyHash{byte(i)})
-
 		require.NoError(t, err)
-
-		switch i {
-		case 10, 11, 12, 43, 99:
+		if i%2 == 0 {
 			assert.Nil(t, v)
-		default:
-			if i%2 == 0 {
-				assert.Nil(t, v)
-			} else {
-				assert.Equal(t, r2, v)
-			}
+		} else {
+			assert.Equal(t, r2, v)
 		}
 	}
 
@@ -142,27 +112,9 @@ func TestKVParallel(t *testing.T) {
 		return nil
 	})
 
-	ctx.Go(func() error { // Delete
-		for i := 0; i < 10000; i++ {
-			if err := kv.Delete(ctx, authdb.KeyHash{byte(testrand.Intn(100))}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
 	ctx.Go(func() error { // DeleteUnused
 		for i := 0; i < 10000; i++ {
 			if _, _, _, err := kv.DeleteUnused(ctx, 0, 0, 0); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	ctx.Go(func() error { // Invalidate
-		for i := 0; i < 10000; i++ {
-			if err := kv.Invalidate(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, ""); err != nil {
 				return err
 			}
 		}
