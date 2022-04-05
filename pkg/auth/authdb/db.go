@@ -231,14 +231,6 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessG
 	return string(ag), record.Public, secretKey, nil
 }
 
-// Delete removes any access grant information from the key/value store, looked up by the
-// hash of the key.
-func (db *Database) Delete(ctx context.Context, key EncryptionKey) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return errs.Wrap(db.kv.Delete(ctx, key.Hash()))
-}
-
 // DeleteUnused deletes expired and invalid records from the key/value store and
 // returns any error encountered.
 func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
@@ -247,13 +239,6 @@ func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Du
 	count, rounds, deletesPerHead, err = db.kv.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
 
 	return count, rounds, deletesPerHead, errs.Wrap(err)
-}
-
-// Invalidate causes the access to become invalid.
-func (db *Database) Invalidate(ctx context.Context, key EncryptionKey, reason string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return errs.Wrap(db.kv.Invalidate(ctx, key.Hash(), reason))
 }
 
 // Ping attempts to do a DB roundtrip. If it can't it will return an error.

@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -66,8 +65,6 @@ func TestResources_URLs(t *testing.T) {
 	// check valid paths
 	require.True(t, check("POST", "/v1/access"))
 	require.True(t, check("GET", "/v1/access/someid"))
-	require.True(t, check("PUT", "/v1/access/someid/invalid"))
-	require.True(t, check("DELETE", "/v1/access/someid"))
 
 	// check invalid methods
 	require.False(t, check("PATCH", "/v1/access"))
@@ -147,15 +144,6 @@ func TestResources_CRUD(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, minimalAccess, fetchResult["access_grant"])
 		require.Equal(t, createResult["secret_key"], fetchResult["secret_key"])
-
-		// delete an access
-		deleteResult, ok := exec(res, "DELETE", url, ``)
-		require.True(t, ok)
-		require.Equal(t, map[string]interface{}{}, deleteResult)
-
-		// retrieve fails now
-		_, ok = exec(res, "GET", url, ``)
-		require.False(t, ok)
 	})
 
 	t.Run("ApprovedSatelliteID", func(t *testing.T) {
@@ -195,32 +183,6 @@ func TestResources_CRUD(t *testing.T) {
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, noNodeID)
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
-	})
-
-	t.Run("Invalidate", func(t *testing.T) {
-		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint, nil)
-
-		// create an access
-		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
-		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
-		require.True(t, ok)
-		require.Equal(t, createResult["endpoint"], endpoint.String())
-		url := fmt.Sprintf("/v1/access/%s", createResult["access_key_id"])
-
-		// retrieve an access
-		fetchResult, ok := exec(res, "GET", url, ``)
-		require.True(t, ok)
-		require.Equal(t, minimalAccess, fetchResult["access_grant"])
-
-		// invalidate an access
-		invalidateResult, ok := exec(res, "PUT", url+"/invalid", `{"reason": "test"}`)
-		require.True(t, ok)
-		require.Equal(t, map[string]interface{}{}, invalidateResult)
-
-		// retrieve fails now
-		_, ok = exec(res, "GET", url, ``)
-		require.False(t, ok)
 	})
 
 	t.Run("Public", func(t *testing.T) {
@@ -267,8 +229,6 @@ func TestResources_Authorization(t *testing.T) {
 
 	// check that these requests are unauthorized
 	check("GET", baseURL)
-	check("PUT", baseURL+"/invalid")
-	check("DELETE", baseURL)
 }
 
 func TestResources_CORS(t *testing.T) {
@@ -338,23 +298,15 @@ func TestResources_getAccess_withLimiters(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		deletedAccess := createAccess(t, generateAccessGrant(t, time.Time{}), res)
-
-		// Delete the access grant for being able to request one that doesn't exist.
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "/v1/access/"+deletedAccess, nil)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", "Bearer authToken")
-		rc := httptest.NewRecorder()
-		res.ServeHTTP(rc, req)
-		require.Equal(t, http.StatusOK, rc.Code)
+		deletedAccess := "jwaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 		// Request an access grant that doesn't exist.
 		// This request isn't rate limited because it's configured for allowing one
 		// failure.
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+deletedAccess, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/v1/access/"+deletedAccess, nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer authToken")
-		rc = httptest.NewRecorder()
+		rc := httptest.NewRecorder()
 		res.ServeHTTP(rc, req)
 		require.Equal(t, http.StatusUnauthorized, rc.Code)
 
@@ -395,15 +347,7 @@ func TestResources_getAccess_noLimiters(t *testing.T) {
 	res.ServeHTTP(rc, req)
 	require.Equal(t, http.StatusOK, rc.Code)
 
-	deletedAccess := createAccess(t, generateAccessGrant(t, time.Time{}), res)
-
-	// Delete the access grant for being able to request one that doesn't exist.
-	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, "/v1/access/"+deletedAccess, nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer authToken")
-	rc = httptest.NewRecorder()
-	res.ServeHTTP(rc, req)
-	require.Equal(t, http.StatusOK, rc.Code)
+	deletedAccess := "jwaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 	// Request an access grant that doesn't exist several times.
 	for i := 0; i < testrand.Intn(100)+10; i++ {
@@ -431,33 +375,6 @@ func newResource(
 	t.Helper()
 
 	return New(zaptest.NewLogger(t), db, endpoint, "authToken", limiters)
-}
-
-// Generates a new valid access grant.
-// It's restricted to be valid until notAfter unless that notAfter is the zero
-// value.
-func generateAccessGrant(t *testing.T, notAfter time.Time) string {
-	t.Helper()
-
-	key := testrand.Key()
-	apiKey, err := macaroon.NewAPIKey(key[:])
-	require.NoError(t, err)
-
-	if !notAfter.IsZero() {
-		apiKey, err = apiKey.Restrict(macaroon.Caveat{NotAfter: &notAfter})
-		require.NoError(t, err)
-	}
-
-	inner := grant.Access{
-		SatelliteAddress: "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s",
-		APIKey:           apiKey,
-		EncAccess:        grant.NewEncryptionAccess(),
-	}
-
-	serialized, err := inner.Serialize()
-	require.NoError(t, err)
-
-	return serialized
 }
 
 // createAccess creates an access through the AuthService endpoint.

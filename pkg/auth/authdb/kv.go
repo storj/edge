@@ -37,21 +37,12 @@ type KV interface {
 	// If the record is invalid, the error contains why.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
 
-	// Delete removes the record from the key/value store.
-	// It is not an error if the key does not exist.
-	Delete(ctx context.Context, keyHash KeyHash) error
-
 	// DeleteUnused deletes expired and invalid records from the key/value store
 	// and returns any error encountered.
 	//
 	// Batch deletion and usage of asOfSystemInterval, selectSize and deleteSize
 	// parameters depends on the implementation.
 	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error)
-
-	// Invalidate causes the record to become invalid.
-	// It is not an error if the key does not exist.
-	// It does not update the invalid reason if the record is already invalid.
-	Invalidate(ctx context.Context, keyHash KeyHash, reason string) error
 
 	// Ping attempts to do a DB roundtrip. If it can't it will return an
 	// error.

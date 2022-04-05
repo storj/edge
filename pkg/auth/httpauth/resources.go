@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -72,13 +71,7 @@ func New(log *zap.Logger, db *authdb.Database, endpoint *url.URL, authToken stri
 				},
 				"*": res.id.Capture(Dir{
 					"": Method{
-						"GET":    http.HandlerFunc(res.getAccess),
-						"DELETE": http.HandlerFunc(res.deleteAccess),
-					},
-					"/invalid": Dir{
-						"": Method{
-							"PUT": http.HandlerFunc(res.invalidateAccess),
-						},
+						"GET": http.HandlerFunc(res.getAccess),
 					},
 				}),
 			},
@@ -275,59 +268,4 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
-}
-
-func (res *Resources) deleteAccess(w http.ResponseWriter, req *http.Request) {
-	res.log.Debug("deleteAccess request", zap.String("remote address", req.RemoteAddr))
-	if !res.requestAuthorized(req) {
-		res.writeError(w, "deleteAccess", "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var key authdb.EncryptionKey
-	err := key.FromBase32(res.id.Value(req.Context()))
-	if err != nil {
-		res.writeError(w, "deleteAccess", err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := res.db.Delete(req.Context(), key); err != nil {
-		res.writeError(w, "deleteAccess", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, "{}")
-}
-
-func (res *Resources) invalidateAccess(w http.ResponseWriter, req *http.Request) {
-	res.log.Debug("invalidateAccess request", zap.String("remote address", req.RemoteAddr))
-	if !res.requestAuthorized(req) {
-		res.writeError(w, "invalidateAccess", "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var key authdb.EncryptionKey
-	err := key.FromBase32(res.id.Value(req.Context()))
-	if err != nil {
-		res.writeError(w, "invalidateAccess", err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var request struct {
-		Reason string `json:"reason"`
-	}
-
-	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-		res.writeError(w, "invalidateAccess", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err := res.db.Invalidate(req.Context(), key, request.Reason); err != nil {
-		res.writeError(w, "invalidateAccess", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, "{}")
 }
