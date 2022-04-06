@@ -32,6 +32,7 @@ type Put struct {
 func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
 	err := node.Put(ctx, step.KeyHash, step.Record)
 	if step.Error != nil {
+		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
 	} else {
 		require.NoError(t, err)
@@ -50,6 +51,7 @@ type PutAtTime struct {
 func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
 	err := node.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
 	if step.Error != nil {
+		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
 	} else {
 		require.NoError(t, err)
@@ -67,6 +69,7 @@ type Get struct {
 func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
 	got, err := node.Get(ctx, step.KeyHash)
 	if step.Error != nil {
+		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
 	} else {
 		require.NoError(t, err)
@@ -86,6 +89,7 @@ type GetAtTime struct {
 func (step GetAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
 	got, err := node.GetAtTime(ctx, step.KeyHash, step.Time)
 	if step.Error != nil {
+		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
 	} else {
 		require.NoError(t, err)

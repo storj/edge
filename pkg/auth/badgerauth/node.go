@@ -5,7 +5,6 @@ package badgerauth
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
@@ -36,7 +35,10 @@ var (
 	ProtoError = errs.Class("proto")
 
 	// ErrKeyAlreadyExists is an error returned when putting a key that exists.
-	ErrKeyAlreadyExists = errs.New("key already exists")
+	ErrKeyAlreadyExists = Error.New("key already exists")
+
+	errOperationNotSupported           = Error.New("operation not supported")
+	errKeyAlreadyExistsRecordsNotEqual = Error.New("key already exists and records aren't equal")
 )
 
 func init() {
@@ -110,21 +112,9 @@ func (n Node) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
 	defer mon.Task(n.eventTags(put)...)(&ctx)(&err)
 
-	r := pb.Record{
-		CreatedAtUnix:        now.Unix(),
-		Public:               record.Public,
-		SatelliteAddress:     record.SatelliteAddress,
-		MacaroonHead:         record.MacaroonHead,
-		ExpiresAtUnix:        timeToTimestamp(record.ExpiresAt),
-		EncryptedSecretKey:   record.EncryptedSecretKey,
-		EncryptedAccessGrant: record.EncryptedAccessGrant,
-		State:                pb.Record_CREATED,
-	}
-	marshaled, err := proto.Marshal(&r)
-	if err != nil {
-		return Error.Wrap(ProtoError.Wrap(err))
-	}
-
+	// The check below is to make sure we conform to the KV interface
+	// definition, and it's performed outside of the transaction because it's
+	// not crucial (access key hashes are unique enough).
 	if err = n.db.View(func(txn *badger.Txn) error {
 		if _, err = txn.Get(keyHash[:]); err == nil {
 			return ErrKeyAlreadyExists
@@ -136,36 +126,33 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		return Error.Wrap(err)
 	}
 
-	return Error.Wrap(n.update(ctx, func(txn *badger.Txn) error {
-		clock, err := advanceClock(txn, n.id) // vector clock for this operation
-		if err != nil {
-			return err
+	r := pb.Record{
+		CreatedAtUnix:        now.Unix(),
+		Public:               record.Public,
+		SatelliteAddress:     record.SatelliteAddress,
+		MacaroonHead:         record.MacaroonHead,
+		ExpiresAtUnix:        timeToTimestamp(record.ExpiresAt),
+		EncryptedSecretKey:   record.EncryptedSecretKey,
+		EncryptedAccessGrant: record.EncryptedAccessGrant,
+		State:                pb.Record_CREATED,
+	}
+
+	var expiresAt time.Time
+
+	if record.ExpiresAt != nil {
+		// The reason we're overwriting expiresAt with safer TTL (if necessary)
+		// is because someone could insert a record with short TTL (like a few
+		// seconds) that could be the last record other nodes sync. After this
+		// record is deleted, all nodes would be considered out of sync.
+		expiresAt = *record.ExpiresAt
+		safeExpiresAt := now.Add(n.tombstoneExpiration)
+		if expiresAt.Before(safeExpiresAt) {
+			expiresAt = safeExpiresAt
 		}
+	}
 
-		mainEntry := badger.NewEntry(keyHash[:], marshaled)
-		rlogEntry := ReplicationLogEntry{
-			ID:      n.id,
-			Clock:   clock,
-			KeyHash: keyHash,
-			State:   pb.Record_CREATED,
-		}.ToBadgerEntry()
-
-		if record.ExpiresAt != nil {
-			// The reason we're overwriting expiresAt with safer TTL (if
-			// necessary) is because someone could insert a record with short
-			// TTL (like a few seconds) that could be the last record other
-			// nodes sync. After this record is deleted, all nodes would be
-			// considered out of sync.
-			expiresAt := uint64(record.ExpiresAt.Unix())
-			safeExpiresAt := now.Add(n.tombstoneExpiration)
-			if record.ExpiresAt.Before(safeExpiresAt) {
-				expiresAt = uint64(safeExpiresAt.Unix())
-			}
-			mainEntry.ExpiresAt = expiresAt
-			rlogEntry.ExpiresAt = expiresAt
-		}
-
-		return errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry))
+	return Error.Wrap(n.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		return insertRecord(txn, n.id, keyHash, &r, expiresAt)
 	}))
 }
 
@@ -243,11 +230,10 @@ func (n Node) Close() error {
 	return Error.Wrap(n.db.Close())
 }
 
-func (n Node) update(ctx context.Context, fn func(txn *badger.Txn) error) error {
+func (n Node) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
 	for {
-		err := n.db.Update(fn)
-		if err != nil {
-			if errors.Is(err, badger.ErrConflict) && !n.conflictBackoff.Maxed() {
+		if err := n.db.Update(f); err != nil {
+			if errs.Is(err, badger.ErrConflict) && !n.conflictBackoff.Maxed() {
 				if err := n.conflictBackoff.Wait(ctx); err != nil {
 					return err
 				}
@@ -257,6 +243,61 @@ func (n Node) update(ctx context.Context, fn func(txn *badger.Txn) error) error 
 		}
 		return nil
 	}
+}
+
+// insertRecord inserts a record, adding a corresponding replication log entry
+// consistent with the record's state. Both record and entry will get assigned
+// passed expiration time if it's non-zero.
+//
+// insertRecord can be used to insert on any node for any node.
+func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record, expiresAt time.Time) error {
+	if record.State != pb.Record_CREATED {
+		return errOperationNotSupported
+	}
+	// NOTE(artur): the check below is a sanity check (generally, this shouldn't
+	// happen because access key hashes are unique) that can be slurped into the
+	// replication process itself if needed.
+	if i, err := txn.Get(keyHash[:]); err == nil {
+		var loaded pb.Record
+
+		if err = i.Value(func(val []byte) error {
+			return proto.Unmarshal(val, &loaded)
+		}); err != nil {
+			return Error.Wrap(ProtoError.Wrap(err))
+		}
+
+		if uint64(expiresAt.Unix()) != i.ExpiresAt() || !recordsEqual(record, &loaded) {
+			return errKeyAlreadyExistsRecordsNotEqual
+		}
+	} else if !errs.Is(err, badger.ErrKeyNotFound) {
+		return Error.Wrap(err)
+	}
+
+	marshaled, err := proto.Marshal(record)
+	if err != nil {
+		return Error.Wrap(ProtoError.Wrap(err))
+	}
+
+	clock, err := advanceClock(txn, nodeID) // vector clock for this operation
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	mainEntry := badger.NewEntry(keyHash[:], marshaled)
+	rlogEntry := ReplicationLogEntry{
+		ID:      nodeID,
+		Clock:   clock,
+		KeyHash: keyHash,
+		State:   record.State,
+	}.ToBadgerEntry()
+
+	if !expiresAt.IsZero() {
+		e := uint64(expiresAt.Unix())
+		mainEntry.ExpiresAt = e
+		rlogEntry.ExpiresAt = e
+	}
+
+	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }
 
 func (n Node) eventTags(a action) []monkit.SeriesTag {
