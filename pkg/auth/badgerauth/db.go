@@ -23,8 +23,8 @@ const (
 )
 
 var (
-	// Below is a compile-time check ensuring Node implements the KV interface.
-	_ authdb.KV = (*Node)(nil)
+	// Below is a compile-time check ensuring DB implements the KV interface.
+	_ authdb.KV = (*DB)(nil)
 
 	mon = monkit.Package()
 
@@ -75,9 +75,10 @@ func (a action) String() string {
 	}
 }
 
-// Node represents authservice's storage based on BadgerDB in a distributed
-// environment.
-type Node struct {
+// DB represents authentication storage based on BadgerDB.
+// This implements the data-storage layer for a distributed
+// Node.
+type DB struct {
 	db *badger.DB
 
 	id                  NodeID
@@ -85,16 +86,17 @@ type Node struct {
 	conflictBackoff     backoff.ExponentialBackoff
 }
 
-// Config provides options for creating a Node.
+// Config provides options for creating a DB.
 type Config struct {
-	ID                  NodeID
+	ID NodeID
+
 	TombstoneExpiration time.Duration
 	ConflictBackoff     backoff.ExponentialBackoff
 }
 
-// New creates an instance of Node.
-func New(db *badger.DB, c Config) *Node {
-	return &Node{
+// New creates an instance of DB.
+func New(db *badger.DB, c Config) *DB {
+	return &DB{
 		db:                  db,
 		id:                  c.ID,
 		tombstoneExpiration: c.TombstoneExpiration,
@@ -103,19 +105,19 @@ func New(db *badger.DB, c Config) *Node {
 }
 
 // Put is like PutAtTime, but it uses current time to store the record.
-func (n Node) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) error {
-	return n.PutAtTime(ctx, keyHash, record, time.Now())
+func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) error {
+	return db.PutAtTime(ctx, keyHash, record, time.Now())
 }
 
 // PutAtTime stores the record at a specific time.
 // It is an error if the key already exists.
-func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
-	defer mon.Task(n.eventTags(put)...)(&ctx)(&err)
+func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
+	defer mon.Task(db.eventTags(put)...)(&ctx)(&err)
 
 	// The check below is to make sure we conform to the KV interface
 	// definition, and it's performed outside of the transaction because it's
 	// not crucial (access key hashes are unique enough).
-	if err = n.db.View(func(txn *badger.Txn) error {
+	if err = db.db.View(func(txn *badger.Txn) error {
 		if _, err = txn.Get(keyHash[:]); err == nil {
 			return ErrKeyAlreadyExists
 		} else if !errs.Is(err, badger.ErrKeyNotFound) {
@@ -145,29 +147,29 @@ func (n Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		// seconds) that could be the last record other nodes sync. After this
 		// record is deleted, all nodes would be considered out of sync.
 		expiresAt = *record.ExpiresAt
-		safeExpiresAt := now.Add(n.tombstoneExpiration)
+		safeExpiresAt := now.Add(db.tombstoneExpiration)
 		if expiresAt.Before(safeExpiresAt) {
 			expiresAt = safeExpiresAt
 		}
 	}
 
-	return Error.Wrap(n.txnWithBackoff(ctx, func(txn *badger.Txn) error {
-		return insertRecord(txn, n.id, keyHash, &r, expiresAt)
+	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		return insertRecord(txn, db.id, keyHash, &r, expiresAt)
 	}))
 }
 
 // Get is like GetAtTime, but it uses current time to retrieve the record.
-func (n Node) Get(ctx context.Context, keyHash authdb.KeyHash) (*authdb.Record, error) {
-	return n.GetAtTime(ctx, keyHash, time.Now())
+func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (*authdb.Record, error) {
+	return db.GetAtTime(ctx, keyHash, time.Now())
 }
 
 // GetAtTime retrieves the record from the key/value store at a specific time.
 // It returns nil if the key does not exist.
 // If the record is invalid, the error contains why.
-func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (record *authdb.Record, err error) {
-	defer mon.Task(n.eventTags(get)...)(&ctx)(&err)
+func (db *DB) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (record *authdb.Record, err error) {
+	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
 
-	return record, Error.Wrap(n.db.View(func(txn *badger.Txn) error {
+	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(keyHash[:])
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
@@ -188,12 +190,12 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 			// can have safer TTL specified (see PutAtTime), and BadgerDB will
 			// still return it. We shouldn't return it in this case.
 			if expiresAt != nil && expiresAt.Before(now) {
-				n.monitorEvent(recordExpiredEventName, get)
+				db.monitorEvent(recordExpiredEventName, get)
 				return nil
 			}
 
 			if r.InvalidationReason != "" {
-				n.monitorEvent(recordTerminatedEventName, get)
+				db.monitorEvent(recordTerminatedEventName, get)
 				return authdb.Invalid.New("%s", r.InvalidationReason)
 			}
 
@@ -213,12 +215,12 @@ func (n Node) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 
 // DeleteUnused always returns an error because expiring records are deleted by
 // default.
-func (n Node) DeleteUnused(context.Context, time.Duration, int, int) (int64, int64, map[string]int64, error) {
+func (db *DB) DeleteUnused(context.Context, time.Duration, int, int) (int64, int64, map[string]int64, error) {
 	return 0, 0, nil, Error.New("expiring records are deleted by default")
 }
 
 // Ping attempts to do a database roundtrip and returns an error if it can't.
-func (n Node) Ping(ctx context.Context) (err error) {
+func (db *DB) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO(artur): what do we do here? Maybe try to retrieve a "health check"
 	// record?
@@ -226,15 +228,15 @@ func (n Node) Ping(ctx context.Context) (err error) {
 }
 
 // Close closes the underlying BadgerDB database.
-func (n Node) Close() error {
-	return Error.Wrap(n.db.Close())
+func (db *DB) Close() error {
+	return Error.Wrap(db.db.Close())
 }
 
-func (n Node) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
+func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
 	for {
-		if err := n.db.Update(f); err != nil {
-			if errs.Is(err, badger.ErrConflict) && !n.conflictBackoff.Maxed() {
-				if err := n.conflictBackoff.Wait(ctx); err != nil {
+		if err := db.db.Update(f); err != nil {
+			if errs.Is(err, badger.ErrConflict) && !db.conflictBackoff.Maxed() {
+				if err := db.conflictBackoff.Wait(ctx); err != nil {
 					return err
 				}
 				continue
@@ -300,15 +302,15 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }
 
-func (n Node) eventTags(a action) []monkit.SeriesTag {
+func (db *DB) eventTags(a action) []monkit.SeriesTag {
 	return []monkit.SeriesTag{
 		monkit.NewSeriesTag("action", a.String()),
-		monkit.NewSeriesTag("node_id", string(n.id)),
+		monkit.NewSeriesTag("node_id", string(db.id)),
 	}
 }
 
-func (n Node) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
-	mon.Event("as_badgerauth_"+name, n.eventTags(a)...)
+func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
+	mon.Event("as_badgerauth_"+name, db.eventTags(a)...)
 }
 
 // errorName fits the requirements for monkit.AddErrorNameHandler so that we can

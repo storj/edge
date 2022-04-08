@@ -26,7 +26,7 @@ import (
 func TestKV(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.DB) {
 		r1 := authdb.Record{
 			SatelliteAddress:     "test satellite address 1",
 			MacaroonHead:         []byte{'v', 'e', 'r', 'y'},
@@ -138,7 +138,7 @@ func TestClockState(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: 24 * time.Hour,
 		ID:                  nodeID,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
 		r := authdb.Record{
 			SatelliteAddress:     "test",
 			MacaroonHead:         []byte{'t', 'e', 's', 't'},
@@ -199,7 +199,7 @@ func TestKVParallel(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.DB) {
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
 				e := randTime(time.Hour)
@@ -250,7 +250,7 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		TombstoneExpiration: 24 * time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
 		_, _, _, err = node.DeleteUnused(ctx, 0, 0, 0)
 		assert.Error(t, err)
 		_, _, _, err = node.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
@@ -258,10 +258,10 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 	})
 
 	//nolint: dogsled
-	_, _, _, err = badgerauth.Node{}.DeleteUnused(ctx, 0, 0, 0)
+	_, _, _, err = (&badgerauth.DB{}).DeleteUnused(ctx, 0, 0, 0)
 	assert.Error(t, err)
 	//nolint: dogsled
-	_, _, _, err = badgerauth.Node{}.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
+	_, _, _, err = (&badgerauth.DB{}).DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
 	assert.Error(t, err)
 }
 
@@ -281,7 +281,7 @@ func TestBasicCycle(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:                  id,
 		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
@@ -353,12 +353,12 @@ func TestBasicCycle(t *testing.T) {
 		c := monkit.Collect(monkit.ScopeNamed(scope))
 
 		for name, count := range map[string]float64{
-			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
-			"function,action=put,name=Node.PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
-			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " total":                             3,
-			"function,action=get,name=Node.GetAtTime,node_id=basic,scope=" + scope + " errors":                            0,
-			"function,action=put,error_name=InvalidKey,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count":       1,
-			"function,action=put,error_name=KeyAlreadyExists,name=Node.PutAtTime,node_id=basic,scope=" + scope + " count": 1,
+			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
+			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
+			"function,action=get,name=(*DB).GetAtTime,node_id=basic,scope=" + scope + " total":                             3,
+			"function,action=get,name=(*DB).GetAtTime,node_id=basic,scope=" + scope + " errors":                            0,
+			"function,action=put,error_name=InvalidKey,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count":       1,
+			"function,action=put,error_name=KeyAlreadyExists,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count": 1,
 		} {
 			assert.Equal(t, count, c[name], name)
 		}
@@ -416,7 +416,7 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:                  id,
 		TombstoneExpiration: tombstoneExpiration,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
@@ -454,7 +454,7 @@ func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombs
 
 // getExhaustively produces more badgerauthtest.GetAtTime checks that are
 // borderline cases around expiration.
-func getExhaustively(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node, check badgerauthtest.GetAtTime, expiration time.Duration) {
+func getExhaustively(ctx *testcontext.Context, t *testing.T, node *badgerauth.DB, check badgerauthtest.GetAtTime, expiration time.Duration) {
 	check.Check(ctx, t, node) // include submitted check
 
 	badgerauthtest.GetAtTime{

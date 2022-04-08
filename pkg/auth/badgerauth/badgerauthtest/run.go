@@ -16,7 +16,7 @@ import (
 )
 
 // RunSingleNode tests against a single node cluster of badgerauth.
-func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.Node)) {
+func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 

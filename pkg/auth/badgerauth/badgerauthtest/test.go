@@ -21,7 +21,7 @@ import (
 // TODO(artur): it might not be worth differentiating between asserts and
 // requires. Maybe we should just change everything to requires here.
 
-// Put is for testing badgerauth.(*Node).Put method.
+// Put is for testing badgerauth.(*DB).Put method.
 type Put struct {
 	KeyHash authdb.KeyHash
 	Record  *authdb.Record
@@ -29,7 +29,7 @@ type Put struct {
 }
 
 // Check runs the test.
-func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
 	err := node.Put(ctx, step.KeyHash, step.Record)
 	if step.Error != nil {
 		require.Error(t, err)
@@ -39,7 +39,7 @@ func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.N
 	}
 }
 
-// PutAtTime is for testing badgerauth.(*Node).PutAtTime method.
+// PutAtTime is for testing badgerauth.(*DB).PutAtTime method.
 type PutAtTime struct {
 	KeyHash authdb.KeyHash
 	Record  *authdb.Record
@@ -48,7 +48,7 @@ type PutAtTime struct {
 }
 
 // Check runs the test.
-func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
 	err := node.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
 	if step.Error != nil {
 		require.Error(t, err)
@@ -58,7 +58,7 @@ func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badger
 	}
 }
 
-// Get is for testing badgerauth.(*Node).Get method.
+// Get is for testing badgerauth.(*DB).Get method.
 type Get struct {
 	KeyHash authdb.KeyHash
 	Result  *authdb.Record
@@ -66,7 +66,7 @@ type Get struct {
 }
 
 // Check runs the test.
-func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
 	got, err := node.Get(ctx, step.KeyHash)
 	if step.Error != nil {
 		require.Error(t, err)
@@ -77,7 +77,7 @@ func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.N
 	assert.Equal(t, step.Result, got)
 }
 
-// GetAtTime is for testing badgerauth.(*Node).GetAtTime method.
+// GetAtTime is for testing badgerauth.(*DB).GetAtTime method.
 type GetAtTime struct {
 	KeyHash authdb.KeyHash
 	Result  *authdb.Record
@@ -86,7 +86,7 @@ type GetAtTime struct {
 }
 
 // Check runs the test.
-func (step GetAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+func (step GetAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
 	got, err := node.GetAtTime(ctx, step.KeyHash, step.Time)
 	if step.Error != nil {
 		require.Error(t, err)

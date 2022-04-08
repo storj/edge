@@ -13,7 +13,7 @@ import (
 // ClockError is a class of clock errors.
 var ClockError = errs.Class("clock")
 
-// Clock represents logical time on a single Node.
+// Clock represents logical time on a single DB.
 type Clock uint64
 
 // SetBytes parses []byte for the clock value.
