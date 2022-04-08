@@ -14,7 +14,6 @@ import (
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
-	"storj.io/gateway-mt/pkg/backoff"
 )
 
 const (
@@ -26,11 +25,6 @@ var (
 	// Below is a compile-time check ensuring DB implements the KV interface.
 	_ authdb.KV = (*DB)(nil)
 
-	mon = monkit.Package()
-
-	// Error is the default error class for the badgerauth package.
-	Error = errs.Class("badgerauth")
-
 	// ProtoError is a class of proto errors.
 	ProtoError = errs.Class("proto")
 
@@ -40,22 +34,6 @@ var (
 	errOperationNotSupported           = Error.New("operation not supported")
 	errKeyAlreadyExistsRecordsNotEqual = Error.New("key already exists and records aren't equal")
 )
-
-func init() {
-	monkit.AddErrorNameHandler(errorName)
-}
-
-// NodeID is a unique id for BadgerDB node.
-type NodeID []byte
-
-// SetBytes sets the node id from bytes.
-func (id *NodeID) SetBytes(v []byte) error {
-	*id = append(NodeID{}, v...)
-	return nil
-}
-
-// Bytes returns the bytes for nodeID.
-func (id NodeID) Bytes() []byte { return id[:] }
 
 type action int
 
@@ -81,26 +59,14 @@ func (a action) String() string {
 type DB struct {
 	db *badger.DB
 
-	id                  NodeID
-	tombstoneExpiration time.Duration
-	conflictBackoff     backoff.ExponentialBackoff
-}
-
-// Config provides options for creating a DB.
-type Config struct {
-	ID NodeID
-
-	TombstoneExpiration time.Duration
-	ConflictBackoff     backoff.ExponentialBackoff
+	config Config
 }
 
 // New creates an instance of DB.
-func New(db *badger.DB, c Config) *DB {
+func New(db *badger.DB, config Config) *DB {
 	return &DB{
-		db:                  db,
-		id:                  c.ID,
-		tombstoneExpiration: c.TombstoneExpiration,
-		conflictBackoff:     c.ConflictBackoff,
+		db:     db,
+		config: config,
 	}
 }
 
@@ -147,14 +113,14 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		// seconds) that could be the last record other nodes sync. After this
 		// record is deleted, all nodes would be considered out of sync.
 		expiresAt = *record.ExpiresAt
-		safeExpiresAt := now.Add(db.tombstoneExpiration)
+		safeExpiresAt := now.Add(db.config.TombstoneExpiration)
 		if expiresAt.Before(safeExpiresAt) {
 			expiresAt = safeExpiresAt
 		}
 	}
 
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
-		return insertRecord(txn, db.id, keyHash, &r, expiresAt)
+		return insertRecord(txn, db.config.ID, keyHash, &r, expiresAt)
 	}))
 }
 
@@ -235,8 +201,8 @@ func (db *DB) Close() error {
 func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
 	for {
 		if err := db.db.Update(f); err != nil {
-			if errs.Is(err, badger.ErrConflict) && !db.conflictBackoff.Maxed() {
-				if err := db.conflictBackoff.Wait(ctx); err != nil {
+			if errs.Is(err, badger.ErrConflict) && !db.config.ConflictBackoff.Maxed() {
+				if err := db.config.ConflictBackoff.Wait(ctx); err != nil {
 					return err
 				}
 				continue
@@ -305,95 +271,10 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 func (db *DB) eventTags(a action) []monkit.SeriesTag {
 	return []monkit.SeriesTag{
 		monkit.NewSeriesTag("action", a.String()),
-		monkit.NewSeriesTag("node_id", string(db.id)),
+		monkit.NewSeriesTag("node_id", string(db.config.ID)),
 	}
 }
 
 func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
 	mon.Event("as_badgerauth_"+name, db.eventTags(a)...)
-}
-
-// errorName fits the requirements for monkit.AddErrorNameHandler so that we can
-// provide a useful error tag with mon.Task().
-func errorName(err error) (name string, ok bool) {
-	switch {
-	case authdb.Invalid.Has(err):
-		name = "InvalidRecord"
-	case ProtoError.Has(err):
-		name = "Proto"
-	case ReplicationLogError.Has(err):
-		// We have a wrapped error, but we want to gain more insight into
-		// whether the error contains some other error we know about.
-		//
-		// We check ReplicationLogError first because it can contain ClockError
-		// and not the other way around. TODO(artur, sean): how to make sure we
-		// don't make a mistake regarding this relation in the future?
-		name = "ReplicationLog"
-		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
-			name += ":" + unwrapped
-		}
-	case ClockError.Has(err):
-		name = "Clock"
-		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
-			name += ":" + unwrapped
-		}
-	case errs.Is(err, ErrKeyAlreadyExists):
-		name = "KeyAlreadyExists"
-	case errs.Is(err, badger.ErrKeyNotFound):
-		name = "KeyNotFound"
-	case errs.Is(err, badger.ErrValueLogSize):
-		name = "ValueLogSize"
-	case errs.Is(err, badger.ErrTxnTooBig):
-		name = "TxnTooBig"
-	case errs.Is(err, badger.ErrConflict):
-		name = "Conflict"
-	case errs.Is(err, badger.ErrReadOnlyTxn):
-		name = "ReadonlyTxn"
-	case errs.Is(err, badger.ErrDiscardedTxn):
-		name = "DiscardedTxn"
-	case errs.Is(err, badger.ErrEmptyKey):
-		name = "EmptyKey"
-	case errs.Is(err, badger.ErrInvalidKey):
-		name = "InvalidKey"
-	case errs.Is(err, badger.ErrBannedKey):
-		name = "BannedKey"
-	case errs.Is(err, badger.ErrThresholdZero):
-		name = "ThresholdZero"
-	case errs.Is(err, badger.ErrNoRewrite):
-		name = "NoRewrite"
-	case errs.Is(err, badger.ErrRejected):
-		name = "Rejected"
-	case errs.Is(err, badger.ErrInvalidRequest):
-		name = "InvalidRequest"
-	case errs.Is(err, badger.ErrManagedTxn):
-		name = "ManagedTxn"
-	case errs.Is(err, badger.ErrNamespaceMode):
-		name = "NamespaceMode"
-	case errs.Is(err, badger.ErrInvalidDump):
-		name = "InvalidDump"
-	case errs.Is(err, badger.ErrZeroBandwidth):
-		name = "ZeroBandwidth"
-	case errs.Is(err, badger.ErrWindowsNotSupported):
-		name = "WindowsNotSupported"
-	case errs.Is(err, badger.ErrPlan9NotSupported):
-		name = "Plan9NotSupported"
-	case errs.Is(err, badger.ErrTruncateNeeded):
-		name = "TruncateNeeded"
-	case errs.Is(err, badger.ErrBlockedWrites):
-		name = "BlockedWrites"
-	case errs.Is(err, badger.ErrNilCallback):
-		name = "NilCallback"
-	case errs.Is(err, badger.ErrEncryptionKeyMismatch):
-		name = "EncryptionKeyMismatch"
-	case errs.Is(err, badger.ErrInvalidDataKeyID):
-		name = "InvalidDataKeyID"
-	case errs.Is(err, badger.ErrInvalidEncryptionKey):
-		name = "InvalidEncryptionKey"
-	case errs.Is(err, badger.ErrGCInMemoryMode):
-		name = "GCInMemoryMode"
-	case errs.Is(err, badger.ErrDBClosed):
-		name = "DBClosed"
-	}
-
-	return name, len(name) > 0
 }
