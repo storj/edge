@@ -29,8 +29,8 @@ type Put struct {
 }
 
 // Check runs the test.
-func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
-	err := node.Put(ctx, step.KeyHash, step.Record)
+func (step Put) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
+	err := db.Put(ctx, step.KeyHash, step.Record)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
@@ -48,8 +48,8 @@ type PutAtTime struct {
 }
 
 // Check runs the test.
-func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
-	err := node.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
+func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
+	err := db.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
@@ -66,28 +66,8 @@ type Get struct {
 }
 
 // Check runs the test.
-func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
-	got, err := node.Get(ctx, step.KeyHash)
-	if step.Error != nil {
-		require.Error(t, err)
-		require.EqualError(t, step.Error, err.Error())
-	} else {
-		require.NoError(t, err)
-	}
-	assert.Equal(t, step.Result, got)
-}
-
-// GetAtTime is for testing badgerauth.(*DB).GetAtTime method.
-type GetAtTime struct {
-	KeyHash authdb.KeyHash
-	Result  *authdb.Record
-	Error   error
-	Time    time.Time
-}
-
-// Check runs the test.
-func (step GetAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.DB) {
-	got, err := node.GetAtTime(ctx, step.KeyHash, step.Time)
+func (step Get) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
+	got, err := db.Get(ctx, step.KeyHash)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())

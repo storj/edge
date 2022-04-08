@@ -16,7 +16,7 @@ import (
 )
 
 // RunSingleNode tests against a single node cluster of badgerauth.
-func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB)) {
+func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -32,11 +32,11 @@ func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.C
 		c.ID = id
 	}
 
-	node, err := badgerauth.New(db, c)
+	kv, err := badgerauth.New(db, c)
 	require.NoError(t, err)
-	defer ctx.Check(node.Close)
+	defer ctx.Check(kv.Close)
 
-	require.NoError(t, node.Ping(ctx), "Ping")
+	require.NoError(t, kv.Ping(ctx), "Ping")
 
-	fn(ctx, t, db, node)
+	fn(ctx, t, kv)
 }

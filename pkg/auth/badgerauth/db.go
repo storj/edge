@@ -18,7 +18,6 @@ import (
 
 const (
 	recordTerminatedEventName = "record_terminated"
-	recordExpiredEventName    = "record_expired"
 	startTimeEntryKey         = "start_time"
 )
 
@@ -125,34 +124,14 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		State:                pb.Record_CREATED,
 	}
 
-	var expiresAt time.Time
-
-	if record.ExpiresAt != nil {
-		// The reason we're overwriting expiresAt with safer TTL (if necessary)
-		// is because someone could insert a record with short TTL (like a few
-		// seconds) that could be the last record other nodes sync. After this
-		// record is deleted, all nodes would be considered out of sync.
-		expiresAt = *record.ExpiresAt
-		safeExpiresAt := now.Add(db.config.TombstoneExpiration)
-		if expiresAt.Before(safeExpiresAt) {
-			expiresAt = safeExpiresAt
-		}
-	}
-
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
-		return insertRecord(txn, db.config.ID, keyHash, &r, expiresAt)
+		return insertRecord(txn, db.config.ID, keyHash, &r)
 	}))
 }
 
-// Get is like GetAtTime, but it uses current time to retrieve the record.
-func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (*authdb.Record, error) {
-	return db.GetAtTime(ctx, keyHash, time.Now())
-}
-
-// GetAtTime retrieves the record from the key/value store at a specific time.
-// It returns nil if the key does not exist.
-// If the record is invalid, the error contains why.
-func (db *DB) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Time) (record *authdb.Record, err error) {
+// Get retrieves the record from the key/value store. It returns nil if the key
+// does not exist. If the record is invalid, the error contains why.
+func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
 	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
 
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
@@ -171,15 +150,6 @@ func (db *DB) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 				return ProtoError.Wrap(err)
 			}
 
-			expiresAt := timestampToTime(r.ExpiresAtUnix)
-			// The record might have expired from a logical perspective, but it
-			// can have safer TTL specified (see PutAtTime), and BadgerDB will
-			// still return it. We shouldn't return it in this case.
-			if expiresAt != nil && expiresAt.Before(now) {
-				db.monitorEvent(recordExpiredEventName, get)
-				return nil
-			}
-
 			if r.InvalidationReason != "" {
 				db.monitorEvent(recordTerminatedEventName, get)
 				return authdb.Invalid.New("%s", r.InvalidationReason)
@@ -190,7 +160,7 @@ func (db *DB) GetAtTime(ctx context.Context, keyHash authdb.KeyHash, now time.Ti
 				MacaroonHead:         r.MacaroonHead,
 				EncryptedSecretKey:   r.EncryptedSecretKey,
 				EncryptedAccessGrant: r.EncryptedAccessGrant,
-				ExpiresAt:            expiresAt,
+				ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
 				Public:               r.Public,
 			}
 
@@ -220,6 +190,12 @@ func (db *DB) Ping(ctx context.Context) (err error) {
 	return nil
 }
 
+// UnderlyingDB returns underlying BadgerDB. This method is most useful in
+// tests.
+func (db *DB) UnderlyingDB() *badger.DB {
+	return db.db
+}
+
 func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
 	for {
 		if err := db.db.Update(f); err != nil {
@@ -236,11 +212,10 @@ func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error)
 }
 
 // insertRecord inserts a record, adding a corresponding replication log entry
-// consistent with the record's state. Both record and entry will get assigned
-// passed expiration time if it's non-zero.
+// consistent with the record's state.
 //
 // insertRecord can be used to insert on any node for any node.
-func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record, expiresAt time.Time) error {
+func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record) error {
 	if record.State != pb.Record_CREATED {
 		return errOperationNotSupported
 	}
@@ -256,7 +231,7 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 			return Error.Wrap(ProtoError.Wrap(err))
 		}
 
-		if uint64(expiresAt.Unix()) != i.ExpiresAt() || !recordsEqual(record, &loaded) {
+		if !recordsEqual(record, &loaded) {
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
@@ -281,11 +256,8 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 		State:   record.State,
 	}.ToBadgerEntry()
 
-	if !expiresAt.IsZero() {
-		e := uint64(expiresAt.Unix())
-		mainEntry.ExpiresAt = e
-		rlogEntry.ExpiresAt = e
-	}
+	mainEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
+	rlogEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
 
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }

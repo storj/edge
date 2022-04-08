@@ -19,14 +19,8 @@ import (
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
 
-// TODO(artur): current tests provide decent coverage, but some important
-// verification is still missing:
-//  - testing the internal state of the database in TestKV
-
 func TestKV(t *testing.T) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.DB) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
 		r1 := authdb.Record{
 			SatelliteAddress:     "test satellite address 1",
 			MacaroonHead:         []byte{'v', 'e', 'r', 'y'},
@@ -87,14 +81,13 @@ func TestKV(t *testing.T) {
 		}.Check(ctx, t, kv)
 
 		now := time.Unix(time.Now().Unix(), 0)
-		expiresAt := now.Add(time.Second)
 
 		r := authdb.Record{
 			SatelliteAddress:     "test",
 			MacaroonHead:         []byte{'t', 'e', 's', 't'},
 			EncryptedSecretKey:   []byte{'t', 'e', 's', 't'},
 			EncryptedAccessGrant: []byte{'t', 'e', 's', 't'},
-			ExpiresAt:            &expiresAt,
+			ExpiresAt:            &now,
 			Public:               true,
 		}
 
@@ -119,11 +112,7 @@ func TestKV(t *testing.T) {
 		}
 		for i := 100; i < 200; i++ {
 			kh := authdb.KeyHash{byte(i)}
-
-			badgerauthtest.GetAtTime{
-				KeyHash: kh,
-				Time:    expiresAt.Add(1),
-			}.Check(ctx, t, kv)
+			badgerauthtest.Get{KeyHash: kh}.Check(ctx, t, kv)
 		}
 		badgerauthtest.Get{
 			KeyHash: authdb.KeyHash{200},
@@ -136,9 +125,8 @@ func TestClockState(t *testing.T) {
 	nodeID := badgerauth.NodeID{'t', 'e', 's', 't'}
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		TombstoneExpiration: 24 * time.Hour,
-		ID:                  nodeID,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
+		ID: nodeID,
+	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
 		r := authdb.Record{
 			SatelliteAddress:     "test",
 			MacaroonHead:         []byte{'t', 'e', 's', 't'},
@@ -150,24 +138,24 @@ func TestClockState(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			kh := authdb.KeyHash{byte(i)}
 
-			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, node)
-			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, node)
+			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, db)
+			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, db)
 		}
 
-		badgerauthtest.Clock{NodeID: nodeID, Value: 100}.Check(t, db)
+		badgerauthtest.Clock{NodeID: nodeID, Value: 100}.Check(t, db.UnderlyingDB())
 
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{1},
 			Record:  &r,
 			Error:   badgerauth.Error.Wrap(badgerauth.ErrKeyAlreadyExists),
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'!', 'b', 'a', 'd', 'g', 'e', 'r', '!'},
 			Record:  &r,
 			Error:   badgerauth.Error.Wrap(badger.ErrInvalidKey),
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 
-		badgerauthtest.Clock{NodeID: nodeID, Value: 100}.Check(t, db)
+		badgerauthtest.Clock{NodeID: nodeID, Value: 100}.Check(t, db.UnderlyingDB())
 
 		expiresAt := time.Unix(time.Now().Unix(), 0).Add(24 * time.Hour)
 
@@ -183,11 +171,11 @@ func TestClockState(t *testing.T) {
 		for i := 100; i < 200; i++ {
 			kh := authdb.KeyHash{byte(i)}
 
-			badgerauthtest.Put{KeyHash: kh, Record: &r2}.Check(ctx, t, node)
-			badgerauthtest.Get{KeyHash: kh, Result: &r2}.Check(ctx, t, node)
+			badgerauthtest.Put{KeyHash: kh, Record: &r2}.Check(ctx, t, db)
+			badgerauthtest.Get{KeyHash: kh, Result: &r2}.Check(ctx, t, db)
 		}
 
-		badgerauthtest.Clock{NodeID: nodeID, Value: 200}.Check(t, db)
+		badgerauthtest.Clock{NodeID: nodeID, Value: 200}.Check(t, db.UnderlyingDB())
 	})
 }
 
@@ -197,9 +185,7 @@ func TestKVParallel(t *testing.T) {
 		ops = 100
 	}
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, kv *badgerauth.DB) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
 				e := randTime(time.Hour)
@@ -248,12 +234,10 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 
 	var err error
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		TombstoneExpiration: 24 * time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
-		_, _, _, err = node.DeleteUnused(ctx, 0, 0, 0)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
+		_, _, _, err = kv.DeleteUnused(ctx, 0, 0, 0)
 		assert.Error(t, err)
-		_, _, _, err = node.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
+		_, _, _, err = kv.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
 		assert.Error(t, err)
 	})
 
@@ -279,29 +263,28 @@ func TestBasicCycle(t *testing.T) {
 	}
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		ID:                  id,
-		TombstoneExpiration: time.Hour,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
+		ID: id,
+	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// put invalid key
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'!', 'b', 'a', 'd', 'g', 'e', 'r', '!'},
 			Record:  record,
 			Error:   badgerauth.Error.Wrap(badger.ErrInvalidKey),
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after invalid put
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// put
 		badgerauthtest.Put{
 			KeyHash: keyHash,
 			Record:  record,
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after put
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
@@ -311,43 +294,43 @@ func TestBasicCycle(t *testing.T) {
 		)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// put again
 		badgerauthtest.Put{
 			KeyHash: keyHash,
 			Record:  record,
 			Error:   badgerauth.Error.Wrap(badgerauth.ErrKeyAlreadyExists),
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after invalid put
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// get unknown record
 		badgerauthtest.Get{
 			KeyHash: authdb.KeyHash{1},
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after get
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// get
 		badgerauthtest.Get{
 			KeyHash: keyHash,
 			Result:  record,
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after get
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// get again
 		badgerauthtest.Get{
 			KeyHash: keyHash,
 			Result:  record,
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after get
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 
 		scope := "storj.io/gateway-mt/pkg/auth/badgerauth"
 		c := monkit.Collect(monkit.ScopeNamed(scope))
@@ -355,8 +338,8 @@ func TestBasicCycle(t *testing.T) {
 		for name, count := range map[string]float64{
 			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
 			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
-			"function,action=get,name=(*DB).GetAtTime,node_id=basic,scope=" + scope + " total":                             3,
-			"function,action=get,name=(*DB).GetAtTime,node_id=basic,scope=" + scope + " errors":                            0,
+			"function,action=get,name=(*DB).Get,node_id=basic,scope=" + scope + " total":                                   3,
+			"function,action=get,name=(*DB).Get,node_id=basic,scope=" + scope + " errors":                                  0,
 			"function,action=put,error_name=InvalidKey,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count":       1,
 			"function,action=put,error_name=KeyAlreadyExists,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count": 1,
 		} {
@@ -366,36 +349,12 @@ func TestBasicCycle(t *testing.T) {
 }
 
 // TestBasicCycleWithSafeExpiration is like TestBasicCycle, but it focuses on
-// the behavior of actions when the record has a safe (>=tombstoneExpiration)
-// expiration time.
-func TestBasicCycleWithSafeExpiration(t *testing.T) {
+// the behavior of actions when the record has an expiration time.
+func TestBasicCycleWithExpiration(t *testing.T) {
+	id := badgerauth.NodeID{'t', 'e', 's', 't', 'I', 'D'}
 	// construct current time used in this test so that it is stripped of the
 	// number of nanoseconds and the monotonic clock reading.
 	now := time.Unix(time.Now().Unix(), 0)
-	day := 24 * time.Hour
-	expiresAt := now.Add(2 * day)
-
-	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
-	record := &authdb.Record{
-		SatelliteAddress:     "test",
-		MacaroonHead:         []byte{'t', 'e', 's', 't'},
-		EncryptedSecretKey:   []byte{'t', 'e', 's', 't'},
-		EncryptedAccessGrant: []byte{'t', 'e', 's', 't'},
-		ExpiresAt:            &expiresAt,
-		Public:               true,
-	}
-
-	testBasicCycleWithExpiration(t, now, 2*day, day, keyHash, record)
-}
-
-// TestBasicCycleWithUnsafeExpiration is like TestBasicCycle, but it focuses on
-// the behavior of actions when the record has an unsafe expiration time.
-func TestBasicCycleWithUnsafeExpiration(t *testing.T) {
-	// Construct current time used in this test so that it is stripped of the
-	// number of nanoseconds and the monotonic clock reading.
-	now := time.Unix(time.Now().Unix(), 0)
-	day := 24 * time.Hour
-	// One second is an unsafe expiration time.
 	expiresAt := now.Add(time.Second)
 
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
@@ -408,78 +367,45 @@ func TestBasicCycleWithUnsafeExpiration(t *testing.T) {
 		Public:               true,
 	}
 
-	testBasicCycleWithExpiration(t, now, time.Second, day, keyHash, record)
-}
-
-func testBasicCycleWithExpiration(t *testing.T, now time.Time, expiration, tombstoneExpiration time.Duration, keyHash authdb.KeyHash, record *authdb.Record) {
-	id := badgerauth.NodeID{'t', 'e', 's', 't', 'I', 'D'}
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		ID:                  id,
-		TombstoneExpiration: tombstoneExpiration,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badger.DB, node *badgerauth.DB) {
+		ID: id,
+	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// put
 		badgerauthtest.PutAtTime{
 			KeyHash: keyHash,
 			Record:  record,
 			Time:    now,
-		}.Check(ctx, t, node)
+		}.Check(ctx, t, db)
 		// verify replication log after put
 		currentReplicationLogEntries = append(
 			currentReplicationLogEntries,
 			badgerauthtest.ReplicationLogEntryWithTTL{
 				Entry:     badgerauth.ReplicationLogEntry{id, 1, keyHash, pb.Record_CREATED},
-				ExpiresAt: maxTime(now.Add(expiration), now.Add(tombstoneExpiration)),
+				ExpiresAt: expiresAt,
 			},
 		)
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
 		// get
-		getExhaustively(ctx, t, node, badgerauthtest.GetAtTime{
+		badgerauthtest.Get{
 			KeyHash: keyHash,
 			Result:  record,
-			Time:    now,
-		}, expiration)
+		}.Check(ctx, t, db)
 		// verify replication log after get
 		badgerauthtest.VerifyReplicationLog{
 			Entries: currentReplicationLogEntries,
-		}.Check(ctx, t, db)
+		}.Check(ctx, t, db.UnderlyingDB())
+		// t+1
+		time.Sleep(time.Second)
+		// get (t+1)
+		badgerauthtest.Get{KeyHash: keyHash}.Check(ctx, t, db)
+		// verify replication log after get (t+1)
+		badgerauthtest.VerifyReplicationLog{}.Check(ctx, t, db.UnderlyingDB())
 	})
-}
-
-// getExhaustively produces more badgerauthtest.GetAtTime checks that are
-// borderline cases around expiration.
-func getExhaustively(ctx *testcontext.Context, t *testing.T, node *badgerauth.DB, check badgerauthtest.GetAtTime, expiration time.Duration) {
-	check.Check(ctx, t, node) // include submitted check
-
-	badgerauthtest.GetAtTime{
-		KeyHash: check.KeyHash,
-		Result:  check.Result,
-		Error:   check.Error,
-		Time:    check.Time.Add(expiration - 1),
-	}.Check(ctx, t, node)
-
-	badgerauthtest.GetAtTime{
-		KeyHash: check.KeyHash,
-		Result:  check.Result,
-		Error:   check.Error,
-		Time:    check.Time.Add(expiration),
-	}.Check(ctx, t, node)
-
-	badgerauthtest.GetAtTime{
-		KeyHash: check.KeyHash,
-		Time:    check.Time.Add(expiration + 1),
-	}.Check(ctx, t, node)
-}
-
-func maxTime(t, u time.Time) time.Time {
-	if t.After(u) {
-		return t
-	}
-	return u
 }

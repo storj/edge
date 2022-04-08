@@ -4,8 +4,6 @@
 package badgerauth
 
 import (
-	"time"
-
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -23,6 +21,5 @@ var (
 type Config struct {
 	ID NodeID
 
-	TombstoneExpiration time.Duration
-	ConflictBackoff     backoff.ExponentialBackoff
+	ConflictBackoff backoff.ExponentialBackoff
 }
