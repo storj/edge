@@ -32,20 +32,16 @@ message Record {
 }
 
 message ReplicationRequestEntry {
-  string authservice_id = 1;
-  uint64 counter = 2;
+  bytes node_id = 1;
+  uint64 clock = 2;
 }
 
-message ReplicationRequest {
-  string auth_token = 1;
-  repeated ReplicationRequestEntry entries = 2;
-}
+message ReplicationRequest { repeated ReplicationRequestEntry entries = 1; }
 
 message ReplicationResponseEntry {
-  string authservice_id = 1;
-  uint64 counter = 2;
-  bytes encryption_key_hash = 3;
-  Record record = 4;
+  bytes node_id = 1;
+  bytes encryption_key_hash = 2;
+  Record record = 3;
 }
 
 message ReplicationResponse { repeated ReplicationResponseEntry entries = 1; }
