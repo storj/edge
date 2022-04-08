@@ -32,7 +32,8 @@ func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.C
 		c.ID = id
 	}
 
-	node := badgerauth.New(db, c)
+	node, err := badgerauth.New(db, c)
+	require.NoError(t, err)
 	defer ctx.Check(node.Close)
 
 	require.NoError(t, node.Ping(ctx), "Ping")

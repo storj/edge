@@ -19,6 +19,7 @@ import (
 const (
 	recordTerminatedEventName = "record_terminated"
 	recordExpiredEventName    = "record_expired"
+	startTimeEntryKey         = "start_time"
 )
 
 var (
@@ -63,11 +64,30 @@ type DB struct {
 }
 
 // New creates an instance of DB.
-func New(db *badger.DB, config Config) *DB {
-	return &DB{
+func New(db *badger.DB, config Config) (*DB, error) {
+	ndb := &DB{
 		db:     db,
 		config: config,
 	}
+	return ndb, ndb.prepare()
+}
+
+// prepare ensures there's a value in the database.
+// this allows to ensure that the database is functional.
+func (db *DB) prepare() (err error) {
+	defer mon.Task(db.eventTags(put)...)(nil)(&err)
+	err = db.db.Update(func(txn *badger.Txn) error {
+		now := time.Now()
+		text := now.Format(time.RFC3339)
+		err := txn.Set([]byte(startTimeEntryKey), []byte(text))
+		return Error.Wrap(err)
+	})
+	return Error.Wrap(err)
+}
+
+// Close closes the underlying BadgerDB database.
+func (db *DB) Close() error {
+	return Error.Wrap(db.db.Close())
 }
 
 // Put is like PutAtTime, but it uses current time to store the record.
@@ -188,14 +208,16 @@ func (db *DB) DeleteUnused(context.Context, time.Duration, int, int) (int64, int
 // Ping attempts to do a database roundtrip and returns an error if it can't.
 func (db *DB) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO(artur): what do we do here? Maybe try to retrieve a "health check"
-	// record?
-	return nil
-}
 
-// Close closes the underlying BadgerDB database.
-func (db *DB) Close() error {
-	return Error.Wrap(db.db.Close())
+	err = db.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get([]byte(startTimeEntryKey))
+		return err
+	})
+	if err != nil {
+		return Error.New("unable to read start time: %w", err)
+	}
+
+	return nil
 }
 
 func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
