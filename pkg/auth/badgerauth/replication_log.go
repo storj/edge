@@ -94,3 +94,12 @@ func (e *ReplicationLogEntry) SetBytes(entry []byte) error {
 
 	return nil
 }
+
+func makeIterationStartKey(id NodeID, clock Clock) []byte {
+	p := make([]byte, 0, lenReplicationLogPrefix+lenNodeID+lenReplicationLogEntrySeparator+8)
+	p = append(p, replicationLogPrefix...)
+	p = append(p, id.Bytes()...)
+	p = append(p, replicationLogEntrySeparator...)
+	p = append(p, clock.Bytes()...)
+	return p
+}

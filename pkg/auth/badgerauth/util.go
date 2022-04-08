@@ -48,5 +48,5 @@ func (l Logger) Warningf(format string, v ...interface{}) {
 
 // NewLogger returns new Logger.
 func NewLogger(s *zap.SugaredLogger) Logger {
-	return Logger{s.Named("BadgerDB")}
+	return Logger{s.Named("badgerauth")}
 }

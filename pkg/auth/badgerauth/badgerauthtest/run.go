@@ -6,7 +6,6 @@ package badgerauthtest
 import (
 	"testing"
 
-	badger "github.com/outcaste-io/badger/v3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -15,21 +14,19 @@ import (
 )
 
 // RunSingleNode tests against a single node cluster of badgerauth.
-func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB)) {
+func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	l := badgerauth.NewLogger(zaptest.NewLogger(t).Sugar())
+	if c.Logger == (badgerauth.Logger{}) {
+		c.Logger = badgerauth.NewLogger(zaptest.NewLogger(t).Sugar())
+	}
 
-	opt := badger.DefaultOptions("").WithInMemory(true).WithLogger(l)
-	db, err := badger.Open(opt)
-	require.NoError(t, err, "Open")
-
-	kv, err := badgerauth.New(db, c)
+	node, err := badgerauth.New(c)
 	require.NoError(t, err)
-	defer ctx.Check(kv.Close)
+	defer ctx.Check(node.Close)
 
-	require.NoError(t, kv.Ping(ctx), "Ping")
+	require.NoError(t, node.UnderlyingDB().Ping(ctx), "Ping")
 
-	fn(ctx, t, kv)
+	fn(ctx, t, node)
 }

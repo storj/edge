@@ -39,6 +39,11 @@ func errorName(err error) (name string, ok bool) {
 		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
 			name += ":" + unwrapped
 		}
+	case NodeIDError.Has(err):
+		name = "NodeID"
+		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
+			name += ":" + unwrapped
+		}
 	case errs.Is(err, ErrKeyAlreadyExists):
 		name = "KeyAlreadyExists"
 	case errs.Is(err, badger.ErrKeyNotFound):

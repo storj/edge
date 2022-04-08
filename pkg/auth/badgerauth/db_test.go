@@ -20,7 +20,9 @@ import (
 )
 
 func TestKV(t *testing.T) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
 		r1 := authdb.Record{
 			SatelliteAddress:     "test satellite address 1",
 			MacaroonHead:         []byte{'v', 'e', 'r', 'y'},
@@ -47,7 +49,7 @@ func TestKV(t *testing.T) {
 			} else {
 				r = r2
 			}
-			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, kv)
+			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, db)
 		}
 
 		for i := 0; i < 100; i++ {
@@ -59,7 +61,7 @@ func TestKV(t *testing.T) {
 			} else {
 				r = r2
 			}
-			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
+			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, db)
 		}
 
 		// Test deletion of expiring records:
@@ -78,7 +80,7 @@ func TestKV(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{byte(200)},
 			Record:  &r3,
-		}.Check(ctx, t, kv)
+		}.Check(ctx, t, db)
 
 		now := time.Unix(time.Now().Unix(), 0)
 
@@ -95,7 +97,7 @@ func TestKV(t *testing.T) {
 		for i := 100; i < 200; i++ {
 			kh := authdb.KeyHash{byte(i)}
 
-			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, kv)
+			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, db)
 		}
 
 		// (3) Check everything.
@@ -108,16 +110,16 @@ func TestKV(t *testing.T) {
 			} else {
 				r = r2
 			}
-			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, kv)
+			badgerauthtest.Get{KeyHash: kh, Result: &r}.Check(ctx, t, db)
 		}
 		for i := 100; i < 200; i++ {
 			kh := authdb.KeyHash{byte(i)}
-			badgerauthtest.Get{KeyHash: kh}.Check(ctx, t, kv)
+			badgerauthtest.Get{KeyHash: kh}.Check(ctx, t, db)
 		}
 		badgerauthtest.Get{
 			KeyHash: authdb.KeyHash{200},
 			Result:  &r3,
-		}.Check(ctx, t, kv)
+		}.Check(ctx, t, db)
 	})
 }
 
@@ -126,7 +128,9 @@ func TestClockState(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: nodeID,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
+	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
 		r := authdb.Record{
 			SatelliteAddress:     "test",
 			MacaroonHead:         []byte{'t', 'e', 's', 't'},
@@ -185,11 +189,13 @@ func TestKVParallel(t *testing.T) {
 		ops = 100
 	}
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
 				e := randTime(time.Hour)
-				_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
+				_ = db.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
 					SatelliteAddress:     "test",
 					MacaroonHead:         []byte{1},
 					EncryptedSecretKey:   []byte{2},
@@ -203,7 +209,7 @@ func TestKVParallel(t *testing.T) {
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
 				e := randTime(time.Hour)
-				_ = kv.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
+				_ = db.Put(ctx, authdb.KeyHash{byte(testrand.Intn(100))}, &authdb.Record{
 					SatelliteAddress:     "tset",
 					MacaroonHead:         []byte{4},
 					EncryptedSecretKey:   []byte{5},
@@ -216,7 +222,7 @@ func TestKVParallel(t *testing.T) {
 		})
 		ctx.Go(func() error {
 			for i := 0; i < ops; i++ {
-				_, _ = kv.Get(ctx, authdb.KeyHash{byte(testrand.Intn(100))})
+				_, _ = db.Get(ctx, authdb.KeyHash{byte(testrand.Intn(100))})
 			}
 			return nil
 		})
@@ -234,10 +240,12 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 
 	var err error
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, kv *badgerauth.DB) {
-		_, _, _, err = kv.DeleteUnused(ctx, 0, 0, 0)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
+		_, _, _, err = db.DeleteUnused(ctx, 0, 0, 0)
 		assert.Error(t, err)
-		_, _, _, err = kv.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
+		_, _, _, err = db.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
 		assert.Error(t, err)
 	})
 
@@ -264,7 +272,9 @@ func TestBasicCycle(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: id,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
+	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
@@ -369,7 +379,9 @@ func TestBasicCycleWithExpiration(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: id,
-	}, func(ctx *testcontext.Context, t *testing.T, db *badgerauth.DB) {
+	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		db := node.UnderlyingDB()
+
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{

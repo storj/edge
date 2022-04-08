@@ -55,21 +55,11 @@ func (a action) String() string {
 }
 
 // DB represents authentication storage based on BadgerDB.
-// This implements the data-storage layer for a distributed
-// Node.
+// This implements the data-storage layer for a distributed Node.
 type DB struct {
 	db *badger.DB
 
 	config Config
-}
-
-// New creates an instance of DB.
-func New(db *badger.DB, config Config) (*DB, error) {
-	ndb := &DB{
-		db:     db,
-		config: config,
-	}
-	return ndb, ndb.prepare()
 }
 
 // prepare ensures there's a value in the database.
@@ -136,7 +126,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
 
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(keyHash[:])
+		r, err := db.lookupRecord(txn, keyHash)
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
 				return nil
@@ -144,29 +134,21 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 			return err
 		}
 
-		return item.Value(func(val []byte) error {
-			var r pb.Record
+		if r.InvalidationReason != "" {
+			db.monitorEvent(recordTerminatedEventName, get)
+			return authdb.Invalid.New("%s", r.InvalidationReason)
+		}
 
-			if err := proto.Unmarshal(val, &r); err != nil {
-				return ProtoError.Wrap(err)
-			}
+		record = &authdb.Record{
+			SatelliteAddress:     r.SatelliteAddress,
+			MacaroonHead:         r.MacaroonHead,
+			EncryptedSecretKey:   r.EncryptedSecretKey,
+			EncryptedAccessGrant: r.EncryptedAccessGrant,
+			ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
+			Public:               r.Public,
+		}
 
-			if r.InvalidationReason != "" {
-				db.monitorEvent(recordTerminatedEventName, get)
-				return authdb.Invalid.New("%s", r.InvalidationReason)
-			}
-
-			record = &authdb.Record{
-				SatelliteAddress:     r.SatelliteAddress,
-				MacaroonHead:         r.MacaroonHead,
-				EncryptedSecretKey:   r.EncryptedSecretKey,
-				EncryptedAccessGrant: r.EncryptedAccessGrant,
-				ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
-				Public:               r.Public,
-			}
-
-			return nil
-		})
+		return nil
 	}))
 }
 
@@ -198,10 +180,13 @@ func (db *DB) UnderlyingDB() *badger.DB {
 }
 
 func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
+	// db.config.ConflictBackoff needs to be copied. Otherwise, we are using one
+	// for all queries.
+	conflictBackoff := db.config.ConflictBackoff
 	for {
 		if err := db.db.Update(f); err != nil {
-			if errs.Is(err, badger.ErrConflict) && !db.config.ConflictBackoff.Maxed() {
-				if err := db.config.ConflictBackoff.Wait(ctx); err != nil {
+			if errs.Is(err, badger.ErrConflict) && !conflictBackoff.Maxed() {
+				if err := conflictBackoff.Wait(ctx); err != nil {
 					return err
 				}
 				continue
@@ -210,6 +195,47 @@ func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error)
 		}
 		return nil
 	}
+}
+
+// findResponseEntries finds replication log entries later than a supplied clock
+// for a supplied nodeID and matches them with corresponding records to output
+// replication response entries.
+func (db *DB) findResponseEntries(nodeID NodeID, clock Clock) ([]*pb.ReplicationResponseEntry, error) {
+	var response []*pb.ReplicationResponseEntry
+
+	return response, db.db.View(func(txn *badger.Txn) error {
+		opt := badger.DefaultIteratorOptions
+		opt.PrefetchValues = false
+		opt.Prefix = append([]byte(replicationLogPrefix), nodeID.Bytes()...)
+
+		startKey := makeIterationStartKey(nodeID, clock+1)
+
+		it := txn.NewIterator(opt)
+		defer it.Close()
+
+		var count int
+		for it.Seek(startKey); it.Valid(); it.Next() {
+			if count == db.config.ReplicationLimit {
+				break
+			}
+			var entry ReplicationLogEntry
+			if err := entry.SetBytes(it.Item().Key()); err != nil {
+				return err
+			}
+			r, err := db.lookupRecord(txn, entry.KeyHash)
+			if err != nil {
+				return err
+			}
+			response = append(response, &pb.ReplicationResponseEntry{
+				NodeId:            entry.ID.Bytes(),
+				EncryptionKeyHash: entry.KeyHash[:],
+				Record:            r,
+			})
+			count++
+		}
+
+		return nil
+	})
 }
 
 // insertRecord inserts a record, adding a corresponding replication log entry
@@ -261,6 +287,19 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 	rlogEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
 
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
+}
+
+func (db *DB) lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
+	var record pb.Record
+
+	item, err := txn.Get(keyHash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	return &record, item.Value(func(val []byte) error {
+		return ProtoError.Wrap(proto.Unmarshal(val, &record))
+	})
 }
 
 func (db *DB) eventTags(a action) []monkit.SeriesTag {
