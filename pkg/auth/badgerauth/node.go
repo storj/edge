@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -55,6 +57,8 @@ type Config struct {
 
 	// InsecureDisableTLS allows disabling tls for testing.
 	InsecureDisableTLS bool `internal:"true"`
+
+	Backup BackupConfig
 }
 
 // Node is distributed auth storage node that wraps DB with machinery to
@@ -70,6 +74,7 @@ type Node struct {
 	mux      *drpcmux.Mux
 	server   *drpcserver.Server
 	peers    []*Peer
+	Backup   *Backup
 
 	SyncCycle sync2.Cycle
 }
@@ -131,6 +136,16 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	} else {
 		node.listener = tcpListener
 	}
+	if config.Backup.Enabled {
+		s3Client, err := minio.New(config.Backup.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(config.Backup.AccessKeyID, config.Backup.SecretAccessKey, ""),
+			Secure: !config.InsecureDisableTLS,
+		})
+		if err != nil {
+			return nil, Error.New("failed to create s3 client: %w", err)
+		}
+		node.Backup = NewBackup(node.DB, s3Client)
+	}
 
 	return node, nil
 }
@@ -157,6 +172,12 @@ func (node *Node) Run(ctx context.Context) error {
 		return Error.Wrap(node.server.Serve(gCtx, node.listener))
 	})
 
+	if node.Backup != nil {
+		group.Go(func() error {
+			return node.Backup.SyncCycle.Run(gCtx, node.Backup.RunOnce)
+		})
+	}
+
 	return Error.Wrap(group.Wait())
 }
 
@@ -173,6 +194,9 @@ func (node *Node) syncAll(ctx context.Context) error {
 // Close releases underlying resources.
 func (node *Node) Close() error {
 	node.SyncCycle.Close()
+	if node.Backup != nil {
+		node.Backup.SyncCycle.Close()
+	}
 	if node.listener != nil {
 		// if the server is started, then `server.Serve` automatically closes
 		// the listener.

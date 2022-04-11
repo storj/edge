@@ -109,6 +109,27 @@ node-migration.source-sql-auth-kv-backend: ""
 # address that the node listens on
 node.address: ""
 
+# access key for backup bucket
+node.backup.access-key-id: ""
+
+# bucket name where database backups are stored
+node.backup.bucket: ""
+
+# enable backups
+node.backup.enabled: true
+
+# backup bucket endpoint hostname, e.g. s3.amazonaws.com
+node.backup.endpoint: ""
+
+# how often full backups are run
+node.backup.interval: 1h0m0s
+
+# database backup object path prefix
+node.backup.prefix: ""
+
+# secret key for backup bucket
+node.backup.secret-access-key: ""
+
 # directory for certificates for mutual authentication
 node.certs-dir: ""
 
