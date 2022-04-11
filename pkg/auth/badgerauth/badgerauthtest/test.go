@@ -12,10 +12,12 @@ import (
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
 
 // TODO(artur): it might not be worth differentiating between asserts and
@@ -144,4 +146,23 @@ func (step Clock) Check(t testing.TB, db *badger.DB) {
 		assert.EqualValues(t, step.Value, current)
 		return nil
 	}))
+}
+
+// Replicate is for testing the badgerauth.(*Node).Replicate method.
+type Replicate struct {
+	Request *pb.ReplicationRequest
+	Result  *pb.ReplicationResponse
+	Error   error
+}
+
+// Check runs the test.
+func (step Replicate) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+	got, err := node.Replicate(ctx, step.Request)
+	if step.Error != nil {
+		require.Error(t, err)
+		require.EqualError(t, step.Error, err.Error())
+	} else {
+		require.NoError(t, err)
+	}
+	assert.True(t, proto.Equal(got, step.Result))
 }

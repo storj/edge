@@ -128,7 +128,9 @@ func setConfigDefaults(config *badgerauth.Config) {
 	}
 
 	config.ReplicationInterval = time.Minute
-	config.ReplicationLimit = 100
+	if config.ReplicationLimit == 0 {
+		config.ReplicationLimit = 100
+	}
 
 	config.ConflictBackoff.Delay = 0
 	config.ConflictBackoff.Max = 5 * time.Minute

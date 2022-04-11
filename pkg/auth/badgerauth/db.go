@@ -151,7 +151,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}
 
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
-		return insertRecord(txn, db.config.ID, keyHash, &r)
+		return InsertRecord(txn, db.config.ID, keyHash, &r)
 	}))
 }
 
@@ -161,7 +161,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
 
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
-		r, err := db.lookupRecord(txn, keyHash)
+		r, err := lookupRecord(txn, keyHash)
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
 				return nil
@@ -257,7 +257,7 @@ func (db *DB) findResponseEntries(nodeID NodeID, clock Clock) ([]*pb.Replication
 			if err := entry.SetBytes(it.Item().Key()); err != nil {
 				return err
 			}
-			r, err := db.lookupRecord(txn, entry.KeyHash)
+			r, err := lookupRecord(txn, entry.KeyHash)
 			if err != nil {
 				return err
 			}
@@ -273,11 +273,22 @@ func (db *DB) findResponseEntries(nodeID NodeID, clock Clock) ([]*pb.Replication
 	})
 }
 
-// insertRecord inserts a record, adding a corresponding replication log entry
+func (db *DB) eventTags(a action) []monkit.SeriesTag {
+	return []monkit.SeriesTag{
+		monkit.NewSeriesTag("action", a.String()),
+		monkit.NewSeriesTag("node_id", db.config.ID.String()),
+	}
+}
+
+func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
+	mon.Event("as_badgerauth_"+name, db.eventTags(a)...)
+}
+
+// InsertRecord inserts a record, adding a corresponding replication log entry
 // consistent with the record's state.
 //
-// insertRecord can be used to insert on any node for any node.
-func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record) error {
+// InsertRecord can be used to insert on any node for any node.
+func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record) error {
 	if record.State != pb.Record_CREATED {
 		return errOperationNotSupported
 	}
@@ -324,7 +335,7 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }
 
-func (db *DB) lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
+func lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
 	var record pb.Record
 
 	item, err := txn.Get(keyHash[:])
@@ -335,15 +346,4 @@ func (db *DB) lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record,
 	return &record, item.Value(func(val []byte) error {
 		return ProtoError.Wrap(proto.Unmarshal(val, &record))
 	})
-}
-
-func (db *DB) eventTags(a action) []monkit.SeriesTag {
-	return []monkit.SeriesTag{
-		monkit.NewSeriesTag("action", a.String()),
-		monkit.NewSeriesTag("node_id", db.config.ID.String()),
-	}
-}
-
-func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
-	mon.Event("as_badgerauth_"+name, db.eventTags(a)...)
 }
