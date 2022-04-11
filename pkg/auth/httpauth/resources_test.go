@@ -14,11 +14,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -57,7 +59,7 @@ func TestResources_URLs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		res := New(zaptest.NewLogger(t), nil, endpoint, "authToken", limiters)
+		res := New(zaptest.NewLogger(t), nil, endpoint, "authToken", limiters, 4*memory.KiB)
 		res.ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
@@ -369,12 +371,55 @@ func TestResources_getAccess_noLimiters(t *testing.T) {
 	require.Equal(t, http.StatusOK, rc.Code)
 }
 
+func TestResources_EntityTooLarge(t *testing.T) {
+	const path = "/v1/access"
+
+	res := New(zaptest.NewLogger(t), nil, nil, "", nil, 1)
+
+	body := strings.NewReader("{}")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, path, body)
+	res.ServeHTTP(rec, req)
+
+	r := rec.Result()
+	require.NoError(t, r.Body.Close())
+	assert.Equal(t, http.StatusRequestEntityTooLarge, r.StatusCode)
+
+	// Make sure we reject lying requests:
+
+	body.Reset("{}")
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, path, body)
+	req.ContentLength = 1
+	res.ServeHTTP(rec, req)
+
+	r = rec.Result()
+	require.NoError(t, r.Body.Close())
+	assert.Equal(t, http.StatusRequestEntityTooLarge, r.StatusCode)
+
+	// Make sure we do our best to differentiate between unexpected EOF that
+	// Decode returns when we cut reads for safety and when the JSON is broken
+	// itself:
+
+	body.Reset("{")
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, path, body)
+	res.ServeHTTP(rec, req)
+
+	r = rec.Result()
+	require.NoError(t, r.Body.Close())
+	assert.Equal(t, http.StatusUnprocessableEntity, r.StatusCode)
+}
+
 func newResource(
 	t *testing.T, db *authdb.Database, endpoint *url.URL, limiters *failrate.Limiters,
 ) *Resources {
 	t.Helper()
 
-	return New(zaptest.NewLogger(t), db, endpoint, "authToken", limiters)
+	return New(zaptest.NewLogger(t), db, endpoint, "authToken", limiters, 4*memory.KiB)
 }
 
 // createAccess creates an access through the AuthService endpoint.

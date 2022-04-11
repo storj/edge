@@ -22,6 +22,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -39,6 +40,7 @@ const serverShutdownTimeout = 10 * time.Second
 type Config struct {
 	Endpoint                     string        `help:"Gateway endpoint URL to return to clients" default:""`
 	AuthToken                    string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
+	POSTSizeLimit                memory.Size   `help:"maximum size that the incoming POST request body with access grant can be" default:"4KiB"`
 	AllowedSatellites            []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
 	CacheExpiration              time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 	GetAccessRateLimiters        failrate.LimitersConfig
@@ -140,7 +142,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		}
 	}
 
-	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, rl)
+	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, rl, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
 		LetsEncrypt: config.LetsEncrypt,

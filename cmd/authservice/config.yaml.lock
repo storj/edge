@@ -112,6 +112,9 @@ listen-addr-tls: :20001
 # create or update the database schema, and then continue service startup
 # migration: false
 
+# maximum size that the incoming POST request body with access grant can be
+# post-size-limit: 4.0 KiB
+
 # public url for the server, for the TLS certificate
 public-url: ""
 

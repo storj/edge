@@ -6,7 +6,6 @@ package httpauth
 import (
 	"crypto/subtle"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/failrate"
 )
@@ -30,6 +30,7 @@ type Resources struct {
 	handler               http.Handler
 	id                    *Arg
 	getAccessRateLimiters *failrate.Limiters
+	postSizeLimit         memory.Size
 
 	log *zap.Logger
 
@@ -39,7 +40,14 @@ type Resources struct {
 
 // New constructs Resources for some database.
 // If getAccessRL is nil then GetAccess endpoint won't be rate-limited.
-func New(log *zap.Logger, db *authdb.Database, endpoint *url.URL, authToken string, getAccessRL *failrate.Limiters) *Resources {
+func New(
+	log *zap.Logger,
+	db *authdb.Database,
+	endpoint *url.URL,
+	authToken string,
+	getAccessRL *failrate.Limiters,
+	postSizeLimit memory.Size,
+) *Resources {
 	res := &Resources{
 		db:        db,
 		endpoint:  endpoint,
@@ -48,6 +56,7 @@ func New(log *zap.Logger, db *authdb.Database, endpoint *url.URL, authToken stri
 		id:                    new(Arg),
 		log:                   log,
 		getAccessRateLimiters: getAccessRL,
+		postSizeLimit:         postSizeLimit,
 	}
 
 	res.handler = Dir{
@@ -83,6 +92,12 @@ func New(log *zap.Logger, db *authdb.Database, endpoint *url.URL, authToken stri
 
 // ServeHTTP makes Resources an http.Handler.
 func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Below is a pre-flight check to make sure we don't unnecessarily read what
+	// we would throw away anyway.
+	if req.ContentLength > res.postSizeLimit.Int64() {
+		res.writeError(w, "ServeHTTP", "", http.StatusRequestEntityTooLarge)
+		return
+	}
 	res.handler.ServeHTTP(w, req)
 }
 
@@ -157,14 +172,12 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		Public      bool   `json:"public"`
 	}
 
-	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-		status := http.StatusInternalServerError
-		var (
-			syntaxErr    *json.SyntaxError
-			unmarshalErr *json.UnmarshalTypeError
-		)
-		if errors.As(err, &syntaxErr) || errors.As(err, &unmarshalErr) {
-			status = http.StatusUnprocessableEntity
+	reader := http.MaxBytesReader(w, req.Body, res.postSizeLimit.Int64())
+	if err := json.NewDecoder(reader).Decode(&request); err != nil {
+		status := http.StatusUnprocessableEntity
+
+		if checkRequestBodyTooLargeError(err) {
+			status = http.StatusRequestEntityTooLarge
 		}
 
 		res.writeError(w, "newAccess", err.Error(), status)
@@ -174,10 +187,12 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	var err error
 	var key authdb.EncryptionKey
 	if key, err = authdb.NewEncryptionKey(); err != nil {
-		res.writeError(w, "newAccess", err.Error(), http.StatusInternalServerError)
+		res.writeError(w, "newAccess/NewEncryptionKey", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// TODO: we need to differentiate between validation and genuine database
+	// errors because we return 500s for, e.g. empty requests right now.
 	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
 		res.writeError(w, "newAccess", fmt.Sprintf("error storing request in database: %s", err.Error()), http.StatusInternalServerError)
@@ -196,6 +211,12 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+func checkRequestBodyTooLargeError(err error) bool {
+	// TODO(artur): proper check after https://github.com/golang/go/issues/30715
+	// is finally closed.
+	return err.Error() == "http: request body too large"
 }
 
 func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {
