@@ -355,7 +355,7 @@ func TestBasicCycleWithExpiration(t *testing.T) {
 	// construct current time used in this test so that it is stripped of the
 	// number of nanoseconds and the monotonic clock reading.
 	now := time.Unix(time.Now().Unix(), 0)
-	expiresAt := now.Add(time.Second)
+	expiresAt := now.Add(2 * time.Second)
 
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
 	record := &authdb.Record{
@@ -402,7 +402,7 @@ func TestBasicCycleWithExpiration(t *testing.T) {
 			Entries: currentReplicationLogEntries,
 		}.Check(ctx, t, db.UnderlyingDB())
 		// t+1
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 		// get (t+1)
 		badgerauthtest.Get{KeyHash: keyHash}.Check(ctx, t, db)
 		// verify replication log after get (t+1)
