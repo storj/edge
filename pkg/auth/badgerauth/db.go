@@ -4,6 +4,7 @@
 package badgerauth
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -263,9 +264,11 @@ func insertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 }
 
 func (db *DB) eventTags(a action) []monkit.SeriesTag {
+	sanitizedID := string(bytes.TrimRight(db.config.ID.Bytes(), "\x00"))
+
 	return []monkit.SeriesTag{
 		monkit.NewSeriesTag("action", a.String()),
-		monkit.NewSeriesTag("node_id", string(db.config.ID)),
+		monkit.NewSeriesTag("node_id", sanitizedID),
 	}
 }
 

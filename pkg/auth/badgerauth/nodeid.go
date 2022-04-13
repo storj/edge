@@ -4,11 +4,11 @@
 package badgerauth
 
 // NodeID is a unique id for BadgerDB node.
-type NodeID []byte
+type NodeID [32]byte
 
 // SetBytes sets the node id from bytes.
 func (id *NodeID) SetBytes(v []byte) error {
-	*id = append(NodeID{}, v...)
+	copy(id[:], v)
 	return nil
 }
 

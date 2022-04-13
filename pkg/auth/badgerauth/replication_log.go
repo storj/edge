@@ -20,9 +20,10 @@ const (
 	replicationLogEntrySeparator    = "/"
 	lenReplicationLogEntrySeparator = len(replicationLogEntrySeparator)
 
+	lenNodeID  = len(NodeID{})
 	lenKeyHash = len(authdb.KeyHash{})
 
-	minLenReplicationLogEntry = lenReplicationLogPrefix + 3*lenReplicationLogEntrySeparator + lenKeyHash + 8 + 4
+	lenReplicationLogEntry = lenReplicationLogPrefix + 3*lenReplicationLogEntrySeparator + lenNodeID + lenKeyHash + 8 + 4
 )
 
 // ReplicationLogError is a class of replication log errors.
@@ -44,7 +45,7 @@ func (e ReplicationLogEntry) Bytes() []byte {
 	var stateBytes [4]byte
 	binary.BigEndian.PutUint32(stateBytes[:], uint32(e.State))
 
-	key := make([]byte, 0, minLenReplicationLogEntry+len(e.ID))
+	key := make([]byte, 0, lenReplicationLogEntry)
 	key = append(key, replicationLogPrefix...)
 	key = append(key, e.ID.Bytes()...)
 	key = append(key, replicationLogEntrySeparator...)
@@ -67,18 +68,18 @@ func (e *ReplicationLogEntry) SetBytes(entry []byte) error {
 	// Make sure we don't keep a reference to the input entry.
 	entry = append([]byte{}, entry...)
 
-	if len(entry) < minLenReplicationLogEntry {
-		return ReplicationLogError.New("entry too short")
+	if len(entry) != lenReplicationLogEntry {
+		return ReplicationLogError.New("incorrect entry length")
 	}
 
 	entry = entry[lenReplicationLogPrefix:] // trim leftmost replicationLogPrefix
-	stateBytes, entry := entry[len(entry)-4:], entry[:len(entry)-4]
-	entry = entry[:len(entry)-lenReplicationLogEntrySeparator] // trim rightmost separator
-	keyHash, entry := entry[len(entry)-lenKeyHash:], entry[:len(entry)-lenKeyHash]
-	entry = entry[:len(entry)-lenReplicationLogEntrySeparator] // trim rightmost separator
-	clockBytes, entry := entry[len(entry)-8:], entry[:len(entry)-8]
-	entry = entry[:len(entry)-lenReplicationLogEntrySeparator] // trim rightmost separator
-	idBytes := entry                                           // ID is the remainder
+	idBytes, entry := entry[:lenNodeID], entry[lenNodeID:]
+	entry = entry[lenReplicationLogEntrySeparator:] // trim leftmost separator
+	clockBytes, entry := entry[:8], entry[8:]
+	entry = entry[lenReplicationLogEntrySeparator:] // trim leftmost separator
+	keyHash, entry := entry[:lenKeyHash], entry[lenKeyHash:]
+	entry = entry[lenReplicationLogEntrySeparator:] // trim leftmost separator
+	stateBytes := entry                             // the state is the remainder
 
 	if err := e.Clock.SetBytes(clockBytes); err != nil {
 		return ReplicationLogError.Wrap(err)

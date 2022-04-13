@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 )
 
@@ -25,12 +24,6 @@ func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.C
 	opt := badger.DefaultOptions("").WithInMemory(true).WithLogger(l)
 	db, err := badger.Open(opt)
 	require.NoError(t, err, "Open")
-
-	if c.ID == nil {
-		var id badgerauth.NodeID
-		require.NoError(t, id.SetBytes(testrand.UUID().Bytes()))
-		c.ID = id
-	}
 
 	kv, err := badgerauth.New(db, c)
 	require.NoError(t, err)

@@ -27,8 +27,11 @@ func FuzzParsingReplicationLogEntry(f *testing.F) {
 	f.Add([]byte("a bit longer ID"), uint64(math.MaxUint64), zeroKeyHash[:], int32(math.MaxInt32))
 
 	f.Fuzz(func(t *testing.T, idBytes []byte, clockValue uint64, keyHashBytes []byte, state int32) {
-		id := NodeID(idBytes)
+		var id NodeID
+		require.NoError(t, id.SetBytes(idBytes))
+
 		clock := Clock(clockValue)
+
 		// keyHashBytes might be longer than 32 bytes while fuzzing, but copy
 		// will fill out keyHash to at most that.
 		var keyHash authdb.KeyHash

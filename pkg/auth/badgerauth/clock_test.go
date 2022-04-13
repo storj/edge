@@ -19,7 +19,7 @@ func TestAdvanceClock(t *testing.T) {
 	db, err := badger.Open(opt)
 	require.NoError(t, err)
 
-	id := NodeID("id")
+	id := NodeID{'i', 'd', '1'}
 	var counter Clock
 	require.NoError(t, db.Update(func(txn *badger.Txn) error {
 		for i := 0; i < 1234; i++ {
@@ -44,7 +44,7 @@ func TestAdvanceClock(t *testing.T) {
 	}))
 
 	assert.ErrorIs(t, db.View(func(txn *badger.Txn) error {
-		_, err := ReadClock(txn, NodeID("A different ID"))
+		_, err := ReadClock(txn, NodeID{'i', 'd', '2'})
 		return err
 	}), badger.ErrKeyNotFound)
 }
