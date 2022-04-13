@@ -6,9 +6,9 @@ package badgerauth
 import (
 	"context"
 
-	"github.com/outcaste-io/badger/v3"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -24,19 +24,20 @@ var (
 
 // Config provides options for creating a Node.
 type Config struct {
-	ID NodeID
+	ID NodeID `user:"true" help:"unique identifier for the node" default:""`
 
-	// ReplicationLimit is per node ID limit of replication response entries to
-	// return.
-	ReplicationLimit int
+	// Path is where to store data. Empty means in memory.
+	Path string `user:"true" help:"path where to store data" default:""`
+
+	Address  string   `user:"true" help:"address that the node listens on" default:""`
+	Join     []string `user:"true" help:"comma delimited list of cluster peers" default:""`
+	CertsDir string   `user:"true" help:"directory for certificates for mutual authentication"`
+
+	// ReplicationLimit is per node ID limit of replication response entries to return.
+	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"100"`
 	// ConflictBackoff configures retries for conflicting transactions that may
 	// occur when Node's underlying database is under heavy load.
 	ConflictBackoff backoff.ExponentialBackoff
-
-	// Path is where to store data. Empty means in memory.
-	Path string
-	// Logger will also be passed to the underlying BadgerDB.
-	Logger Logger
 }
 
 // Node is distributed auth storage node that wraps DB with machinery to
@@ -52,25 +53,16 @@ type Node struct {
 var _ pb.DRPCReplicationServiceServer = (*Node)(nil)
 
 // New constructs new Node.
-func New(config Config) (*Node, error) {
-	opt := badger.DefaultOptions(config.Path).WithInMemory(config.Path == "")
-	if config.Logger != (Logger{}) {
-		opt = opt.WithLogger(Logger{config.Logger.Named("storage")})
-	}
-	b, err := badger.Open(opt)
+func New(log *zap.Logger, config Config) (*Node, error) {
+	db, err := OpenDB(log, config)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	db := &DB{
-		db:     b,
-		config: config,
 	}
 
 	return &Node{
 		db:     db,
 		config: config,
-	}, db.prepare()
+	}, nil
 }
 
 // UnderlyingDB returns underlying DB.

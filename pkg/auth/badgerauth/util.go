@@ -35,18 +35,12 @@ func recordsEqual(a, b *pb.Record) bool {
 	return proto.Equal(a, b)
 }
 
-// Logger wraps zap's SugaredLogger, so it's possible to use it as badger's
-// Logger.
-type Logger struct {
+// badgerLogger wraps zap's SugaredLogger, so it's possible to use it as badger's Logger.
+type badgerLogger struct {
 	*zap.SugaredLogger
 }
 
 // Warningf wraps zap's Warnf.
-func (l Logger) Warningf(format string, v ...interface{}) {
+func (l badgerLogger) Warningf(format string, v ...interface{}) {
 	l.Warnf(format, v)
-}
-
-// NewLogger returns new Logger.
-func NewLogger(s *zap.SugaredLogger) Logger {
-	return Logger{s.Named("badgerauth")}
 }

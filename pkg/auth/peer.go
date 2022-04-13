@@ -26,6 +26,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/failrate"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
@@ -61,6 +62,8 @@ type Config struct {
 	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:20000" releaseDefault:""`
 
 	DeleteUnused DeleteUnusedConfig
+
+	Node badgerauth.Config
 }
 
 // DeleteUnusedConfig is a config struct for configuring unused records deletion

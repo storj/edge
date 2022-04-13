@@ -18,11 +18,8 @@ func RunSingleNode(t *testing.T, c badgerauth.Config, fn func(ctx *testcontext.C
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	if c.Logger == (badgerauth.Logger{}) {
-		c.Logger = badgerauth.NewLogger(zaptest.NewLogger(t).Sugar())
-	}
-
-	node, err := badgerauth.New(c)
+	log := zaptest.NewLogger(t).Named("badgerauth")
+	node, err := badgerauth.New(log, c)
 	require.NoError(t, err)
 	defer ctx.Check(node.Close)
 

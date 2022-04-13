@@ -1,6 +1,9 @@
 # list of satellite NodeURLs allowed for incoming access grants
 # allowed-satellites: '[https://www.storj.io/dcs-satellites]'
 
+# log to standard error as well as files
+# alsologtostderr: false
+
 # auth security token to validate requests
 # auth-token: ""
 
@@ -94,6 +97,15 @@ listen-addr-tls: :20001
 # if true, log stack traces
 # log.stack: false
 
+# when logging hits line file:N, emit a stack trace
+# log_backtrace_at: :0
+
+# If non-empty, write log files in this directory
+# log_dir: ""
+
+# log to standard error instead of files
+# logtostderr: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -112,11 +124,41 @@ listen-addr-tls: :20001
 # create or update the database schema, and then continue service startup
 # migration: false
 
+# address that the node listens on
+node.address: ""
+
+# directory for certificates for mutual authentication
+node.certs-dir: ""
+
+# The active time between retries, typically not set
+# node.conflict-backoff.delay: 0s
+
+# The maximum total time to allow retries
+# node.conflict-backoff.max: 5m0s
+
+# The minimum time between retries
+# node.conflict-backoff.min: 100ms
+
+# unique identifier for the node
+node.id: ""
+
+# comma delimited list of cluster peers
+node.join: '[]'
+
+# path where to store data
+node.path: ""
+
+# maximum entries returned in replication response
+node.replication-limit: 100
+
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB
 
 # public url for the server, for the TLS certificate
 public-url: ""
+
+# logs at or above this threshold go to stderr
+# stderrthreshold: "2"
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
@@ -141,3 +183,9 @@ public-url: ""
 
 # how frequent to sample traces
 # tracing.sample: 0
+
+# log level for V logs
+# v: "0"
+
+# comma-separated list of pattern=N settings for file-filtered logging
+# vmodule: ""

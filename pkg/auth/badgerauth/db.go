@@ -4,13 +4,13 @@
 package badgerauth
 
 import (
-	"bytes"
 	"context"
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -60,6 +60,26 @@ type DB struct {
 	db *badger.DB
 
 	config Config
+}
+
+// OpenDB opens the underlying database for badgerauth node.
+func OpenDB(log *zap.Logger, config Config) (*DB, error) {
+	opt := badger.DefaultOptions(config.Path).WithInMemory(config.Path == "")
+	if log != nil {
+		opt = opt.WithLogger(badgerLogger{log.Sugar().Named("storage")})
+	}
+
+	db := &DB{
+		config: config,
+	}
+
+	var err error
+	db.db, err = badger.Open(opt)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return db, db.prepare()
 }
 
 // prepare ensures there's a value in the database.
@@ -303,11 +323,9 @@ func (db *DB) lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record,
 }
 
 func (db *DB) eventTags(a action) []monkit.SeriesTag {
-	sanitizedID := string(bytes.TrimRight(db.config.ID.Bytes(), "\x00"))
-
 	return []monkit.SeriesTag{
 		monkit.NewSeriesTag("action", a.String()),
-		monkit.NewSeriesTag("node_id", sanitizedID),
+		monkit.NewSeriesTag("node_id", db.config.ID.String()),
 	}
 }
 

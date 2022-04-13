@@ -12,8 +12,6 @@ timeout(time: 26, unit: 'MINUTES') {
 							stage("Environment") {
 								checkout scm
 								sh 'mkdir -p .build'
-								// make a backup of the mod file in case, for later linting
-								sh 'cp go.mod .build/go.mod.orig'
 								sh 'make build-packages'
 							}
 						}
@@ -36,6 +34,7 @@ timeout(time: 26, unit: 'MINUTES') {
 
 						branchedStages["Lint"] = {
 							stage("Lint") {
+								sh 'check-mod-tidy'
 								sh 'check-copyright'
 								sh 'check-large-files'
 								sh 'check-imports -race ./...'
@@ -46,7 +45,6 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'staticcheck ./...'
 								sh 'golangci-lint run --config /go/ci/.golangci.yml'
 								sh 'check-downgrades'
-								sh 'check-mod-tidy -mod .build/go.mod.orig'
 
 								// A bit of an explanation around this shellcheck command:
 								// * Find all scripts recursively that have the .sh extension, except for "testsuite@tmp" which Jenkins creates temporarily.
@@ -60,7 +58,6 @@ timeout(time: 26, unit: 'MINUTES') {
 									sh 'check-errs ./...'
 									sh 'staticcheck ./...'
 									sh 'golangci-lint run --config /go/ci/.golangci.yml'
-									sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
 								}
 							}
 						}

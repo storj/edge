@@ -13,15 +13,13 @@ import (
 )
 
 func TestAdvanceClock(t *testing.T) {
-	l := NewLogger(zaptest.NewLogger(t).Sugar())
-
-	opt := badger.DefaultOptions("").WithInMemory(true).WithLogger(l)
-	db, err := badger.Open(opt)
+	db, err := OpenDB(zaptest.NewLogger(t), Config{})
 	require.NoError(t, err)
+	udb := db.UnderlyingDB()
 
 	id := NodeID{'i', 'd', '1'}
 	var counter Clock
-	require.NoError(t, db.Update(func(txn *badger.Txn) error {
+	require.NoError(t, udb.Update(func(txn *badger.Txn) error {
 		for i := 0; i < 1234; i++ {
 			fromNext, err := advanceClock(txn, id)
 			require.NoError(t, err)
@@ -36,14 +34,14 @@ func TestAdvanceClock(t *testing.T) {
 		return err
 	}))
 
-	require.NoError(t, db.View(func(txn *badger.Txn) error {
+	require.NoError(t, udb.View(func(txn *badger.Txn) error {
 		v, err := ReadClock(txn, id)
 		assert.NoError(t, err)
 		assert.Equal(t, counter, v)
 		return err
 	}))
 
-	assert.ErrorIs(t, db.View(func(txn *badger.Txn) error {
+	assert.ErrorIs(t, udb.View(func(txn *badger.Txn) error {
 		_, err := ReadClock(txn, NodeID{'i', 'd', '2'})
 		return err
 	}), badger.ErrKeyNotFound)
