@@ -76,10 +76,13 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	var err error
 	db.db, err = badger.Open(opt)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Error.New("open: %w", err)
 	}
-
-	return db, db.prepare()
+	if err := db.prepare(); err != nil {
+		_ = db.db.Close()
+		return nil, Error.New("prepare: %w", err)
+	}
+	return db, nil
 }
 
 // prepare ensures there's a value in the database.
