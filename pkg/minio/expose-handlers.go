@@ -200,12 +200,6 @@ func GetBucketACLHandler(objectAPIHandlers, http.ResponseWriter, *http.Request)
 //go:linkname PutBucketACLHandler storj.io/minio/cmd.objectAPIHandlers.PutBucketACLHandler
 func PutBucketACLHandler(objectAPIHandlers, http.ResponseWriter, *http.Request)
 
-// GetBucketCorsHandler exposes minio's cmd.objectAPIHandlers.GetBucketCorsHandler
-//
-//nolint: golint
-//go:linkname GetBucketCorsHandler storj.io/minio/cmd.objectAPIHandlers.GetBucketCorsHandler
-func GetBucketCorsHandler(objectAPIHandlers, http.ResponseWriter, *http.Request)
-
 // GetBucketWebsiteHandler exposes minio's cmd.objectAPIHandlers.GetBucketWebsiteHandler
 //
 //nolint: golint

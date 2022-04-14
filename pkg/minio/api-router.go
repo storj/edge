@@ -15,11 +15,11 @@ import (
 )
 
 // RegisterAPIRouter - registers S3 compatible APIs.
-func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []string, concurrentAllowed uint) {
-	api := objectAPIHandlers{
+func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
+	api := objectAPIHandlersWrapper{objectAPIHandlers{
 		ObjectAPI: func() cmd.ObjectLayer { return layer },
 		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
-	}
+	}, corsAllowedOrigins}
 
 	// limit the conccurrency of uploads and downloads per macaroon head
 	limit := middleware.NewMacaroonLimiter(concurrentAllowed,

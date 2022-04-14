@@ -127,3 +127,9 @@ func SetObjectLayer(o cmd.ObjectLayer)
 //nolint: golint
 //go:linkname WriteErrorResponse storj.io/minio/cmd.writeErrorResponse
 func WriteErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
+
+// WriteResponse exposes minio's cmd.WriteResponse.
+//
+//nolint: golint
+//go:linkname WriteResponse storj.io/minio/cmd.writeResponse
+func WriteResponse(w http.ResponseWriter, statusCode int, response []byte, mType string)
