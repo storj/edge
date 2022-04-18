@@ -4,6 +4,7 @@
 package badgerauth
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 
 const (
 	recordTerminatedEventName = "record_terminated"
-	startTimeEntryKey         = "start_time"
+	nodeIDKey                 = "node_id"
 )
 
 var (
@@ -31,6 +32,9 @@ var (
 
 	// ErrKeyAlreadyExists is an error returned when putting a key that exists.
 	ErrKeyAlreadyExists = Error.New("key already exists")
+
+	// ErrDBStartedWithDifferentNodeID is returned when a database is started with a different node id.
+	ErrDBStartedWithDifferentNodeID = errs.Class("wrong node id")
 
 	errOperationNotSupported           = Error.New("operation not supported")
 	errKeyAlreadyExistsRecordsNotEqual = Error.New("key already exists and records aren't equal")
@@ -89,13 +93,21 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 // this allows to ensure that the database is functional.
 func (db *DB) prepare() (err error) {
 	defer mon.Task(db.eventTags(put)...)(nil)(&err)
-	err = db.db.Update(func(txn *badger.Txn) error {
-		now := time.Now()
-		text := now.Format(time.RFC3339)
-		err := txn.Set([]byte(startTimeEntryKey), []byte(text))
-		return Error.Wrap(err)
+	return db.db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(nodeIDKey))
+		if err != nil {
+			if errs.Is(err, badger.ErrKeyNotFound) {
+				return Error.Wrap(txn.Set([]byte(nodeIDKey), db.config.ID.Bytes()))
+			}
+		}
+
+		return Error.Wrap(item.Value(func(val []byte) error {
+			if !bytes.Equal(val, db.config.ID.Bytes()) {
+				return ErrDBStartedWithDifferentNodeID.New("database %x, configuration %x", val, db.config.ID.Bytes())
+			}
+			return nil
+		}))
 	})
-	return Error.Wrap(err)
 }
 
 // Close closes the underlying BadgerDB database.
@@ -186,7 +198,7 @@ func (db *DB) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.View(func(txn *badger.Txn) error {
-		_, err := txn.Get([]byte(startTimeEntryKey))
+		_, err := txn.Get([]byte(nodeIDKey))
 		return err
 	})
 	if err != nil {

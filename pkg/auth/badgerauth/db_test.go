@@ -10,6 +10,8 @@ import (
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -420,4 +422,25 @@ func TestBasicCycleWithExpiration(t *testing.T) {
 		// verify replication log after get (t+1)
 		badgerauthtest.VerifyReplicationLog{}.Check(ctx, t, db.UnderlyingDB())
 	})
+}
+
+func TestOpenDB_BadNodeID(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	cfg := badgerauth.Config{
+		ID:   badgerauth.NodeID{'a'},
+		Path: ctx.File("badger.db"),
+	}
+
+	db, err := badgerauth.OpenDB(log, cfg)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	cfg.ID = badgerauth.NodeID{'b'}
+	db, err = badgerauth.OpenDB(log, cfg)
+	require.Nil(t, db)
+	require.Error(t, err)
+	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
 }
