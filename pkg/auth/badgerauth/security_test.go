@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	mathrand "math/rand"
+	"net"
 	"testing"
 	"time"
 
@@ -104,6 +105,7 @@ func createTestingPool(t *testing.T, count int) certificatePool {
 			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 			KeyUsage:              x509.KeyUsageDigitalSignature,
 			BasicConstraintsValid: true,
+			IPAddresses:           []net.IP{{127, 0, 0, 1}},
 		}
 
 		pk, err := rsa.GenerateKey(rng, 4096)

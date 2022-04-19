@@ -116,6 +116,9 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	return node, nil
 }
 
+// ID returns the configured node id.
+func (node *Node) ID() NodeID { return node.config.ID }
+
 // Address returns the server address.
 func (node *Node) Address() string {
 	return node.listener.Addr().String()
@@ -141,6 +144,13 @@ func (node *Node) Close() error {
 		g.Add(node.db.Close())
 	}
 	return Error.Wrap(g.Err())
+}
+
+// Ping allows to fetch information about the node.
+func (node *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	return &pb.PingResponse{
+		NodeId: node.config.ID.Bytes(),
+	}, nil
 }
 
 // Replicate implements a node's ability to ship its replication log/records to
