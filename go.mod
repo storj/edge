@@ -10,7 +10,7 @@ require (
 	github.com/miekg/dns v1.1.35
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.7.0
-	github.com/outcaste-io/badger/v3 v3.2202.0
+	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220409155652-232f5040a908
 	github.com/rs/cors v1.7.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.17
 	github.com/spf13/cobra v1.1.3
@@ -49,8 +49,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/coredns/coredns v1.4.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -98,7 +97,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/klauspost/compress v1.13.4 // indirect
+	github.com/klauspost/compress v1.14.3 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -132,7 +131,7 @@ require (
 	github.com/ncw/directio v1.0.5 // indirect
 	github.com/nsqio/go-nsq v1.0.8 // indirect
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
-	github.com/outcaste-io/ristretto v0.2.0 // indirect
+	github.com/outcaste-io/ristretto v0.1.1-0.20220408180327-81c196f2b5ef // indirect
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
@@ -173,7 +172,7 @@ require (
 	github.com/zeebo/structs v1.0.2 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect

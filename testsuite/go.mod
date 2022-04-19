@@ -36,8 +36,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
@@ -100,7 +99,7 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/klauspost/compress v1.13.4 // indirect
+	github.com/klauspost/compress v1.14.3 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -140,8 +139,8 @@ require (
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
-	github.com/outcaste-io/badger/v3 v3.2202.0 // indirect
-	github.com/outcaste-io/ristretto v0.2.0 // indirect
+	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220409155652-232f5040a908 // indirect
+	github.com/outcaste-io/ristretto v0.1.1-0.20220408180327-81c196f2b5ef // indirect
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -188,7 +187,7 @@ require (
 	go.opentelemetry.io/otel v0.18.0 // indirect
 	go.opentelemetry.io/otel/metric v0.18.0 // indirect
 	go.opentelemetry.io/otel/trace v0.18.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/mod v0.4.2 // indirect
