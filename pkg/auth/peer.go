@@ -28,7 +28,6 @@ import (
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
-	"storj.io/gateway-mt/pkg/auth/failrate"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
@@ -39,13 +38,11 @@ const serverShutdownTimeout = 10 * time.Second
 
 // Config holds authservice's configuration.
 type Config struct {
-	Endpoint                     string        `help:"Gateway endpoint URL to return to clients" default:""`
-	AuthToken                    string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
-	POSTSizeLimit                memory.Size   `help:"maximum size that the incoming POST request body with access grant can be" default:"4KiB"`
-	AllowedSatellites            []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
-	CacheExpiration              time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
-	GetAccessRateLimiters        failrate.LimitersConfig
-	GetAccessRateLimitersEnabled bool `help:"indicates if rate-limiting for GetAccess endpoints is enabled" default:"false"`
+	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
+	AuthToken         string        `help:"auth security token to validate requests" releaseDefault:"" devDefault:""`
+	POSTSizeLimit     memory.Size   `help:"maximum size that the incoming POST request body with access grant can be" default:"4KiB"`
+	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
+	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
@@ -136,16 +133,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	adb := authdb.NewDatabase(kv, allowedSats)
-
-	var rl *failrate.Limiters
-	if config.GetAccessRateLimitersEnabled {
-		rl, err = failrate.NewLimiters(config.GetAccessRateLimiters)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, rl, config.POSTSizeLimit)
+	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
 		LetsEncrypt: config.LetsEncrypt,

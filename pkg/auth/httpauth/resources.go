@@ -7,18 +7,14 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/failrate"
 )
 
 // Resources wrap a database and expose methods over HTTP.
@@ -27,10 +23,9 @@ type Resources struct {
 	endpoint  *url.URL
 	authToken string
 
-	handler               http.Handler
-	id                    *Arg
-	getAccessRateLimiters *failrate.Limiters
-	postSizeLimit         memory.Size
+	handler       http.Handler
+	id            *Arg
+	postSizeLimit memory.Size
 
 	log *zap.Logger
 
@@ -45,7 +40,6 @@ func New(
 	db *authdb.Database,
 	endpoint *url.URL,
 	authToken string,
-	getAccessRL *failrate.Limiters,
 	postSizeLimit memory.Size,
 ) *Resources {
 	res := &Resources{
@@ -53,10 +47,9 @@ func New(
 		endpoint:  endpoint,
 		authToken: authToken,
 
-		id:                    new(Arg),
-		log:                   log,
-		getAccessRateLimiters: getAccessRL,
-		postSizeLimit:         postSizeLimit,
+		id:            new(Arg),
+		log:           log,
+		postSizeLimit: postSizeLimit,
 	}
 
 	res.handler = Dir{
@@ -104,15 +97,6 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
 	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
 	http.Error(w, msg, status)
-}
-
-// writeTooManyRequests writes in w an 429 status response with the Retry-After
-// header set to delay.
-func (res *Resources) writeTooManyRequests(w http.ResponseWriter, method string, msg string, delay time.Duration) {
-	w.Header().Set(
-		"Retry-After", strconv.FormatFloat(math.Ceil(delay.Seconds()), 'f', 0, 64),
-	)
-	res.writeError(w, method, msg, http.StatusTooManyRequests)
 }
 
 // SetStartupDone sets the startup status flag to true indicating startup is complete.
@@ -248,35 +232,17 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	succeeded, failed := func() {}, func() {}
-	if res.getAccessRateLimiters != nil {
-		var (
-			allowed bool
-			delay   time.Duration
-		)
-		allowed, succeeded, failed, delay = res.getAccessRateLimiters.AllowReq(req)
-		if !allowed {
-			res.writeTooManyRequests(
-				w, "getAccess", "too many requests initiated with invalid ones", delay,
-			)
-			return
-		}
-	}
-
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
 		if authdb.NotFound.Has(err) {
-			failed()
 			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		succeeded()
 		res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	succeeded()
 	var response struct {
 		AccessGrant string `json:"access_grant"`
 		SecretKey   string `json:"secret_key"`

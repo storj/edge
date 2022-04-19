@@ -49,18 +49,6 @@ drpc-listen-addr-tls: :20003
 # Gateway endpoint URL to return to clients
 # endpoint: ""
 
-# indicates if rate-limiting for GetAccess endpoints is enabled
-# get-access-rate-limiters-enabled: false
-
-# maximum number of allowed operations to overpass the maximum operations per second
-# get-access-rate-limiters.burst: 3
-
-# maximum number of allowed operations per second starting when first failure operation happens
-# get-access-rate-limiters.max-reqs-second: 2
-
-# maximum number of keys/rate-limit pairs stored in the LRU cache
-# get-access-rate-limiters.num-limits: 1000
-
 # server key file
 key-file: ""
 
