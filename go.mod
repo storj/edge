@@ -23,13 +23,13 @@ require (
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220328200721-dd5c8642e8cf
+	storj.io/common v0.0.0-20220405183405-ffdc3ab808c6
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.30
-	storj.io/gateway v1.6.2
-	storj.io/minio v0.0.0-20220309151502-d6f2ba63d1c6
+	storj.io/gateway v1.7.0
+	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
 	storj.io/private v0.0.0-20220323114243-08c4b5e752f4
-	storj.io/uplink v1.8.2-0.20220328201716-2ca4df442232
+	storj.io/uplink v1.8.2-0.20220407093708-c14c5e4930b3
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -51,7 +51,7 @@ require (
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
-	github.com/coredns/coredns v1.4.0 // indirect
+	github.com/coredns/coredns v1.6.6 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
@@ -169,7 +169,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
-	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect

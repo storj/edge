@@ -107,7 +107,7 @@ auth.token: ""
 # metrics.interval: 1m0s
 
 # return 501 (Not Implemented) for CopyObject calls
-# s3compatibility.disable-copy-object: true
+# s3compatibility.disable-copy-object: false
 
 # make ListObjects(V2) fully S3-compatible (specifically: always return lexicographically ordered results) but slow
 # s3compatibility.fully-compatible-listing: false
