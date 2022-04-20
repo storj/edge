@@ -7,14 +7,19 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"sync"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/sync2"
+	"storj.io/drpc/drpcconn"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -39,6 +44,8 @@ type Config struct {
 	Join     []string `user:"true" help:"comma delimited list of cluster peers" default:""`
 	CertsDir string   `user:"true" help:"directory for certificates for mutual authentication"`
 
+	// ReplicationInterval defines how often to connect and request status from other nodes.
+	ReplicationInterval time.Duration `user:"true" help:"how often to replicate" default:"1m" devDefault:"5s"`
 	// ReplicationLimit is per node ID limit of replication response entries to return.
 	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"100"`
 	// ConflictBackoff configures retries for conflicting transactions that may
@@ -52,7 +59,8 @@ type Config struct {
 // Node is distributed auth storage node that wraps DB with machinery to
 // replicate records from and to other nodes.
 type Node struct {
-	db *DB
+	log *zap.Logger
+	db  *DB
 
 	config Config
 
@@ -60,6 +68,9 @@ type Node struct {
 	listener net.Listener
 	mux      *drpcmux.Mux
 	server   *drpcserver.Server
+	peers    []*Peer
+
+	SyncCycle sync2.Cycle
 }
 
 // Below is a compile-time check ensuring Node implements the
@@ -69,9 +80,12 @@ var _ pb.DRPCReplicationServiceServer = (*Node)(nil)
 // New constructs new Node.
 func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	node := &Node{
+		log:    log,
 		config: config,
 		mux:    drpcmux.New(),
 	}
+	node.SyncCycle.SetInterval(config.ReplicationInterval)
+
 	defer func() {
 		if err != nil {
 			_ = node.Close()
@@ -127,10 +141,32 @@ func (node *Node) Address() string {
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
+	for _, join := range node.config.Join {
+		node.peers = append(node.peers, NewPeer(node, join))
+	}
+	group.Go(func() error {
+		err := node.SyncCycle.Run(ctx, node.syncAll)
+		if errs2.IsCanceled(err) {
+			err = nil
+		}
+		return err
+	})
+
 	group.Go(func() error {
 		return Error.Wrap(node.server.Serve(ctx, node.listener))
 	})
+
 	return Error.Wrap(group.Wait())
+}
+
+// syncAll tries to synchronize all nodes.
+func (node *Node) syncAll(ctx context.Context) error {
+	for _, peer := range node.peers {
+		if err := peer.Sync(ctx); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Close releases underlying resources.
@@ -179,4 +215,138 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (*p
 // UnderlyingDB returns underlying DB.
 func (node *Node) UnderlyingDB() *DB {
 	return node.db
+}
+
+// TestingSetJoin sets peer nodes to join to.
+func (node *Node) TestingSetJoin(addresses []string) {
+	node.config.Join = addresses
+}
+
+// TestingPeers allows to access the peers for testing.
+func (node *Node) TestingPeers(ctx context.Context) []*Peer {
+	return node.peers
+}
+
+// Peer represents a node peer replication logic.
+type Peer struct {
+	address string
+	node    *Node
+	log     *zap.Logger
+
+	mu     sync.Mutex
+	status PeerStatus
+}
+
+// PeerStatus contains last known peer status.
+type PeerStatus struct {
+	Address string
+	NodeID  NodeID
+
+	LastUpdated time.Time
+	LastWasUp   bool
+	LastError   error
+
+	Clock Clock
+}
+
+// NewPeer returns a replication peer.
+func NewPeer(node *Node, address string) *Peer {
+	peer := &Peer{
+		address: address,
+		node:    node,
+		log:     node.log.Named(address),
+	}
+	peer.status.Address = address
+	return peer
+}
+
+// Sync runs the synchronization step once.
+func (peer *Peer) Sync(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return peer.withClient(ctx,
+		func(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
+			defer mon.Task()(&ctx)(&err)
+
+			resp, err := client.Ping(ctx, &pb.PingRequest{})
+			if err != nil {
+				peer.statusDown(ctx, err)
+				return nil
+			}
+
+			var nodeid NodeID
+			if err := nodeid.SetBytes(resp.NodeId); err != nil {
+				peer.statusDown(ctx, err)
+				return nil
+			}
+			peer.statusUp(ctx)
+
+			if nodeid == peer.node.ID() {
+				return Error.New("started with the same node ID (%s) as %s:", nodeid, peer.address)
+			}
+
+			return nil
+		})
+}
+
+func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dialFinished := mon.TaskNamed("dial")(&ctx)
+
+	var dialer interface {
+		DialContext(context.Context, string, string) (net.Conn, error)
+	}
+	if !peer.node.config.InsecureDisableTLS {
+		dialer = &tls.Dialer{Config: peer.node.tls}
+	} else {
+		dialer = &net.Dialer{}
+	}
+	rawconn, err := dialer.DialContext(ctx, "tcp", peer.address)
+	dialFinished(&err)
+
+	if err != nil {
+		peer.log.Warn("dial failed", zap.String("address", peer.address), zap.Error(err))
+		peer.statusDown(ctx, err)
+		return nil
+	}
+
+	conn := drpcconn.New(rawconn)
+	defer func() { _ = rawconn.Close() }()
+
+	return fn(ctx, pb.NewDRPCReplicationServiceClient(conn))
+}
+
+// statusUp changes peer status to up.
+func (peer *Peer) statusUp(ctx context.Context) {
+	mon.Event("peer_up", monkit.NewSeriesTag("address", peer.address))
+	peer.changeStatus(func(status *PeerStatus) {
+		status.LastUpdated = time.Now()
+		status.LastWasUp = true
+		status.LastError = nil
+	})
+}
+
+// statusDown changes peer status to down.
+func (peer *Peer) statusDown(ctx context.Context, err error) {
+	mon.Event("peer_down", monkit.NewSeriesTag("address", peer.address))
+	peer.changeStatus(func(status *PeerStatus) {
+		status.LastUpdated = time.Now()
+		status.LastWasUp = false
+		status.LastError = err
+	})
+}
+
+// changeStatus uses a callback to safely change peer status.
+func (peer *Peer) changeStatus(fn func(status *PeerStatus)) {
+	peer.mu.Lock()
+	defer peer.mu.Unlock()
+	fn(&peer.status)
+}
+
+// Status returns a snapshot of the peer status.
+func (peer *Peer) Status() PeerStatus {
+	peer.mu.Lock()
+	defer peer.mu.Unlock()
+	return peer.status
 }

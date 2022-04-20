@@ -124,6 +124,9 @@ node.join: '[]'
 # path where to store data
 node.path: ""
 
+# how often to replicate
+node.replication-interval: 1m0s
+
 # maximum entries returned in replication response
 node.replication-limit: 100
 
