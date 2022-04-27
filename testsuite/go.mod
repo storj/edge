@@ -213,9 +213,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
-	storj.io/gateway v1.7.0 // indirect
+	storj.io/gateway v1.7.1-0.20220426161334-421d9c37112b // indirect
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
-	storj.io/uplink v1.8.2-0.20220407093708-c14c5e4930b3 // indirect
+	storj.io/uplink v1.8.2-0.20220425093614-32fc6af58748 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )
