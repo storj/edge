@@ -273,6 +273,64 @@ func (db *DB) findResponseEntries(nodeID NodeID, clock Clock) ([]*pb.Replication
 	})
 }
 
+// ensureClock ensures an initial clock (=0) exists for a given id.
+func (db *DB) ensureClock(ctx context.Context, id NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		return ensureClock(txn, id)
+	}))
+}
+
+func (db *DB) buildRequestEntries() ([]*pb.ReplicationRequestEntry, error) {
+	var request []*pb.ReplicationRequestEntry
+
+	return request, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
+		// TODO(artur): to ensure a lower load on the backing store, consider
+		// reading available clocks only once and maintaining a cache of clocks.
+		availableClocks, err := readAvailableClocks(txn)
+		if err != nil {
+			return err
+		}
+
+		// We don't need the local node ID in the replication request.
+		delete(availableClocks, db.config.ID)
+
+		for id, clock := range availableClocks {
+			request = append(request, &pb.ReplicationRequestEntry{
+				NodeId: id[:],
+				Clock:  uint64(clock),
+			})
+		}
+
+		return nil
+	}))
+}
+
+func (db *DB) insertResponseEntries(ctx context.Context, response *pb.ReplicationResponse) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		for i, entry := range response.Entries {
+			var (
+				id      NodeID
+				keyHash authdb.KeyHash
+			)
+
+			if err = id.SetBytes(entry.NodeId); err != nil {
+				return err
+			}
+			// TODO(artur): authdb.KeyHash needs the same abstraction as NodeID.
+			copy(keyHash[:], entry.EncryptionKeyHash)
+
+			if err = InsertRecord(txn, id, keyHash, entry.Record); err != nil {
+				return errs.New("failed to insert entry no. %d (%v) from %v: %w", i, keyHash, id, err)
+			}
+		}
+		return nil
+	}))
+}
+
 func (db *DB) eventTags(a action) []monkit.SeriesTag {
 	return []monkit.SeriesTag{
 		monkit.NewSeriesTag("action", a.String()),

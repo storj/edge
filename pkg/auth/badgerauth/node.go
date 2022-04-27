@@ -44,9 +44,11 @@ type Config struct {
 	Join     []string `user:"true" help:"comma delimited list of cluster peers" default:""`
 	CertsDir string   `user:"true" help:"directory for certificates for mutual authentication"`
 
-	// ReplicationInterval defines how often to connect and request status from other nodes.
+	// ReplicationInterval defines how often to connect and request status from
+	// other nodes.
 	ReplicationInterval time.Duration `user:"true" help:"how often to replicate" default:"1m" devDefault:"5s"`
-	// ReplicationLimit is per node ID limit of replication response entries to return.
+	// ReplicationLimit is per node ID limit of replication response entries to
+	// return.
 	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"100"`
 	// ConflictBackoff configures retries for conflicting transactions that may
 	// occur when Node's underlying database is under heavy load.
@@ -173,7 +175,8 @@ func (node *Node) syncAll(ctx context.Context) error {
 func (node *Node) Close() error {
 	var g errs.Group
 	if node.listener != nil {
-		// if the server is started, then `server.Serve` automatically closes the listener
+		// if the server is started, then `server.Serve` automatically closes
+		// the listener.
 		_ = node.listener.Close()
 	}
 	if node.db != nil {
@@ -198,16 +201,20 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (*p
 		var id NodeID
 
 		if err := id.SetBytes(reqEntry.NodeId); err != nil {
+			node.log.Info("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 
 		entries, err := node.db.findResponseEntries(id, Clock(reqEntry.Clock))
 		if err != nil {
+			node.log.Info("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		response.Entries = append(response.Entries, entries...)
 	}
+
+	node.log.Debug("replication response successful", zap.Int("count", len(response.Entries)))
 
 	return &response, nil
 }
@@ -233,8 +240,9 @@ type Peer struct {
 	node    *Node
 	log     *zap.Logger
 
-	mu     sync.Mutex
-	status PeerStatus
+	ensuredClock bool
+	mu           sync.Mutex
+	status       PeerStatus
 }
 
 // PeerStatus contains last known peer status.
@@ -268,25 +276,79 @@ func (peer *Peer) Sync(ctx context.Context) (err error) {
 		func(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
 			defer mon.Task()(&ctx)(&err)
 
-			resp, err := client.Ping(ctx, &pb.PingRequest{})
+			ok, err := peer.pingClient(ctx, client)
 			if err != nil {
-				peer.statusDown(ctx, err)
+				return err // already wrapped if needed
+			}
+			if !ok {
+				peer.log.Warn("peer is down, skipping records sync")
 				return nil
 			}
 
-			var nodeid NodeID
-			if err := nodeid.SetBytes(resp.NodeId); err != nil {
-				peer.statusDown(ctx, err)
-				return nil
-			}
-			peer.statusUp(ctx)
-
-			if nodeid == peer.node.ID() {
-				return Error.New("started with the same node ID (%s) as %s:", nodeid, peer.address)
+			if err = peer.syncRecords(ctx, client); err != nil {
+				return err // already wrapped if needed
 			}
 
 			return nil
 		})
+}
+
+func (peer *Peer) pingClient(ctx context.Context, client pb.DRPCReplicationServiceClient) (ok bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	resp, err := client.Ping(ctx, &pb.PingRequest{})
+	if err != nil {
+		peer.statusDown(ctx, err)
+		return false, nil
+	}
+
+	var clientID NodeID
+	if err = clientID.SetBytes(resp.NodeId); err != nil {
+		peer.statusDown(ctx, err)
+		return false, nil
+	}
+	peer.statusUp(ctx)
+
+	if clientID == peer.node.ID() {
+		return false, Error.New("started with the same node ID (%s) as %s:", clientID, peer.address)
+	}
+
+	if !peer.ensuredClock {
+		if err = peer.node.UnderlyingDB().ensureClock(ctx, clientID); err != nil {
+			return false, Error.New("couldn't ensure clock for %s: %w", clientID, err)
+		}
+		peer.ensuredClock = true
+	}
+
+	return true, nil
+}
+
+func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	db := peer.node.UnderlyingDB()
+
+	requestEntries, err := db.buildRequestEntries()
+	if err != nil {
+		peer.log.Error("failed to accumulate node IDs/clocks", zap.Error(err))
+		return nil
+	}
+
+	// No need to make this call in a transaction since this replication process
+	// doesn't run concurrently as of now.
+	response, err := client.Replicate(ctx, &pb.ReplicationRequest{
+		Entries: requestEntries,
+	})
+	if err != nil {
+		peer.log.Error("failed to request replication", zap.Error(err))
+		return nil
+	}
+
+	if err = db.insertResponseEntries(ctx, response); err != nil {
+		peer.log.Error("failed to process replication response", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error) (err error) {

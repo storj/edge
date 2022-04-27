@@ -71,6 +71,19 @@ func advanceClock(txn *badger.Txn, id NodeID) (next Clock, _ error) {
 	return current, ClockError.Wrap(txn.Set(key, current.Bytes()))
 }
 
+func ensureClock(txn *badger.Txn, id NodeID) error {
+	key := makeClockKey(id)
+
+	_, err := txn.Get(key)
+	if err != nil && !errs.Is(err, badger.ErrKeyNotFound) {
+		return ClockError.Wrap(err)
+	} else if errs.Is(err, badger.ErrKeyNotFound) {
+		return ClockError.Wrap(txn.Set(key, Clock.Bytes(0)))
+	}
+
+	return nil
+}
+
 func readAvailableClocks(txn *badger.Txn) (map[NodeID]Clock, error) {
 	idToClock := make(map[NodeID]Clock)
 
