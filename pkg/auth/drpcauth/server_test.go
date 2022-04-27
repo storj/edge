@@ -6,10 +6,13 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -30,21 +33,21 @@ var minimalAccessSatelliteID = func() storj.NodeID {
 	return url.ID
 }()
 
-func createBackend(t *testing.T) (*Server, *authdb.Database) {
+func createBackend(t *testing.T, sizeLimit memory.Size) (*Server, *authdb.Database) {
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
 	allowedSatelliteIDs := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
 
 	db := authdb.NewDatabase(memauth.New(), allowedSatelliteIDs)
 
-	return NewServer(zaptest.NewLogger(t), db, endpoint), db
+	return NewServer(zaptest.NewLogger(t), db, endpoint, sizeLimit), db
 }
 
 func TestRegisterAccess(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	server, db := createBackend(t)
+	server, db := createBackend(t, 4*memory.KiB)
 
 	response, err := server.RegisterAccess(
 		ctx,
@@ -72,4 +75,32 @@ func TestRegisterAccess(t *testing.T) {
 	require.Equal(t, false, storedPublic)
 	require.Equal(t, minimalAccess, storedAccessGrant)
 	require.Equal(t, response.SecretKey, storedSecretKey.ToBase32())
+}
+
+func TestRegisterAccessTooLarge(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	server, _ := createBackend(t, memory.Size(len(minimalAccess)))
+
+	_, err := server.RegisterAccess(
+		ctx,
+		&pb.EdgeRegisterAccessRequest{
+			AccessGrant: minimalAccess + "a",
+			Public:      false,
+		},
+	)
+	require.Error(t, err)
+
+	assert.Equal(t, rpcstatus.Code(err), rpcstatus.InvalidArgument)
+	assert.EqualError(t, err, "provided access grant is too large")
+
+	_, err = server.RegisterAccess(
+		ctx,
+		&pb.EdgeRegisterAccessRequest{
+			AccessGrant: minimalAccess,
+			Public:      false,
+		},
+	)
+	require.NoError(t, err)
 }

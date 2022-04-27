@@ -16,8 +16,10 @@ import (
 	"net/url"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/drpc/drpcmux"
@@ -36,8 +38,9 @@ type Server struct {
 
 	// This is duplicated with package storj.io/gateway-mt/pkg/auth/httpauth/resources
 	// TODO: factor out common functionality
-	db       *authdb.Database
-	endpoint *url.URL
+	db                   *authdb.Database
+	endpoint             *url.URL
+	accessGrantSizeLimit memory.Size
 }
 
 // NewServer creates a Server that is not running.
@@ -45,11 +48,13 @@ func NewServer(
 	log *zap.Logger,
 	db *authdb.Database,
 	endpoint *url.URL,
+	accessGrantSizeLimit memory.Size,
 ) *Server {
 	return &Server{
-		log:      log,
-		db:       db,
-		endpoint: endpoint,
+		log:                  log,
+		db:                   db,
+		endpoint:             endpoint,
+		accessGrantSizeLimit: accessGrantSizeLimit,
 	}
 }
 
@@ -63,8 +68,18 @@ func (g *Server) RegisterAccess(
 
 	g.log.Debug("DRPC RegisterAccess request")
 
-	response, err := g.registerAccessImpl(ctx, request)
+	// NOTE(artur): DRPC's default message limit is 4 MiB, so we will read such
+	// messages anyway, but Auth Service would blow up memory consumption
+	// because it copies this access grant several times later on. Avoiding
+	// processing the access grant should effectively mitigate this kind of DoS
+	// attack.
+	if len(request.AccessGrant) > g.accessGrantSizeLimit.Int() {
+		err = errs.New("provided access grant is too large")
+		g.log.Error("DRPC RegisterAccess failed", zap.Error(err))
+		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+	}
 
+	response, err := g.registerAccessImpl(ctx, request)
 	if err != nil {
 		g.log.Error("DRPC RegisterAccess failed", zap.Error(err))
 		err = rpcstatus.Wrap(rpcstatus.Internal, err)

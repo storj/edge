@@ -156,7 +156,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		Handler: handler,
 	}
 
-	drpcServer := drpcauth.NewServer(log, adb, endpoint)
+	drpcServer := drpcauth.NewServer(log, adb, endpoint, config.POSTSizeLimit)
 
 	return &Peer{
 		log:        log,
