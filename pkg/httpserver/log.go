@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
+
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
@@ -18,6 +20,7 @@ func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 			zap.String("method", r.Method),
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
+			zap.String("remote-ip", remoteIP(r)),
 			// we are deliberately not logging the request URI as it has
 			// sensitive information in it.
 		)
@@ -58,8 +61,13 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				// sensitive information in it.
 				zap.Int("code", code),
 				zap.String("user-agent", r.UserAgent()),
+				zap.String("remote-ip", remoteIP(r)),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),
 				zap.Duration("duration", time.Since(start)))
 		}))
+}
+
+func remoteIP(r *http.Request) string {
+	return trustedip.GetClientIP(trustedip.NewListTrustAll(), r)
 }
