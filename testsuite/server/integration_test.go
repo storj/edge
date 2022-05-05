@@ -150,11 +150,14 @@ func TestUploadDownload(t *testing.T) {
 			rawClient, ok := client.(*minioclient.Minio)
 			require.True(t, ok)
 
-			err = rawClient.UploadMultipart(ctx, bucket, objectName, data, partSize.Int(), 0)
+			expectedMetadata := map[string]string{
+				"foo": "bar",
+			}
+			err = rawClient.UploadMultipart(ctx, bucket, objectName, data, partSize.Int(), 0, expectedMetadata)
 			require.NoError(t, err)
 
 			// TODO find out why with prefix set its hanging test
-			for objInfo := range rawClient.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: ""}) {
+			for objInfo := range rawClient.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: "", WithMetadata: true}) {
 				require.Equal(t, objectName, objInfo.Key)
 
 				// Minio adds a double quote to ETag, sometimes.
@@ -163,8 +166,17 @@ func TestUploadDownload(t *testing.T) {
 				etag = strings.TrimSuffix(etag, `"`)
 
 				require.Equal(t, expectedETag, etag)
+				// returned metadata is not fully processed so lets compare only single entry
+				require.Equal(t, "bar", objInfo.UserMetadata["X-Amz-Meta-Foo"])
 				break
 			}
+
+			object, err := rawClient.API.StatObject(ctx, bucket, objectName, minio.StatObjectOptions{})
+			require.NoError(t, err)
+			// TODO figure out why it returns "Foo:bar", instead "foo:bar"
+			require.EqualValues(t, map[string]string{
+				"Foo": "bar",
+			}, object.UserMetadata)
 
 			buffer := make([]byte, len(data))
 			bytes, err := client.Download(ctx, bucket, objectName, buffer)

@@ -104,13 +104,14 @@ func (client *Minio) Upload(ctx context.Context, bucket, objectName string, data
 }
 
 // UploadMultipart uses multipart uploads, has hardcoded threshold.
-func (client *Minio) UploadMultipart(ctx context.Context, bucket, objectName string, data []byte, partSize int, threshold int) error {
+func (client *Minio) UploadMultipart(ctx context.Context, bucket, objectName string, data []byte, partSize int, threshold int, metadata map[string]string) error {
 	_, err := client.API.PutObject(
 		ctx, bucket, objectName,
 		bytes.NewReader(data), -1,
 		minio.PutObjectOptions{
-			ContentType: "application/octet-stream",
-			PartSize:    uint64(partSize),
+			ContentType:  "application/octet-stream",
+			PartSize:     uint64(partSize),
+			UserMetadata: metadata,
 		})
 	if err != nil {
 		return MinioError.Wrap(err)
