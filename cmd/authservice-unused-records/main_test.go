@@ -76,7 +76,7 @@ func testDelete(t *testing.T, connstr string, wait time.Duration) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.PingDB(ctx))
 	require.NoError(t, kv.MigrateToLatest(ctx))
 
 	config := cmd.Config{

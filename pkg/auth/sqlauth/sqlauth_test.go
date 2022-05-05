@@ -36,7 +36,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	require.NoError(t, kv.Ping(ctx), "ping")
+	require.NoError(t, kv.PingDB(ctx), "ping")
 	require.NoError(t, kv.MigrateToLatest(ctx), "migrateToLatest")
 
 	var keyHash authdb.KeyHash
@@ -90,7 +90,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	require.NoError(t, kv.Ping(ctx), "ping")
+	require.NoError(t, kv.PingDB(ctx), "ping")
 	require.NoError(t, kv.MigrateToLatest(ctx), "migrateToLatest")
 
 	var keyHash authdb.KeyHash
@@ -155,7 +155,7 @@ func testKVDeleteUnused(t *testing.T, connstr string, wait time.Duration) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.PingDB(ctx))
 	require.NoError(t, kv.MigrateToLatest(ctx))
 
 	r1 := &authdb.Record{
@@ -333,7 +333,7 @@ func testKVDeleteUnusedBatching(t *testing.T, connstr string, selectSize, delete
 	require.NoError(t, err)
 	defer func() { require.NoError(t, kv.Close()) }()
 
-	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.PingDB(ctx))
 	require.NoError(t, kv.MigrateToLatest(ctx))
 
 	for i := int64(0); i < expectedCount; i++ {

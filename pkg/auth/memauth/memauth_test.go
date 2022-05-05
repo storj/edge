@@ -45,7 +45,7 @@ func TestKV(t *testing.T) {
 
 	require.Error(t, kv.Put(ctx, authdb.KeyHash{42}, nil))
 
-	require.NoError(t, kv.Ping(ctx))
+	require.NoError(t, kv.PingDB(ctx))
 
 	for i := 0; i < 100; i += 2 {
 		oneSecondAgo := time.Now().Add(-1 * time.Second)
@@ -123,7 +123,7 @@ func TestKVParallel(t *testing.T) {
 
 	ctx.Go(func() error { // Ping
 		for i := 0; i < 10000; i++ {
-			if err := kv.Ping(ctx); err != nil {
+			if err := kv.PingDB(ctx); err != nil {
 				return err
 			}
 		}

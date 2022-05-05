@@ -114,6 +114,9 @@ func (db *DB) Close() error {
 	return Error.Wrap(db.db.Close())
 }
 
+// Run runs the database.
+func (db *DB) Run(ctx context.Context) error { return nil }
+
 // Put is like PutAtTime, but it uses current time to store the record.
 func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) error {
 	return db.PutAtTime(ctx, keyHash, record, time.Now())
@@ -192,8 +195,8 @@ func (db *DB) DeleteUnused(context.Context, time.Duration, int, int) (int64, int
 	return 0, 0, nil, Error.New("expiring records are deleted by default")
 }
 
-// Ping attempts to do a database roundtrip and returns an error if it can't.
-func (db *DB) Ping(ctx context.Context) (err error) {
+// PingDB attempts to do a database roundtrip and returns an error if it can't.
+func (db *DB) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.View(func(txn *badger.Txn) error {

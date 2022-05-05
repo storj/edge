@@ -245,7 +245,7 @@ func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Du
 func (db *Database) Ping(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(db.kv.Ping(ctx))
+	return errs.Wrap(db.kv.PingDB(ctx))
 }
 
 // apiKeyExpiration returns the expiration time of apiKey, and any error

@@ -62,7 +62,7 @@ type Config struct {
 // replicate records from and to other nodes.
 type Node struct {
 	log *zap.Logger
-	db  *DB
+	*DB
 
 	config Config
 
@@ -94,7 +94,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		}
 	}()
 
-	node.db, err = OpenDB(log, config)
+	node.DB, err = OpenDB(log, config)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -205,7 +205,7 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (*p
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 
-		entries, err := node.db.findResponseEntries(id, Clock(reqEntry.Clock))
+		entries, err := node.DB.findResponseEntries(id, Clock(reqEntry.Clock))
 		if err != nil {
 			node.log.Info("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -221,7 +221,7 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (*p
 
 // UnderlyingDB returns underlying DB.
 func (node *Node) UnderlyingDB() *DB {
-	return node.db
+	return node.DB
 }
 
 // TestingSetJoin sets peer nodes to join to.

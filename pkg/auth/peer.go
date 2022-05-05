@@ -127,7 +127,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
-	kv, err := OpenKV(ctx, log.Named("db"), config.KVBackend)
+	kv, err := OpenKV(ctx, log.Named("db"), config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -267,6 +267,10 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 		}
 
 		return p.ServeDRPC(ctxWithCancel, drpcListener)
+	})
+
+	group.Go(func() error {
+		return p.kv.Run(ctxWithCancel)
 	})
 
 	if p.tlsConfig == nil {

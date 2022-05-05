@@ -100,6 +100,9 @@ func (d *KV) Close() error {
 	return errs.Combine(Error.Wrap(d.db.Close()), Error.Wrap(d.testCleanup()))
 }
 
+// Run runs the database.
+func (d *KV) Run(ctx context.Context) error { return nil }
+
 // TestingSetCleanup is used to set the callback for cleaning up test database.
 func (d *KV) TestingSetCleanup(cleanup func() error) {
 	d.testCleanup = cleanup
@@ -355,8 +358,8 @@ func (d *KV) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason stri
 		}))
 }
 
-// Ping attempts to do a database roundtrip and returns an error if it can't.
-func (d *KV) Ping(ctx context.Context) (err error) {
+// PingDB attempts to do a database roundtrip and returns an error if it can't.
+func (d *KV) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.PingContext(ctx))

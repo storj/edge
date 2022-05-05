@@ -46,7 +46,10 @@ type KV interface {
 
 	// Ping attempts to do a DB roundtrip. If it can't it will return an
 	// error.
-	Ping(ctx context.Context) error
+	PingDB(ctx context.Context) error
+
+	// Run runs the server and the associated servers
+	Run(ctx context.Context) error
 
 	// Close closes the database.
 	Close() error

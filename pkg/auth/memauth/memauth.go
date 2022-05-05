@@ -77,8 +77,11 @@ func (d *KV) DeleteUnused(ctx context.Context, _ time.Duration, _, _ int) (count
 	return count, 1, deletesPerHead, nil
 }
 
-// Ping attempts to do a database roundtrip and returns an error if it can't.
-func (d *KV) Ping(context.Context) error { return nil }
+// PingDB attempts to do a database roundtrip and returns an error if it can't.
+func (d *KV) PingDB(context.Context) error { return nil }
 
 // Close closes the database.
 func (d *KV) Close() error { return nil }
+
+// Run runs the database.
+func (d *KV) Run(ctx context.Context) error { return nil }

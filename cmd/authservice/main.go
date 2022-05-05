@@ -124,7 +124,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg.KVBackend)
+	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg)
 	if err != nil {
 		return errs.Wrap(err)
 	}

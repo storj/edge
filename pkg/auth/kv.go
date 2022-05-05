@@ -10,16 +10,17 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/memauth"
 	"storj.io/gateway-mt/pkg/auth/sqlauth"
 	"storj.io/private/dbutil"
 )
 
 // OpenKV opens the database connection with the appropriate driver.
-func OpenKV(ctx context.Context, log *zap.Logger, kvurl string) (_ authdb.KV, err error) {
+func OpenKV(ctx context.Context, log *zap.Logger, config Config) (_ authdb.KV, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	driver, _, _, err := dbutil.SplitConnStr(kvurl)
+	driver, _, _, err := dbutil.SplitConnStr(config.KVBackend)
 	if err != nil {
 		return nil, err
 	}
@@ -28,10 +29,12 @@ func OpenKV(ctx context.Context, log *zap.Logger, kvurl string) (_ authdb.KV, er
 	case "memory":
 		return memauth.New(), nil
 	case "pgxcockroach", "postgres", "cockroach", "pgx":
-		return sqlauth.Open(ctx, log, kvurl, sqlauth.Options{
+		return sqlauth.Open(ctx, log, config.KVBackend, sqlauth.Options{
 			ApplicationName: "authservice",
 		})
+	case "badger":
+		return badgerauth.New(log, config.Node)
 	default:
-		return nil, errs.New("unknown scheme: %q", kvurl)
+		return nil, errs.New("unknown scheme: %q", config.KVBackend)
 	}
 }
