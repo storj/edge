@@ -13,6 +13,8 @@ import (
 // ClockError is a class of clock errors.
 var ClockError = errs.Class("clock")
 
+const clockPrefix = "clock_value/"
+
 // Clock represents logical time on a single DB.
 type Clock uint64
 
@@ -47,7 +49,7 @@ func ReadClock(txn *badger.Txn, id NodeID) (Clock, error) {
 // makeClockKey creates a badgerDB key for reading clock value
 // for the specified node.
 func makeClockKey(id NodeID) []byte {
-	return append([]byte("clock_value/"), id.Bytes()...)
+	return append([]byte(clockPrefix), id.Bytes()...)
 }
 
 // advanceClock advances the current clock value for the node.
@@ -67,4 +69,34 @@ func advanceClock(txn *badger.Txn, id NodeID) (next Clock, _ error) {
 
 	current++
 	return current, ClockError.Wrap(txn.Set(key, current.Bytes()))
+}
+
+func readAvailableClocks(txn *badger.Txn) (map[NodeID]Clock, error) {
+	idToClock := make(map[NodeID]Clock)
+
+	opt := badger.DefaultIteratorOptions
+	opt.Prefix = []byte(clockPrefix)
+
+	it := txn.NewIterator(opt)
+	defer it.Close()
+
+	for it.Rewind(); it.Valid(); it.Next() {
+		var (
+			id    NodeID
+			clock Clock
+		)
+
+		item := it.Item()
+
+		if err := id.SetBytes(item.Key()[len(clockPrefix):]); err != nil {
+			return nil, ClockError.Wrap(err)
+		}
+		if err := item.Value(clock.SetBytes); err != nil {
+			return nil, ClockError.Wrap(err)
+		}
+
+		idToClock[id] = clock
+	}
+
+	return idToClock, nil
 }
