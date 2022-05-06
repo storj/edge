@@ -150,6 +150,12 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 		// GetBucketCors - this is a dummy call.
 		bucket.Methods(http.MethodGet).HandlerFunc(
 			MaxClients(CollectAPIStats("getbucketcors", HTTPTraceAll(api.GetBucketCorsHandler)))).Queries("cors", "")
+		// PutBucketCors - this is a dummy call.
+		bucket.Methods(http.MethodPut).HandlerFunc(
+			MaxClients(CollectAPIStats("putbucketcors", HTTPTraceAll(api.PutBucketCorsHandler)))).Queries("cors", "")
+		// DeleteBucketCors - this is a dummy call.
+		bucket.Methods(http.MethodDelete).HandlerFunc(
+			MaxClients(CollectAPIStats("deletebucketcors", HTTPTraceAll(api.DeleteBucketCorsHandler)))).Queries("cors", "")
 		// GetBucketWebsiteHandler - this is a dummy call.
 		bucket.Methods(http.MethodGet).HandlerFunc(
 			MaxClients(CollectAPIStats("getbucketwebsite", HTTPTraceAll(api.GetBucketWebsiteHandler)))).Queries("website", "")
