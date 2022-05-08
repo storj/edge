@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
@@ -32,7 +31,7 @@ func timeToTimestamp(t *time.Time) int64 {
 }
 
 func recordsEqual(a, b *pb.Record) bool {
-	return proto.Equal(a, b)
+	return pb.Equal(a, b)
 }
 
 // badgerLogger wraps zap's SugaredLogger, so it's possible to use it as badger's Logger.

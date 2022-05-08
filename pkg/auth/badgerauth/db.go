@@ -12,7 +12,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -357,7 +356,7 @@ func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 		var loaded pb.Record
 
 		if err = i.Value(func(val []byte) error {
-			return proto.Unmarshal(val, &loaded)
+			return pb.Unmarshal(val, &loaded)
 		}); err != nil {
 			return Error.Wrap(ProtoError.Wrap(err))
 		}
@@ -369,7 +368,7 @@ func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 		return Error.Wrap(err)
 	}
 
-	marshaled, err := proto.Marshal(record)
+	marshaled, err := pb.Marshal(record)
 	if err != nil {
 		return Error.Wrap(ProtoError.Wrap(err))
 	}
@@ -402,6 +401,6 @@ func lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
 	}
 
 	return &record, item.Value(func(val []byte) error {
-		return ProtoError.Wrap(proto.Unmarshal(val, &record))
+		return ProtoError.Wrap(pb.Unmarshal(val, &record))
 	})
 }

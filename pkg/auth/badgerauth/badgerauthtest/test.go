@@ -12,7 +12,6 @@ import (
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -164,5 +163,5 @@ func (step Replicate) Check(ctx *testcontext.Context, t testing.TB, node *badger
 	} else {
 		require.NoError(t, err)
 	}
-	assert.True(t, proto.Equal(got, step.Result))
+	assert.True(t, pb.Equal(got, step.Result))
 }
