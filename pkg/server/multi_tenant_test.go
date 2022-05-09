@@ -40,7 +40,7 @@ func TestMinioError(t *testing.T) {
 		{errors.New("some error"), false},
 		{uplink.ErrBucketNameInvalid, false},
 		{miniogo.ErrorResponse{Message: "oops"}, true},
-		{miniogw.ErrProjectUsageLimit, true},
+		{miniogw.ErrBandwidthLimitExceeded, true},
 		{miniogw.ErrSlowDown, true},
 		{minio.BucketNotEmpty{}, true},
 	}
@@ -57,7 +57,7 @@ func TestLogUnexpectedErrorsOnly(t *testing.T) {
 		{context.Canceled, ""},
 		{minio.BucketNotEmpty{}, ""},
 		{miniogo.ErrorResponse{Message: "oops"}, ""},
-		{miniogw.ErrProjectUsageLimit, ""},
+		{miniogw.ErrBandwidthLimitExceeded, ""},
 		{miniogw.ErrSlowDown, ""},
 		{uplink.ErrBucketNameInvalid, uplink.ErrBucketNameInvalid.Error()},
 		{errors.New("unexpected error"), "unexpected error"},
