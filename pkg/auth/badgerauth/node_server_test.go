@@ -22,6 +22,8 @@ import (
 )
 
 func TestServer(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
 		rawconn, err := (&net.Dialer{}).DialContext(ctx, "tcp", node.Address())
 		require.NoError(t, err)
@@ -36,6 +38,8 @@ func TestServer(t *testing.T) {
 }
 
 func TestServerCerts(t *testing.T) {
+	t.Parallel()
+
 	certsctx := testcontext.New(t)
 	trusted := createTestingPool(t, 2)
 
@@ -73,6 +77,8 @@ func TestServerCerts(t *testing.T) {
 }
 
 func TestCluster(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
@@ -82,6 +88,8 @@ func TestCluster(t *testing.T) {
 }
 
 func TestCluster_Certs(t *testing.T) {
+	t.Parallel()
+
 	certsctx := testcontext.New(t)
 	trusted := createTestingPool(t, 3)
 
@@ -106,6 +114,8 @@ func TestCluster_Certs(t *testing.T) {
 }
 
 func TestCluster_ManyRecords(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 10,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {

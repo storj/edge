@@ -23,6 +23,8 @@ import (
 )
 
 func TestTLSOptions(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 
 	opts := badgerauth.TLSOptions{

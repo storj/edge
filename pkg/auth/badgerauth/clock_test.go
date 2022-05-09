@@ -15,6 +15,8 @@ import (
 )
 
 func TestAdvanceClock(t *testing.T) {
+	t.Parallel()
+
 	db, err := OpenDB(zaptest.NewLogger(t), Config{})
 	require.NoError(t, err)
 	udb := db.UnderlyingDB()
@@ -50,6 +52,8 @@ func TestAdvanceClock(t *testing.T) {
 }
 
 func TestReadAvailableClocks(t *testing.T) {
+	t.Parallel()
+
 	db, err := OpenDB(zaptest.NewLogger(t), Config{})
 	require.NoError(t, err)
 	udb := db.UnderlyingDB()

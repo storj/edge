@@ -13,6 +13,8 @@ import (
 )
 
 func TestTimestampToTime(t *testing.T) {
+	t.Parallel()
+
 	// Construct current time used in this test so that it is stripped of the
 	// number of nanoseconds and the monotonic clock reading.
 	now := time.Unix(time.Now().Unix(), 0)
@@ -21,12 +23,16 @@ func TestTimestampToTime(t *testing.T) {
 }
 
 func TestTimeToTimestamp(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 	assert.EqualValues(t, 0, timeToTimestamp(nil))
 	assert.Equal(t, now.Unix(), timeToTimestamp(&now))
 }
 
 func TestRecordsEqual(t *testing.T) {
+	t.Parallel()
+
 	assert.True(t, recordsEqual(&pb.Record{}, &pb.Record{}))
 
 	r1 := pb.Record{

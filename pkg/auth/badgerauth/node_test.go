@@ -18,6 +18,8 @@ import (
 )
 
 func TestNode_Replicate_EmptyRequestResponse(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'t', 'e', 's', 't'},
 		ReplicationLimit: 123,
@@ -68,6 +70,8 @@ func TestNode_Replicate_EmptyRequestResponse(t *testing.T) {
 }
 
 func TestNode_Replicate_OverlappingNodeIDs(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'a', 'a'},
 		ReplicationLimit: 123,
@@ -96,6 +100,8 @@ func TestNode_Replicate_OverlappingNodeIDs(t *testing.T) {
 }
 
 func TestNode_Replicate_Basic(t *testing.T) {
+	t.Parallel()
+
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'a'},
 		ReplicationLimit: 25,

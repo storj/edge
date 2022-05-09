@@ -91,6 +91,8 @@ func FuzzMakeIterationStartKeyOrder(f *testing.F) {
 }
 
 func TestMakeIterationStartKey(t *testing.T) {
+	t.Parallel()
+
 	id, clock := NodeID{'t', 'e', 's', 't'}, Clock(1234567890)
 
 	got := makeIterationStartKey(id, clock)
