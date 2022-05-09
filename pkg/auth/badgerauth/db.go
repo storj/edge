@@ -297,7 +297,7 @@ func (db *DB) buildRequestEntries() ([]*pb.ReplicationRequestEntry, error) {
 
 		for id, clock := range availableClocks {
 			request = append(request, &pb.ReplicationRequestEntry{
-				NodeId: id[:],
+				NodeId: id.Bytes(),
 				Clock:  uint64(clock),
 			})
 		}
