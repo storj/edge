@@ -6,6 +6,7 @@ package badgerauth_test
 import (
 	"crypto/tls"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"strconv"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/drpc/drpcconn"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
@@ -82,8 +84,7 @@ func TestCluster(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		testPeers(ctx, t, cluster)
-		testReplication(ctx, t, cluster, 2)
+		testPing(ctx, t, cluster)
 	})
 }
 
@@ -108,22 +109,11 @@ func TestCluster_Certs(t *testing.T) {
 			config.CertsDir = certsctx.Dir(strconv.Itoa(index))
 		},
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		testPeers(ctx, t, cluster)
-		testReplication(ctx, t, cluster, 2)
+		testPing(ctx, t, cluster)
 	})
 }
 
-func TestCluster_ManyRecords(t *testing.T) {
-	t.Parallel()
-
-	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: 10,
-	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		testReplication(ctx, t, cluster, 1234)
-	})
-}
-
-func testPeers(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+func testPing(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
 	cluster.Nodes[0].SyncCycle.TriggerWait()
 	peers := cluster.Nodes[0].TestingPeers(ctx)
 	require.Len(t, peers, 2)
@@ -132,6 +122,26 @@ func testPeers(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.C
 		require.Equal(t, true, status.LastWasUp)
 		require.Nil(t, status.LastError)
 	}
+}
+
+func TestCluster_Replication(t *testing.T) {
+	t.Parallel()
+
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		testReplication(ctx, t, cluster, 2)
+	})
+}
+
+func TestCluster_ReplicationManyRecords(t *testing.T) {
+	t.Parallel()
+
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 10,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		testReplication(ctx, t, cluster, 1234)
+	})
 }
 
 func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster, count int) {
@@ -193,4 +203,88 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 			Entries: expectedEntries,
 		}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
 	}
+}
+
+func TestCluster_ReplicationRandomized(t *testing.T) {
+	t.Parallel()
+
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: testrand.Intn(11),
+		ReconfigureNode: func(index int, config *badgerauth.Config) {
+			config.ReplicationLimit = testrand.Intn(index+1) + 1
+		},
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
+		var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
+
+		recordCount := testrand.Intn(101)
+
+		for i, n := range cluster.Nodes {
+			for j := 0; j < recordCount; j++ {
+				expiresAt := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
+
+				marker := strconv.Itoa(i) + strconv.Itoa(j)
+
+				var keyHash authdb.KeyHash
+				copy(keyHash[:], marker)
+
+				record := &authdb.Record{
+					SatelliteAddress:     marker,
+					MacaroonHead:         []byte(marker),
+					EncryptedSecretKey:   []byte(marker),
+					EncryptedAccessGrant: []byte(marker),
+					ExpiresAt:            &expiresAt,
+					Public:               true,
+				}
+
+				expectedRecords[keyHash] = record
+				expectedEntries = append(expectedEntries, badgerauthtest.ReplicationLogEntryWithTTL{
+					Entry: badgerauth.ReplicationLogEntry{
+						ID:      n.ID(),
+						Clock:   badgerauth.Clock(j + 1),
+						KeyHash: keyHash,
+						State:   pb.Record_CREATED,
+					},
+					ExpiresAt: expiresAt,
+				})
+
+				badgerauthtest.Put{
+					KeyHash: keyHash,
+					Record:  record,
+					Error:   nil,
+				}.Check(ctx, t, n.UnderlyingDB())
+			}
+		}
+
+		for i := 0; i < recordCount; i++ {
+			for _, n := range shuffleNodesOrder(cluster.Nodes) {
+				n.SyncCycle.TriggerWait()
+			}
+		}
+
+		for _, n := range cluster.Nodes {
+			for keyHash, record := range expectedRecords {
+				badgerauthtest.Get{
+					KeyHash: keyHash,
+					Result:  record,
+					Error:   nil,
+				}.Check(ctx, t, n.UnderlyingDB())
+			}
+			badgerauthtest.VerifyReplicationLog{
+				Entries: expectedEntries,
+			}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
+		}
+	})
+}
+
+func shuffleNodesOrder(nodes []*badgerauth.Node) []*badgerauth.Node {
+	shuffled := make([]*badgerauth.Node, len(nodes))
+
+	copy(shuffled, nodes)
+
+	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	return shuffled
 }
