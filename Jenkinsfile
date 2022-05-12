@@ -158,16 +158,16 @@ timeout(time: 26, unit: 'MINUTES') {
 				env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
 				env.STORJ_SIM_REDIS = 'redis:6379'
 				env.GATEWAY_DOMAIN = 'gateway.local'
-				env.GATEWAY_IP = '10.11.0.10'
-				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER postgres:12.3'
-				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER redis:latest'
+				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER'
+				sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-gateway-mt-$BUILD_NUMBER --network-alias postgres --network minttest-gateway-mt-$BUILD_NUMBER postgres:12.3'
+				sh 'docker run --rm -d --name redis-gateway-mt-$BUILD_NUMBER --network-alias redis --network minttest-gateway-mt-$BUILD_NUMBER redis:latest'
 				sh '''until $(docker logs postgres-gateway-mt-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
 					do printf '.'
 					sleep 5
 					done
 				'''
 				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-gateway-mt-$BUILD_NUMBER:redis --link postgres-gateway-mt-$BUILD_NUMBER:postgres storjlabs/golang:1.17.5'
+				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER --network-alias $GATEWAY_DOMAIN --network minttest-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS storjlabs/golang:1.17.5'
 				// Wait until the docker command above prints out the keys before proceeding
 				output = sh (script: '''#!/bin/bash
 					set -e +x
@@ -194,8 +194,6 @@ timeout(time: 26, unit: 'MINUTES') {
 				env.SECRET_KEY = output.findAll{ it.startsWith('SECRET_KEY=') }[0].split('=')[1]
 				println output.join('\n')
 
-				sh 'docker network create minttest-gateway-mt-$BUILD_NUMBER --subnet=10.11.0.0/16'
-				sh 'docker network connect --alias $GATEWAY_DOMAIN --ip $GATEWAY_IP minttest-gateway-mt-$BUILD_NUMBER mintsetup-gateway-mt-$BUILD_NUMBER'
 				sh 'docker pull storjlabs/gateway-mint:latest'
 			}
 
@@ -256,8 +254,6 @@ timeout(time: 26, unit: 'MINUTES') {
 		}
 		finally {
 			sh 'docker logs mintsetup-gateway-mt-$BUILD_NUMBER || true'
-			sh 'docker stop --time=1 postgres-gateway-mt-$BUILD_NUMBER || true'
-			sh 'docker stop --time=1 redis-gateway-mt-$BUILD_NUMBER || true'
 			sh 'docker stop --time=1 $(docker ps -qf network=minttest-gateway-mt-$BUILD_NUMBER) || true'
 			sh 'docker network rm minttest-gateway-mt-$BUILD_NUMBER || true'
 
