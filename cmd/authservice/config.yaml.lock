@@ -100,6 +100,12 @@ listen-addr-tls: :20001
 # create or update the database schema, and then continue service startup
 # migration: false
 
+# page size while performing migration
+node-migration.migration-select-size: 1000
+
+# source key/value store backend (must be sqlauth) url
+node-migration.source-sql-auth-kv-backend: ""
+
 # address that the node listens on
 node.address: ""
 

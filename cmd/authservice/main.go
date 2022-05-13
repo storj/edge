@@ -122,13 +122,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
 
 	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, kv.Close()) }()
+
+	var g errgroup.Group
+
+	g.Go(func() error {
+		return errs2.IgnoreCanceled(kv.Run(ctx))
+	})
 
 	migrator, ok := kv.(interface {
 		MigrateToLatest(ctx context.Context) error
@@ -137,11 +143,13 @@ func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 		return errs.New("database backend %T does not support migrations", kv)
 	}
 
-	if err := migrator.MigrateToLatest(ctx); err != nil {
+	if err = migrator.MigrateToLatest(ctx); err != nil {
 		return errs.Wrap(err)
 	}
 
-	return nil
+	cancel()
+
+	return g.Wait()
 }
 
 func cmdSetup(cmd *cobra.Command, _ []string) error {
