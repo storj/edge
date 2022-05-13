@@ -153,7 +153,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	if (download || !wrap) && !mapOnly {
 		if len(archivePath) > 0 { // handle zip archives
 			contentType := mime.TypeByExtension(filepath.Ext(archivePath))
-			handler.setHeaders(w, contentType, pr.hosting, archivePath)
+			handler.setHeaders(w, contentType, o.Custom["Cache-Control"], pr.hosting, archivePath)
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
 				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
@@ -171,7 +171,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			if contentType == "" {
 				contentType = mime.TypeByExtension(filepath.Ext(o.Key))
 			}
-			handler.setHeaders(w, contentType, pr.hosting, filepath.Base(o.Key))
+			handler.setHeaders(w, contentType, o.Custom["Cache-Control"], pr.hosting, filepath.Base(o.Key))
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
 		return nil
@@ -233,7 +233,8 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	return nil
 }
 
-func (handler *Handler) setHeaders(w http.ResponseWriter, contentType string, hosting bool, filename string) {
+func (handler *Handler) setHeaders(w http.ResponseWriter, contentType, cacheControl string, hosting bool, filename string) {
+	// Content-Type
 	if contentType != "" {
 		if !handler.standardViewsHTML && !hosting && strings.Contains(strings.ToLower(contentType), "html") {
 			contentType = "text/plain"
@@ -242,6 +243,9 @@ func (handler *Handler) setHeaders(w http.ResponseWriter, contentType string, ho
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
+	// Cache-Control
+	w.Header().Set("Cache-Control", cacheControl)
+	// Content-Disposition
 	if !handler.standardRendersContent && !hosting {
 		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	}

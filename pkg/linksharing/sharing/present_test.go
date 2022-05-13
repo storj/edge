@@ -47,13 +47,20 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 	require.True(t, haveType)
 	require.Equal(t, "image/jpeg", ctypes[0])
 
+	require.Equal(t, "", w.Header().Get("Cache-Control"))
+
 	object.Key = "test"
+	object.Custom = uplink.CustomMetadata{
+		"Cache-Control": "max-age=0, must-revalidate",
+	}
 	err = handler.showObject(ctx, w, r, pr, project, object)
 	require.NoError(t, err)
 
 	ctypes, haveType = w.Header()["Content-Type"]
 	require.True(t, haveType)
 	require.Equal(t, "application/octet-stream", ctypes[0])
+
+	require.Equal(t, "max-age=0, must-revalidate", w.Header().Get("Cache-Control"))
 
 	object.Custom = uplink.CustomMetadata{
 		"Content-Type": "image/somethingelse",
