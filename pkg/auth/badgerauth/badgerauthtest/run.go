@@ -20,6 +20,8 @@ import (
 
 // RunSingleNode tests against a single node cluster of badgerauth.
 func RunSingleNode(t *testing.T, config badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node)) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -58,6 +60,8 @@ type ClusterConfig struct {
 
 // RunCluster tests against a multinode cluster of badgerauth.
 func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context, t *testing.T, cluster *Cluster)) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 

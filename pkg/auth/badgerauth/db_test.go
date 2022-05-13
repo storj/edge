@@ -22,8 +22,6 @@ import (
 )
 
 func TestKV(t *testing.T) {
-	t.Parallel()
-
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
 		db := node.UnderlyingDB()
 
@@ -128,8 +126,6 @@ func TestKV(t *testing.T) {
 }
 
 func TestClockState(t *testing.T) {
-	t.Parallel()
-
 	nodeID := badgerauth.NodeID{'t', 'e', 's', 't'}
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
@@ -190,8 +186,6 @@ func TestClockState(t *testing.T) {
 }
 
 func TestKVParallel(t *testing.T) {
-	t.Parallel()
-
 	ops := 10000
 	if testing.Short() {
 		ops = 100
@@ -243,8 +237,6 @@ func randTime(d time.Duration) time.Time {
 }
 
 func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
-	t.Parallel()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -270,8 +262,6 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 // TestBasicCycle sequentially tests the basic create → retrieve lifecycle of a
 // single record, verifying fundamental KV interface guarantees.
 func TestBasicCycle(t *testing.T) {
-	t.Parallel()
-
 	id := badgerauth.NodeID{'b', 'a', 's', 'i', 'c'}
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
 	record := &authdb.Record{
@@ -373,27 +363,26 @@ func TestBasicCycle(t *testing.T) {
 // TestBasicCycleWithSafeExpiration is like TestBasicCycle, but it focuses on
 // the behavior of actions when the record has an expiration time.
 func TestBasicCycleWithExpiration(t *testing.T) {
-	t.Parallel()
-
 	id := badgerauth.NodeID{'t', 'e', 's', 't', 'I', 'D'}
-	// construct current time used in this test so that it is stripped of the
-	// number of nanoseconds and the monotonic clock reading.
-	now := time.Unix(time.Now().Unix(), 0)
-	expiresAt := now.Add(2 * time.Second)
-
-	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
-	record := &authdb.Record{
-		SatelliteAddress:     "test",
-		MacaroonHead:         []byte{'t', 'e', 's', 't'},
-		EncryptedSecretKey:   []byte{'t', 'e', 's', 't'},
-		EncryptedAccessGrant: []byte{'t', 'e', 's', 't'},
-		ExpiresAt:            &expiresAt,
-		Public:               true,
-	}
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: id,
 	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		// construct current time used in this test so that it is stripped of
+		// the number of nanoseconds and the monotonic clock reading.
+		now := time.Unix(time.Now().Unix(), 0)
+		expiresAt := now.Add(2 * time.Second)
+
+		keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
+		record := &authdb.Record{
+			SatelliteAddress:     "test",
+			MacaroonHead:         []byte{'t', 'e', 's', 't'},
+			EncryptedSecretKey:   []byte{'t', 'e', 's', 't'},
+			EncryptedAccessGrant: []byte{'t', 'e', 's', 't'},
+			ExpiresAt:            &expiresAt,
+			Public:               true,
+		}
+
 		db := node.UnderlyingDB()
 
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
