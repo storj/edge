@@ -148,41 +148,10 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 	expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
 	var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
-	for i, n := range cluster.Nodes {
-		for j := 0; j < count; j++ {
-			expiresAt := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
-
-			marker := strconv.Itoa(i) + strconv.Itoa(j)
-
-			var keyHash authdb.KeyHash
-			copy(keyHash[:], marker)
-
-			record := &authdb.Record{
-				SatelliteAddress:     marker,
-				MacaroonHead:         []byte(marker),
-				EncryptedSecretKey:   []byte(marker),
-				EncryptedAccessGrant: []byte(marker),
-				ExpiresAt:            &expiresAt,
-				Public:               true,
-			}
-
-			expectedRecords[keyHash] = record
-			expectedEntries = append(expectedEntries, badgerauthtest.ReplicationLogEntryWithTTL{
-				Entry: badgerauth.ReplicationLogEntry{
-					ID:      n.ID(),
-					Clock:   badgerauth.Clock(j + 1),
-					KeyHash: keyHash,
-					State:   pb.Record_CREATED,
-				},
-				ExpiresAt: expiresAt,
-			})
-
-			badgerauthtest.Put{
-				KeyHash: keyHash,
-				Record:  record,
-				Error:   nil,
-			}.Check(ctx, t, n.UnderlyingDB())
-		}
+	for _, n := range cluster.Nodes {
+		records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+		appendRecords(expectedRecords, records)
+		expectedEntries = append(expectedEntries, entries...)
 	}
 
 	for i := 0; i < count/100+1; i++ {
@@ -191,18 +160,7 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 		}
 	}
 
-	for _, n := range cluster.Nodes {
-		for keyHash, record := range expectedRecords {
-			badgerauthtest.Get{
-				KeyHash: keyHash,
-				Result:  record,
-				Error:   nil,
-			}.Check(ctx, t, n.UnderlyingDB())
-		}
-		badgerauthtest.VerifyReplicationLog{
-			Entries: expectedEntries,
-		}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
-	}
+	ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
 }
 
 func TestCluster_ReplicationRandomized(t *testing.T) {
@@ -217,64 +175,33 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 		expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
 		var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
-		recordCount := testrand.Intn(101)
+		var maxCount int
+		for _, n := range cluster.Nodes {
+			count := testrand.Intn(101)
 
-		for i, n := range cluster.Nodes {
-			for j := 0; j < recordCount; j++ {
-				expiresAt := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
-
-				marker := strconv.Itoa(i) + strconv.Itoa(j)
-
-				var keyHash authdb.KeyHash
-				copy(keyHash[:], marker)
-
-				record := &authdb.Record{
-					SatelliteAddress:     marker,
-					MacaroonHead:         []byte(marker),
-					EncryptedSecretKey:   []byte(marker),
-					EncryptedAccessGrant: []byte(marker),
-					ExpiresAt:            &expiresAt,
-					Public:               true,
-				}
-
-				expectedRecords[keyHash] = record
-				expectedEntries = append(expectedEntries, badgerauthtest.ReplicationLogEntryWithTTL{
-					Entry: badgerauth.ReplicationLogEntry{
-						ID:      n.ID(),
-						Clock:   badgerauth.Clock(j + 1),
-						KeyHash: keyHash,
-						State:   pb.Record_CREATED,
-					},
-					ExpiresAt: expiresAt,
-				})
-
-				badgerauthtest.Put{
-					KeyHash: keyHash,
-					Record:  record,
-					Error:   nil,
-				}.Check(ctx, t, n.UnderlyingDB())
+			if count > maxCount {
+				maxCount = count
 			}
+
+			records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+			appendRecords(expectedRecords, records)
+			expectedEntries = append(expectedEntries, entries...)
 		}
 
-		for i := 0; i < recordCount; i++ {
+		for i := 0; i < maxCount; i++ {
 			for _, n := range shuffleNodesOrder(cluster.Nodes) {
 				n.SyncCycle.TriggerWait()
 			}
 		}
 
-		for _, n := range cluster.Nodes {
-			for keyHash, record := range expectedRecords {
-				badgerauthtest.Get{
-					KeyHash: keyHash,
-					Result:  record,
-					Error:   nil,
-				}.Check(ctx, t, n.UnderlyingDB())
-			}
-			badgerauthtest.VerifyReplicationLog{
-				Entries: expectedEntries,
-			}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
-		}
+		ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
 	})
+}
+
+func appendRecords(dst, src map[authdb.KeyHash]*authdb.Record) {
+	for k, r := range src {
+		dst[k] = r
+	}
 }
 
 func shuffleNodesOrder(nodes []*badgerauth.Node) []*badgerauth.Node {
@@ -287,4 +214,25 @@ func shuffleNodesOrder(nodes []*badgerauth.Node) []*badgerauth.Node {
 	})
 
 	return shuffled
+}
+
+func ensureClusterConvergence(
+	ctx *testcontext.Context,
+	t *testing.T,
+	cluster *badgerauthtest.Cluster,
+	records map[authdb.KeyHash]*authdb.Record,
+	entries []badgerauthtest.ReplicationLogEntryWithTTL,
+) {
+	for _, n := range cluster.Nodes {
+		for k, r := range records {
+			badgerauthtest.Get{
+				KeyHash: k,
+				Result:  r,
+				Error:   nil,
+			}.Check(ctx, t, n.UnderlyingDB())
+		}
+		badgerauthtest.VerifyReplicationLog{
+			Entries: entries,
+		}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
+	}
 }
