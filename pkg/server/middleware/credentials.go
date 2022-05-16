@@ -165,7 +165,7 @@ func GetAccessKeyID(r *http.Request) (string, error) {
 	return "", errs.Combine(errV4, errV2, errMPV4, errMPV2, errors.New("no access key ID"))
 }
 
-var v4CredentialRegex = regexp.MustCompile("^(?P<akid>[^/]+)/(?P<date>[^/]+)/(?P<region>[^/]+)/(?P<service>[^/]+)/aws4_request$")
+var v4CredentialRegex = regexp.MustCompile("^(?P<akid>[^/]+)/(?P<date>[^/]+)/(?P<region>[^/]+)?/(?P<service>[^/]+)/aws4_request$")
 
 // V4Credential represents S3 V4 protocol credentials.
 type V4Credential struct {

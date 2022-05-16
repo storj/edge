@@ -22,6 +22,44 @@ import (
 	"storj.io/gateway-mt/pkg/trustedip"
 )
 
+func TestParseV4Credentials(t *testing.T) {
+	cred, err := ParseV4Credential("AccessKey/20000101/us-west-2/s3/aws4_request")
+	require.NoError(t, err)
+	require.Equal(t, &V4Credential{
+		AccessKeyID: "AccessKey",
+		Date:        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		Region:      "us-west-2",
+		Service:     "s3",
+	}, cred)
+
+	cred, err = ParseV4Credential("AccessKey/20000101//s3/aws4_request")
+	require.NoError(t, err)
+	require.Equal(t, &V4Credential{
+		AccessKeyID: "AccessKey",
+		Date:        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		Region:      "",
+		Service:     "s3",
+	}, cred)
+
+	_, err = ParseV4Credential("/20000101/us-west-2/s3/aws4_request")
+	require.Error(t, err)
+
+	_, err = ParseV4Credential("AccessKey//us-west-2/s3/aws4_request")
+	require.Error(t, err)
+
+	_, err = ParseV4Credential("AccessKey/20000101/us-west-2//aws4_request")
+	require.Error(t, err)
+
+	_, err = ParseV4Credential("")
+	require.Error(t, err)
+
+	_, err = ParseV4Credential("////")
+	require.Error(t, err)
+
+	_, err = ParseV4Credential("AccessKey/abcd124/us-west-2/s3/aws4_request")
+	require.Error(t, err)
+}
+
 func TestV4MultipartCredentials(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
