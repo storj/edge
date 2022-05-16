@@ -89,6 +89,9 @@ func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*KV, 
 	return kv, nil
 }
 
+// UnderlyingDB returns the underlying database.
+func (d *KV) UnderlyingDB() *dbx.DB { return d.db }
+
 // Schema returns the underlying database schema.
 func (d *KV) Schema() string { return d.db.Schema() }
 

@@ -1099,6 +1099,11 @@ func (h *__sqlbundle_Hole) Render() string {
 // end runtime support for building sql statements
 //
 
+type Paged_Record_Continuation struct {
+	_value_encryption_key_hash []byte
+	_set                       bool
+}
+
 func (obj *pgxImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
 	record_public Record_Public_Field,
@@ -1158,6 +1163,71 @@ func (obj *pgxImpl) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 		return (*Record)(nil), obj.makeErr(err)
 	}
 	return record, nil
+
+}
+
+func (obj *pgxImpl) Count_Record(ctx context.Context) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM records")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Paged_Record(ctx context.Context,
+	limit int, start *Paged_Record_Continuation) (
+	rows []*Record, next *Paged_Record_Continuation, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at, records.encryption_key_hash FROM records WHERE (records.encryption_key_hash) > ? ORDER BY records.encryption_key_hash LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at, records.encryption_key_hash FROM records ORDER BY records.encryption_key_hash LIMIT ?")
+
+	var __values []interface{}
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_encryption_key_hash, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	var __continuation Paged_Record_Continuation
+	__continuation._set = true
+
+	for __rows.Next() {
+		record := &Record{}
+		err = __rows.Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt, &__continuation._value_encryption_key_hash)
+		if err != nil {
+			return nil, nil, obj.makeErr(err)
+		}
+		rows = append(rows, record)
+		next = &__continuation
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -1318,6 +1388,71 @@ func (obj *pgxcockroachImpl) Find_Record_By_EncryptionKeyHash(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Count_Record(ctx context.Context) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM records")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Paged_Record(ctx context.Context,
+	limit int, start *Paged_Record_Continuation) (
+	rows []*Record, next *Paged_Record_Continuation, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at, records.encryption_key_hash FROM records WHERE (records.encryption_key_hash) > ? ORDER BY records.encryption_key_hash LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT records.encryption_key_hash, records.created_at, records.public, records.satellite_address, records.macaroon_head, records.expires_at, records.encrypted_secret_key, records.encrypted_access_grant, records.invalid_reason, records.invalid_at, records.encryption_key_hash FROM records ORDER BY records.encryption_key_hash LIMIT ?")
+
+	var __values []interface{}
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_encryption_key_hash, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	var __continuation Paged_Record_Continuation
+	__continuation._set = true
+
+	for __rows.Next() {
+		record := &Record{}
+		err = __rows.Scan(&record.EncryptionKeyHash, &record.CreatedAt, &record.Public, &record.SatelliteAddress, &record.MacaroonHead, &record.ExpiresAt, &record.EncryptedSecretKey, &record.EncryptedAccessGrant, &record.InvalidReason, &record.InvalidAt, &__continuation._value_encryption_key_hash)
+		if err != nil {
+			return nil, nil, obj.makeErr(err)
+		}
+		rows = append(rows, record)
+		next = &__continuation
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
 	update Record_Update_Fields) (
@@ -1455,6 +1590,15 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) Count_Record(ctx context.Context) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Count_Record(ctx)
+}
+
 func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
 	record_public Record_Public_Field,
@@ -1492,6 +1636,16 @@ func (rx *Rx) Find_Record_By_EncryptionKeyHash(ctx context.Context,
 	return tx.Find_Record_By_EncryptionKeyHash(ctx, record_encryption_key_hash)
 }
 
+func (rx *Rx) Paged_Record(ctx context.Context,
+	limit int, start *Paged_Record_Continuation) (
+	rows []*Record, next *Paged_Record_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_Record(ctx, limit, start)
+}
+
 func (rx *Rx) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
 	update Record_Update_Fields) (
@@ -1504,6 +1658,9 @@ func (rx *Rx) UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Nu
 }
 
 type Methods interface {
+	Count_Record(ctx context.Context) (
+		count int64, err error)
+
 	CreateNoReturn_Record(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field,
 		record_public Record_Public_Field,
@@ -1521,6 +1678,10 @@ type Methods interface {
 	Find_Record_By_EncryptionKeyHash(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field) (
 		record *Record, err error)
+
+	Paged_Record(ctx context.Context,
+		limit int, start *Paged_Record_Continuation) (
+		rows []*Record, next *Paged_Record_Continuation, err error)
 
 	UpdateNoReturn_Record_By_EncryptionKeyHash_And_InvalidReason_Is_Null(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field,
