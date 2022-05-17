@@ -179,8 +179,8 @@ func (node *Node) Close() error {
 		// the listener.
 		_ = node.listener.Close()
 	}
-	if node.db != nil {
-		g.Add(node.db.Close())
+	if node.DB != nil {
+		g.Add(node.DB.Close())
 	}
 	return Error.Wrap(g.Err())
 }

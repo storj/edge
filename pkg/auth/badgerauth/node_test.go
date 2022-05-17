@@ -9,6 +9,7 @@ import (
 
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -263,4 +264,28 @@ func TestNode_Replicate_Basic(t *testing.T) {
 			},
 		}.Check(ctx, t, node)
 	})
+}
+
+func TestNew_BadNodeID(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	cfg := badgerauth.Config{
+		ID:       badgerauth.NodeID{'a'},
+		Path:     ctx.File("badger.db"),
+		CertsDir: ctx.Dir("certs-dir"),
+	}
+
+	db, err := badgerauth.New(log, cfg)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	cfg.ID = badgerauth.NodeID{'b'}
+	db, err = badgerauth.New(log, cfg)
+	require.Nil(t, db)
+	require.Error(t, err)
+	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
 }
