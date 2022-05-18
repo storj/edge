@@ -117,22 +117,37 @@ func testPing(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cl
 }
 
 func TestCluster_Replication(t *testing.T) {
+	const limit = 100
+
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
+		Defaults: badgerauth.Config{
+			ReplicationLimit: limit,
+		},
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		testReplication(ctx, t, cluster, 2)
+		testReplication(ctx, t, cluster, 2, limit)
 	})
 }
 
 func TestCluster_ReplicationManyRecords(t *testing.T) {
+	count := 1234
+	if testing.Short() {
+		count = 123
+	}
+
+	const limit = 100
+
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 10,
+		Defaults: badgerauth.Config{
+			ReplicationLimit: limit,
+		},
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		testReplication(ctx, t, cluster, 1234)
+		testReplication(ctx, t, cluster, count, limit)
 	})
 }
 
-func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster, count int) {
+func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster, count, limit int) {
 	expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
 	var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
@@ -142,7 +157,7 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 		expectedEntries = append(expectedEntries, entries...)
 	}
 
-	for i := 0; i < count/100+1; i++ {
+	for i := 0; i < count/limit+1; i++ {
 		for _, n := range cluster.Nodes {
 			n.SyncCycle.TriggerWait()
 		}
@@ -152,6 +167,11 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 }
 
 func TestCluster_ReplicationRandomized(t *testing.T) {
+	maxCount := 100
+	if testing.Short() {
+		maxCount = 10
+	}
+
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: testrand.Intn(11),
 		ReconfigureNode: func(index int, config *badgerauth.Config) {
@@ -161,12 +181,12 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 		expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
 		var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
-		var maxCount int
+		var max int
 		for _, n := range cluster.Nodes {
-			count := testrand.Intn(101)
+			count := testrand.Intn(maxCount + 1)
 
-			if count > maxCount {
-				maxCount = count
+			if count > max {
+				max = count
 			}
 
 			records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
@@ -174,7 +194,7 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 			expectedEntries = append(expectedEntries, entries...)
 		}
 
-		for i := 0; i < maxCount; i++ {
+		for i := 0; i < max; i++ {
 			for _, n := range shuffleNodesOrder(cluster.Nodes) {
 				n.SyncCycle.TriggerWait()
 			}

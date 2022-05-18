@@ -188,7 +188,7 @@ func TestClockState(t *testing.T) {
 func TestKVParallel(t *testing.T) {
 	ops := 10000
 	if testing.Short() {
-		ops = 100
+		ops = 1000
 	}
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {

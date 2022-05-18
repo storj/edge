@@ -70,7 +70,7 @@ timeout(time: 26, unit: 'MINUTES') {
 									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
-										sh 'go test -parallel 4 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+										sh 'go test -parallel 4 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race -short ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 										// TODO enable this later
 										// sh 'check-clean-directory'
 									}
