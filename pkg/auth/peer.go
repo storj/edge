@@ -106,7 +106,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	if len(config.AllowedSatellites) == 0 {
 		return nil, errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
-	allowedSats, areSatsDynamic, err := satellitelist.LoadSatelliteIDs(ctx, config.AllowedSatellites)
+	allowedSats, areSatsDynamic, err := satellitelist.LoadSatelliteURLs(ctx, config.AllowedSatellites)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -340,11 +340,11 @@ func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) (err error)
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {
 	log.Debug("Reloading allowed satellite list")
-	allowedSatelliteIDs, _, err := satellitelist.LoadSatelliteIDs(ctx, allowedSatellites)
+	allowedSatelliteURLs, _, err := satellitelist.LoadSatelliteURLs(ctx, allowedSatellites)
 	if err != nil {
 		log.Warn("Error reloading allowed satellite list", zap.Error(err))
 	} else {
-		adb.SetAllowedSatellites(allowedSatelliteIDs)
+		adb.SetAllowedSatellites(allowedSatelliteURLs)
 	}
 }
 

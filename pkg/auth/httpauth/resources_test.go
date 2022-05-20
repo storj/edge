@@ -31,12 +31,12 @@ const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTE
 // This is the satellite address embedded in the access above.
 const minimalAccessSatelliteURL = "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"
 
-var minimalAccessSatelliteID = func() storj.NodeID {
+var minimalAccessSatelliteID = func() storj.NodeURL {
 	url, err := storj.ParseNodeURL(minimalAccessSatelliteURL)
 	if err != nil {
 		panic(err)
 	}
-	return url.ID
+	return url
 }()
 
 func TestResources_URLs(t *testing.T) {
@@ -103,7 +103,7 @@ func TestResources_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Availability after startup", func(t *testing.T) {
-		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 		const path = "/v1/health/startup"
@@ -120,7 +120,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("CRUD", func(t *testing.T) {
-		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 		// create an access
@@ -138,9 +138,9 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("ApprovedSatelliteID", func(t *testing.T) {
-		var unknownSatelliteID storj.NodeID
-		unknownSatelliteID[4] = 7
-		allowed := map[storj.NodeID]struct{}{unknownSatelliteID: {}}
+		var unknownSatelliteID storj.NodeURL
+		unknownSatelliteID.ID[4] = 7
+		allowed := map[storj.NodeURL]struct{}{unknownSatelliteID: {}}
 		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 		// create an access
@@ -148,7 +148,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		allowed = map[storj.NodeID]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
+		allowed = map[storj.NodeURL]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
 		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 		// create an access
@@ -156,7 +156,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowed, _, err := satellitelist.LoadSatelliteIDs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
+		allowed, _, err := satellitelist.LoadSatelliteURLs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
 		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 		mac, err := macaroon.NewAPIKey(nil)
@@ -177,7 +177,7 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 		// create a public access
@@ -199,7 +199,7 @@ func TestResources_Authorization(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
-	allowed := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+	allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 	res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
 
 	// create an access grant and base url

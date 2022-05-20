@@ -4,6 +4,7 @@
 package authdb
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -11,8 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/encryption"
+	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 )
 
 func TestBase32(t *testing.T) {
@@ -123,3 +126,49 @@ func TestApiKeyExpiration_Invalid(t *testing.T) {
 	_, err = apiKeyExpiration(k) // one of the caveats is invalid
 	require.Error(t, err)
 }
+func TestPutSatelliteValidation(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	validURL := "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777"
+	checkURL := "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@127.0.0.1:7778"
+
+	mac, err := macaroon.NewAPIKey(nil)
+	require.NoError(t, err)
+
+	g := grant.Access{
+		SatelliteAddress: checkURL,
+		EncAccess:        grant.NewEncryptionAccess(),
+		APIKey:           mac,
+	}
+	invalidGrant, err := g.Serialize()
+	require.NoError(t, err)
+
+	g.SatelliteAddress = validURL
+	validGrant, err := g.Serialize()
+	require.NoError(t, err)
+
+	url, err := storj.ParseNodeURL(validURL)
+	require.NoError(t, err)
+	db := NewDatabase(mockKV{}, map[storj.NodeURL]struct{}{url: {}})
+
+	key, err := NewEncryptionKey()
+	require.NoError(t, err)
+
+	_, err = db.Put(ctx, key, validGrant, false)
+	require.NoError(t, err)
+	_, err = db.Put(ctx, key, invalidGrant, false)
+	require.Error(t, err)
+}
+
+type mockKV struct{}
+
+func (mockKV) Put(ctx context.Context, keyHash KeyHash, record *Record) (err error) { return nil }
+func (mockKV) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) {
+	return nil, nil
+}
+func (mockKV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
+	return 0, 0, nil, nil
+}
+func (mockKV) PingDB(ctx context.Context) error { return nil }
+func (mockKV) Run(ctx context.Context) error    { return nil }
+func (mockKV) Close() error                     { return nil }

@@ -24,19 +24,19 @@ const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTE
 // This is the satellite address embedded in the access above.
 const minimalAccessSatelliteURL = "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"
 
-var minimalAccessSatelliteID = func() storj.NodeID {
+var minimalAccessSatelliteID = func() storj.NodeURL {
 	url, err := storj.ParseNodeURL(minimalAccessSatelliteURL)
 	if err != nil {
 		panic(err)
 	}
 
-	return url.ID
+	return url
 }()
 
 func createBackend(t *testing.T, sizeLimit memory.Size) (*Server, *authdb.Database) {
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
-	allowedSatelliteIDs := map[storj.NodeID]struct{}{minimalAccessSatelliteID: {}}
+	allowedSatelliteIDs := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 
 	db := authdb.NewDatabase(memauth.New(), allowedSatelliteIDs)
 

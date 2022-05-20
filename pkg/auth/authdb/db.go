@@ -114,24 +114,24 @@ func toBase32(k []byte) string {
 type Database struct {
 	kv KV
 
-	mu                  sync.Mutex
-	allowedSatelliteIDs map[storj.NodeID]struct{}
+	mu                   sync.Mutex
+	allowedSatelliteURLs map[storj.NodeURL]struct{}
 }
 
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
-// the full URL (without a node ID), including port, for each satellite we
+// the full URL (with a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(kv KV, allowedSatelliteIDs map[storj.NodeID]struct{}) *Database {
+func NewDatabase(kv KV, allowedSatelliteURLs map[storj.NodeURL]struct{}) *Database {
 	return &Database{
-		kv:                  kv,
-		allowedSatelliteIDs: allowedSatelliteIDs,
+		kv:                   kv,
+		allowedSatelliteURLs: allowedSatelliteURLs,
 	}
 }
 
 // SetAllowedSatellites updates the allowed satellites list from configuration values.
-func (db *Database) SetAllowedSatellites(allowedSatelliteIDs map[storj.NodeID]struct{}) {
+func (db *Database) SetAllowedSatellites(allowedSatelliteURLs map[storj.NodeURL]struct{}) {
 	db.mu.Lock()
-	db.allowedSatelliteIDs = allowedSatelliteIDs
+	db.allowedSatelliteURLs = allowedSatelliteURLs
 	db.mu.Unlock()
 }
 
@@ -148,14 +148,14 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	nodeID, err := satellitelist.ParseSatelliteID(satelliteAddr)
+	nodeURL, err := satellitelist.ParseSatelliteURL(satelliteAddr)
 	if err != nil {
 		return secretKey, err
 	}
 	mon.Event("as_region_use_put", monkit.NewSeriesTag("satellite", satelliteAddr))
 
 	db.mu.Lock()
-	_, ok := db.allowedSatelliteIDs[nodeID]
+	_, ok := db.allowedSatelliteURLs[nodeURL]
 	db.mu.Unlock()
 	if !ok {
 		return secretKey, errs.New("access grant contains disallowed satellite %q", satelliteAddr)
