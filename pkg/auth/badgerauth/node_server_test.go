@@ -129,6 +129,19 @@ func TestCluster_Replication(t *testing.T) {
 	})
 }
 
+func TestCluster_ReplicationSingleLoop(t *testing.T) {
+	const limit = 100
+
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+		Defaults: badgerauth.Config{
+			ReplicationLimit: limit,
+		},
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		testReplicationSingleLoop(ctx, t, cluster, 2, limit)
+	})
+}
+
 func TestCluster_ReplicationManyRecords(t *testing.T) {
 	count := 1234
 	if testing.Short() {
@@ -144,6 +157,24 @@ func TestCluster_ReplicationManyRecords(t *testing.T) {
 		},
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
 		testReplication(ctx, t, cluster, count, limit)
+	})
+}
+
+func TestCluster_ReplicationManyRecordsSingleLoop(t *testing.T) {
+	count := 1234
+	if testing.Short() {
+		count = 123
+	}
+
+	const limit = 100
+
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 10,
+		Defaults: badgerauth.Config{
+			ReplicationLimit: limit,
+		},
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		testReplicationSingleLoop(ctx, t, cluster, count, limit)
 	})
 }
 
@@ -164,6 +195,25 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 	}
 
 	ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
+}
+
+func testReplicationSingleLoop(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster, count, limit int) {
+	expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
+	var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
+
+	for _, n := range cluster.Nodes {
+		records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+		appendRecords(expectedRecords, records)
+		expectedEntries = append(expectedEntries, entries...)
+
+		for i := 0; i < count/limit+1; i++ {
+			for _, n := range cluster.Nodes {
+				n.SyncCycle.TriggerWait()
+			}
+		}
+
+		ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
+	}
 }
 
 func TestCluster_ReplicationRandomized(t *testing.T) {
@@ -201,6 +251,34 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 		}
 
 		ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
+	})
+}
+
+func TestCluster_ReplicationRandomizedSingleLoop(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: testrand.Intn(11),
+		ReconfigureNode: func(index int, config *badgerauth.Config) {
+			config.ReplicationLimit = testrand.Intn(index+1) + 1
+		},
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		expectedRecords := make(map[authdb.KeyHash]*authdb.Record)
+		var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
+
+		for _, n := range shuffleNodesOrder(cluster.Nodes) {
+			count := testrand.Intn(11)
+
+			records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+			appendRecords(expectedRecords, records)
+			expectedEntries = append(expectedEntries, entries...)
+
+			for i := 0; i < count; i++ {
+				for _, n := range shuffleNodesOrder(cluster.Nodes) {
+					n.SyncCycle.TriggerWait()
+				}
+			}
+
+			ensureClusterConvergence(ctx, t, cluster, expectedRecords, expectedEntries)
+		}
 	})
 }
 
