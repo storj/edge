@@ -35,18 +35,18 @@ func New(config Config) *AuthClient {
 // Resolve maps an access key into an auth service response. clientIP is the IP
 // of the client that originated the request and it's required to be sent to the
 // Auth Service.
-func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP string) (_ *AuthServiceResponse, err error) {
+func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP string) (_ AuthServiceResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	reqURL, err := url.Parse(a.BaseURL)
 	if err != nil {
-		return nil, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
+		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
 	}
 
 	reqURL.Path = path.Join(reqURL.Path, "/v1/access", accessKeyID)
 	req, err := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
 	if err != nil {
-		return nil, errdata.WithStatus(AuthServiceError.Wrap(err),
+		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
 			http.StatusInternalServerError)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
@@ -62,25 +62,25 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 		if err != nil {
 			if !delay.Maxed() {
 				if err := delay.Wait(ctx); err != nil {
-					return nil, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
+					return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
 				}
 				continue
 			}
-			return nil, errdata.WithStatus(AuthServiceError.Wrap(err),
+			return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
 				http.StatusInternalServerError)
 		}
 
 		// Use an anonymous function for deferring the response close before the
 		// next retry and not pilling it up when the method returns.
-		retry, authResp, err := func() (retry bool, _ *AuthServiceResponse, _ error) {
+		retry, authResp, err := func() (retry bool, _ AuthServiceResponse, _ error) {
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode == http.StatusInternalServerError {
-				return true, nil, nil // auth only returns this for unexpected issues
+				return true, AuthServiceResponse{}, nil // auth only returns this for unexpected issues
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				return false, nil, errdata.WithStatus(
+				return false, AuthServiceResponse{}, errdata.WithStatus(
 					AuthServiceError.New("invalid status code: %d", resp.StatusCode),
 					resp.StatusCode)
 			}
@@ -88,18 +88,18 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 			var authResp AuthServiceResponse
 			if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 				if !delay.Maxed() {
-					return true, nil, nil
+					return true, AuthServiceResponse{}, nil
 				}
-				return false, nil, errdata.WithStatus(AuthServiceError.Wrap(err),
+				return false, AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
 					http.StatusInternalServerError)
 			}
 
-			return false, &authResp, nil
+			return false, authResp, nil
 		}()
 
 		if retry {
 			if err := delay.Wait(ctx); err != nil {
-				return nil, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
+				return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), errdata.HTTPStatusClientClosedRequest)
 			}
 			continue
 		}
@@ -111,16 +111,11 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 // ResolveWithCache is like Resolve, but it uses the underlying LRU cache to
 // cache and returns cached authservice's successful responses if caching is
 // enabled.
-func (a *AuthClient) ResolveWithCache(ctx context.Context, accessKeyID string, clientIP string) (_ *AuthServiceResponse, err error) {
+func (a *AuthClient) ResolveWithCache(ctx context.Context, accessKeyID string, clientIP string) (_ AuthServiceResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if a.Cache == nil {
 		return a.Resolve(ctx, accessKeyID, clientIP)
-	}
-
-	type cachedAuthServiceResponse struct {
-		response *AuthServiceResponse
-		err      error
 	}
 
 	v, err := a.Cache.Get(accessKeyID, func() (interface{}, error) {
@@ -128,18 +123,27 @@ func (a *AuthClient) ResolveWithCache(ctx context.Context, accessKeyID string, c
 
 		switch errdata.GetStatus(err, http.StatusOK) {
 		case http.StatusOK, http.StatusNotFound:
-			return cachedAuthServiceResponse{response: response, err: err}, nil
+			encResp, encErr := encryptResponse(accessKeyID, response, err)
+			if encErr != nil {
+				return cachedAuthServiceResponse{err: err}, encErr
+			}
+			return encResp, nil
 		default:
 			return cachedAuthServiceResponse{}, err // err is already wrapped
 		}
 	})
 	if err != nil {
-		return nil, err // err is already wrapped
+		return AuthServiceResponse{}, err // err is already wrapped
 	}
 
 	response := v.(cachedAuthServiceResponse)
 
-	return response.response, response.err
+	decResp, err := response.decrypt(accessKeyID)
+	if err != nil {
+		return AuthServiceResponse{}, err
+	}
+
+	return decResp, response.err
 }
 
 // GetHealthLive returns the auth service health live status.

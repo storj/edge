@@ -132,7 +132,7 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 
 			t.Logf("ResolveWithCache: %v", err)
 
-			assert.Nil(t, resp)
+			assert.Equal(t, AuthServiceResponse{}, resp)
 		}
 	})
 
@@ -164,7 +164,7 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 
 			t.Logf("ResolveWithCache: %v", err)
 
-			assert.Nil(t, resp)
+			assert.Equal(t, AuthServiceResponse{}, resp)
 		}
 
 		assert.Equal(t, expectedCacheMisses, cacheMisses)

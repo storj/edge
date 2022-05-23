@@ -63,7 +63,7 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 			}
 
 			// return a new context that contains the access grant
-			credentials := Credentials{AccessKey: accessKeyID, AuthServiceResponse: *authResponse, Error: err}
+			credentials := Credentials{AccessKey: accessKeyID, AuthServiceResponse: authResponse, Error: err}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, credentialsCV{}, &credentials)))
 		})
 	}
