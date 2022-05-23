@@ -39,7 +39,7 @@ func RunSingleNode(t *testing.T, config badgerauth.Config, fn func(ctx *testcont
 	g.Go(func() error { return node.Run(nodectx) })
 	defer ctx.Check(func() error {
 		nodecancel()
-		return g.Wait()
+		return errs2.IgnoreCanceled(g.Wait())
 	})
 
 	fn(ctx, t, node)
@@ -110,11 +110,7 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 	for _, node := range nodes {
 		node := node
 		g.Go(func() error {
-			err := node.Run(nodectx)
-			if errs2.IsCanceled(err) {
-				err = nil
-			}
-			return err
+			return errs2.IgnoreCanceled(node.Run(nodectx))
 		})
 	}
 

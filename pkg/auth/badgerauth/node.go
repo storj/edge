@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/sync2"
@@ -142,20 +141,16 @@ func (node *Node) Address() string {
 
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
-	group, ctx := errgroup.WithContext(ctx)
+	group, gCtx := errgroup.WithContext(ctx)
 	for _, join := range node.config.Join {
 		node.peers = append(node.peers, NewPeer(node, join))
 	}
 	group.Go(func() error {
-		err := node.SyncCycle.Run(ctx, node.syncAll)
-		if errs2.IsCanceled(err) {
-			err = nil
-		}
-		return err
+		return node.SyncCycle.Run(gCtx, node.syncAll)
 	})
 
 	group.Go(func() error {
-		return Error.Wrap(node.server.Serve(ctx, node.listener))
+		return Error.Wrap(node.server.Serve(gCtx, node.listener))
 	})
 
 	return Error.Wrap(group.Wait())
@@ -173,12 +168,13 @@ func (node *Node) syncAll(ctx context.Context) error {
 
 // Close releases underlying resources.
 func (node *Node) Close() error {
-	var g errs.Group
+	node.SyncCycle.Close()
 	if node.listener != nil {
 		// if the server is started, then `server.Serve` automatically closes
 		// the listener.
 		_ = node.listener.Close()
 	}
+	var g errs.Group
 	if node.DB != nil {
 		g.Add(node.DB.Close())
 	}
@@ -194,10 +190,21 @@ func (node *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingRespon
 
 // Replicate implements a node's ability to ship its replication log/records to
 // another node. It responds with RPC errors only.
-func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (*pb.ReplicationResponse, error) {
+func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var response pb.ReplicationResponse
 
 	for _, reqEntry := range req.Entries {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			node.log.Info("replication response canceled", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Canceled, err.Error())
+		default:
+			// continue
+		}
+
 		var id NodeID
 
 		if err := id.SetBytes(reqEntry.NodeId); err != nil {
