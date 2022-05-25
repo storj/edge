@@ -13,6 +13,85 @@ _TODO(artur): fill up this section when more of the badgerauth package is carved
 
 _TODO(artur): fill up this section when more of the badgerauth package is carved out._
 
+## Schema
+
+### [`NodeID`](nodeid.go)
+
+Contains the local node ID, to identify it in a cluster.
+
+#### Key
+
+Name: `node_id`
+
+#### Value
+
+Type: `[32]byte` / [`NodeID`](nodeid.go)
+
+### [`Clock`](clock.go)
+
+Contains the logical time of a node.
+
+#### Key
+
+Name: `clock_value/NodeID`
+
+| Name   | Type                               |
+| ------ | ---------------------------------- |
+| NodeID | `[32]byte` / [`NodeID`](nodeid.go) |
+
+#### Value
+
+Type: `uint64` / [`Clock`](clock.go)
+
+### [`ReplicationLogEntry`](replication_log.go)
+
+A log corresponding to every auth record, used for node replication. Note that
+the key contains the replication log entry itself.
+
+#### Key
+
+Name: `replication_log/NodeID/Clock/KeyHash/State`
+
+| Name    | Type                                          |
+| ------- | --------------------------------------------- |
+| NodeID  | `[32]byte` / [NodeID](nodeid.go)              |
+| Clock   | `uint64` / [Clock](clock.go)                  |
+| KeyHash | `[32]byte` / [KeyHash](../authdb/kv.go)       |
+| State   | `int32` / [Record_State](pb/badgerauth.pb.go) |
+
+#### Value
+
+Type: nil
+
+### [`Record`](pb/badgerauth.pb.go)
+
+The auth record containing encrypted access grant, and metadata fields.
+
+#### Key
+
+Name: `KeyHash`
+
+| Name    | Type                                      |
+| ------- | ----------------------------------------- |
+| KeyHash | `[32]byte` / [`KeyHash`](../authdb/kv.go) |
+
+#### Value
+
+Type: [`Record`](pb/badgerauth.pb.go)
+
+| Name                 | Type                                          |
+| -------------------- | --------------------------------------------- |
+| CreatedAtUnix        | `int64`                                       |
+| Public               | `bool`                                        |
+| SatelliteAddress     | `string`                                      |
+| MacaroonHead         | `[]byte`                                      |
+| ExpiresAtUnix        | `int64`                                       |
+| EncryptedSecretKey   | `[]byte`                                      |
+| EncryptedAccessGrant | `[]byte`                                      |
+| InvalidationReason   | `string`                                      |
+| InvalidatedAtUnix    | `int64`                                       |
+| State                | `int32` / [Record_State](pb/badgerauth.pb.go) |
+
 ## Development
 
 ### Regenerating protobufs
