@@ -25,10 +25,10 @@ require (
 	storj.io/common v0.0.0-20220414110316-a5cb7172d6bf
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.30
-	storj.io/gateway v1.7.1-0.20220509185548-b9f24f92fd66
+	storj.io/gateway v1.7.2-0.20220525172811-a9b041a15f8a
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
 	storj.io/private v0.0.0-20220323114243-08c4b5e752f4
-	storj.io/uplink v1.8.2-0.20220426114611-5580401cd102
+	storj.io/uplink v1.9.0
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
