@@ -68,6 +68,12 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 	log := zaptest.NewLogger(t).Named("badgerauth")
 
 	var nodes []*badgerauth.Node
+	defer func() {
+		for _, node := range nodes {
+			ctx.Check(node.Close)
+		}
+	}()
+
 	for i := 0; i < c.NodeCount; i++ {
 		name := strconv.Itoa(i)
 		log := log.Named(name)
@@ -81,7 +87,6 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 
 		node, err := badgerauth.New(log, config)
 		require.NoError(t, err)
-		defer ctx.Check(node.Close)
 
 		require.NoError(t, node.UnderlyingDB().PingDB(ctx), "Ping")
 
