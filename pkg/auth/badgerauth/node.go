@@ -80,6 +80,10 @@ var _ pb.DRPCReplicationServiceServer = (*Node)(nil)
 
 // New constructs new Node.
 func New(log *zap.Logger, config Config) (_ *Node, err error) {
+	if log == nil {
+		return nil, Error.New("needs non-nil logger")
+	}
+
 	node := &Node{
 		log:    log,
 		config: config,

@@ -151,6 +151,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 		}
 
 		require.NoError(t, db.UnderlyingDB().Update(func(txn *badger.Txn) error {
+			log := zaptest.NewLogger(t)
 			for i := 52; i < 100; i++ {
 				id := badgerauth.NodeID{'c'}
 				kh := authdb.KeyHash{byte(i)}
@@ -166,7 +167,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 					State:                pb.Record_CREATED,
 				}
 
-				if err := badgerauth.InsertRecord(txn, id, kh, record); err != nil {
+				if err := badgerauth.InsertRecord(log, txn, id, kh, record); err != nil {
 					return err
 				}
 
@@ -180,7 +181,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 			}
 
 			for i := 100; i < 255; i++ {
-				if err := badgerauth.InsertRecord(txn, badgerauth.NodeID{'d'}, authdb.KeyHash{byte(i)}, &pb.Record{}); err != nil {
+				if err := badgerauth.InsertRecord(log, txn, badgerauth.NodeID{'d'}, authdb.KeyHash{byte(i)}, &pb.Record{}); err != nil {
 					return err
 				}
 			}
@@ -199,7 +200,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 				State:                pb.Record_CREATED,
 			}
 
-			if err := badgerauth.InsertRecord(txn, id, kh, record); err != nil {
+			if err := badgerauth.InsertRecord(log, txn, id, kh, record); err != nil {
 				return err
 			}
 

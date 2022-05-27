@@ -60,21 +60,26 @@ func (a action) String() string {
 // DB represents authentication storage based on BadgerDB.
 // This implements the data-storage layer for a distributed Node.
 type DB struct {
-	db *badger.DB
+	log *zap.Logger
+	db  *badger.DB
 
 	config Config
 }
 
 // OpenDB opens the underlying database for badgerauth node.
 func OpenDB(log *zap.Logger, config Config) (*DB, error) {
-	opt := badger.DefaultOptions(config.Path).WithInMemory(config.Path == "")
-	if log != nil {
-		opt = opt.WithLogger(badgerLogger{log.Sugar().Named("storage")})
+	if log == nil {
+		return nil, Error.New("needs non-nil logger")
 	}
 
 	db := &DB{
+		log:    log.Named(config.ID.String()),
 		config: config,
 	}
+
+	opt := badger.DefaultOptions(config.Path)
+	opt = opt.WithInMemory(config.Path == "")
+	opt = opt.WithLogger(badgerLogger{log.Sugar().Named("storage")})
 
 	var err error
 	db.db, err = badger.Open(opt)
@@ -153,7 +158,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}
 
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
-		return InsertRecord(txn, db.config.ID, keyHash, &r)
+		return InsertRecord(db.log.Named("PutAtTime"), txn, db.config.ID, keyHash, &r)
 	}))
 }
 
@@ -325,7 +330,7 @@ func (db *DB) insertResponseEntries(ctx context.Context, response *pb.Replicatio
 			// TODO(artur): authdb.KeyHash needs the same abstraction as NodeID.
 			copy(keyHash[:], entry.EncryptionKeyHash)
 
-			if err = InsertRecord(txn, id, keyHash, entry.Record); err != nil {
+			if err = InsertRecord(db.log.Named("insertResponseEntries"), txn, id, keyHash, entry.Record); err != nil {
 				return errs.New("failed to insert entry no. %d (%v) from %v: %w", i, keyHash, id, err)
 			}
 		}
@@ -348,7 +353,7 @@ func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
 // consistent with the record's state.
 //
 // InsertRecord can be used to insert on any node for any node.
-func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record) error {
+func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record *pb.Record) error {
 	if record.State != pb.Record_CREATED {
 		return errOperationNotSupported
 	}
@@ -364,9 +369,14 @@ func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 			return Error.Wrap(ProtoError.Wrap(err))
 		}
 
+		f := zap.Binary("keyHash", keyHash[:])
 		if !recordsEqual(record, &loaded) {
+			log.Warn("encountered duplicate key, but values aren't equal", f)
+			mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "false"))
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
+		log.Info("encountered duplicate key", f)
+		mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "true"))
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
 		return Error.Wrap(err)
 	}
@@ -389,8 +399,13 @@ func InsertRecord(txn *badger.Txn, nodeID NodeID, keyHash authdb.KeyHash, record
 		State:   record.State,
 	}.ToBadgerEntry()
 
-	mainEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
-	rlogEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
+	if record.ExpiresAtUnix > 0 {
+		// TODO(artur): maybe it would be good to report buckets given TTL would
+		// fall into (for later analysis).
+		mon.Event("as_badgerauth_expiring_insert")
+		mainEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
+		rlogEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
+	}
 
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }

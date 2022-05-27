@@ -68,12 +68,12 @@ func (kv *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 	if err := kv.src.Put(ctx, keyHash, record); err != nil {
 		return Error.New("failed to write to sqlauth: %w", err)
 	}
-	kv.log.Debug("Wrote to sqlauth", zap.ByteString("keyHash", keyHash[:]))
+	kv.log.Debug("Wrote to sqlauth", zap.Binary("keyHash", keyHash[:]))
 	if err := kv.dst.Put(ctx, keyHash, record); err != nil {
 		kv.mon.Event("as_badgerauthmigration_destination_put_err")
 		return Error.New("failed to write to badgerauth: %w", err)
 	}
-	kv.log.Debug("Wrote to badgerauth", zap.ByteString("keyHash", keyHash[:]))
+	kv.log.Debug("Wrote to badgerauth", zap.Binary("keyHash", keyHash[:]))
 	return nil
 }
 
@@ -147,7 +147,7 @@ func (kv *KV) MigrateToLatest(ctx context.Context) error {
 		if err = dstDB.Update(func(txn *badger.Txn) error {
 			for _, r := range rows {
 				keyHash, record := convertRecord(r)
-				if err = badgerauth.InsertRecord(txn, kv.dst.ID(), keyHash, record); err != nil {
+				if err = badgerauth.InsertRecord(kv.log, txn, kv.dst.ID(), keyHash, record); err != nil {
 					return err
 				}
 				count++
