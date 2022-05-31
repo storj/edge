@@ -41,7 +41,7 @@ Name: `clock_value/NodeID`
 
 #### Value
 
-Type: `uint64` / [`Clock`](clock.go)
+Type: `uint64` / [`Clock`](clock.go). Big-endian byte order.
 
 ### [`ReplicationLogEntry`](replication_log.go)
 
@@ -52,12 +52,12 @@ the key contains the replication log entry itself.
 
 Name: `replication_log/NodeID/Clock/KeyHash/State`
 
-| Name    | Type                                          |
-| ------- | --------------------------------------------- |
-| NodeID  | `[32]byte` / [NodeID](nodeid.go)              |
-| Clock   | `uint64` / [Clock](clock.go)                  |
-| KeyHash | `[32]byte` / [KeyHash](../authdb/kv.go)       |
-| State   | `int32` / [Record_State](pb/badgerauth.pb.go) |
+| Name    | Type                                                                  |
+| ------- | --------------------------------------------------------------------- |
+| NodeID  | `[32]byte` / [NodeID](nodeid.go)                                      |
+| Clock   | `uint64` / [Clock](clock.go). Big-endian byte order.                  |
+| KeyHash | `[32]byte` / [KeyHash](../authdb/kv.go)                               |
+| State   | `int32` / [Record_State](pb/badgerauth.pb.go). Big-endian byte order. |
 
 #### Value
 
