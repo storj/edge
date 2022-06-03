@@ -388,7 +388,7 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 
 // statusUp changes peer status to up.
 func (peer *Peer) statusUp(ctx context.Context) {
-	mon.Event("peer_up", monkit.NewSeriesTag("address", peer.address))
+	mon.Event("as_badgerauth_peer_up", monkit.NewSeriesTag("address", peer.address))
 	peer.changeStatus(func(status *PeerStatus) {
 		status.LastUpdated = time.Now()
 		status.LastWasUp = true
@@ -398,7 +398,7 @@ func (peer *Peer) statusUp(ctx context.Context) {
 
 // statusDown changes peer status to down.
 func (peer *Peer) statusDown(ctx context.Context, err error) {
-	mon.Event("peer_down", monkit.NewSeriesTag("address", peer.address))
+	mon.Event("as_badgerauth_peer_down", monkit.NewSeriesTag("address", peer.address))
 	peer.changeStatus(func(status *PeerStatus) {
 		status.LastUpdated = time.Now()
 		status.LastWasUp = false
