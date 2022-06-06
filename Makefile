@@ -163,7 +163,7 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 ##@ Clean
 
 .PHONY: clean
-clean: test-docker-clean binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
+clean: binaries-clean clean-images ## Clean local release binaries and local Docker images
 
 .PHONY: binaries-clean
 binaries-clean: ## Remove all local release binaries (jenkins)
@@ -174,10 +174,6 @@ clean-images:
 	-docker rmi -f $(shell docker images -q "storjlabs/gateway-mt:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/authservice:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/linksharing:${TAG}-*")
-
-.PHONY: test-docker-clean
-test-docker-clean: ## Clean up Docker environment used in test-docker target
-	-docker-compose down --rmi all
 
 .PHONY: bump-dependencies
 bump-dependencies:
