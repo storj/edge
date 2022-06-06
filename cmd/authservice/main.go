@@ -88,7 +88,8 @@ func main() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
 
 	if runCfg.Migration {
 		if err = cmdMigrationRun(cmd, args); err != nil {
@@ -123,6 +124,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
 
 	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg)
 	if err != nil {
@@ -171,7 +173,8 @@ func cmdSetup(cmd *cobra.Command, _ []string) error {
 }
 
 func cmdRegister(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
 
 	res, err := register.Access(ctx, registerCfg.Address, args[0], registerCfg.Public)
 	if err != nil {

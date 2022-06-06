@@ -87,7 +87,8 @@ func deleteCommand(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
 
 	log := zap.L()
 

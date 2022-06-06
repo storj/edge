@@ -93,7 +93,9 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
+
 	log := zap.L()
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {

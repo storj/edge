@@ -92,7 +92,8 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
 
 	if err := process.InitMetricsWithHostname(ctx, zap.L(), nil); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)

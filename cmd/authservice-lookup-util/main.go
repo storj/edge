@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -31,7 +30,9 @@ func main() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
+	ctx, cancel := process.Ctx(cmd)
+	defer cancel()
+
 	authService := authclient.AuthClient{Config: authclient.Config{
 		BaseURL: config.AuthServiceBaseURL,
 		Token:   config.AuthServiceToken,
