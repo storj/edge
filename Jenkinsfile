@@ -42,6 +42,7 @@ timeout(time: 26, unit: 'MINUTES') {
 								sh 'check-atomic-align ./...'
 								sh 'check-monkit ./...'
 								sh 'check-errs ./...'
+								sh 'check-deferloop ./...'
 								sh 'staticcheck ./...'
 								sh 'golangci-lint run --config /go/ci/.golangci.yml'
 								sh 'check-downgrades'
@@ -56,6 +57,7 @@ timeout(time: 26, unit: 'MINUTES') {
 									sh 'check-atomic-align ./...'
 									sh 'check-monkit ./...'
 									sh 'check-errs ./...'
+									sh 'check-deferloop ./...'
 									sh 'staticcheck ./...'
 									sh 'golangci-lint run --config /go/ci/.golangci.yml'
 								}
