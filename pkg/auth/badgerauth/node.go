@@ -74,6 +74,7 @@ type Node struct {
 	mux      *drpcmux.Mux
 	server   *drpcserver.Server
 	peers    []*Peer
+	admin    *Admin
 	Backup   *Backup
 
 	SyncCycle sync2.Cycle
@@ -108,6 +109,11 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	}
 
 	if err = pb.DRPCRegisterReplicationService(node.mux, node); err != nil {
+		return nil, Error.New("failed to register server: %w", err)
+	}
+
+	node.admin = NewAdmin(node.DB)
+	if err = pb.DRPCRegisterAdminService(node.mux, node.admin); err != nil {
 		return nil, Error.New("failed to register server: %w", err)
 	}
 

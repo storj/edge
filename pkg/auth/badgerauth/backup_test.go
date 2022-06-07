@@ -43,7 +43,7 @@ func TestBackupRestore(t *testing.T) {
 		},
 		func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
 			node.Backup.Client = &s3Client
-			expectedRecords, expectedEntries = badgerauthtest.CreateFullRecords(ctx, t, node, 10)
+			expectedRecords, _, expectedEntries = badgerauthtest.CreateFullRecords(ctx, t, node, 10)
 			node.Backup.SyncCycle.TriggerWait()
 		},
 	)

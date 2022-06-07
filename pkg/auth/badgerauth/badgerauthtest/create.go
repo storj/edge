@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -23,6 +25,7 @@ func CreateFullRecords(
 	count int,
 ) (
 	records map[authdb.KeyHash]*authdb.Record,
+	keys []authdb.KeyHash,
 	entries []ReplicationLogEntryWithTTL,
 ) {
 	records = make(map[authdb.KeyHash]*authdb.Record)
@@ -31,7 +34,7 @@ func CreateFullRecords(
 		marker := testrand.RandAlphaNumeric(32)
 
 		var keyHash authdb.KeyHash
-		copy(keyHash[:], marker)
+		require.NoError(t, keyHash.SetBytes(marker))
 
 		// TODO(artur): make expiresAt configurable or random per record.
 		expiresAt := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
@@ -45,6 +48,7 @@ func CreateFullRecords(
 			Public:               testrand.Intn(1) == 0,
 		}
 
+		keys = append(keys, keyHash)
 		records[keyHash] = record
 		entries = append(entries, ReplicationLogEntryWithTTL{
 			Entry: badgerauth.ReplicationLogEntry{
@@ -63,5 +67,5 @@ func CreateFullRecords(
 		}.Check(ctx, t, node.UnderlyingDB())
 	}
 
-	return records, entries
+	return records, keys, entries
 }

@@ -136,7 +136,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	// definition, and it's performed outside of the transaction because it's
 	// not crucial (access key hashes are unique enough).
 	if err = db.db.View(func(txn *badger.Txn) error {
-		if _, err = txn.Get(keyHash[:]); err == nil {
+		if _, err = txn.Get(keyHash.Bytes()); err == nil {
 			return ErrKeyAlreadyExists
 		} else if !errs.Is(err, badger.ErrKeyNotFound) {
 			return err
@@ -168,7 +168,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
 
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
-		r, err := lookupRecord(txn, keyHash)
+		r, err := lookupRecordWithTxn(txn, keyHash)
 		if err != nil {
 			if errs.Is(err, badger.ErrKeyNotFound) {
 				return nil
@@ -264,13 +264,13 @@ func (db *DB) findResponseEntries(nodeID NodeID, clock Clock) ([]*pb.Replication
 			if err := entry.SetBytes(it.Item().Key()); err != nil {
 				return err
 			}
-			r, err := lookupRecord(txn, entry.KeyHash)
+			r, err := lookupRecordWithTxn(txn, entry.KeyHash)
 			if err != nil {
 				return err
 			}
 			response = append(response, &pb.ReplicationResponseEntry{
 				NodeId:            entry.ID.Bytes(),
-				EncryptionKeyHash: entry.KeyHash[:],
+				EncryptionKeyHash: entry.KeyHash.Bytes(),
 				Record:            r,
 			})
 			count++
@@ -327,14 +327,55 @@ func (db *DB) insertResponseEntries(ctx context.Context, response *pb.Replicatio
 			if err = id.SetBytes(entry.NodeId); err != nil {
 				return err
 			}
-			// TODO(artur): authdb.KeyHash needs the same abstraction as NodeID.
-			copy(keyHash[:], entry.EncryptionKeyHash)
+			if err = keyHash.SetBytes(entry.EncryptionKeyHash); err != nil {
+				return err
+			}
 
 			if err = InsertRecord(db.log.Named("insertResponseEntries"), txn, id, keyHash, entry.Record); err != nil {
 				return errs.New("failed to insert entry no. %d (%v) from %v: %w", i, keyHash, id, err)
 			}
 		}
 		return nil
+	}))
+}
+
+func (db *DB) lookupRecord(ctx context.Context, keyHash authdb.KeyHash) (record *pb.Record, err error) {
+	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
+		record, err = lookupRecordWithTxn(txn, keyHash)
+		if err != nil {
+			return err
+		}
+		return nil
+	}))
+}
+
+func (db *DB) updateRecord(ctx context.Context, keyHash authdb.KeyHash, fn func(record *pb.Record)) error {
+	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		record, err := lookupRecordWithTxn(txn, keyHash)
+		if err != nil {
+			return err
+		}
+
+		fn(record)
+
+		marshaled, err := pb.Marshal(record)
+		if err != nil {
+			return ProtoError.Wrap(err)
+		}
+
+		return txn.SetEntry(badger.NewEntry(keyHash.Bytes(), marshaled))
+	}))
+}
+
+func (db *DB) deleteRecord(ctx context.Context, keyHash authdb.KeyHash) error {
+	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+		if _, err := txn.Get(keyHash.Bytes()); err != nil {
+			return err
+		}
+		return errs.Combine(
+			txn.Delete(keyHash.Bytes()),
+			deleteReplicationLogEntries(txn, keyHash),
+		)
 	}))
 }
 
@@ -360,7 +401,7 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 	// NOTE(artur): the check below is a sanity check (generally, this shouldn't
 	// happen because access key hashes are unique) that can be slurped into the
 	// replication process itself if needed.
-	if i, err := txn.Get(keyHash[:]); err == nil {
+	if i, err := txn.Get(keyHash.Bytes()); err == nil {
 		var loaded pb.Record
 
 		if err = i.Value(func(val []byte) error {
@@ -391,7 +432,7 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 		return Error.Wrap(err)
 	}
 
-	mainEntry := badger.NewEntry(keyHash[:], marshaled)
+	mainEntry := badger.NewEntry(keyHash.Bytes(), marshaled)
 	rlogEntry := ReplicationLogEntry{
 		ID:      nodeID,
 		Clock:   clock,
@@ -410,10 +451,10 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))
 }
 
-func lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
+func lookupRecordWithTxn(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
 	var record pb.Record
 
-	item, err := txn.Get(keyHash[:])
+	item, err := txn.Get(keyHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -421,4 +462,28 @@ func lookupRecord(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
 	return &record, item.Value(func(val []byte) error {
 		return ProtoError.Wrap(pb.Unmarshal(val, &record))
 	})
+}
+
+func deleteReplicationLogEntries(txn *badger.Txn, soughtKeyHash authdb.KeyHash) error {
+	opt := badger.DefaultIteratorOptions
+	opt.PrefetchValues = false
+	opt.Prefix = []byte(replicationLogPrefix)
+
+	it := txn.NewIterator(opt)
+	defer it.Close()
+
+	for it.Rewind(); it.Valid(); it.Next() {
+		var entry ReplicationLogEntry
+		if err := entry.SetBytes(it.Item().Key()); err != nil {
+			return err
+		}
+
+		if entry.KeyHash == soughtKeyHash {
+			if err := txn.Delete(it.Item().Key()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

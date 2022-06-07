@@ -51,7 +51,7 @@ func (e ReplicationLogEntry) Bytes() []byte {
 	key = append(key, replicationLogEntrySeparator...)
 	key = append(key, e.Clock.Bytes()...)
 	key = append(key, replicationLogEntrySeparator...)
-	key = append(key, e.KeyHash[:]...)
+	key = append(key, e.KeyHash.Bytes()...)
 	key = append(key, replicationLogEntrySeparator...)
 	key = append(key, stateBytes[:]...)
 

@@ -13,6 +13,9 @@ import (
 // Invalid is the class of error that is returned for invalid records.
 var Invalid = errs.Class("invalid")
 
+// KeyHashError is a class of key hash errors.
+var KeyHashError = errs.Class("key hash")
+
 // Record is a key/value store record.
 type Record struct {
 	SatelliteAddress     string
@@ -25,6 +28,19 @@ type Record struct {
 
 // KeyHash is the key portion of the key/value store.
 type KeyHash [32]byte
+
+// SetBytes sets the key hash from bytes.
+func (kh *KeyHash) SetBytes(v []byte) error {
+	if len(v) > len(KeyHash{}) {
+		return KeyHashError.New("v exceeds the acceptable length")
+	}
+	*kh = KeyHash{}
+	copy(kh[:], v)
+	return nil
+}
+
+// Bytes returns the bytes for key hash.
+func (kh KeyHash) Bytes() []byte { return kh[:] }
 
 // KV is an abstract key/value store of KeyHash to Records.
 type KV interface {

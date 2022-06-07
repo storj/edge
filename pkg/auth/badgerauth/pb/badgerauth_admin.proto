@@ -1,0 +1,40 @@
+// Copyright (C) 2022 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+option go_package = "storj.io/gateway-mt/pkg/auth/badgerauth/pb";
+
+package badgerauth;
+
+import "badgerauth.proto";
+
+message GetRecordRequest {
+  bytes key = 1;
+}
+message GetRecordResponse {
+  Record record = 1;
+}
+
+message InvalidateRecordRequest {
+  bytes key = 1;
+  string reason = 2;
+}
+message InvalidateRecordResponse {}
+
+message UnpublishRecordRequest {
+  bytes key = 1;
+}
+message UnpublishRecordResponse {}
+
+message DeleteRecordRequest {
+  bytes key = 1;
+}
+message DeleteRecordResponse {}
+
+service AdminService {
+  rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
+  rpc InvalidateRecord(InvalidateRecordRequest) returns (InvalidateRecordResponse);
+  rpc UnpublishRecord(UnpublishRecordRequest) returns (UnpublishRecordResponse);
+  rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
+}

@@ -183,7 +183,7 @@ func testReplication(ctx *testcontext.Context, t *testing.T, cluster *badgerauth
 	var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
 	for _, n := range cluster.Nodes {
-		records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+		records, _, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
 		appendRecords(expectedRecords, records)
 		expectedEntries = append(expectedEntries, entries...)
 	}
@@ -202,7 +202,7 @@ func testReplicationSingleLoop(ctx *testcontext.Context, t *testing.T, cluster *
 	var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
 	for _, n := range cluster.Nodes {
-		records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+		records, _, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
 		appendRecords(expectedRecords, records)
 		expectedEntries = append(expectedEntries, entries...)
 
@@ -239,7 +239,7 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 				max = count
 			}
 
-			records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+			records, _, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
 			appendRecords(expectedRecords, records)
 			expectedEntries = append(expectedEntries, entries...)
 		}
@@ -267,7 +267,7 @@ func TestCluster_ReplicationRandomizedSingleLoop(t *testing.T) {
 		for _, n := range shuffleNodesOrder(cluster.Nodes) {
 			count := testrand.Intn(11)
 
-			records, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
+			records, _, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
 			appendRecords(expectedRecords, records)
 			expectedEntries = append(expectedEntries, entries...)
 

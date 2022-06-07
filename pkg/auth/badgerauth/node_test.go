@@ -136,7 +136,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 			if i >= 25 {
 				expectedReplicationResponseEntries = append(expectedReplicationResponseEntries, &pb.ReplicationResponseEntry{
 					NodeId:            badgerauth.NodeID{'a'}.Bytes(),
-					EncryptionKeyHash: kh[:],
+					EncryptionKeyHash: kh.Bytes(),
 					Record: &pb.Record{
 						CreatedAtUnix:        now.Unix(),
 						Public:               false,
@@ -174,7 +174,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 				if i >= 52+12 && i < 52+12+25 {
 					expectedReplicationResponseEntries = append(expectedReplicationResponseEntries, &pb.ReplicationResponseEntry{
 						NodeId:            id.Bytes(),
-						EncryptionKeyHash: kh[:],
+						EncryptionKeyHash: kh.Bytes(),
 						Record:            record,
 					})
 				}
@@ -206,7 +206,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 
 			expectedReplicationResponseEntries = append(expectedReplicationResponseEntries, &pb.ReplicationResponseEntry{
 				NodeId:            id.Bytes(),
-				EncryptionKeyHash: kh[:],
+				EncryptionKeyHash: kh.Bytes(),
 				Record:            record,
 			})
 
