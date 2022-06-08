@@ -28,7 +28,7 @@ type Client interface {
 
 // BackupConfig provides options for creating a backup.
 type BackupConfig struct {
-	Enabled         bool          `user:"true" help:"enable backups" default:"true" devDefault:"false" testDefault:"false"`
+	Enabled         bool          `user:"true" help:"enable backups" default:"false"`
 	Endpoint        string        `user:"true" help:"backup bucket endpoint hostname, e.g. s3.amazonaws.com"`
 	Bucket          string        `user:"true" help:"bucket name where database backups are stored"`
 	Prefix          string        `user:"true" help:"database backup object path prefix"`

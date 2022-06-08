@@ -116,7 +116,7 @@ node.backup.access-key-id: ""
 node.backup.bucket: ""
 
 # enable backups
-node.backup.enabled: true
+node.backup.enabled: false
 
 # backup bucket endpoint hostname, e.g. s3.amazonaws.com
 node.backup.endpoint: ""
