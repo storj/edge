@@ -479,7 +479,7 @@ func deleteReplicationLogEntries(txn *badger.Txn, soughtKeyHash authdb.KeyHash) 
 		}
 
 		if entry.KeyHash == soughtKeyHash {
-			if err := txn.Delete(it.Item().Key()); err != nil {
+			if err := txn.Delete(it.Item().KeyCopy(nil)); err != nil {
 				return err
 			}
 		}
