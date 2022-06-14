@@ -18,7 +18,7 @@ func TestErrMissingAuthorizationHeader(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrMissingAuthorizationHeader)
 
-	r, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, "https://link.eu1.storjshare.io/raw/AKIAIOSFODNN7EXAMPLE/b/o", nil)
+	r, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, "https://link.storjshare.io/raw/AKIAIOSFODNN7EXAMPLE/b/o", nil)
 	require.NoError(t, err)
 
 	err = VerifySigningInfo(r, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", time.Now(), 15*time.Minute)

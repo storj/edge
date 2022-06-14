@@ -60,7 +60,7 @@ var (
 	confDir string
 
 	registerCfg struct {
-		Address   string `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.us1.storjshare.io:7777"`
+		Address   string `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.storjshare.io:7777"`
 		Public    bool   `help:"whether access grant can be retrieved from authservice by providing only Access Key ID without Secret Access Key" default:"false"`
 		FormatEnv bool   `help:"environmental-variable format of credentials; for using in scripts" default:"false"`
 	}

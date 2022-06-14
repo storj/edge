@@ -66,7 +66,7 @@ Anything shared with `--url` will be readonly and available publicly (no secret 
 
 results in
 
-`https://link.us1.storjshare.io/s/jqaz8xihdea93jfbaks8324jrhq1/<path>`
+`https://link.storjshare.io/s/jqaz8xihdea93jfbaks8324jrhq1/<path>`
 
 ## Custom URL configuration and static site hosting with Uplink
 
@@ -86,7 +86,7 @@ or [S3 gateway](https://docs.storj.io/api-reference/s3-gateway). Download the [U
    ```
    $ORIGIN example.com.
    $TTL    3600
-   <hostname>    	IN	CNAME	link.us1.storjshare.io.
+   <hostname>    	IN	CNAME	link.storjshare.io.
    txt-<hostname> 	IN	TXT  	storj-root:<path>
    txt-<hostname> 	IN	TXT  	storj-access:<access key>
    ```
@@ -94,12 +94,12 @@ or [S3 gateway](https://docs.storj.io/api-reference/s3-gateway). Download the [U
    ```
    $ORIGIN example.com.
    $TTL    3600
-   www    	IN	CNAME	link.us1.storjshare.io.
+   www    	IN	CNAME	link.storjshare.io.
    txt-www	IN	TXT  	storj-root:bucket/prefix
    txt-www	IN	TXT  	storj-access:jqaz8xihdea93jfbaks8324jrhq1
    ```
 
-2. Create a CNAME record on your hostname using our linksharing common URL `link.us1.storjshare.io.` as the target name.
+2. Create a CNAME record on your hostname using our linksharing common URL `link.storjshare.io.` as the target name.
 
     <img src="images/cname.png" width="50%">
 

@@ -2,11 +2,11 @@
 
 ## Background
 
-The scripts in this directory are trial attempts to load test the Link Sharing Service.  We've 
-seen slow down of the entire network stack in certain environments.  There is growing evidence 
+The scripts in this directory are trial attempts to load test the Link Sharing Service.  We've
+seen slow down of the entire network stack in certain environments.  There is growing evidence
 that this issue may be related to congestion control or network stack misconfiguration.
 
-These tests are not designed to be run as part of a regular regression test, they are for 
+These tests are not designed to be run as part of a regular regression test, they are for
 troubleshooting only.
 
 ## Usage
@@ -30,5 +30,5 @@ limit, and linksharing you want to test against. Note that you need at least as 
 the concurrency, as every concurrent download is a different file in the bucket.
 
 ```shell
-./test-linksharing.sh mybucket 100 https://link.us1.storjshare.io
+./test-linksharing.sh mybucket 100 https://link.storjshare.io
 ```

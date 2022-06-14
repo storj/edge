@@ -11,7 +11,7 @@ if ! curl --version &> /dev/null; then
 fi
 if [ $# -eq 0 ]; then
     echo "usage: $0 <BUCKET> <CONCURRENCY_LIMIT> <LINKSHARING_URL>"
-    echo "example: $0 mybucket 100 https://link.us1.storjshare.io"
+    echo "example: $0 mybucket 100 https://link.storjshare.io"
     exit 1
 fi
 if [ -z "$ACCESS_GRANT" ]; then
@@ -25,8 +25,8 @@ fi
 
 BUCKET=$1
 CONCURRENCY_LIMIT=${2:-100} # second argument, default to 100
-LINKSHARING_URL=${3:-"https://link.us1.storjshare.io"} # third argument, default to US1 linksharing
-AUTH_URL="https://auth.us1.storjshare.io"
+LINKSHARING_URL=${3:-"https://link.storjshare.io"} # third argument
+AUTH_URL="https://auth.storjshare.io"
 EXPIRE_AFTER="+2h"
 
 echo "Testing using files in sj://$BUCKET"
