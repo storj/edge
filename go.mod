@@ -10,7 +10,7 @@ require (
 	github.com/miekg/dns v1.1.35
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.7.0
-	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220409155652-232f5040a908
+	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.17
 	github.com/spf13/cobra v1.1.3

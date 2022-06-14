@@ -138,7 +138,7 @@ require (
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
-	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220409155652-232f5040a908 // indirect
+	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d // indirect
 	github.com/outcaste-io/ristretto v0.1.1-0.20220420003845-bd658a460d49 // indirect
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
