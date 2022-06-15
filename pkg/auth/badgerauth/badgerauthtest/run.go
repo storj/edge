@@ -132,12 +132,21 @@ func setConfigDefaults(config *badgerauth.Config) {
 		config.InsecureDisableTLS = true
 	}
 
-	config.ReplicationInterval = time.Minute
+	if config.ReplicationInterval == 0 {
+		config.ReplicationInterval = 5 * time.Second
+	}
 	if config.ReplicationLimit == 0 {
-		config.ReplicationLimit = 100
+		config.ReplicationLimit = 1000
 	}
 
-	config.ConflictBackoff.Delay = 0
-	config.ConflictBackoff.Max = 5 * time.Minute
-	config.ConflictBackoff.Min = 100 * time.Millisecond
+	if config.ConflictBackoff.Max == 0 {
+		config.ConflictBackoff.Max = 5 * time.Minute
+	}
+	if config.ConflictBackoff.Min == 0 {
+		config.ConflictBackoff.Min = 100 * time.Millisecond
+	}
+
+	if config.Backup.Interval == 0 {
+		config.Backup.Interval = time.Hour
+	}
 }

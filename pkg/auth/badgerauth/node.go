@@ -35,7 +35,16 @@ var (
 )
 
 // Config provides options for creating a Node.
+//
+// Keep this in sync with badgerauthtest.setConfigDefaults.
 type Config struct {
+	// NOTE(artur): I have received feedback that we are headed towards many
+	// options that no one understands how to use correctly. It might be
+	// necessary to make the config thinner and autoscale or explain necessary
+	// and fine-tune defaults. CockroachDB is a good (or bad?) example of how to
+	// have not too many options; the only thing that the user can configure
+	// while setting up a node is the join list.
+
 	ID NodeID `user:"true" help:"unique identifier for the node" default:""`
 
 	// Path is where to store data. Empty means in memory.
@@ -47,10 +56,10 @@ type Config struct {
 
 	// ReplicationInterval defines how often to connect and request status from
 	// other nodes.
-	ReplicationInterval time.Duration `user:"true" help:"how often to replicate" default:"1m" devDefault:"5s"`
+	ReplicationInterval time.Duration `user:"true" help:"how often to replicate" default:"30s" devDefault:"5s"`
 	// ReplicationLimit is per node ID limit of replication response entries to
 	// return.
-	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"100"`
+	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"1000"`
 	// ConflictBackoff configures retries for conflicting transactions that may
 	// occur when Node's underlying database is under heavy load.
 	ConflictBackoff backoff.ExponentialBackoff

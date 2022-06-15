@@ -152,10 +152,10 @@ node.join: '[]'
 node.path: ""
 
 # how often to replicate
-node.replication-interval: 1m0s
+node.replication-interval: 30s
 
 # maximum entries returned in replication response
-node.replication-limit: 100
+node.replication-limit: 1000
 
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB

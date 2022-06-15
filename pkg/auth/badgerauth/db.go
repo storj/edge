@@ -9,6 +9,7 @@ import (
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
+	"github.com/outcaste-io/badger/v3/options"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -79,6 +80,11 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 
 	opt := badger.DefaultOptions(config.Path)
 	opt = opt.WithInMemory(config.Path == "")
+	// We want to fsync after each write to ensure we don't lose data:
+	opt = opt.WithSyncWrites(true)
+	// Currently, we don't want to compress because authservice is mostly
+	// deployed in environments where filesystem-level compression is on:
+	opt = opt.WithCompression(options.None)
 	opt = opt.WithLogger(badgerLogger{log.Sugar().Named("storage")})
 
 	var err error
