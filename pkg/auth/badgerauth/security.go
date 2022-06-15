@@ -72,7 +72,7 @@ func (opts TLSOptions) Load() (*tls.Config, error) {
 				return nil, TLSError.New("failed to add %q", entry.Name())
 			}
 
-		case "node":
+		case "node", "client":
 			keypair, err := tls.LoadX509KeyPair(full, changeExt(full, ".key"))
 			if err != nil {
 				return nil, TLSError.New("failed to load node keypair %q", entry.Name())

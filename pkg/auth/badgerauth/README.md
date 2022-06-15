@@ -133,6 +133,11 @@ organizationName = supplied
 [ signing_node_req ]
 keyUsage = critical,digitalSignature,keyEncipherment
 extendedKeyUsage = serverAuth,clientAuth
+
+# Used to sign client certificates.
+[ signing_client_req ]
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = clientAuth
 ```
 
 3. Create the CA key using the [`openssl genrsa`](https://www.openssl.org/docs/manmaster/man1/genrsa.html) command:
@@ -279,7 +284,7 @@ The most troubleshooting-helpful information is reported at the DEBUG level. How
 
 ### Production Owner tools
 
-TODO(artur): write about https://github.com/storj/gateway-mt/issues/190 when it's done.
+See [`authservice-admin`](../../../cmd/authservice-admin/README.md) for more information to use a command-line tool for retrieving, or updating an authservice record.
 
 ### Migration from PostgreSQL/CockroachDB (sqlauth backend)
 
