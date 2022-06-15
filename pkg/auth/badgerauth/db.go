@@ -74,12 +74,17 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	}
 
 	db := &DB{
-		log:    log.Named(config.ID.String()),
+		log:    log,
 		config: config,
 	}
 
 	opt := badger.DefaultOptions(config.Path)
-	opt = opt.WithInMemory(config.Path == "")
+
+	if inMemory := config.Path == ""; inMemory {
+		log.Warn("in-memory mode enabled. All data will be lost on shutdown!")
+		opt = opt.WithInMemory(inMemory)
+	}
+
 	// We want to fsync after each write to ensure we don't lose data:
 	opt = opt.WithSyncWrites(true)
 	// Currently, we don't want to compress because authservice is mostly
@@ -113,7 +118,7 @@ func (db *DB) prepare() (err error) {
 
 		return Error.Wrap(item.Value(func(val []byte) error {
 			if !bytes.Equal(val, db.config.ID.Bytes()) {
-				return ErrDBStartedWithDifferentNodeID.New("database %x, configuration %x", val, db.config.ID.Bytes())
+				return ErrDBStartedWithDifferentNodeID.New("database: %x, configuration: %s", val, db.config.ID)
 			}
 			return nil
 		}))
@@ -338,7 +343,7 @@ func (db *DB) insertResponseEntries(ctx context.Context, response *pb.Replicatio
 			}
 
 			if err = InsertRecord(db.log.Named("insertResponseEntries"), txn, id, keyHash, entry.Record); err != nil {
-				return errs.New("failed to insert entry no. %d (%v) from %v: %w", i, keyHash, id, err)
+				return errs.New("failed to insert entry no. %d (%x) from %s: %w", i, keyHash, id, err)
 			}
 		}
 		return nil
@@ -416,13 +421,14 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 			return Error.Wrap(ProtoError.Wrap(err))
 		}
 
-		f := zap.Binary("keyHash", keyHash[:])
+		nodeIDField := zap.Stringer("nodeID", nodeID)
+		keyHashField := zap.Binary("keyHash", keyHash.Bytes())
 		if !recordsEqual(record, &loaded) {
-			log.Warn("encountered duplicate key, but values aren't equal", f)
+			log.Warn("encountered duplicate key, but values aren't equal", nodeIDField, keyHashField)
 			mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "false"))
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
-		log.Info("encountered duplicate key", f)
+		log.Info("encountered duplicate key. See https://github.com/storj/gateway-mt/issues/210", nodeIDField, keyHashField)
 		mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "true"))
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
 		return Error.Wrap(err)

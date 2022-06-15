@@ -6,6 +6,7 @@ package badgerauth
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"net"
 	"sync"
 	"time"
@@ -176,6 +177,10 @@ func (node *Node) Address() string {
 
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
+	if len(node.config.Join) == 0 {
+		node.log.Warn("node doesn't know about other nodes in the cluster (no entries for join parameter)")
+	}
+
 	group, gCtx := errgroup.WithContext(ctx)
 	for _, join := range node.config.Join {
 		node.peers = append(node.peers, NewPeer(node, join))
@@ -237,13 +242,18 @@ func (node *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingRespon
 func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var response pb.ReplicationResponse
+	node.log.Debug("received replication request with the following clocks", fieldsFromRequestEntries(req.Entries)...)
+
+	var (
+		fields   []zap.Field
+		response pb.ReplicationResponse
+	)
 
 	for _, reqEntry := range req.Entries {
 		select {
 		case <-ctx.Done():
 			err := ctx.Err()
-			node.log.Info("replication response canceled", zap.Error(err))
+			node.log.Error("replication response canceled", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Canceled, err.Error())
 		default:
 			// continue
@@ -252,20 +262,21 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ 
 		var id NodeID
 
 		if err := id.SetBytes(reqEntry.NodeId); err != nil {
-			node.log.Info("replication response failed", zap.Error(err))
+			node.log.Error("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 
 		entries, err := node.DB.findResponseEntries(id, Clock(reqEntry.Clock))
 		if err != nil {
-			node.log.Info("replication response failed", zap.Error(err))
+			node.log.Error("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
+		fields = append(fields, zap.Int(id.String(), len(entries)))
 		response.Entries = append(response.Entries, entries...)
 	}
 
-	node.log.Debug("replication response successful", zap.Int("count", len(response.Entries)))
+	node.log.Debug("responded to the replication request from another node", fields...)
 
 	return &response, nil
 }
@@ -332,7 +343,7 @@ func (peer *Peer) Sync(ctx context.Context) (err error) {
 				return err // already wrapped if needed
 			}
 			if !ok {
-				peer.log.Warn("peer is down, skipping records sync")
+				peer.log.Warn("peer is down or misbehaving, skipping records sync")
 				return nil
 			}
 
@@ -385,6 +396,8 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
+	peer.log.Debug("requesting records from this peer with the following clocks", fieldsFromRequestEntries(requestEntries)...)
+
 	// No need to make this call in a transaction since this replication process
 	// doesn't run concurrently as of now.
 	response, err := client.Replicate(ctx, &pb.ReplicationRequest{
@@ -397,7 +410,10 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 
 	if err = db.insertResponseEntries(ctx, response); err != nil {
 		peer.log.Error("failed to process replication response", zap.Error(err))
+		return nil
 	}
+
+	peer.log.Debug("inserted new records from this peer", zap.Int("count", len(response.Entries)))
 
 	return nil
 }
@@ -462,4 +478,18 @@ func (peer *Peer) Status() PeerStatus {
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	return peer.status
+}
+
+func fieldsFromRequestEntries(entries []*pb.ReplicationRequestEntry) []zap.Field {
+	var fields []zap.Field
+	for _, e := range entries {
+		var id NodeID
+
+		if err := id.SetBytes(e.NodeId); err != nil {
+			fields = append(fields, zap.Uint64(hex.EncodeToString(e.NodeId), e.Clock))
+		} else {
+			fields = append(fields, zap.Uint64(id.String(), e.Clock))
+		}
+	}
+	return fields
 }
