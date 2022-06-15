@@ -128,6 +128,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 
 	serverOptions := drpcserver.Options{
 		Manager: rpc.NewDefaultManagerOptions(),
+		Log:     func(err error) { log.Named("network").Debug(err.Error()) },
 	}
 	node.server = drpcserver.NewWithOptions(node.mux, serverOptions)
 
