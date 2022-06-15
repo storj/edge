@@ -29,7 +29,9 @@ var mon = monkit.Package()
 var NotFound = errs.Class("not found")
 var base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-const encKeySizeEncoded = 28       // size in base32 bytes + magic byte
+// EncKeySizeEncoded is size in base32 bytes + magic byte.
+const EncKeySizeEncoded = 28
+
 const encKeyVersionByte = byte(77) // magic number for v1 EncryptionKey encoding
 const secKeyVersionByte = byte(78) // magic number for v1 SecretKey encoding
 
@@ -55,8 +57,8 @@ func (k EncryptionKey) Hash() KeyHash {
 
 // FromBase32 loads the EncryptionKey from a lowercase RFC 4648 base32 string.
 func (k *EncryptionKey) FromBase32(encoded string) error {
-	if len(encoded) != encKeySizeEncoded {
-		return errs.New("alphanumeric encryption key length expected to be %d, was %d", encKeySizeEncoded, len(encoded))
+	if len(encoded) != EncKeySizeEncoded {
+		return errs.New("alphanumeric encryption key length expected to be %d, was %d", EncKeySizeEncoded, len(encoded))
 	}
 	data, err := base32Encoding.DecodeString(strings.ToUpper(encoded))
 	if err != nil {

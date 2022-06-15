@@ -50,6 +50,14 @@ type Cluster struct {
 	Nodes []*badgerauth.Node
 }
 
+// Addresses returns a slice of all cluster node addresses.
+func (c *Cluster) Addresses() (addresses []string) {
+	for _, node := range c.Nodes {
+		addresses = append(addresses, node.Address())
+	}
+	return addresses
+}
+
 // ClusterConfig is used for configuring the cluster.
 type ClusterConfig struct {
 	NodeCount int

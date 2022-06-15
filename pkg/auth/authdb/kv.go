@@ -5,6 +5,7 @@ package authdb
 
 import (
 	"context"
+	"encoding/hex"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -26,6 +27,9 @@ type Record struct {
 	Public               bool // if true, knowledge of secret key is not required
 }
 
+// KeyHashSizeEncoded is the length of a hex encoded KeyHash.
+const KeyHashSizeEncoded = 64
+
 // KeyHash is the key portion of the key/value store.
 type KeyHash [32]byte
 
@@ -37,6 +41,26 @@ func (kh *KeyHash) SetBytes(v []byte) error {
 	*kh = KeyHash{}
 	copy(kh[:], v)
 	return nil
+}
+
+// FromHex sets the key hash from a hex encoded string.
+func (kh *KeyHash) FromHex(encoded string) error {
+	if len(encoded) != KeyHashSizeEncoded {
+		return KeyHashError.New("length expected to be %d, was %d", KeyHashSizeEncoded, len(encoded))
+	}
+	bytes, err := hex.DecodeString(encoded)
+	if err != nil {
+		return KeyHashError.New("error decoding key hash: %w", err)
+	}
+	if err := kh.SetBytes(bytes); err != nil {
+		return KeyHashError.New("error setting key hash bytes: %w", err)
+	}
+	return nil
+}
+
+// ToHex converts a key hash to a hex encoded string.
+func (kh KeyHash) ToHex() string {
+	return hex.EncodeToString(kh.Bytes())
 }
 
 // Bytes returns the bytes for key hash.

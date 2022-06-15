@@ -5,7 +5,6 @@ package gwlog
 
 import (
 	"context"
-	"fmt"
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/minio/cmd/logger"
@@ -39,7 +38,7 @@ func (log *Log) EncryptionKeyHash() string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("%x", key.Hash())
+	return key.Hash().ToHex()
 }
 
 // TagValue returns the value for the given key in tags, if it exists.
