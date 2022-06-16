@@ -82,7 +82,7 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 		if c.ReconfigureNode != nil {
 			c.ReconfigureNode(i, &config)
 		}
-		config.ID = badgerauth.NodeID{byte(i)}
+		require.NoError(t, config.ID.Set(name))
 		setConfigDefaults(&config)
 
 		node, err := badgerauth.New(log, config)
