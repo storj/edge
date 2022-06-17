@@ -41,6 +41,8 @@ More details on the CA setup can be found in the [badgerauth documentation](../.
 
 Commands use `<key>` as a common argument to look up a record. This argument can either be the access key ID (base32 encoded, 28 character string), or a SHA-256 hash of the access key (hexadecimal encoded, 64 character string.)
 
+Logging can be enabled by using the `--log.enabled` flag.
+
 Example command:
 
 ```console

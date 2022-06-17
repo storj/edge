@@ -8,6 +8,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -19,8 +21,21 @@ import (
 	client "storj.io/gateway-mt/internal/authadminclient"
 )
 
+var logger *log.Logger
+
+func init() {
+	logger = log.New(io.Discard, "", log.LstdFlags|log.LUTC)
+}
+
 func main() {
 	ok, err := clingy.Environment{}.Run(context.Background(), func(cmds clingy.Commands) {
+		logEnabled := cmds.Flag("log.enabled", "log debug messages", false,
+			clingy.Transform(strconv.ParseBool), clingy.Boolean,
+		).(bool)
+		if logEnabled {
+			logger.SetOutput(os.Stderr)
+		}
+
 		cmds.Group("record", "record commands", func() {
 			cmds.New("show", "show a record", new(cmdShow))
 			cmds.New("invalidate", "invalidate a record", new(cmdInvalidate))
@@ -57,7 +72,7 @@ func (cmd *cmdShow) Setup(params clingy.Parameters) {
 }
 
 func (cmd *cmdShow) Execute(ctx clingy.Context) error {
-	record, err := client.New(cmd.clientConfig).Get(ctx, cmd.key)
+	record, err := client.New(cmd.clientConfig, logger).Get(ctx, cmd.key)
 	if err != nil {
 		return err
 	}
@@ -86,7 +101,7 @@ func (cmd *cmdInvalidate) Setup(params clingy.Parameters) {
 }
 
 func (cmd *cmdInvalidate) Execute(ctx clingy.Context) error {
-	return client.New(cmd.clientConfig).Invalidate(ctx, cmd.key, cmd.reason)
+	return client.New(cmd.clientConfig, logger).Invalidate(ctx, cmd.key, cmd.reason)
 }
 
 type cmdUnpublish struct {
@@ -101,7 +116,7 @@ func (cmd *cmdUnpublish) Setup(params clingy.Parameters) {
 }
 
 func (cmd *cmdUnpublish) Execute(ctx clingy.Context) error {
-	return client.New(cmd.clientConfig).Unpublish(ctx, cmd.key)
+	return client.New(cmd.clientConfig, logger).Unpublish(ctx, cmd.key)
 }
 
 type cmdDelete struct {
@@ -116,7 +131,7 @@ func (cmd *cmdDelete) Setup(params clingy.Parameters) {
 }
 
 func (cmd *cmdDelete) Execute(ctx clingy.Context) error {
-	return client.New(cmd.clientConfig).Delete(ctx, cmd.key)
+	return client.New(cmd.clientConfig, logger).Delete(ctx, cmd.key)
 }
 
 func setupClientConfig(params clingy.Parameters, config *client.Config) {

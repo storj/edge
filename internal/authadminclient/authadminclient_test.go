@@ -4,6 +4,8 @@
 package authadminclient_test
 
 import (
+	"io"
+	"log"
 	"testing"
 	"time"
 
@@ -32,7 +34,7 @@ func TestGetRecord(t *testing.T) {
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
-		})
+		}, log.New(io.Discard, "", 0))
 
 		_, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 1)
 		for _, node := range cluster.Nodes {
@@ -87,7 +89,7 @@ func TestInvalidateRecord(t *testing.T) {
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
-		})
+		}, log.New(io.Discard, "", 0))
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {
@@ -115,7 +117,7 @@ func TestUnpublishRecord(t *testing.T) {
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
-		})
+		}, log.New(io.Discard, "", 0))
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {
@@ -137,7 +139,7 @@ func TestDeleteRecord(t *testing.T) {
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
-		})
+		}, log.New(io.Discard, "", 0))
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {

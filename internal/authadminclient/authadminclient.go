@@ -6,9 +6,12 @@ package authadminclient
 import (
 	"context"
 	"crypto/tls"
+	"log"
 	"net"
+	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
@@ -24,6 +27,7 @@ var Error = errs.Class("auth admin client")
 
 // AuthAdminClient is a client for managing auth records.
 type AuthAdminClient struct {
+	log    *log.Logger
 	config Config
 }
 
@@ -63,8 +67,8 @@ type Config struct {
 }
 
 // New returns a new AuthAdminClient.
-func New(config Config) *AuthAdminClient {
-	return &AuthAdminClient{config: config}
+func New(config Config, log *log.Logger) *AuthAdminClient {
+	return &AuthAdminClient{config: config, log: log}
 }
 
 // Get gets a record.
@@ -74,16 +78,24 @@ func (c *AuthAdminClient) Get(ctx context.Context, encodedKey string) (*Record, 
 		return nil, Error.New("key from input: %w", err)
 	}
 
-	var record Record
+	records := make(chan *Record, len(c.config.NodeAddresses))
 
-	return &record, Error.Wrap(c.withServiceClient(ctx, func(ctx context.Context, client pb.DRPCAdminServiceClient) error {
+	if err = c.withServiceClient(ctx, func(ctx context.Context, client pb.DRPCAdminServiceClient) error {
 		resp, err := client.GetRecord(ctx, &pb.GetRecordRequest{Key: keyHash.Bytes()})
 		if err != nil {
 			return errs.New("get record: %w", err)
 		}
+		var record Record
+		if err = record.updateFromProto(resp.Record, encKey); err != nil {
+			return errs.New("update from proto: %w", err)
+		}
+		records <- &record
+		return nil
+	}); err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-		return record.updateFromProto(resp.Record, encKey)
-	}))
+	return <-records, nil
 }
 
 // Invalidate invalidates a record.
@@ -94,7 +106,7 @@ func (c *AuthAdminClient) Invalidate(ctx context.Context, encodedKey, reason str
 	}
 
 	return Error.Wrap(c.withServiceClient(ctx, func(ctx context.Context, client pb.DRPCAdminServiceClient) error {
-		_, err = client.InvalidateRecord(ctx, &pb.InvalidateRecordRequest{
+		_, err := client.InvalidateRecord(ctx, &pb.InvalidateRecordRequest{
 			Key:    keyHash.Bytes(),
 			Reason: reason,
 		})
@@ -113,7 +125,7 @@ func (c *AuthAdminClient) Unpublish(ctx context.Context, encodedKey string) erro
 	}
 
 	return Error.Wrap(c.withServiceClient(ctx, func(ctx context.Context, client pb.DRPCAdminServiceClient) error {
-		_, err = client.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: keyHash.Bytes()})
+		_, err := client.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: keyHash.Bytes()})
 		if err != nil {
 			return errs.New("unpublish record: %w", err)
 		}
@@ -129,7 +141,7 @@ func (c *AuthAdminClient) Delete(ctx context.Context, encodedKey string) error {
 	}
 
 	return Error.Wrap(c.withServiceClient(ctx, func(ctx context.Context, client pb.DRPCAdminServiceClient) error {
-		_, err = client.DeleteRecord(ctx, &pb.DeleteRecordRequest{Key: keyHash.Bytes()})
+		_, err := client.DeleteRecord(ctx, &pb.DeleteRecordRequest{Key: keyHash.Bytes()})
 		if err != nil {
 			return errs.New("delete record: %w", err)
 		}
@@ -137,6 +149,7 @@ func (c *AuthAdminClient) Delete(ctx context.Context, encodedKey string) error {
 	}))
 }
 
+// withServiceClient runs fn concurrently on all configured node addresses.
 func (c *AuthAdminClient) withServiceClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCAdminServiceClient) error) error {
 	if len(c.config.NodeAddresses) == 0 {
 		return errs.New("node addresses unspecified")
@@ -152,34 +165,38 @@ func (c *AuthAdminClient) withServiceClient(ctx context.Context, fn func(ctx con
 		tlsConfig = tlsCfg
 	}
 
-	var conns []*drpcconn.Conn
+	var group errgroup.Group
 	for _, address := range c.config.NodeAddresses {
-		var dialer interface {
-			DialContext(context.Context, string, string) (net.Conn, error)
-		}
-		if tlsConfig != nil {
-			dialer = &tls.Dialer{Config: tlsConfig}
-		} else {
-			dialer = &net.Dialer{}
-		}
-		rawconn, err := dialer.DialContext(ctx, "tcp", address)
-		if err != nil {
-			return errs.New("dial failed: %w", err)
-		}
+		address := address
+		group.Go(func() error {
+			var dialer interface {
+				DialContext(context.Context, string, string) (net.Conn, error)
+			}
+			if tlsConfig != nil {
+				dialer = &tls.Dialer{Config: tlsConfig}
+			} else {
+				dialer = &net.Dialer{}
+			}
+			c.log.Println("connecting to", address)
 
-		conn := drpcconn.New(rawconn)
-		defer func() { _ = rawconn.Close() }()
-		conns = append(conns, conn)
+			start := time.Now()
+			rawconn, err := dialer.DialContext(ctx, "tcp", address)
+			if err != nil {
+				return errs.New("dial node %q failed: %w", address, err)
+			}
+			c.log.Println("connection established to", address, "(time taken:", time.Since(start), ")")
+			conn := drpcconn.New(rawconn)
+			defer func() { _ = rawconn.Close() }()
+
+			start = time.Now()
+			if err := fn(ctx, pb.NewDRPCAdminServiceClient(conn)); err != nil {
+				return errs.New("node %q request failed: %w", address, err)
+			}
+			c.log.Println("received successful response from", address, "(time taken:", time.Since(start), ")")
+			return nil
+		})
 	}
-
-	var errlist errs.Group
-	for i, conn := range conns {
-		if err := fn(ctx, pb.NewDRPCAdminServiceClient(conn)); err != nil {
-			errlist.Add(errs.New("node %q request failed: %w", c.config.NodeAddresses[i], err))
-		}
-	}
-
-	return errlist.Err()
+	return group.Wait()
 }
 
 func keyFromInput(input string) (keyHash authdb.KeyHash, encKey authdb.EncryptionKey, err error) {
