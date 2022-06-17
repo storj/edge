@@ -190,6 +190,7 @@ func (node *Node) Run(ctx context.Context) error {
 	})
 
 	group.Go(func() error {
+		node.log.Info("Starting replication server", zap.String("address", node.listener.Addr().String()))
 		return Error.Wrap(node.server.Serve(gCtx, node.listener))
 	})
 
