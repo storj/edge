@@ -5,11 +5,13 @@ package badgerauth_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -114,6 +116,31 @@ func TestNodeAdmin_UnpublishRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, records[keys[1]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
 		require.True(t, resp.Record.Public)
+	})
+}
+
+func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{
+		ID: badgerauth.NodeID{'a', 'd', 'm', 'e', 'x', 'p'},
+	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		admin := badgerauth.NewAdmin(node.DB)
+		key := authdb.KeyHash{'e', 'x', 'p'}
+		expiresAt := time.Unix(time.Now().Add(time.Second).Unix(), 0)
+
+		badgerauthtest.Put{
+			KeyHash: key,
+			Record:  &authdb.Record{ExpiresAt: &expiresAt},
+		}.Check(ctx, t, node.UnderlyingDB())
+
+		_, err := admin.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: key.Bytes()})
+		require.NoError(t, err)
+
+		time.Sleep(time.Second)
+
+		badgerauthtest.Get{
+			KeyHash: key,
+			Result:  nil,
+		}.Check(ctx, t, node.UnderlyingDB())
 	})
 }
 

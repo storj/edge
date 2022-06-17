@@ -374,7 +374,10 @@ func (db *DB) updateRecord(ctx context.Context, keyHash authdb.KeyHash, fn func(
 			return ProtoError.Wrap(err)
 		}
 
-		return txn.SetEntry(badger.NewEntry(keyHash.Bytes(), marshaled))
+		entry := badger.NewEntry(keyHash.Bytes(), marshaled)
+		entry.ExpiresAt = uint64(record.ExpiresAtUnix)
+
+		return txn.SetEntry(entry)
 	}))
 }
 
