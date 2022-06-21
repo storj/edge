@@ -9,12 +9,8 @@ package badgerauth;
 
 import "badgerauth.proto";
 
-message GetRecordRequest {
-  bytes key = 1;
-}
-message GetRecordResponse {
-  Record record = 1;
-}
+message GetRecordRequest { bytes key = 1; }
+message GetRecordResponse { Record record = 1; }
 
 message InvalidateRecordRequest {
   bytes key = 1;
@@ -22,19 +18,16 @@ message InvalidateRecordRequest {
 }
 message InvalidateRecordResponse {}
 
-message UnpublishRecordRequest {
-  bytes key = 1;
-}
+message UnpublishRecordRequest { bytes key = 1; }
 message UnpublishRecordResponse {}
 
-message DeleteRecordRequest {
-  bytes key = 1;
-}
+message DeleteRecordRequest { bytes key = 1; }
 message DeleteRecordResponse {}
 
 service AdminService {
   rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
-  rpc InvalidateRecord(InvalidateRecordRequest) returns (InvalidateRecordResponse);
+  rpc InvalidateRecord(InvalidateRecordRequest)
+      returns (InvalidateRecordResponse);
   rpc UnpublishRecord(UnpublishRecordRequest) returns (UnpublishRecordResponse);
   rpc DeleteRecord(DeleteRecordRequest) returns (DeleteRecordResponse);
 }

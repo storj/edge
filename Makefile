@@ -212,3 +212,4 @@ ifeq ($(shell which clang-format),)
 endif
 
 	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto
+	clang-format -i pkg/auth/badgerauth/pb/badgerauth_admin.proto

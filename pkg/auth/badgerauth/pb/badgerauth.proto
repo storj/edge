@@ -47,9 +47,7 @@ message ReplicationResponseEntry {
 message ReplicationResponse { repeated ReplicationResponseEntry entries = 1; }
 
 message PingRequest {}
-message PingResponse {
-  bytes node_id = 1;
-}
+message PingResponse { bytes node_id = 1; }
 
 service ReplicationService {
   rpc Ping(PingRequest) returns (PingResponse);
