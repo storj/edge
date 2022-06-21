@@ -107,7 +107,7 @@ node-migration.migration-select-size: 1000
 node-migration.source-sql-auth-kv-backend: ""
 
 # address that the node listens on
-node.address: ""
+node.address: :20004
 
 # access key for backup bucket
 node.backup.access-key-id: ""

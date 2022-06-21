@@ -51,7 +51,7 @@ type Config struct {
 	// Path is where to store data. Empty means in memory.
 	Path string `user:"true" help:"path where to store data" default:""`
 
-	Address  string   `user:"true" help:"address that the node listens on" default:""`
+	Address  string   `user:"true" help:"address that the node listens on" default:":20004"`
 	Join     []string `user:"true" help:"comma delimited list of cluster peers" default:""`
 	CertsDir string   `user:"true" help:"directory for certificates for mutual authentication"`
 
