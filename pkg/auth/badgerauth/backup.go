@@ -45,7 +45,7 @@ type Backup struct {
 	prefix    string
 }
 
-// NewBackup returns a new Backup. Note that badger does not support opening
+// NewBackup returns a new Backup. Note that BadgerDB does not support opening
 // multiple connections to the same database, so we must use the same DB
 // connection as normal KV operations.
 func NewBackup(db *DB, client Client) *Backup {

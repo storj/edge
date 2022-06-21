@@ -13,9 +13,18 @@ With badgerauth as auth database backend, authservice acts as a standalone datab
 
 ### Configuration
 
-To run authservice with badgerauth backend `--kv-backend='badger://'` must be specified and there are several parameters than tune the cluster/database.
+To run authservice with badgerauth backend `--kv-backend='badger://'` must be specified and there are several parameters than tune the cluster/storage engine.
 
-#### Built-in database configuration
+Several parameters need to be specified to run a production-grade cluster; others are optional or have otherwise sensible default values. Required parameters are:
+
+- `node.id`
+- `node.path`
+- `node.certs-dir`
+- `node.join`
+
+`node.address` is a commonly changed parameter, and there are also backup-related parameters that might be considered required depending on individual needs.
+
+#### Storage engine configuration
 
 |         **Parameter**         |                                 **Description**                                | **Default value** |
 |:-----------------------------:|:------------------------------------------------------------------------------:|:-----------------:|
@@ -25,17 +34,29 @@ To run authservice with badgerauth backend `--kv-backend='badger://'` must be sp
 |           `node.id`           |                         Unique identifier for the node                         |                   |
 |          `node.path`          | A path where to store data (WARNING: data will be stored in RAM only if empty) |                   |
 
-`node.conflict-backoff.*` are settings related to backing off for retrying execution of write transactions. The current underlying database uses concurrent ACID transactions; hence transactions need retrying in a rare case of conflict (see https://dgraph.io/blog/post/badger-txn/).
+`node.conflict-backoff.*` are settings related to backing off for retrying execution of write transactions. The current underlying storage engine uses concurrent ACID transactions; hence transactions need retrying in a rare case of conflict (see https://dgraph.io/blog/post/badger-txn/).
+
+#### Backups configuration
+
+|          **Parameter**          | **Default value** |
+|:-------------------------------:|:-----------------:|
+|   `node.backup.access-key-id`   |                   |
+|       `node.backup.bucket`      |                   |
+|      `node.backup.enabled`      |      `false`      |
+|      `node.backup.endpoint`     |                   |
+|      `node.backup.interval`     |        `1h`       |
+|       `node.backup.prefix`      |                   |
+| `node.backup.secret-access-key` |                   |
 
 #### Cluster configuration
 
 |        **Parameter**        |                    **Description**                   | **Default value** |
 |:---------------------------:|:----------------------------------------------------:|:-----------------:|
-|        `node.address`       |           address that the node listens on           |                   |
+|        `node.address`       |           address that the node listens on           |      `:20004`     |
 |       `node.certs-dir`      | directory for certificates for mutual authentication |                   |
 |         `node.join`         |   comma-delimited list of cluster peers (addresses)  |                   |
-| `node.replication-interval` |                how often to replicate                |        `1m`       |
-|   `node.replication-limit`  |   maximum entries returned in replication response   |       `100`       |
+| `node.replication-interval` |                how often to replicate                |       `30s`       |
+|   `node.replication-limit`  |   maximum entries returned in replication response   |       `1000`      |
 
 Note that it's not possible to start the cluster without mutual authentication. Currently, the only supported transport for replication is TLS (except for unit tests where it's possible to start an insecure cluster). For details, see the Cluster security configuration section.
 
@@ -276,7 +297,7 @@ Using Docker Compose:
 
 #### Metrics
 
-The new auth database reports metrics/events prefixed with `as_badgerauth_`.
+The auth database reports metrics/events prefixed with `as_badgerauth_`.
 
 #### Logs
 
@@ -288,9 +309,9 @@ See [`authservice-admin`](../../../cmd/authservice-admin/README.md) for more inf
 
 ### Migration from PostgreSQL/CockroachDB (sqlauth backend)
 
-It's possible to migrate from sqlauth to badgerauth using the badgerauthmigration backend. To run authservice with badgerauthmigration backend `--kv-backend='badgermigration://'` must be specified. Other parameters must be specified, and badgerauth-specific parameters still apply.
+It's possible to migrate from sqlauth to badgerauth using the migration backend. `--kv-backend='badger://'` and `--node-migration.source-sql-auth-kv-backend=cockroach://...` must be specified to do this, and badgerauth-specific parameters still apply.
 
-In this mode, nodes will write to both badgerauth and sqlauth on Put and read from badergauth with a fallback to sqlauth on Get. With migration backend specified, `--migration` used with `run` command will cause shipment of all records that sqlauth currently has to badgerauth before starting.
+In this mode, nodes will write to both badgerauth and sqlauth on Put and read from badergauth with a fallback to sqlauth on Get. With migration backend specified, `--migration` used with `run` command will issue transfer of all records that sqlauth currently has to badgerauth before starting.
 
 #### Configuration
 
@@ -299,14 +320,14 @@ In this mode, nodes will write to both badgerauth and sqlauth on Put and read fr
 |    `node-migration.migration-select-size`   |       Page size while performing the migration       |       `1000`      |
 | `node-migration.source-sql-auth-kv-backend` | Source key/value store backend (must be sqlauth) URL |                   |
 
-Consider increasing page size to improve migration speed.
+Consider increasing page size to improve the transfer speed of records from sqlauth to badgerauth.
 
 #### Recommended setup for zero-downtime migration
 
 In a recommended setup, start two initially separate clusters:
 
-1. Current cluster where all nodes were restarted with badgerauthmigration backend but without `--migration` flag.
-2. Single-node, a non-production-facing cluster where the node was started with badgerauthmigration backend and `--migration` flag.
+1. Current cluster where all nodes were restarted with migration backend but without `--migration` flag.
+2. Single-node, a non-production-facing cluster where the node was started with migration backend and `--migration` flag.
 
 After the single-node cluster completes the migration of old records, make the nodes from the first cluster join the node from the second cluster so they can fetch records existing in PostgreSQL/CockroachDB before migration to a new backend has started.
 
@@ -335,12 +356,12 @@ Each Node_{1,2,3} start with a command similar to:
 ```console
 $ authservice run \
     --endpoint ... \
-    --kv-backend badgermigration:// \
+    --kv-backend badger:// \
     --node.id ... \
     --node.path /where/to/store/data \
     --node.address Node_...:20004 \
     --node.certs-dir certs \
-    --node.join Node_...:20004,Node_...:20004
+    --node.join Node_...:20004,Node_...:20004 \
     # Later switch to
     # --node.join Node_...:20004,Node_...,Additional_Node:20004
     --node-migration.source-sql-auth-kv-backend=cockroach://...
@@ -351,7 +372,8 @@ Start the additional node with a command similar to:
 ```console
 $ authservice run \
     --endpoint ... \
-    --kv-backend badgermigration:// \
+    --kv-backend badger:// \
+    --migration \
     --node.id ... \
     --node.path /where/to/store/data \
     --node.address Additional_Node:20004 \

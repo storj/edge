@@ -62,7 +62,7 @@ type Config struct {
 	// return.
 	ReplicationLimit int `user:"true" help:"maximum entries returned in replication response" default:"1000"`
 	// ConflictBackoff configures retries for conflicting transactions that may
-	// occur when Node's underlying database is under heavy load.
+	// occur when Node's underlying storage engine is under heavy load.
 	ConflictBackoff backoff.ExponentialBackoff
 
 	// InsecureDisableTLS allows disabling tls for testing.
@@ -153,6 +153,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	} else {
 		node.listener = tcpListener
 	}
+
 	if config.Backup.Enabled {
 		s3Client, err := minio.New(config.Backup.Endpoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(config.Backup.AccessKeyID, config.Backup.SecretAccessKey, ""),

@@ -67,7 +67,7 @@ type DB struct {
 	config Config
 }
 
-// OpenDB opens the underlying database for badgerauth node.
+// OpenDB opens the underlying storage engine for badgerauth node.
 func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	if log == nil {
 		return nil, Error.New("needs non-nil logger")
@@ -125,7 +125,7 @@ func (db *DB) prepare() (err error) {
 	})
 }
 
-// Close closes the underlying BadgerDB database.
+// Close closes the underlying storage engine (BadgerDB).
 func (db *DB) Close() error {
 	return Error.Wrap(db.db.Close())
 }
