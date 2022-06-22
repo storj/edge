@@ -41,5 +41,5 @@ type badgerLogger struct {
 
 // Warningf wraps zap's Warnf.
 func (l badgerLogger) Warningf(format string, v ...interface{}) {
-	l.Warnf(format, v)
+	l.Warnf(format, v...)
 }
