@@ -22,7 +22,7 @@ import (
 func RunSingleNode(t *testing.T, config badgerauth.Config, fn func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node)) {
 	t.Parallel()
 
-	ctx := testcontext.New(t)
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
 	setConfigDefaults(&config)
@@ -70,7 +70,7 @@ type ClusterConfig struct {
 func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context, t *testing.T, cluster *Cluster)) {
 	t.Parallel()
 
-	ctx := testcontext.New(t)
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t).Named("badgerauth")
