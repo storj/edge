@@ -20,15 +20,15 @@ Auth Service maps existing access grants to S3-specific Access Key ID/Secret Acc
 
 ### Roadmap
 
-See [Public Roadmap filtered for Edge Team](https://github.com/orgs/storj/projects/23/views/15?filterQuery=team%3A%22edge+team%22).
+See [Public Roadmap filtered for Edge Team](https://github.com/orgs/storj/projects/23/views/15?filterQuery=label%3A%22Edge+Team%22).
 
 See also [the GitHub project including current items the team is working on](https://github.com/orgs/storj/projects/29).
 
 ## Service-specific documentation
 
 1. [Gateway-ST (also Gateway-MT's object layer) documentation](https://github.com/storj/gateway-st/blob/main/README.md)
-2. [Auth Service, Gateway-MT and Link Sharing Service](../README.md)
-3. [Blueprints](../docs/blueprints/) (see [this](https://github.com/storj/storj/blob/main/docs/blueprints/README.md) for an explanation of what blueprints are)
+2. [Auth Service, Gateway-MT and Link Sharing Service](README.md)
+3. [Blueprints](docs/blueprints/) (see [this](https://github.com/storj/storj/blob/main/docs/blueprints/README.md) for an explanation of what blueprints are)
 
 ## Development
 
