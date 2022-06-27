@@ -104,6 +104,21 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
+func (db *DB) gcValueLog(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for err == nil {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+		default:
+			err = db.db.RunValueLogGC(0.5)
+		}
+	}
+	db.log.Info("value log garbage collection finished", zap.Error(err))
+	return nil
+}
+
 // prepare ensures there's a value in the database.
 // this allows to ensure that the database is functional.
 func (db *DB) prepare() (err error) {

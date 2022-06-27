@@ -87,6 +87,7 @@ type Node struct {
 	admin    *Admin
 	Backup   *Backup
 
+	gc        sync2.Cycle
 	SyncCycle sync2.Cycle
 }
 
@@ -105,6 +106,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		config: config,
 		mux:    drpcmux.New(),
 	}
+	node.gc.SetInterval(5 * time.Minute)
 	node.SyncCycle.SetInterval(config.ReplicationInterval)
 
 	defer func() {
@@ -183,12 +185,13 @@ func (node *Node) Run(ctx context.Context) error {
 	}
 
 	group, gCtx := errgroup.WithContext(ctx)
+
+	node.gc.Start(gCtx, group, node.DB.gcValueLog)
+
 	for _, join := range node.config.Join {
 		node.peers = append(node.peers, NewPeer(node, join))
 	}
-	group.Go(func() error {
-		return node.SyncCycle.Run(gCtx, node.syncAll)
-	})
+	node.SyncCycle.Start(gCtx, group, node.syncAll)
 
 	group.Go(func() error {
 		node.log.Info("Starting replication server", zap.String("address", node.listener.Addr().String()))
@@ -196,9 +199,7 @@ func (node *Node) Run(ctx context.Context) error {
 	})
 
 	if node.Backup != nil {
-		group.Go(func() error {
-			return node.Backup.SyncCycle.Run(gCtx, node.Backup.RunOnce)
-		})
+		node.Backup.SyncCycle.Start(gCtx, group, node.Backup.RunOnce)
 	}
 
 	return Error.Wrap(group.Wait())
@@ -216,6 +217,7 @@ func (node *Node) syncAll(ctx context.Context) error {
 
 // Close releases underlying resources.
 func (node *Node) Close() error {
+	node.gc.Close()
 	node.SyncCycle.Close()
 	if node.Backup != nil {
 		node.Backup.SyncCycle.Close()
