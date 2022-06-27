@@ -21,6 +21,7 @@ import (
 
 const (
 	testSatelliteURL = "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"
+	testAPIKey       = "13Yqe3oHi5dcnGhMu2ru3cmePC9iEYv6nDrYMbLRh4wre1KtVA9SFwLNAuuvWwc43b9swRsrfsnrbuTHQ6TJKVt4LjGnaARN9PhxJEu"
 	testAccessGrant  = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
 )
 
@@ -73,6 +74,7 @@ func TestGetRecord(t *testing.T) {
 		require.Equal(t, testSatelliteURL, record.SatelliteAddress)
 		require.Equal(t, encAccessGrant, record.EncryptedAccessGrant)
 		require.Equal(t, testAccessGrant, record.DecryptedAccessGrant)
+		require.Equal(t, testAPIKey, record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
 		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
 	})

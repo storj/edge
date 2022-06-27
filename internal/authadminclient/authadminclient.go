@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
+	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcconn"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -30,6 +31,7 @@ type AuthAdminClient struct {
 type Record struct {
 	*pb.Record
 	DecryptedAccessGrant string `json:"decrypted_access_grant,omitempty"`
+	APIKey               string `json:"api_key,omitempty"`
 }
 
 func (r *Record) updateFromProto(pr *pb.Record, encKey authdb.EncryptionKey) error {
@@ -42,6 +44,11 @@ func (r *Record) updateFromProto(pr *pb.Record, encKey authdb.EncryptionKey) err
 			return errs.New("decrypt access grant: %w", err)
 		}
 		r.DecryptedAccessGrant = string(data)
+		ag, err := grant.ParseAccess(r.DecryptedAccessGrant)
+		if err != nil {
+			return errs.New("parse access: %w", err)
+		}
+		r.APIKey = ag.APIKey.Serialize()
 	}
 	return nil
 }
