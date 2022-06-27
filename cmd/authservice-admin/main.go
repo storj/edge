@@ -155,7 +155,7 @@ func printTabbedRecord(r *client.Record, expanded bool) error {
 			values = append(values, r.APIKey)
 		}
 		if r.DecryptedAccessGrant != "" {
-			headers = append(headers, "ACCESS_GRANT")
+			headers = append(headers, "ACCESS GRANT")
 			values = append(values, r.DecryptedAccessGrant)
 		}
 	}
