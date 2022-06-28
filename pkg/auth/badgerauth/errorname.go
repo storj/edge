@@ -19,8 +19,12 @@ func init() {
 // provide a useful error tag with mon.Task().
 func errorName(err error) (name string, ok bool) {
 	switch {
+	case authdb.KeyHashError.Has(err):
+		name = "KeyHash"
 	case authdb.Invalid.Has(err):
 		name = "InvalidRecord"
+	case BackupError.Has(err):
+		name = "Backup"
 	case ProtoError.Has(err):
 		name = "Proto"
 	case ReplicationLogError.Has(err):
@@ -46,6 +50,10 @@ func errorName(err error) (name string, ok bool) {
 		}
 	case errs.Is(err, ErrKeyAlreadyExists):
 		name = "KeyAlreadyExists"
+	case errs.Is(err, errOperationNotSupported):
+		name = "OperationNotSupported"
+	case errs.Is(err, errKeyAlreadyExistsRecordsNotEqual):
+		name = "KeyAlreadyExistsRecordsNotEqual"
 	case errs.Is(err, badger.ErrKeyNotFound):
 		name = "KeyNotFound"
 	case errs.Is(err, badger.ErrValueLogSize):

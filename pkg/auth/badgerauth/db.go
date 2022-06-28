@@ -45,6 +45,10 @@ type action int
 const (
 	put action = iota
 	get
+	adminGet
+	adminInvalidate
+	adminUnpublish
+	adminDelete
 )
 
 func (a action) String() string {
@@ -53,6 +57,14 @@ func (a action) String() string {
 		return "put"
 	case get:
 		return "get"
+	case adminGet:
+		return "admin_get"
+	case adminInvalidate:
+		return "admin_invalidate"
+	case adminUnpublish:
+		return "admin_unpublish"
+	case adminDelete:
+		return "admin_delete"
 	default:
 		return "unknown"
 	}
@@ -254,6 +266,7 @@ func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error)
 	for {
 		if err := db.db.Update(f); err != nil {
 			if errs.Is(err, badger.ErrConflict) && !conflictBackoff.Maxed() {
+				mon.Event("as_badgerauth_txn_backoff")
 				if err := conflictBackoff.Wait(ctx); err != nil {
 					return err
 				}
@@ -476,6 +489,8 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 		mon.Event("as_badgerauth_expiring_insert")
 		mainEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
 		rlogEntry.ExpiresAt = uint64(record.ExpiresAtUnix)
+	} else {
+		mon.Event("as_badgerauth_insert")
 	}
 
 	return Error.Wrap(errs.Combine(txn.SetEntry(mainEntry), txn.SetEntry(rlogEntry)))

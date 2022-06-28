@@ -29,7 +29,7 @@ func NewAdmin(db *DB) *Admin {
 
 // GetRecord gets a database record.
 func (admin *Admin) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (_ *pb.GetRecordResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(admin.db.eventTags(adminGet)...)(&ctx)(&err)
 
 	var resp pb.GetRecordResponse
 
@@ -48,7 +48,7 @@ func (admin *Admin) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (_ 
 
 // InvalidateRecord invalidates a record.
 func (admin *Admin) InvalidateRecord(ctx context.Context, req *pb.InvalidateRecordRequest) (_ *pb.InvalidateRecordResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(admin.db.eventTags(adminInvalidate)...)(&ctx)(&err)
 
 	var resp pb.InvalidateRecordResponse
 
@@ -69,7 +69,7 @@ func (admin *Admin) InvalidateRecord(ctx context.Context, req *pb.InvalidateReco
 
 // UnpublishRecord unpublishes a record.
 func (admin *Admin) UnpublishRecord(ctx context.Context, req *pb.UnpublishRecordRequest) (_ *pb.UnpublishRecordResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(admin.db.eventTags(adminUnpublish)...)(&ctx)(&err)
 
 	var resp pb.UnpublishRecordResponse
 
@@ -85,7 +85,7 @@ func (admin *Admin) UnpublishRecord(ctx context.Context, req *pb.UnpublishRecord
 
 // DeleteRecord deletes a database record.
 func (admin *Admin) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (_ *pb.DeleteRecordResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task(admin.db.eventTags(adminDelete)...)(&ctx)(&err)
 
 	var resp pb.DeleteRecordResponse
 
