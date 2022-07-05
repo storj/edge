@@ -116,16 +116,19 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
+// gcValueLog garbage collects value log. It always returns a nil error.
 func (db *DB) gcValueLog(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(nil)
 
 	for err == nil {
+		gcFinished := mon.TaskNamed("gc")(&ctx)
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
 		default:
 			err = db.db.RunValueLogGC(0.5)
 		}
+		gcFinished(&err)
 	}
 	db.log.Info("value log garbage collection finished", zap.Error(err))
 	return nil
