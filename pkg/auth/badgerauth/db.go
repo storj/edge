@@ -250,6 +250,13 @@ func (db *DB) PingDB(ctx context.Context) (err error) {
 		return Error.New("unable to read start time: %w", err)
 	}
 
+	// TODO(artur): is this the best place to report these?
+	// TODO(artur): we can also report information from Levels() or Tables() or
+	// cache's metrics.
+	lsm, vlog := db.db.Size()
+	mon.IntVal("as_badgerauth_kv_bytes_lsm").Observe(lsm)
+	mon.IntVal("as_badgerauth_kv_bytes_vlog").Observe(vlog)
+
 	return nil
 }
 
