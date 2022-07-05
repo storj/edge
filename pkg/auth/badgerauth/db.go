@@ -126,7 +126,10 @@ func (db *DB) gcValueLog(ctx context.Context) (err error) {
 		case <-ctx.Done():
 			err = ctx.Err()
 		default:
-			err = db.db.RunValueLogGC(0.5)
+			// Run GC and optionally silence ErrNoRewrite errors:
+			if err = db.db.RunValueLogGC(.5); errs.Is(err, badger.ErrNoRewrite) {
+				err = nil
+			}
 		}
 		gcFinished(&err)
 	}
