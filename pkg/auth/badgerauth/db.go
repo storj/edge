@@ -120,6 +120,7 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 func (db *DB) gcValueLog(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(nil)
 
+gcLoop:
 	for err == nil {
 		gcFinished := mon.TaskNamed("gc")(&ctx)
 		select {
@@ -128,7 +129,9 @@ func (db *DB) gcValueLog(ctx context.Context) (err error) {
 		default:
 			// Run GC and optionally silence ErrNoRewrite errors:
 			if err = db.db.RunValueLogGC(.5); errs.Is(err, badger.ErrNoRewrite) {
+				gcFinished(nil)
 				err = nil
+				break gcLoop
 			}
 		}
 		gcFinished(&err)
