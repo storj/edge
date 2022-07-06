@@ -121,6 +121,9 @@ auth.token: ""
 # MaxKeys parameter limit for S3's ListObjects and ListObjectsV2 responses
 # s3compatibility.max-keys-limit: 1000
 
+# MaxUploads parameter limit for S3's ListMultipartUploads responses
+# s3compatibility.max-uploads-limit: 1000
+
 # minimum part size for multipart uploads
 # s3compatibility.min-part-size: 5242880
 
