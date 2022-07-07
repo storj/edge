@@ -13,6 +13,8 @@ import (
 
 	"storj.io/minio/cmd"
 	"storj.io/minio/cmd/config/policy/opa"
+	"storj.io/minio/pkg/auth"
+	"storj.io/minio/pkg/bucket/policy"
 )
 
 // CollectAPIStats exposes minio's cmd.collectAPIStats.
@@ -122,14 +124,54 @@ func ErrorResponseHandler(w http.ResponseWriter, r *http.Request)
 //go:linkname SetObjectLayer storj.io/minio/cmd.setObjectLayer
 func SetObjectLayer(o cmd.ObjectLayer)
 
-// WriteErrorResponse exposes minio's cmd.writeErrorResponse.
+// writeErrorResponse exposes minio's cmd.writeErrorResponse.
 //
 //nolint: golint
-//go:linkname WriteErrorResponse storj.io/minio/cmd.writeErrorResponse
-func WriteErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
+//go:linkname writeErrorResponse storj.io/minio/cmd.writeErrorResponse
+func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
 
-// WriteResponse exposes minio's cmd.WriteResponse.
+// writeSuccessResponseXML exposes minio's cmd.writeSuccessResponseXML.
 //
 //nolint: golint
-//go:linkname WriteResponse storj.io/minio/cmd.writeResponse
-func WriteResponse(w http.ResponseWriter, statusCode int, response []byte, mType string)
+//go:linkname writeSuccessResponseXML storj.io/minio/cmd.writeSuccessResponseXML
+func writeSuccessResponseXML(w http.ResponseWriter, response []byte)
+
+//
+// Exposes below are needed for ListBucketWithAttributionHandler
+//
+
+// checkRequestAuthTypeCredential exposes minio's cmd.checkRequestAuthTypeCredential.
+//
+//nolint: golint
+//go:linkname checkRequestAuthTypeCredential storj.io/minio/cmd.checkRequestAuthTypeCredential
+func checkRequestAuthTypeCredential(ctx context.Context, r *http.Request, action policy.Action, bucketName, objectName string) (cred auth.Credentials, owner bool, s3Err cmd.APIErrorCode)
+
+// encodeResponse exposes minio's cmd.encodeResponse.
+//
+//nolint: golint
+//go:linkname encodeResponse storj.io/minio/cmd.encodeResponse
+func encodeResponse(response interface{}) []byte
+
+// globalMinioDefaultOwnerID exposes minio's cmd.globalMinioDefaultOwnerID.
+//
+//nolint: golint
+//go:linkname globalMinioDefaultOwnerID storj.io/minio/cmd.globalMinioDefaultOwnerID
+var globalMinioDefaultOwnerID string
+
+// iso8601TimeFormat exposes minio's cmd.iso8601TimeFormat.
+//
+//nolint: golint
+//go:linkname iso8601TimeFormat storj.io/minio/cmd.iso8601TimeFormat
+var iso8601TimeFormat string
+
+// newContext exposes minio's cmd.newContext.
+//
+//nolint: golint
+//go:linkname newContext storj.io/minio/cmd.newContext
+func newContext(r *http.Request, w http.ResponseWriter, api string) context.Context
+
+// toAPIError exposes minio's cmd.toAPIError.
+//
+//nolint: golint
+//go:linkname toAPIError storj.io/minio/cmd.toAPIError
+func toAPIError(ctx context.Context, err error) cmd.APIError

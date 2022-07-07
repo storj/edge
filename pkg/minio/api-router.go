@@ -29,7 +29,7 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 				HTTPStatusCode: http.StatusTooManyRequests, // Minio's ErrSlowDown yields a 503, but 429 seems clearer
 				Description:    fmt.Sprintf("Only %d concurrent uploads or downloads are allowed per credential", concurrentAllowed),
 			}
-			WriteErrorResponse(r.Context(), w, err, r.URL, false)
+			writeErrorResponse(r.Context(), w, err, r.URL, false)
 		},
 	).Limit
 
@@ -261,6 +261,10 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 	// ListenNotification
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
 		CollectAPIStats("listennotification", HTTPTraceAll(api.ListenNotificationHandler))).Queries("events", "{events:.*}")
+
+	// ListBucketsWithAttribution (similar to ListBuckets)
+	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
+		MaxClients(CollectAPIStats("listbuckets", HTTPTraceAll(listBucketsWithAttributionHandler)))).Queries("attribution", "")
 
 	// ListBuckets
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
