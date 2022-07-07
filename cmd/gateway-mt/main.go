@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/eventstat"
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
@@ -99,8 +100,18 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
+	var metricsID string
+	hostname, err := os.Hostname()
+	if err != nil {
+		zap.S().Warn("Could not read hostname for eventstat setup", zap.Error(err))
+	} else {
+		metricsID = strings.ReplaceAll(hostname, ".", "_")
+	}
+
 	// special event stat publisher for counters with unbounded cardinality
-	if err := process.InitEventStatPublisherWithHostname(ctx, zap.L(), &server.StatRegistry); err != nil {
+	if err := process.InitEventStatPublisher(ctx, zap.L(), &server.StatRegistry, func(opts *eventstat.ClientOpts) {
+		opts.Instance = metricsID
+	}); err != nil {
 		zap.S().Warn("Failed to initialize event stat publisher for statistics: ", err)
 	}
 
