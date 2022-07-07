@@ -29,7 +29,7 @@ auth.token: ""
 # cert-dir: testdata/certs
 
 # list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
-# client-trusted-ips-list: '[]'
+# client-trusted-ips-list: []
 
 # timeout for dials
 # client.dial-timeout: 2m0s
@@ -146,7 +146,7 @@ auth.token: ""
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s

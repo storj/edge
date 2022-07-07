@@ -5,8 +5,8 @@ go 1.17
 require (
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
-	github.com/jackc/pgconn v1.10.0
-	github.com/jackc/pgx/v4 v4.13.0
+	github.com/jackc/pgconn v1.11.0
+	github.com/jackc/pgx/v4 v4.15.0
 	github.com/miekg/dns v1.1.35
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.7.0
@@ -28,7 +28,7 @@ require (
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.2-0.20220805072130-1d11e6a37dcb
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
-	storj.io/private v0.0.0-20220323114243-08c4b5e752f4
+	storj.io/private v0.0.0-20220725143645-8515ce4e6b70
 	storj.io/uplink v1.9.1-0.20220718212340-6d414faa7c00
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
@@ -89,9 +89,9 @@ require (
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
+	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.8.1 // indirect
+	github.com/jackc/pgtype v1.10.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
@@ -188,5 +188,5 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
+	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8 // indirect
 )

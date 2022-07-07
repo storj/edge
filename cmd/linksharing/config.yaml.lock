@@ -32,7 +32,7 @@ auth-service.token: ""
 cert-file: ""
 
 # list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
-client-trusted-ips-list: '[]'
+client-trusted-ips-list: []
 
 # RPC connection pool capacity
 connection-pool.capacity: 100
@@ -131,7 +131,7 @@ templates: ./pkg/linksharing/web
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s

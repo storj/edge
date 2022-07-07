@@ -1,5 +1,6 @@
 # list of satellite NodeURLs allowed for incoming access grants
-# allowed-satellites: '[https://www.storj.io/dcs-satellites]'
+# allowed-satellites:
+# - https://www.storj.io/dcs-satellites
 
 # auth security token to validate requests
 # auth-token: ""
@@ -146,7 +147,7 @@ node.certs-dir: ""
 node.id: ""
 
 # comma delimited list of cluster peers
-node.join: '[]'
+node.join: []
 
 # path where to store data
 node.path: ""
@@ -176,7 +177,7 @@ public-url: ""
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s
