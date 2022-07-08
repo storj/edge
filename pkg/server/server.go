@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -20,6 +21,7 @@ import (
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/minio"
+	"storj.io/gateway-mt/pkg/server/gw"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
@@ -30,6 +32,8 @@ import (
 )
 
 var (
+	mon = monkit.Package()
+
 	// Error is an error class S3 Gateway http server error.
 	Error = errs.Class("gateway")
 
@@ -72,7 +76,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	uplinkConfig := configureUplinkConfig(config.Client)
 
-	gmt := NewMultiTenantGateway(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
+	gmt := gw.NewMultiTenantGateway(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
 	gatewayLayer, err := gmt.NewGatewayLayer(auth.Credentials{})
 	if err != nil {
 		return nil, err
