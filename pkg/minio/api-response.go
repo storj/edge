@@ -6,6 +6,7 @@ package minio
 import (
 	"encoding/xml"
 
+	"storj.io/gateway-mt/pkg/server/gw"
 	"storj.io/minio/cmd"
 )
 
@@ -32,7 +33,7 @@ type listBucketsWithAttributionResponse struct {
 // generateListBucketsWithAttributionResponse generates XML and
 // JSON-serializable ListBucketsWithAttributionResponse from a slice of
 // BucketWithAttributionInfo.
-func generateListBucketsWithAttributionResponse(info []BucketWithAttributionInfo) listBucketsWithAttributionResponse {
+func generateListBucketsWithAttributionResponse(info []gw.BucketWithAttributionInfo) listBucketsWithAttributionResponse {
 	response := listBucketsWithAttributionResponse{
 		Owner: cmd.Owner{
 			ID:          globalMinioDefaultOwnerID,

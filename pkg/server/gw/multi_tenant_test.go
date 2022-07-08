@@ -65,7 +65,7 @@ func TestLogUnexpectedErrorsOnly(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		require.Error(t, (&multiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, false}).log(ctx, tc.input))
+		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, false}).log(ctx, tc.input))
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
@@ -83,13 +83,13 @@ func TestLogAllErrors(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		require.Error(t, (&multiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}).log(ctx, tc.input))
+		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}).log(ctx, tc.input))
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
 
 func TestInvalidAccessGrant(t *testing.T) {
-	layer := &multiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}
+	layer := &MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, uplink.Config{}, true}
 	_, err := layer.ListBuckets(context.Background())
 	require.Error(t, err)
 	require.IsType(t, miniogo.ErrorResponse{}, err)

@@ -137,7 +137,7 @@ func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIE
 func writeSuccessResponseXML(w http.ResponseWriter, response []byte)
 
 //
-// Exposes below are needed for ListBucketWithAttributionHandler
+// Exposes below are needed for ListBucketsWithAttributionHandler
 //
 
 // checkRequestAuthTypeCredential exposes minio's cmd.checkRequestAuthTypeCredential.

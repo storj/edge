@@ -25,7 +25,6 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
-	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -76,12 +75,11 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	uplinkConfig := configureUplinkConfig(config.Client)
 
-	gmt := gw.NewMultiTenantGateway(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
-	gatewayLayer, err := gmt.NewGatewayLayer(auth.Credentials{})
+	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
 	if err != nil {
 		return nil, err
 	}
-	minio.RegisterAPIRouter(r, gatewayLayer, domainNames, concurrentAllowed, corsAllowedOrigins)
+	minio.RegisterAPIRouter(r, layer, domainNames, concurrentAllowed, corsAllowedOrigins)
 
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
@@ -118,7 +116,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		log:        log,
 		server:     server,
 		config:     config,
-		closeLayer: gatewayLayer.Shutdown,
+		closeLayer: layer.Shutdown,
 	}, nil
 }
 

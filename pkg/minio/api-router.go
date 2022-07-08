@@ -9,13 +9,14 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"storj.io/gateway-mt/pkg/server/gw"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/minio/cmd"
 	xhttp "storj.io/minio/cmd/http"
 )
 
 // RegisterAPIRouter - registers S3 compatible APIs.
-func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
+func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
 	api := objectAPIHandlersWrapper{objectAPIHandlers{
 		ObjectAPI: func() cmd.ObjectLayer { return layer },
 		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
@@ -264,7 +265,7 @@ func RegisterAPIRouter(router *mux.Router, layer cmd.ObjectLayer, domainNames []
 
 	// ListBucketsWithAttribution (similar to ListBuckets)
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
-		MaxClients(CollectAPIStats("listbuckets", HTTPTraceAll(listBucketsWithAttributionHandler)))).Queries("attribution", "")
+		MaxClients(CollectAPIStats("listbuckets", HTTPTraceAll(newListBucketsWithAttributionHandler(layer))))).Queries("attribution", "")
 
 	// ListBuckets
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
