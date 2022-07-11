@@ -256,6 +256,7 @@ integration-all-tests: integration-gateway-st-tests integration-mint-tests integ
 integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to be started first)
 	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
 	docker run \
+	--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined \
 	--network integration-network-${BUILD_NUMBER} \
 	-e AWS_ENDPOINT=https://gateway:20011 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" \
 	-v $$PWD:/build \

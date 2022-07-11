@@ -14,3 +14,4 @@ fi
 "$SCRIPTDIR"/../gateway-st/testsuite/integration/duplicity.sh
 "$SCRIPTDIR"/../gateway-st/testsuite/integration/duplicati.sh
 "$SCRIPTDIR"/../gateway-st/testsuite/integration/rclone.sh
+"$SCRIPTDIR"/../gateway-st/testsuite/integration/s3fs.sh
