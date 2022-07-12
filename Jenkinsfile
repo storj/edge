@@ -1,3 +1,4 @@
+// todo: convert scripted syntax to declarative to match gateway-st
 timeout(time: 26, unit: 'MINUTES') {
 	node {
 		stage('build'){
@@ -34,32 +35,11 @@ timeout(time: 26, unit: 'MINUTES') {
 
 						branchedStages["Lint"] = {
 							stage("Lint") {
-								sh 'check-mod-tidy'
-								sh 'check-copyright'
-								sh 'check-large-files'
-								sh 'check-imports -race ./...'
-								sh 'check-peer-constraints -race'
-								sh 'check-atomic-align ./...'
-								sh 'check-monkit ./...'
-								sh 'check-errs ./...'
-								sh 'check-deferloop ./...'
-								sh 'staticcheck ./...'
-								sh 'golangci-lint run --config /go/ci/.golangci.yml'
-								sh 'check-downgrades'
-
-								// A bit of an explanation around this shellcheck command:
-								// * Find all scripts recursively that have the .sh extension, except for "testsuite@tmp" which Jenkins creates temporarily.
-								// * Use + instead of \ so find returns a non-zero exit if any invocation of shellcheck returns a non-zero exit.
-								sh 'find . -path ./testsuite@tmp -prune -o -name "*.sh" -type f -exec "shellcheck" "-x" "--format=gcc" {} +;'
-
-								dir("testsuite") {
-									sh 'check-imports -race ./...'
-									sh 'check-atomic-align ./...'
-									sh 'check-monkit ./...'
-									sh 'check-errs ./...'
-									sh 'check-deferloop ./...'
-									sh 'staticcheck ./...'
-									sh 'golangci-lint run --config /go/ci/.golangci.yml'
+								withEnv([
+									"GOLANGCI_LINT_CONFIG=/go/ci/.golangci.yml",
+									"GOLANGCI_LINT_CONFIG_TESTSUITE=/go/ci/.golangci.yml",
+								]){
+									sh 'make lint'
 								}
 							}
 						}
@@ -67,14 +47,14 @@ timeout(time: 26, unit: 'MINUTES') {
 						branchedStages["Test"] = {
 							stage("Test") {
 								withEnv([
+									"JSON=true",
+									"SHORT=true",
+									"SKIP_TESTSUITE=true",
 									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
 									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
-									"COVERFLAGS=${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
 								]){
 									try {
-										sh 'go test -parallel 4 -p 16 -vet=off ${COVERFLAGS} -timeout 20m -json -race -short ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-										// TODO enable this later
-										// sh 'check-clean-directory'
+										sh 'make test 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 									}
 									catch(err) {
 										throw err
@@ -83,15 +63,6 @@ timeout(time: 26, unit: 'MINUTES') {
 										sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
 										archiveArtifacts artifacts: '.build/tests.json'
 										junit '.build/tests.xml'
-
-										script {
-											if(fileExists(".build/coverprofile")){
-												sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-												sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-												sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-												cobertura coberturaReportFile: '.build/cobertura.xml'
-											}
-										}
 									}
 								}
 							}
@@ -100,35 +71,32 @@ timeout(time: 26, unit: 'MINUTES') {
 						branchedStages["Testsuite"] = {
 							stage("Testsuite") {
 								withEnv([
+									"JSON=true",
+									"SHORT=false",
 									"STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/testcockroach?sslmode=disable",
 									"STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable",
 								]){
 									try {
-										dir('testsuite') {
-											sh 'go vet ./...'
-											sh 'go test -parallel 4 -p 16 -vet=off -timeout 20m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
-										}
+										sh 'make --no-print-directory test-testsuite 2>&1 | tee .build/testsuite.json | xunit -out .build/testsuite.xml'
 									}
 									catch(err) {
 										throw err
+									}
+									finally {
+										sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
+										archiveArtifacts artifacts: '.build/testsuite.json'
+										junit '.build/testsuite.xml'
 									}
 								}
 							}
 						}
 
-						branchedStages["Go Compatibility"] = {
-							stage("Go Compatibility") {
-								sh 'GOOS=linux   GOARCH=amd64 go vet ./...'
-								sh 'GOOS=linux   GOARCH=386   go vet ./...'
-								sh 'GOOS=linux   GOARCH=arm64 go vet ./...'
-								sh 'GOOS=linux   GOARCH=arm   go vet ./...'
-								sh 'GOOS=windows GOARCH=amd64 go vet ./...'
-								sh 'GOOS=windows GOARCH=386   go vet ./...'
-								// Use kqueue to avoid needing cgo for verification.
-								sh 'GOOS=darwin  GOARCH=amd64 go vet -tags kqueue ./...'
-								sh 'GOOS=darwin  GOARCH=arm64 go vet -tags kqueue ./...'
+						branchedStages["Cross-Vet"] = {
+							stage("Cross-Vet") {
+								sh 'make cross-vet'
 							}
 						}
+
 						parallel branchedStages
 					}
 				}
