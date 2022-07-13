@@ -13,7 +13,8 @@ timeout(time: 26, unit: 'MINUTES') {
 							stage("Environment") {
 								checkout scm
 								sh 'mkdir -p .build'
-								sh 'make build-packages'
+								sh 'go mod download'
+								sh 'cd testsuite && go mod download'
 							}
 						}
 

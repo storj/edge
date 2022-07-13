@@ -1,23 +1,9 @@
-GO_VERSION ?= 1.17.12
 COMPONENTLIST := gateway-mt authservice linksharing
-BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
-LATEST_DEV_TAG := dev
-
-ifeq (${BRANCH_NAME},main)
-	TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-	BRANCH_NAME :=
-else
-	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
-	ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
-		LATEST_STABLE_TAG := latest
-	endif
-endif
 
 #
 # Common
 #
 
-.DEFAULT_GOAL := help
 .PHONY: help
 help:
 	@awk 'BEGIN { \
@@ -30,6 +16,8 @@ help:
 	/^##@/ { \
 		printf "\n\033[1m%s\033[0m\n", substr($$0, 5) \
 	}' $(MAKEFILE_LIST)
+
+.DEFAULT_GOAL := help
 
 #
 # Public Jenkins (commands below are used for local development and/or public Jenkins)
@@ -158,45 +146,44 @@ test-testsuite-do:
 .PHONY: verify
 verify: lint cross-vet test ## Execute pre-commit verification
 
+#
+# Private Jenkins (commands below are used for releases/private Jenkins)
+#
+
+##@ Release/Private Jenkins/Build
+
+GO_VERSION ?= 1.17.12
+BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+
+ifeq (${BRANCH_NAME},main)
+	TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+	BRANCH_NAME :=
+else
+	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+	ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
+		LATEST_STABLE_TAG := latest
+	endif
+endif
+
 DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 
-##@ Dependencies
-
-.PHONY: build-dev-deps
-build-dev-deps: ## Install dependencies for builds
-	go get golang.org/x/tools/cover
-	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-
-.PHONY: goimports-fix
-goimports-fix: ## Applies goimports to every go file (excluding vendored files)
-	goimports -w -local storj.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
-
-.PHONY: goimports-st
-goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
-	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
-
-.PHONY: build-packages
-build-packages: build-packages-normal build-packages-race ## Test docker images locally
-build-packages-normal:
-	go build -v ./...
-build-packages-race:
-	go build -v -race ./...
-
-##@ Build
+LATEST_DEV_TAG := dev
 
 .PHONY: images
-images: gateway-mt-image authservice-image linksharing-image
-	echo Built version: ${TAG}
+images: gateway-mt-image authservice-image linksharing-image ## Build Docker images
+	@echo Built version: ${TAG}
 
 .PHONY: gateway-mt-image
 gateway-mt-image: ## Build gateway-mt Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-amd64 \
 		-f cmd/gateway-mt/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		--build-arg=GOARCH=arm \
+		--build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/gateway-mt/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 \
+		--build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/gateway-mt/Dockerfile .
 	docker tag storjlabs/gateway-mt:${TAG}-amd64 storjlabs/gateway-mt:${LATEST_DEV_TAG}
 
@@ -205,10 +192,12 @@ authservice-image: ## Build authservice Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-amd64 \
 		-f cmd/authservice/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		--build-arg=GOARCH=arm \
+		--build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/authservice/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 \
+		--build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/authservice/Dockerfile .
 	docker tag storjlabs/authservice:${TAG}-amd64 storjlabs/authservice:${LATEST_DEV_TAG}
 
@@ -224,28 +213,20 @@ linksharing-image: ## Build linksharing Docker image
 		-f cmd/linksharing/Dockerfile .
 	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
 
-.PHONY: binary
-binary:
-	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
-		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
-	# freebsd/amd64 target is currently skipped: https://github.com/storj/gateway-st/issues/62
-	CGO_ENABLED=0 storj-release \
-		--components "cmd/${COMPONENT}" \
-		--build-tags kqueue \
-		--go-version "${GO_VERSION}" \
-		--branch "${BRANCH_NAME}" \
-		--skip-osarches "freebsd/amd64"
-
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
 	for C in ${COMPONENTLIST}; do\
-		$(MAKE) binary COMPONENT=$$C || exit $$? \
+		# freebsd/amd64 target is currently skipped: https://github.com/storj/gateway-st/issues/62 \
+		CGO_ENABLED=0 storj-release \
+			--components "cmd/$$C" \
+			--build-tags kqueue \
+			--go-version "${GO_VERSION}" \
+			--branch "${BRANCH_NAME}" \
+			--skip-osarches "freebsd/amd64" || exit $$? \
 	; done
 
-##@ Deploy
-
 .PHONY: push-images
-push-images: ## Push Docker images to Docker Hub (jenkins)
+push-images: ## Push Docker images to Docker Hub
 	# images have to be pushed before a manifest can be created
 	for c in ${COMPONENTLIST}; do \
 		docker push storjlabs/$$c:${TAG}-amd64 \
@@ -264,7 +245,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	; done
 
 .PHONY: binaries-upload
-binaries-upload: ## Upload binaries to Google Storage (jenkins)
+binaries-upload: ## Upload release binaries to GCS
 	cd "release/${TAG}"; for f in *; do \
 		c="$${f%%_*}" \
 		&& if [ "$${f##*.}" != "$${f}" ]; then \
@@ -279,13 +260,13 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
-##@ Clean
+##@ Release/Private Jenkins/Clean
 
 .PHONY: clean
-clean: binaries-clean clean-images ## Clean local release binaries and local Docker images
+clean: clean-binaries clean-images ## Remove local release binaries and local Docker images
 
-.PHONY: binaries-clean
-binaries-clean: ## Remove all local release binaries (jenkins)
+.PHONY: clean-binaries
+clean-binaries: ## Remove local release binaries
 	rm -rf release
 
 .PHONY: clean-images
