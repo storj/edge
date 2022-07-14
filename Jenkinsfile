@@ -169,7 +169,7 @@ timeout(time: 26, unit: 'MINUTES') {
 					done
 				'''
 				sh 'docker exec postgres-gateway-mt-$BUILD_NUMBER createdb -U postgres teststorj'
-				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER --network-alias $GATEWAY_DOMAIN --network minttest-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS storjlabs/golang:1.17.5'
+				sh 'docker run -u root:root --rm -i -d --name mintsetup-gateway-mt-$BUILD_NUMBER --network-alias $GATEWAY_DOMAIN --network minttest-gateway-mt-$BUILD_NUMBER -v $PWD:$PWD -w $PWD --entrypoint $PWD/jenkins/test-mint.sh -e GATEWAY_DOMAIN -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS storjlabs/golang:1.17.12'
 				// Wait until the docker command above prints out the keys before proceeding
 				output = sh (script: '''#!/bin/bash
 					set -e +x
