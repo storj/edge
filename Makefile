@@ -26,7 +26,7 @@ help:
 #@ Local development/Public Jenkins/Helpers
 
 .PHONY: install-dev-dependencies
-install-dev-dependencies: ## install-dev-dependencies assumes Go and cURL are installed
+install-dev-dependencies: badgerauth-install-dependencies ## install-dev-dependencies assumes Go and cURL are installed
 	# Storj-specific:
 	go install github.com/storj/ci/check-mod-tidy@latest
 	go install github.com/storj/ci/check-copyright@latest
@@ -53,6 +53,35 @@ else ifneq ($(shell which brew),)
 else
 	$(error Can't install shellcheck without a supported package manager)
 endif
+
+.PHONY: badgerauth-install-dependencies
+badgerauth-install-dependencies:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install storj.io/drpc/cmd/protoc-gen-go-drpc@latest
+
+ifneq ($(shell which apt-get),)
+	sudo apt-get install -y protobuf-compiler
+else ifneq ($(shell which brew),)
+	brew install protobuf
+else
+	$(error Can't install protobuf without a supported package manager)
+endif
+
+.PHONY: badgerauth-format-protobufs
+badgerauth-format-protobufs:
+ifeq ($(shell which clang-format),)
+# If clang-format isn't found, we want to install it first:
+ifneq ($(shell which apt-get),)
+	sudo apt-get install -y clang-format
+else ifneq ($(shell which brew),)
+	brew install clang-format
+else
+	$(error Can't install clang-format without a supported package manager)
+endif
+endif
+
+	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto
+	clang-format -i pkg/auth/badgerauth/pb/badgerauth_admin.proto
 
 .PHONY: install-hooks
 install-hooks: ## Install helpful Git hooks
@@ -160,7 +189,7 @@ ifeq (${BRANCH_NAME},main)
 	BRANCH_NAME :=
 else
 	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
-	ifneq (,$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"))
+	ifneq ($(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"),)
 		LATEST_STABLE_TAG := latest
 	endif
 endif
@@ -215,7 +244,7 @@ linksharing-image: ## Build linksharing Docker image
 
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
-	for C in ${COMPONENTLIST}; do\
+	for C in ${COMPONENTLIST}; do \
 		# freebsd/amd64 target is currently skipped: https://github.com/storj/gateway-st/issues/62 \
 		CGO_ENABLED=0 storj-release \
 			--components "cmd/$$C" \
@@ -274,45 +303,6 @@ clean-images:
 	-docker rmi -f $(shell docker images -q "storjlabs/gateway-mt:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/authservice:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/linksharing:${TAG}-*")
-
-.PHONY: bump-dependencies
-bump-dependencies:
-	go get storj.io/common@main storj.io/private@main storj.io/uplink@main github.com/storj/minio
-	go mod tidy
-	cd testsuite;\
-		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
-		go mod tidy
-
-
-UNAME_S := $(shell uname -s)
-
-.PHONY: badgerauth-install-dependencies
-badgerauth-install-dependencies:
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install storj.io/drpc/cmd/protoc-gen-go-drpc@latest
-
-ifneq ($(shell which apt-get),)
-	sudo apt-get install -y protobuf-compiler
-endif
-
-ifneq ($(shell which brew),)
-	brew install protobuf
-endif
-
-.PHONY: badgerauth-format-protobufs
-badgerauth-format-protobufs:
-# If clang-format isn't found, we want to install it first.
-ifeq ($(shell which clang-format),)
-	ifneq ($(shell which apt-get),)
-		sudo apt-get install -y clang-format
-	endif
-	ifneq ($(shell which brew),)
-		brew install clang-format
-	endif
-endif
-
-	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto
-	clang-format -i pkg/auth/badgerauth/pb/badgerauth_admin.proto
 
 ##@ Local development/Public Jenkins/Integration Test
 
