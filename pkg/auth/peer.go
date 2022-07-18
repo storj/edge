@@ -335,7 +335,7 @@ func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) (err error)
 
 	p.log.Info("Starting DRPC server", zap.String("address", listener.Addr().String()))
 
-	return drpcauth.StartListen(ctx, p.drpcServer, listener)
+	return drpcauth.StartListen(ctx, p.drpcServer, p.config.POSTSizeLimit, listener)
 }
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {

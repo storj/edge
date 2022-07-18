@@ -92,7 +92,7 @@ func TestRegisterAccessTooLarge(t *testing.T) {
 	)
 	require.Error(t, err)
 
-	assert.Equal(t, rpcstatus.Code(err), rpcstatus.InvalidArgument)
+	assert.Equal(t, rpcstatus.InvalidArgument, rpcstatus.Code(err))
 	assert.EqualError(t, err, "provided access grant is too large")
 
 	_, err = server.RegisterAccess(

@@ -22,8 +22,10 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/drpc/drpcmanager"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	"storj.io/drpc/drpcwire"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
@@ -119,6 +121,7 @@ func (g *Server) registerAccessImpl(
 func StartListen(
 	ctx context.Context,
 	authServer pb.DRPCEdgeAuthServer,
+	maximumBuffer memory.Size,
 	listener net.Listener,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -129,7 +132,13 @@ func StartListen(
 		return err
 	}
 
-	server := drpcserver.New(mux)
+	server := drpcserver.NewWithOptions(mux, drpcserver.Options{
+		Manager: drpcmanager.Options{
+			Reader: drpcwire.ReaderOptions{
+				MaximumBufferSize: maximumBuffer.Int(),
+			},
+		},
+	})
 
 	return server.Serve(ctx, listener)
 }
