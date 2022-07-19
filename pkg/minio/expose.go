@@ -158,12 +158,6 @@ func encodeResponse(response interface{}) []byte
 //go:linkname globalMinioDefaultOwnerID storj.io/minio/cmd.globalMinioDefaultOwnerID
 var globalMinioDefaultOwnerID string
 
-// iso8601TimeFormat exposes minio's cmd.iso8601TimeFormat.
-//
-//nolint: golint
-//go:linkname iso8601TimeFormat storj.io/minio/cmd.iso8601TimeFormat
-var iso8601TimeFormat string
-
 // newContext exposes minio's cmd.newContext.
 //
 //nolint: golint

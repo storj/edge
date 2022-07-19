@@ -26,6 +26,7 @@ import (
 	"storj.io/minio/pkg/auth"
 	"storj.io/private/version"
 	"storj.io/uplink"
+	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/transport"
 )
 
@@ -201,8 +202,8 @@ func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.Bu
 // BucketWithAttributionInfo represents a bucket with attribution metadata.
 type BucketWithAttributionInfo struct {
 	Name        string
-	Attribution string
 	Created     time.Time
+	Attribution string
 }
 
 // ListBucketsWithAttribution is like ListBuckets, but it associates information
@@ -217,19 +218,17 @@ func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buc
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	it := project.ListBuckets(ctx, nil)
+	it := bucket.ListBucketsWithAttribution(ctx, project, nil)
 
 	for it.Next() {
 		buckets = append(buckets, BucketWithAttributionInfo{
-			Name:    it.Item().Name,
-			Created: it.Item().Created,
-			// TODO(artur): after we have a method to gather attribution along
-			// with buckets, fill out Attribution.
+			Name:        it.Item().Name,
+			Created:     it.Item().Created,
+			Attribution: it.Item().Attribution,
 		})
 	}
 
-	// TODO(artur): export convertError in storj.io/gateway, add it here
-	return buckets, l.log(ctx, it.Err())
+	return buckets, l.log(ctx, miniogw.ConvertError(it.Err(), "", ""))
 }
 
 // DeleteBucket is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteBucket.

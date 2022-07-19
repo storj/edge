@@ -10,12 +10,14 @@ import (
 	"storj.io/minio/cmd"
 )
 
+const iso8601TimeFormat = "2006-01-02T15:04:05.000Z"
+
 // bucketWithAttribution represents the response's building block for custom
 // ListBucketsWithAttribution action.
 type bucketWithAttribution struct {
+	CreationDate string // 2006-01-02T15:04:05.000Z
 	Name         string
 	Attribution  string
-	CreationDate string // 2006-01-02T15:04:05.000Z
 }
 
 // listBucketsWithAttributionResponse represents a response for custom
@@ -43,9 +45,9 @@ func generateListBucketsWithAttributionResponse(info []gw.BucketWithAttributionI
 
 	for _, v := range info {
 		response.Buckets.Buckets = append(response.Buckets.Buckets, bucketWithAttribution{
+			CreationDate: v.Created.UTC().Format(iso8601TimeFormat),
 			Name:         v.Name,
 			Attribution:  v.Attribution,
-			CreationDate: v.Created.UTC().Format(iso8601TimeFormat),
 		})
 	}
 
