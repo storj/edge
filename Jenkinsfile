@@ -171,7 +171,7 @@ pipeline {
                                     sh 'make integration-splunk-tests'
                                 }
                             }
-                            ['awscli', 'awscli_multipart', 'duplicity', 'duplicati', 'rclone', 's3fs'].each { test ->
+                            ['awscli', 'awscli_multipart', 'duplicity', 'duplicati', 'https', 'rclone', 's3fs'].each { test ->
                                 tests["gateway-st-test ${test}"] = {
                                     stage("gateway-st-test ${test}") {
                                         sh "TEST=${test} make integration-gateway-st-tests"
