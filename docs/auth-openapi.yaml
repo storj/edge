@@ -1,0 +1,78 @@
+openapi: 3.0.2
+info:
+  title: Storj Auth Service API
+  description: The Storj Auth Service API allows end users to register a Storj Access Grant and receive back S3 style credentials for use in Storj Gateway-MT or the Link Sharing Service.
+  version: 1.0.0
+servers:
+  - url: https://auth.storjshare.io/v1
+paths:
+  /health/startup:
+    get:
+      summary: Service has finished initial startup.
+      description: Startup returns 200 when the service has finished initial start up processing and 503 Service Unavailable otherwise (e.g. established initial database connection, finished database migrations).
+      responses:
+        200:
+          description: OK
+        503:
+          description: Service Unavailable
+  /health/live:
+    get:
+      summary: Service is able to process requests.
+      description: Live returns 200 when the service is able to process requests and 503 Service Unavailable otherwise (e.g. this would return 503 if the database connection failed).
+      responses:
+        200:
+          description: OK
+        503:
+          description: Service Unavailable
+  /access:
+    post:
+      summary: Registers an Access Grant, returning an Access Key ID and Secret Key.
+      description:
+        'Access persists an Access Grant and a boolean "public" flag, returning an Access Key ID and Secret Key.
+        If the "public" flag is set, the returned Access Key ID may be used with the Link Sharing Service, and is thus publicly accessible.
+        Regardless of the "public" flag, the returned Access Key ID and Secret Key may be used as AWS S3-style credentials with Gateway-MT.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_grant:
+                  type: string
+                  description: A base58-encoded Storj Access Grant, such as produced by the Storj DCS website or uplink CLI.
+                public:
+                  type: boolean
+                  description: Allows the Access Grant to be used by the Link Sharing Service.
+              required:
+                - access_grant
+                - public
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_key_id:
+                    type: string
+                    description: A unique identifier that corresponds to the posted Access Grant.  Usable in the Link Sharing Service URLs or in Gateway-MT as an S3-compatible Access Key ID.
+                  secret_key:
+                    type: string
+                    description: A signing key that corresponds to the posted Access Grant.  Usable in Gateway-MT as an S3-compatible Secret Access Key.
+                  endpoint:
+                    type: string
+                    description: The Gateway-MT service which is recommended for use with the returned Access Key ID and Secret Access Key.
+        413:
+          description: Entity Too Large
+        422:
+          description: Unprocessable Entity
+        500:
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Error diagnostic messaging.
+        503:
+          description: Service Unavailable
