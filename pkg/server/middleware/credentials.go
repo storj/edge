@@ -5,14 +5,15 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
+	_ "unsafe" // for go:linkname
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -24,6 +25,7 @@ import (
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/minio/cmd"
 )
 
 type credentialsCV struct{}
@@ -40,17 +42,47 @@ const (
 	yyyymmdd      = "20060102"
 )
 
-var accessRegexp = regexp.MustCompile("/access/.*\"")
+var (
+	accessRegexp = regexp.MustCompile("/access/.*\"")
+
+	errNoAccessKey              = errs.New("no access key id")
+	errMalformedAuthorizationV2 = errs.New("malformed authorization")
+	errCredentialMalformed      = errs.New("malformed")
+	errMalformedCredentialDate  = errs.New("invalid date")
+	errInvalidDate              = errs.New("invalid X-Amz-Date")
+	errInvalidAlgorithm         = errs.New("invalid algorithm")
+	errInvalidDateHeader        = errs.New("invalid X-Amz-Date header")
+
+	errInvalidQuery         = errs.Class("invalid query")
+	errMissingFields        = errs.Class("missing fields")
+	errMalformedPOSTRequest = errs.Class("malformed POST data")
+)
 
 // AccessKey implements mux.Middlware and saves the accesskey to context.
 func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log *zap.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			// extract the access key id from the HTTP headers
+			// extract the access key id from the request
 			accessKeyID, err := GetAccessKeyID(r)
-			if err != nil || accessKeyID == "" {
-				next.ServeHTTP(w, r)
+			if err != nil {
+				if errs.Is(err, errNoAccessKey) {
+					next.ServeHTTP(w, r)
+					return
+				}
+
+				errCode := errToAPIErrCode(err)
+				var apiError cmd.APIError
+				if errCode == 0 { // if we didn't map to anything, fall back to a generic error.
+					apiError = cmd.APIError{
+						Code:           "InvalidCredentials",
+						Description:    err.Error(),
+						HTTPStatusCode: http.StatusBadRequest,
+					}
+				} else {
+					apiError = getAPIError(errCode)
+				}
+				writeErrorResponse(ctx, w, apiError, r.URL, false)
 				return
 			}
 			var creds Credentials
@@ -107,62 +139,64 @@ func GetAccess(ctx context.Context) *Credentials {
 
 // GetAccessKeyID returns the access key ID from the request and a signature validator.
 func GetAccessKeyID(r *http.Request) (string, error) {
-	// Speculatively parse for V4 and then V2.
-	v4, errV4 := ParseV4(r)
-	if errV4 == nil {
+	switch {
+	case isRequestSignatureV4(r):
+		v4, err := ParseV4FromHeader(r)
+		if err != nil {
+			return "", err
+		}
 		return v4.Credential.AccessKeyID, nil
-	}
-
-	v2, errV2 := ParseV2(r)
-	if errV2 == nil {
+	case isRequestPresignedSignatureV4(r):
+		v4, err := ParseV4FromQuery(r)
+		if err != nil {
+			return "", err
+		}
+		return v4.Credential.AccessKeyID, nil
+	case isRequestSignatureV2(r):
+		v2, err := ParseV2FromHeader(r)
+		if err != nil {
+			return "", err
+		}
 		return v2.AccessKeyID, nil
+	case isRequestPresignedSignatureV2(r):
+		v2, err := ParseV2FromQuery(r)
+		if err != nil {
+			return "", err
+		}
+		return v2.AccessKeyID, nil
+	case isRequestPostPolicySignature(r):
+		key, err := ParseFromForm(r)
+		if err != nil {
+			return "", err
+		}
+		return key, nil
+	default:
+		return "", errNoAccessKey
 	}
+}
 
-	// Try parsing V2 or V4 credentials from multipart form credentials.
-	// This attempt is made after other types because it requires creating a potentially
-	// memory intensive cache of the POST'ed body data.
-	var errMPV4, errMPV2 error
-	if r.Method == "POST" {
-		// create a reset-able body so we don't drain the request body for later
-		const bodyBufferSize = int64(5 * memory.MiB)
-		bodyCache, err := NewBodyCache(r.Body, bodyBufferSize)
-		if err != nil {
-			return "", err
-		}
-		r.Body = bodyCache
-		defer func() {
-			_, seekErr := bodyCache.Seek(0, io.SeekStart)
-			err = errs.Combine(err, seekErr)
-		}()
+func isRequestSignatureV4(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256")
+}
 
-		// now read the body
-		reader, err := getMultipartReader(r)
-		if err != nil {
-			return "", err
-		}
-		// Read multipart data, limiting to 5 mibyte, as Minio doees
-		form, err := reader.ReadForm(bodyBufferSize)
-		if err != nil {
-			return "", err
-		}
-		// Canonicalize the form values into http.Header.
-		formValues := make(http.Header)
-		for k, v := range form.Value {
-			formValues[http.CanonicalHeaderKey(k)] = v
-		}
+func isRequestSignatureV2(r *http.Request) bool {
+	return !strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256") &&
+		strings.HasPrefix(r.Header.Get("Authorization"), "AWS")
+}
 
-		v4, errMPV4 := ParseV4FromFormValues(formValues)
-		if errMPV4 == nil {
-			return v4.Credential.AccessKeyID, nil
-		}
+func isRequestPresignedSignatureV4(r *http.Request) bool {
+	_, ok := r.URL.Query()["X-Amz-Credential"]
+	return ok
+}
 
-		v2, errMPV2 := ParseV2FromFormValues(formValues)
-		if errMPV2 == nil {
-			return v2.AccessKeyID, nil
-		}
-	}
+func isRequestPresignedSignatureV2(r *http.Request) bool {
+	_, ok := r.URL.Query()["AWSAccessKeyId"]
+	return ok
+}
 
-	return "", errs.Combine(errV4, errV2, errMPV4, errMPV2, errors.New("no access key ID"))
+func isRequestPostPolicySignature(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") &&
+		r.Method == http.MethodPost
 }
 
 var v4CredentialRegex = regexp.MustCompile("^(?P<akid>[^/]+)/(?P<date>[^/]+)/(?P<region>[^/]+)?/(?P<service>[^/]+)/aws4_request$")
@@ -182,12 +216,12 @@ var ParseV4CredentialError = errs.Class("credential")
 func ParseV4Credential(data string) (*V4Credential, error) {
 	vals := v4CredentialRegex.FindStringSubmatch(data)
 	if len(vals) != 5 {
-		return nil, ParseV4CredentialError.New("malformed")
+		return nil, ParseV4CredentialError.Wrap(errCredentialMalformed)
 	}
 
 	d, err := time.Parse(yyyymmdd, vals[2])
 	if err != nil {
-		return nil, ParseV4CredentialError.New("invalid date")
+		return nil, ParseV4CredentialError.Wrap(errMalformedCredentialDate)
 	}
 
 	return &V4Credential{
@@ -210,9 +244,6 @@ type V4 struct {
 	FromHeader bool
 }
 
-// ParseV4Error is the default error class for V4 parsing errors.
-var ParseV4Error = errs.Class("parse v4")
-
 // ParseV4FromHeaderError is the default error class for V4 parsing header errors.
 var ParseV4FromHeaderError = errs.Class("header")
 
@@ -232,14 +263,9 @@ var (
 
 // ParseV4FromHeader parses a V4 signature from the request headers.
 func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
-	authorization := r.Header.Get("Authorization")
-	if authorization == "" {
-		return nil, ParseV4FromHeaderError.New("authorization empty")
-	}
-
-	vals := v4AuthorizationRegex.FindStringSubmatch(authorization)
+	vals := v4AuthorizationRegex.FindStringSubmatch(r.Header.Get("Authorization"))
 	if len(vals) != 2 {
-		return nil, ParseV4FromHeaderError.New("authorization missing fields: %+v", vals)
+		return nil, ParseV4FromHeaderError.Wrap(errMissingFields.New("%+v", vals))
 	}
 
 	kvs := vals[1]
@@ -251,13 +277,13 @@ func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
 
 	v4.Date, err = time.Parse(iso8601Format, r.Header.Get("X-Amz-Date"))
 	if err != nil {
-		return nil, ParseV4FromHeaderError.New("invalid X-Amz-Date")
+		return nil, ParseV4FromHeaderError.Wrap(errInvalidDateHeader)
 	}
 
 	for kvs != "" {
 		fields := v4AuthorizationFieldRegex.FindStringSubmatch(kvs)
 		if len(fields) != 3 {
-			return nil, ParseV4FromHeaderError.New("authorization field malformed %q", kvs)
+			return nil, ParseV4FromHeaderError.Wrap(errMissingFields.New("expected exactly three components: Credential, SignedHeaders, and Signature"))
 		}
 
 		key := fields[1]
@@ -267,7 +293,7 @@ func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
 		case "Credential":
 			v4.Credential, err = ParseV4Credential(val)
 			if err != nil {
-				return nil, ParseV4FromHeaderError.New("credential field malformed")
+				return nil, ParseV4FromHeaderError.Wrap(err)
 			}
 		case "Signature":
 			v4.Signature = val
@@ -287,27 +313,26 @@ func ParseV4FromHeader(r *http.Request) (_ *V4, err error) {
 
 // ParseV4FromFormValues parses a V4 signature from the multipart form parameters.
 func ParseV4FromFormValues(formValues http.Header) (_ *V4, err error) {
-
 	if _, ok := formValues["X-Amz-Signature"]; !ok {
-		return nil, ParseV4FromMPartError.New("no X-Amz-Signature field")
+		return nil, ParseV4FromMPartError.Wrap(errMissingFields.New("no X-Amz-Signature field"))
 	}
 	if _, ok := formValues["X-Amz-Date"]; !ok {
-		return nil, ParseV4FromMPartError.New("no X-Amz-Date field")
+		return nil, ParseV4FromMPartError.Wrap(errMissingFields.New("no X-Amz-Date field"))
 	}
 	if _, ok := formValues["X-Amz-Credential"]; !ok {
-		return nil, ParseV4FromMPartError.New("no X-Amz-Credential field")
+		return nil, ParseV4FromMPartError.Wrap(errMissingFields.New("no X-Amz-Credential field"))
 	}
 
 	v4 := &V4{}
 	v4.Credential, err = ParseV4Credential(formValues["X-Amz-Credential"][0])
 	if err != nil {
-		return nil, ParseV4FromMPartError.New("error parsing X-Amz-Credential")
+		return nil, ParseV4FromMPartError.Wrap(err)
 	}
 	v4.Signature = formValues["X-Amz-Signature"][0]
 
 	v4.Date, err = time.Parse(iso8601Format, formValues["X-Amz-Date"][0])
 	if err != nil {
-		return nil, ParseV4FromMPartError.New("invalid X-Amz-Date")
+		return nil, ParseV4FromMPartError.Wrap(errInvalidDate)
 	}
 
 	mon.Counter("auth",
@@ -322,10 +347,10 @@ func ParseV2FromFormValues(formValues http.Header) (_ *V2, err error) {
 	var ok bool
 	var AccessKeyID, Signature []string
 	if AccessKeyID, ok = formValues[http.CanonicalHeaderKey("AWSAccessKeyId")]; !ok {
-		return nil, ParseV2FromMPartError.New("no AWSAccessKeyId field")
+		return nil, ParseV2FromMPartError.Wrap(errMissingFields.New("no AWSAccessKeyId field"))
 	}
 	if Signature, ok = formValues["Signature"]; !ok {
-		return nil, ParseV2FromMPartError.New("no Signature field")
+		return nil, ParseV2FromMPartError.Wrap(errMissingFields.New("no Signature field"))
 	}
 
 	mon.Counter("auth",
@@ -333,7 +358,6 @@ func ParseV2FromFormValues(formValues http.Header) (_ *V2, err error) {
 		monkit.NewSeriesTag("type", "multipart")).Inc(1)
 
 	return &V2{AccessKeyID: AccessKeyID[0], Signature: Signature[0]}, nil
-
 }
 
 func getMultipartReader(r *http.Request) (*multipart.Reader, error) {
@@ -361,7 +385,7 @@ func ParseV4FromQuery(r *http.Request) (_ *V4, err error) {
 
 	algorithm := q.Get("X-Amz-Algorithm")
 	if algorithm != "AWS4-HMAC-SHA256" {
-		return nil, ParseV4FromQueryError.New("invalid algorithm: %q", algorithm)
+		return nil, ParseV4FromQueryError.Wrap(errInvalidAlgorithm)
 	}
 
 	v4 := &V4{}
@@ -382,7 +406,7 @@ func ParseV4FromQuery(r *http.Request) (_ *V4, err error) {
 
 	v4.Date, err = time.Parse(iso8601Format, r.URL.Query().Get("X-Amz-Date"))
 	if err != nil {
-		return nil, ParseV4FromHeaderError.New("invalid X-Amz-Date")
+		return nil, ParseV4FromQueryError.Wrap(errInvalidDate)
 	}
 
 	mon.Counter("auth",
@@ -390,22 +414,6 @@ func ParseV4FromQuery(r *http.Request) (_ *V4, err error) {
 		monkit.NewSeriesTag("type", "query")).Inc(1)
 
 	return v4, nil
-}
-
-// ParseV4 parses a V4 signature from the request.
-func ParseV4(r *http.Request) (*V4, error) {
-	// Speculatively parse from the headers and then query parameters.
-	v4, err1 := ParseV4FromHeader(r)
-	if err1 == nil {
-		return v4, nil
-	}
-
-	v4, err2 := ParseV4FromQuery(r)
-	if err2 == nil {
-		return v4, nil
-	}
-
-	return nil, ParseV4Error.Wrap(errs.Combine(err1, err2))
 }
 
 // V2 represents S3 V2 all security related data.
@@ -417,9 +425,6 @@ type V2 struct {
 	FromHeader bool
 }
 
-// ParseV2Error is the default error class for V2 parsing errors.
-var ParseV2Error = errs.Class("parse v2")
-
 // ParseV2FromHeaderError is the default error class for V2 parsing header errors.
 var ParseV2FromHeaderError = errs.Class("header")
 
@@ -430,14 +435,9 @@ var v2AuthorizationRegex = regexp.MustCompile("^AWS (?P<key>[^:]+):(?P<sig>.+)$"
 
 // ParseV2FromHeader parses a V2 signature from the request headers.
 func ParseV2FromHeader(r *http.Request) (_ *V2, err error) {
-	authorization := r.Header.Get("Authorization")
-	if authorization == "" {
-		return nil, ParseV2FromHeaderError.New("authorization empty")
-	}
-
-	vals := v2AuthorizationRegex.FindStringSubmatch(authorization)
+	vals := v2AuthorizationRegex.FindStringSubmatch(r.Header.Get("Authorization"))
 	if len(vals) != 3 {
-		return nil, ParseV2FromHeaderError.New("malformed authorization")
+		return nil, ParseV2FromHeaderError.Wrap(errMalformedAuthorizationV2)
 	}
 
 	v2 := &V2{
@@ -463,10 +463,10 @@ func ParseV2FromQuery(r *http.Request) (_ *V2, err error) {
 	}
 
 	if v2.AccessKeyID == "" {
-		return nil, ParseV2FromQueryError.New("no AWSAccessKeyId field")
+		return nil, ParseV2FromQueryError.Wrap(errInvalidQuery.New("no AWSAccessKeyId field"))
 	}
 	if v2.Signature == "" {
-		return nil, ParseV2FromQueryError.New("no Signature field")
+		return nil, ParseV2FromQueryError.Wrap(errInvalidQuery.New("no Signature field"))
 	}
 
 	mon.Counter("auth",
@@ -476,18 +476,82 @@ func ParseV2FromQuery(r *http.Request) (_ *V2, err error) {
 	return v2, nil
 }
 
-// ParseV2 parses a V2 signature from the request.
-func ParseV2(r *http.Request) (*V2, error) {
-	// Speculatively parse from the headers and then query parameters.
-	v2, err1 := ParseV2FromHeader(r)
-	if err1 == nil {
-		return v2, nil
+// ParseFromForm parses V2 or V4 credentials from multipart form credentials.
+func ParseFromForm(r *http.Request) (string, error) {
+	// create a reset-able body so we don't drain the request body for later
+	const bodyBufferSize = int64(5 * memory.MiB)
+	bodyCache, err := NewBodyCache(r.Body, bodyBufferSize)
+	if err != nil {
+		return "", err
+	}
+	r.Body = bodyCache
+	defer func() {
+		_, seekErr := bodyCache.Seek(0, io.SeekStart)
+		err = errs.Combine(err, seekErr)
+	}()
+
+	// now read the body
+	reader, err := getMultipartReader(r)
+	if err != nil {
+		return "", errMalformedPOSTRequest.Wrap(err)
+	}
+	// Read multipart data, limiting to 5 mibyte, as Minio doees
+	form, err := reader.ReadForm(bodyBufferSize)
+	if err != nil {
+		return "", errMalformedPOSTRequest.Wrap(err)
+	}
+	// Canonicalize the form values into http.Header.
+	formValues := make(http.Header)
+	for k, v := range form.Value {
+		formValues[http.CanonicalHeaderKey(k)] = v
 	}
 
-	v2, err2 := ParseV2FromQuery(r)
-	if err2 == nil {
-		return v2, nil
+	v4, errMPV4 := ParseV4FromFormValues(formValues)
+	if errMPV4 == nil {
+		return v4.Credential.AccessKeyID, nil
 	}
 
-	return nil, ParseV2Error.Wrap(errs.Combine(err1, err2))
+	v2, errMPV2 := ParseV2FromFormValues(formValues)
+	if errMPV2 == nil {
+		return v2.AccessKeyID, nil
+	}
+
+	return "", errs.Combine(errMPV4, errMPV2)
 }
+
+func errToAPIErrCode(err error) cmd.APIErrorCode {
+	switch {
+	case errs.Is(err, errMalformedAuthorizationV2):
+		return cmd.ErrMissingFieldsV2
+	case errs.Is(err, errCredentialMalformed):
+		return cmd.ErrCredMalformed
+	case errs.Is(err, errMalformedCredentialDate):
+		return cmd.ErrMalformedCredentialDate
+	case errs.Is(err, errInvalidDate):
+		return cmd.ErrMalformedPresignedDate
+	case errs.Is(err, errInvalidAlgorithm):
+		return cmd.ErrInvalidQuerySignatureAlgo
+	case errs.Is(err, errInvalidDateHeader):
+		return cmd.ErrMissingDateHeader
+	case errInvalidQuery.Has(err):
+		return cmd.ErrInvalidQueryParams
+	case errMissingFields.Has(err):
+		return cmd.ErrMissingFields
+	case errMalformedPOSTRequest.Has(err):
+		return cmd.ErrMalformedPOSTRequest
+	default:
+		return 0
+	}
+}
+
+// writeErrorResponse exposes minio's cmd.writeErrorResponse.
+//
+//nolint: golint
+//go:linkname writeErrorResponse storj.io/minio/cmd.writeErrorResponse
+func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
+
+// getAPIError exposes minio's cmd.getAPIError.
+//
+//nolint: golint
+//go:linkname getAPIError storj.io/minio/cmd.getAPIError
+func getAPIError(code cmd.APIErrorCode) cmd.APIError

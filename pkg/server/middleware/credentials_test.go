@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"encoding/xml"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/minio/cmd"
 )
 
 func TestParseV4Credentials(t *testing.T) {
@@ -228,46 +230,76 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 	}
 }
 
-func TestAuthTypeMetrics(t *testing.T) {
+func TestAuthParseResponse(t *testing.T) {
 	tests := []struct {
-		desc          string
-		method        string
-		header        http.Header
-		body          string
-		url           string
-		authVersion   string
-		authType      string
-		expectedCount float64
+		desc                string
+		method              string
+		header              http.Header
+		body                string
+		url                 string
+		authVersion         string
+		authType            string
+		expectedAccessKey   string
+		expectedErrorCode   string
+		expectedErrorStatus int
+		expectedCount       float64
 	}{
 		{
-			desc:          "not a v2 query request",
-			url:           "?something=123",
-			authVersion:   "2",
-			authType:      "query",
-			expectedCount: 0.0,
+			desc:        "not a v2 query request",
+			url:         "?something=123",
+			authVersion: "2",
+			authType:    "query",
 		},
 		{
-			desc:          "not a v2 header request",
-			url:           "?AWSAccessKeyId=123&Signature=123",
-			authVersion:   "2",
-			authType:      "header",
-			expectedCount: 0.0,
+			desc:              "not a v2 header request",
+			url:               "?AWSAccessKeyId=123&Signature=123",
+			authVersion:       "2",
+			authType:          "header",
+			expectedAccessKey: "123",
 		},
 		{
-			desc:          "v2 query request",
-			url:           "?AWSAccessKeyId=123&Signature=123",
-			authVersion:   "2",
-			authType:      "query",
-			expectedCount: 1.0,
+			desc:              "v2 query request",
+			url:               "?AWSAccessKeyId=123&Signature=123",
+			authVersion:       "2",
+			authType:          "query",
+			expectedAccessKey: "123",
+			expectedCount:     1.0,
+		},
+		{
+			desc:                "empty key v2 query request",
+			url:                 "?AWSAccessKeyId=&Signature=123",
+			authVersion:         "2",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:                "missing fields v2 query request",
+			url:                 "?AWSAccessKeyId=123",
+			authVersion:         "2",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
 		},
 		{
 			desc: "v2 header request",
 			header: http.Header{
 				"Authorization": {"AWS test:123"},
 			},
-			authVersion:   "2",
-			authType:      "header",
-			expectedCount: 1.0,
+			authVersion:       "2",
+			authType:          "header",
+			expectedAccessKey: "test",
+			expectedCount:     1.0,
+		},
+		{
+			desc: "invalid v2 header request",
+			header: http.Header{
+				"Authorization": {"AWS test"},
+			},
+			authVersion:         "2",
+			authType:            "header",
+			expectedErrorCode:   "InvalidArgument",
+			expectedErrorStatus: http.StatusBadRequest,
 		},
 		{
 			desc:   "v2 multipart request",
@@ -284,16 +316,82 @@ Content-Disposition: form-data; name="AWSAccessKeyId"
 
 AccessKey
 -----------------------------9051914041544843365972754266--`,
-			authVersion:   "2",
-			authType:      "multipart",
-			expectedCount: 1.0,
+			authVersion:       "2",
+			authType:          "multipart",
+			expectedAccessKey: "AccessKey",
+			expectedCount:     1.0,
 		},
 		{
-			desc:          "v4 query request",
-			url:           "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
-			authVersion:   "4",
-			authType:      "query",
-			expectedCount: 1.0,
+			desc:   "missing fields v2 multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=---------------------------9051914041544843365972754266"},
+			},
+			body: `-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="AWSAccessKeyId"
+
+AccessKey
+-----------------------------9051914041544843365972754266--`,
+			authVersion:         "2",
+			authType:            "multipart",
+			expectedErrorCode:   "MissingFields",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:              "v4 query request",
+			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:       "4",
+			authType:          "query",
+			expectedAccessKey: "123",
+			expectedCount:     1.0,
+		},
+		{
+			desc:              "no region v4 query request",
+			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524//s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:       "4",
+			authType:          "query",
+			expectedAccessKey: "123",
+			expectedCount:     1.0,
+		},
+		{
+			desc:                "missing fields v4 query request",
+			url:                 "?X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request",
+			authVersion:         "4",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:                "invalid credential v4 query request",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/abc123/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:         "4",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:                "missing credential fields v4 query request",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/abc123/us-east-1&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:         "4",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:                "invalid date v4 query request",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=abc123",
+			authVersion:         "4",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:                "invalid algorithm v4 query request",
+			url:                 "?X-Amz-Algorithm=abc123&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			authVersion:         "4",
+			authType:            "query",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
 		},
 		{
 			desc: "v4 header request",
@@ -301,9 +399,64 @@ AccessKey
 				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
 				"X-Amz-Date":    {"20060102T150405Z"},
 			},
-			authVersion:   "4",
-			authType:      "header",
-			expectedCount: 1.0,
+			authVersion:       "4",
+			authType:          "header",
+			expectedAccessKey: "123",
+			expectedCount:     1.0,
+		},
+		{
+			desc: "no region v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524//s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"X-Amz-Date":    {"20060102T150405Z"},
+			},
+			authVersion:       "4",
+			authType:          "header",
+			expectedAccessKey: "123",
+			expectedCount:     1.0,
+		},
+		{
+			desc: "missing fields v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524//s3/aws4_request"},
+			},
+			authVersion:         "4",
+			authType:            "header",
+			expectedErrorCode:   "AccessDenied",
+			expectedErrorStatus: http.StatusForbidden,
+		},
+		{
+			desc: "missing credential fields v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524/us-east-1,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"X-Amz-Date":    {"20060102T150405Z"},
+			},
+			authVersion:         "4",
+			authType:            "header",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc: "invalid credential date v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/abc123/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"X-Amz-Date":    {"20060102T150405Z"},
+			},
+			authVersion:         "4",
+			authType:            "header",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc: "invalid date header v4 header request",
+			header: http.Header{
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"X-Amz-Date":    {"abc123"},
+			},
+			authVersion:         "4",
+			authType:            "header",
+			expectedErrorCode:   "AccessDenied",
+			expectedErrorStatus: http.StatusForbidden,
 		},
 		{
 			desc:   "v4 multipart request",
@@ -324,9 +477,64 @@ Content-Disposition: form-data; name="X-Amz-Credential"
 
 AccessKey/20000101/region/s3/aws4_request
 -----------------------------9051914041544843365972754266--`,
-			authVersion:   "4",
-			authType:      "multipart",
-			expectedCount: 1.0,
+			authVersion:       "4",
+			authType:          "multipart",
+			expectedAccessKey: "AccessKey",
+			expectedCount:     1.0,
+		},
+		{
+			desc:   "missing fields v4 multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=---------------------------9051914041544843365972754266"},
+			},
+			body: `-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Signature"
+
+X-Amz-Signature
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Credential"
+
+AccessKey/20000101/region/s3/aws4_request
+-----------------------------9051914041544843365972754266--`,
+			authVersion:         "4",
+			authType:            "multipart",
+			expectedErrorCode:   "MissingFields",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:   "invalid credential v4 multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=---------------------------9051914041544843365972754266"},
+			},
+			body: `-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Signature"
+
+X-Amz-Signature
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Date"
+
+20060102T150405Z
+-----------------------------9051914041544843365972754266
+Content-Disposition: form-data; name="X-Amz-Credential"
+
+AccessKey/20000101/region/s3
+-----------------------------9051914041544843365972754266--`,
+			authVersion:         "4",
+			authType:            "multipart",
+			expectedErrorCode:   "AuthorizationQueryParametersError",
+			expectedErrorStatus: http.StatusBadRequest,
+		},
+		{
+			desc:   "malformed POST data multipart request",
+			method: http.MethodPost,
+			header: http.Header{
+				"Content-Type": {"multipart/form-data; boundary=abc123"},
+			},
+			body:                "------abc123",
+			expectedErrorCode:   "MalformedPOSTRequest",
+			expectedErrorStatus: http.StatusBadRequest,
 		},
 	}
 	for _, tc := range tests {
@@ -336,12 +544,10 @@ AccessKey/20000101/region/s3/aws4_request
 
 			req, err := http.NewRequestWithContext(ctx, tc.method, tc.url, strings.NewReader(tc.body))
 			require.NoError(t, err)
+			rr := httptest.NewRecorder()
 
 			req.Header = tc.header
 
-			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// no-op
-			})
 			authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
 				require.NoError(t, err)
@@ -354,7 +560,24 @@ AccessKey/20000101/region/s3/aws4_request
 			c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
 			initialCount := c[metricKey]
 
-			AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(handler).ServeHTTP(nil, req)
+			AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				creds := GetAccess(r.Context())
+				if tc.expectedAccessKey == "" {
+					require.Nil(t, creds)
+				} else {
+					require.NotNil(t, creds)
+					require.Equal(t, tc.expectedAccessKey, creds.AccessKey)
+				}
+			})).ServeHTTP(rr, req)
+
+			if tc.expectedErrorCode != "" {
+				var apiErr cmd.APIError
+				require.NoError(t, xml.NewDecoder(rr.Body).Decode(&apiErr))
+				require.Equal(t, tc.expectedErrorCode, apiErr.Code)
+			}
+			if tc.expectedErrorStatus != 0 {
+				require.Equal(t, tc.expectedErrorStatus, rr.Code)
+			}
 
 			c = monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
 			require.Equal(t, initialCount+tc.expectedCount, c[metricKey])
