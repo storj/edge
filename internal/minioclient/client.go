@@ -6,12 +6,15 @@ package minioclient
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
 	"io"
 	"io/ioutil"
+	"net/http"
 
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/signer"
 	"github.com/zeebo/errs"
 )
 
@@ -35,6 +38,7 @@ type Client interface {
 	MakeBucket(ctx context.Context, bucket, region string) error
 	RemoveBucket(ctx context.Context, bucket string) error
 	ListBuckets(ctx context.Context) ([]string, error)
+	ListBucketsAttribution(ctx context.Context) ([]string, error)
 
 	Upload(ctx context.Context, bucket, objectName string, data []byte) error
 	Download(ctx context.Context, bucket, objectName string, buffer []byte) ([]byte, error)
@@ -44,7 +48,9 @@ type Client interface {
 
 // Minio implements basic S3 Client with minio.
 type Minio struct {
-	API *minio.Client
+	API        *minio.Client
+	config     Config
+	httpClient *http.Client
 }
 
 // NewMinio creates new Client.
@@ -56,7 +62,7 @@ func NewMinio(conf Config) (Client, error) {
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}
-	return &Minio{client}, nil
+	return &Minio{client, conf, &http.Client{}}, nil
 }
 
 // MakeBucket makes a new bucket.
@@ -89,6 +95,60 @@ func (client *Minio) ListBuckets(ctx context.Context) ([]string, error) {
 		names = append(names, bucket.Name)
 	}
 	return names, nil
+}
+
+// Hex encoded string of nil sha256sum bytes.
+var emptySHA256Hex = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+type listAllMyBucketsResult struct {
+	XMLName xml.Name `xml:"ListAllMyBucketsResult"`
+	Owner   struct {
+		ID          string `xml:"ID"`
+		DisplayName string `xml:"DisplayName"`
+	} `xml:"Owner"`
+	Buckets struct {
+		Bucket []struct {
+			CreationDate string `xml:"CreationDate"`
+			Name         string `xml:"Name"`
+			Attribution  string `xml:"Attribution"`
+		} `xml:"Bucket"`
+	} `xml:"Buckets"`
+}
+
+// ListBucketsAttribution lists all buckets with attribution.
+func (client *Minio) ListBucketsAttribution(ctx context.Context) ([]string, error) {
+	scheme := "https"
+	if client.config.NoSSL {
+		scheme = "http"
+	}
+	endpointURLStr := scheme + "://" + client.config.S3Gateway + "/?attribution"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpointURLStr, nil)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+	req.Header.Set("X-Amz-Content-Sha256", emptySHA256Hex)
+	sreq := signer.SignV4(*req, client.config.AccessKey, client.config.SecretKey, "", "us-east-1")
+	res, err := client.httpClient.Do(sreq)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+
+	d := xml.NewDecoder(res.Body)
+	listAllMyBucketsResult := listAllMyBucketsResult{}
+	err = d.Decode(&listAllMyBucketsResult)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+	if res.Body.Close() != nil {
+		return nil, MinioError.Wrap(err)
+	}
+	attributions := []string{}
+	for _, bucket := range listAllMyBucketsResult.Buckets.Bucket {
+		attributions = append(attributions, bucket.Attribution)
+	}
+
+	return attributions, nil
 }
 
 // Upload uploads object data to the specified path.

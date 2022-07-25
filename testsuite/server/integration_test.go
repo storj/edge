@@ -218,6 +218,23 @@ func TestUploadDownload(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, string(infoWithCustomUserAgent.UserAgent), "Gateway-MT")
 		}
+		{ // ListBucketsWithAttribution
+			rawClient, ok := client.(*minioclient.Minio)
+			require.True(t, ok)
+			rawClient.API.SetAppInfo("attributionTest", "1.0")
+			err = client.MakeBucket(ctx, "bucket-attribution1", "")
+			require.NoError(t, err)
+			rawClient.API.SetAppInfo("testAttribution", "1.0")
+			err = client.MakeBucket(ctx, "bucket-attribution2", "")
+			require.NoError(t, err)
+
+			resp, err := client.ListBucketsAttribution(ctx)
+			require.NoError(t, err)
+			res := strings.Join(resp, ",")
+			require.Contains(t, res, "attributionTest")
+			require.Contains(t, res, "testAttribution")
+		}
+
 	})
 }
 
