@@ -59,7 +59,7 @@ Show a record. By default, tabbed output is shown. You can change this to JSON b
 
 To output more details with tabbed output, you can use `--expanded` or `-x`.
 
-Note that fields macaroon head, encrypted access key, and encrypted secret key are base64 encoded in the output.
+Note that macaroon head is hex encoded. Encrypted access key, and encrypted secret key are base64 encoded in the output.
 
 ```console
 $ authservice-admin record show <key>

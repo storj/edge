@@ -6,6 +6,7 @@ package authadminclient
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"log"
 	"net"
 	"time"
@@ -35,6 +36,7 @@ type AuthAdminClient struct {
 type Record struct {
 	*pb.Record
 	DecryptedAccessGrant string `json:"decrypted_access_grant,omitempty"`
+	MacaroonHeadHex      string `json:"macaroon_head_hex,omitempty"`
 	APIKey               string `json:"api_key,omitempty"`
 }
 
@@ -54,6 +56,7 @@ func (r *Record) updateFromProto(pr *pb.Record, encKey authdb.EncryptionKey) err
 		}
 		r.APIKey = ag.APIKey.Serialize()
 	}
+	r.MacaroonHeadHex = hex.EncodeToString(r.MacaroonHead)
 	return nil
 }
 

@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -163,8 +162,7 @@ func printTabbedRecord(r *client.Record, expanded bool) error {
 	}
 	if expanded {
 		headers = append(headers, "SATELLITE", "MACAROON HEAD")
-		// note: base64 encoding here to be consistent with JSON encoder.
-		values = append(values, r.SatelliteAddress, base64.StdEncoding.EncodeToString(r.MacaroonHead))
+		values = append(values, r.SatelliteAddress, r.MacaroonHeadHex)
 		if r.APIKey != "" {
 			headers = append(headers, "API KEY")
 			values = append(values, r.APIKey)

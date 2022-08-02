@@ -4,6 +4,7 @@
 package authadminclient_test
 
 import (
+	"encoding/hex"
 	"io"
 	"log"
 	"testing"
@@ -78,6 +79,7 @@ func TestGetRecord(t *testing.T) {
 		require.Equal(t, testAccessGrant, record.DecryptedAccessGrant)
 		require.Equal(t, testAPIKey, record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
 		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
 	})
 }
