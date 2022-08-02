@@ -4,17 +4,22 @@
 package server
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/grant"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/gateway-mt/pkg/server/middleware"
 	xhttp "storj.io/minio/cmd/http"
 )
 
@@ -73,6 +78,22 @@ func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Han
 
 			logResponse(log, r, rw, time.Since(start), insecureLogAll)
 		}))
+}
+
+// NewLogRequests is a convenience wrapper around LogRequests that returns
+// LogRequests as mux.MiddlewareFunc.
+func NewLogRequests(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc {
+	return func(h http.Handler) http.Handler {
+		return LogRequests(log, h, insecureLogPaths)
+	}
+}
+
+// NewLogResponses is a convenience wrapper around LogResponses that returns
+// LogResponses as mux.MiddlewareFunc.
+func NewLogResponses(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc {
+	return func(h http.Handler) http.Handler {
+		return LogResponses(log, h, insecureLogPaths)
+	}
 }
 
 func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
@@ -135,7 +156,8 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("api", gl.API),
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", gl.RequestID),
-		zap.String("encryption-key-hash", gl.EncryptionKeyHash()),
+		zap.String("encryption-key-hash", getEncryptionKeyHash(r)),
+		zap.String("macaroon-head", getMacaroonHead(r)),
 		zap.Int64("content-length", r.ContentLength),
 		zap.Int64("written", rw.Written()),
 		zap.Duration("duration", d),
@@ -149,6 +171,34 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 	}
 
 	level("response", fields...)
+}
+
+// getMacaroonHead gets the macaroon head corresponding to the current request.
+// Macaroon head is the best available criteria for associating a request to a user.
+func getMacaroonHead(r *http.Request) string {
+	credentials := middleware.GetAccess(r.Context())
+	if credentials == nil || credentials.AccessGrant == "" {
+		return ""
+	}
+	access, err := grant.ParseAccess(credentials.AccessGrant)
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(access.APIKey.Head())
+}
+
+// getEncryptionKeyHash gets the encrypted Access Key ID corresponding to the current request.
+func getEncryptionKeyHash(r *http.Request) string {
+	credentials := middleware.GetAccess(r.Context())
+	if credentials == nil || credentials.AccessKey == "" {
+		return ""
+	}
+
+	var key authdb.EncryptionKey
+	if err := key.FromBase32(credentials.AccessKey); err != nil {
+		return ""
+	}
+	return key.Hash().ToHex()
 }
 
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {

@@ -86,11 +86,13 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.Use(minio.GlobalHandlers...)
 
 	// we deliberately don't log paths for this service because they have
-	// sensitive information.
-	handler := LogRequests(log, r, config.InsecureLogAll)
-	handler = LogResponses(log, handler, config.InsecureLogAll)
+	// sensitive information. Note that middleware.AccessKey is chained before
+	// so we can use encrypted credentials while logging requests/responses.
+	r.Use(NewLogRequests(log, config.InsecureLogAll))
+	r.Use(NewLogResponses(log, config.InsecureLogAll))
 
-	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(handler)}
+	var handler http.Handler
+	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
 
 	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.NewTagCounter("s3_http_user_agent", "agent"))
 	handler = agentCollector.Wrap(handler)

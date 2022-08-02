@@ -6,7 +6,6 @@ package gwlog
 import (
 	"context"
 
-	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/minio/cmd/logger"
 )
 
@@ -25,20 +24,6 @@ type Log struct {
 // WithContext returns a copy of the parent context with Log value.
 func (log *Log) WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKey, log)
-}
-
-// EncryptionKeyHash returns the authservice table key for this access key.
-func (log *Log) EncryptionKeyHash() string {
-	if log.AccessKey == "" {
-		return ""
-	}
-
-	var key authdb.EncryptionKey
-	err := key.FromBase32(log.AccessKey)
-	if err != nil {
-		return ""
-	}
-	return key.Hash().ToHex()
 }
 
 // TagValue returns the value for the given key in tags, if it exists.

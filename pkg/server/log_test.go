@@ -8,15 +8,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/gateway-mt/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 )
+
+const testAccessGrant = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
 
 func TestResponseNoPaths(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -92,6 +98,45 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 	require.Len(t, filteredLogs.All(), 0)
 
 	filteredLogs = observedLogs.FilterField(zap.String("error", "error!"))
+	require.Len(t, filteredLogs.All(), 1)
+}
+
+func TestAccessDetailsLogged(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	handler := func() http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if log, ok := gwlog.FromContext(r.Context()); ok {
+				log.RequestID = "ABC123"
+			}
+
+			w.WriteHeader(http.StatusOK)
+		})
+	}
+
+	req := httptest.NewRequest("GET", "/test?q=123", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=jvvsakmsemhqns6g7ix7pinqlyuq/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123")
+	req.Header.Set("X-Amz-Date", "20060102T150405Z")
+	rr := httptest.NewRecorder()
+
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+	observedLogger := zap.New(observedZapCore)
+
+	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte(fmt.Sprintf(`{"public":true,"secret_key":"SecretKey","access_grant":"%s"}`, testAccessGrant)))
+		require.NoError(t, err)
+	}))
+	defer authService.Close()
+
+	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
+
+	middleware.AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
+
+	filteredLogs := observedLogs.FilterField(zap.String("encryption-key-hash", "64f74892360a5cd203e9111d2ce72dd46ee195bf3dc33a2f0dddc892529b145d"))
+	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.String("macaroon-head", "4dff5d8e6b3506be68cf76b480ab1261ac391fe5a2f7db66d1293d68109f3665"))
 	require.Len(t, filteredLogs.All(), 1)
 }
 
