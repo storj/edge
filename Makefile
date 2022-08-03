@@ -43,7 +43,7 @@ install-dev-dependencies: badgerauth-install-dependencies ## install-dev-depende
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 	# golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.45.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.47.3
 
 	# shellcheck (TODO(artur,sean): Windows)
 ifneq ($(shell which apt-get),)
