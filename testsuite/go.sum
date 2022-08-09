@@ -1660,8 +1660,8 @@ storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8 h1:GA8JmeZ6RDUzvQTo7MS
 storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8/go.mod h1:DGEycSjvzE0JqcD3+6IjwPEK6x30oOus6AApXzl7t0s=
 storj.io/private v0.0.0-20220323114243-08c4b5e752f4/go.mod h1:fZ7FSXv/adIc79sF/5qm7zn0PI5+PWa5p+dbqrZQARM=
 storj.io/private v0.0.0-20220614154538-e18b72a55f43/go.mod h1:/NXw8WHzDpMBlhQEvpHIPmMc6mQgiw0rVXkUDauHY+U=
-storj.io/private v0.0.0-20220725143645-8515ce4e6b70 h1:mA4froCk4kSdiCPwNQdmEAj6iDO5XownP1TE1mKDHwg=
-storj.io/private v0.0.0-20220725143645-8515ce4e6b70/go.mod h1:/NXw8WHzDpMBlhQEvpHIPmMc6mQgiw0rVXkUDauHY+U=
+storj.io/private v0.0.0-20220801080548-639387a299f7 h1:mLoBnWqdesdYPZU49rmDh6BCxgb/kZJc9xvnfCxu66k=
+storj.io/private v0.0.0-20220801080548-639387a299f7/go.mod h1:/NXw8WHzDpMBlhQEvpHIPmMc6mQgiw0rVXkUDauHY+U=
 storj.io/storj v1.60.1 h1:dMzkBJ8yXQIlQjWfS/QA0KrSXQyaBLgLbkuuxKxQezQ=
 storj.io/storj v1.60.1/go.mod h1:oPa/CA/SPC0yvAiqCrRMdPO8gYB2O9yFi+mHGUl+kxQ=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
