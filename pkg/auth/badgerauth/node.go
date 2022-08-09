@@ -241,6 +241,11 @@ func (node *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingRespon
 	}, nil
 }
 
+// Peek allows fetching a specific record from the node.
+func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (*pb.PeekResponse, error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "")
+}
+
 // Replicate implements a node's ability to ship its replication log/records to
 // another node. It responds with RPC errors only.
 func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {

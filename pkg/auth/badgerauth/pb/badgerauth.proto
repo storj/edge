@@ -46,10 +46,14 @@ message ReplicationResponseEntry {
 
 message ReplicationResponse { repeated ReplicationResponseEntry entries = 1; }
 
+message PeekRequest { bytes encryption_key_hash = 1; }
+message PeekResponse { Record record = 1; }
+
 message PingRequest {}
 message PingResponse { bytes node_id = 1; }
 
 service ReplicationService {
   rpc Ping(PingRequest) returns (PingResponse);
+  rpc Peek(PeekRequest) returns (PeekResponse);
   rpc Replicate(ReplicationRequest) returns (ReplicationResponse);
 }
