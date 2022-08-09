@@ -130,7 +130,7 @@ func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: key,
 			Record:  &authdb.Record{ExpiresAt: &expiresAt},
-		}.Check(ctx, t, node.UnderlyingDB())
+		}.Check(ctx, t, node)
 
 		_, err := admin.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: key.Bytes()})
 		require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 		badgerauthtest.Get{
 			KeyHash: key,
 			Result:  nil,
-		}.Check(ctx, t, node.UnderlyingDB())
+		}.Check(ctx, t, node)
 	})
 }
 
@@ -153,7 +153,7 @@ func TestNodeAdmin_DeleteRecord(t *testing.T) {
 
 		badgerauthtest.VerifyReplicationLog{
 			Entries: entries,
-		}.Check(ctx, t, node.UnderlyingDB().UnderlyingDB())
+		}.Check(ctx, t, node)
 
 		_, err := admin.DeleteRecord(ctx, &pb.DeleteRecordRequest{Key: []byte{'a'}})
 		require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
@@ -166,7 +166,7 @@ func TestNodeAdmin_DeleteRecord(t *testing.T) {
 
 		badgerauthtest.VerifyReplicationLog{
 			Entries: []badgerauthtest.ReplicationLogEntryWithTTL{entries[1]},
-		}.Check(ctx, t, node.UnderlyingDB().UnderlyingDB())
+		}.Check(ctx, t, node)
 
 		_, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[0].Bytes()})
 		require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)

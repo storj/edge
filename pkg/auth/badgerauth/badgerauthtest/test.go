@@ -30,8 +30,8 @@ type Put struct {
 }
 
 // Check runs the test.
-func (step Put) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
-	err := db.Put(ctx, step.KeyHash, step.Record)
+func (step Put) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+	err := node.Put(ctx, step.KeyHash, step.Record)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
@@ -49,8 +49,8 @@ type PutAtTime struct {
 }
 
 // Check runs the test.
-func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
-	err := db.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
+func (step PutAtTime) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+	err := node.PutAtTime(ctx, step.KeyHash, step.Record, step.Time)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
@@ -67,8 +67,8 @@ type Get struct {
 }
 
 // Check runs the test.
-func (step Get) Check(ctx *testcontext.Context, t testing.TB, db *badgerauth.DB) {
-	got, err := db.Get(ctx, step.KeyHash)
+func (step Get) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
+	got, err := node.Get(ctx, step.KeyHash)
 	if step.Error != nil {
 		require.Error(t, err)
 		require.EqualError(t, step.Error, err.Error())
@@ -91,10 +91,10 @@ type VerifyReplicationLog struct {
 }
 
 // Check runs the test.
-func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, db *badger.DB) {
+func (step VerifyReplicationLog) Check(ctx *testcontext.Context, t testing.TB, node *badgerauth.Node) {
 	var actual []ReplicationLogEntryWithTTL
 
-	err := db.View(func(txn *badger.Txn) error {
+	err := node.UnderlyingDB().UnderlyingDB().View(func(txn *badger.Txn) error {
 		opt := badger.DefaultIteratorOptions
 		opt.PrefetchValues = false
 		opt.Prefix = []byte("replication_log/")
@@ -136,8 +136,8 @@ type Clock struct {
 }
 
 // Check runs the test.
-func (step Clock) Check(t testing.TB, db *badger.DB) {
-	require.NoError(t, db.View(func(txn *badger.Txn) error {
+func (step Clock) Check(t testing.TB, node *badgerauth.Node) {
+	require.NoError(t, node.UnderlyingDB().UnderlyingDB().View(func(txn *badger.Txn) error {
 		current, err := badgerauth.ReadClock(txn, step.NodeID)
 		if err != nil {
 			return err

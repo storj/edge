@@ -64,7 +64,7 @@ func CreateFullRecords(
 			KeyHash: keyHash,
 			Record:  record,
 			Error:   nil,
-		}.Check(ctx, t, node.UnderlyingDB())
+		}.Check(ctx, t, node)
 	}
 
 	return records, keys, entries

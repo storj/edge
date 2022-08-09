@@ -66,7 +66,7 @@ func TestGetRecord(t *testing.T) {
 				EncryptedAccessGrant: encAccessGrant,
 				ExpiresAt:            &expiresAt,
 			},
-		}.Check(ctx, t, cluster.Nodes[0].UnderlyingDB())
+		}.Check(ctx, t, cluster.Nodes[0])
 		for _, node := range cluster.Nodes {
 			node.SyncCycle.TriggerWait()
 		}
@@ -104,7 +104,7 @@ func TestInvalidateRecord(t *testing.T) {
 			badgerauthtest.Get{
 				KeyHash: keys[0],
 				Error:   badgerauth.Error.Wrap(authdb.Invalid.New("no more access")),
-			}.Check(ctx, t, node.UnderlyingDB())
+			}.Check(ctx, t, node)
 		}
 
 		delete(records, keys[0])
@@ -167,10 +167,10 @@ func verifyClusterRecords(
 			badgerauthtest.Get{
 				KeyHash: key,
 				Result:  record,
-			}.Check(ctx, t, node.UnderlyingDB())
+			}.Check(ctx, t, node)
 		}
 		badgerauthtest.VerifyReplicationLog{
 			Entries: entries,
-		}.Check(ctx, t, node.UnderlyingDB().UnderlyingDB())
+		}.Check(ctx, t, node)
 	}
 }

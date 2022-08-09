@@ -313,10 +313,10 @@ func ensureClusterConvergence(
 				KeyHash: k,
 				Result:  r,
 				Error:   nil,
-			}.Check(ctx, t, n.UnderlyingDB())
+			}.Check(ctx, t, n)
 		}
 		badgerauthtest.VerifyReplicationLog{
 			Entries: entries,
-		}.Check(ctx, t, n.UnderlyingDB().UnderlyingDB())
+		}.Check(ctx, t, n)
 	}
 }

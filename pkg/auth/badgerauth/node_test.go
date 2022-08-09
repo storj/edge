@@ -48,7 +48,7 @@ func TestNode_Replicate_EmptyRequestResponse(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'k', 'h'},
 			Record:  &authdb.Record{},
-		}.Check(ctx, t, node.UnderlyingDB())
+		}.Check(ctx, t, node)
 
 		badgerauthtest.Replicate{
 			Request: &pb.ReplicationRequest{
@@ -76,7 +76,7 @@ func TestNode_Replicate_OverlappingNodeIDs(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'k', 'h'},
 			Record:  &authdb.Record{},
-		}.Check(ctx, t, node.UnderlyingDB())
+		}.Check(ctx, t, node)
 
 		badgerauthtest.Replicate{
 			Request: &pb.ReplicationRequest{
@@ -111,8 +111,6 @@ func TestNode_Replicate_Basic(t *testing.T) {
 		//  C: has record(s) 52-100  | request for clock > 12  | returns 25 records (hits the limit)
 		//  D: has record(s) 100-255 | request for clock > 155 | returns 0  records
 		//  E: (A doesn't know about E)
-		db := node.UnderlyingDB()
-
 		var expectedReplicationResponseEntries []*pb.ReplicationResponseEntry
 
 		for i := 0; i < 50; i++ {
@@ -131,7 +129,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 				KeyHash: authdb.KeyHash{byte(i)},
 				Record:  r,
 				Time:    now,
-			}.Check(ctx, t, db)
+			}.Check(ctx, t, node)
 
 			if i >= 25 {
 				expectedReplicationResponseEntries = append(expectedReplicationResponseEntries, &pb.ReplicationResponseEntry{
@@ -150,7 +148,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 			}
 		}
 
-		require.NoError(t, db.UnderlyingDB().Update(func(txn *badger.Txn) error {
+		require.NoError(t, node.UnderlyingDB().UnderlyingDB().Update(func(txn *badger.Txn) error {
 			log := zaptest.NewLogger(t)
 			for i := 52; i < 100; i++ {
 				id := badgerauth.NodeID{'c'}

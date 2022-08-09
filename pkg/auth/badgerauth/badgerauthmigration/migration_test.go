@@ -221,7 +221,7 @@ func testMigrateToLatest(t *testing.T, srcConnstr string) {
 				KeyHash: authdb.KeyHash{byte(i)},
 				Result:  result,
 				Error:   err,
-			}.Check(ctx, t, node.UnderlyingDB())
+			}.Check(ctx, t, node)
 		}
 	})
 }
