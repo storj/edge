@@ -20,7 +20,7 @@ Auth Service maps existing access grants to S3-specific Access Key ID/Secret Acc
 
 ### Roadmap
 
-See [Public Roadmap filtered for Edge Team](https://github.com/orgs/storj/projects/23/views/15?filterQuery=label%3A%22Edge+Team%22).
+See [Public Roadmap filtered for Edge Team](https://github.com/orgs/storj/projects/23/views/15?filterQuery=label%3A%22team-edge%22).
 
 See also [the GitHub project including current items the team is working on](https://github.com/orgs/storj/projects/29).
 
