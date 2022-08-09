@@ -6,7 +6,7 @@
 <img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
 Storj is building a decentralized cloud storage network.
-[Check out our white paper for more info!](https://storj.io/white-paper)
+[Check out our white paper for more info!](https://storj.io/whitepaper)
 
 * Documentation for [Multitenant S3 Gateway](docs/gateway-mt.md)
 * Documentation for [Link Sharing Service](docs/linksharing.md)
