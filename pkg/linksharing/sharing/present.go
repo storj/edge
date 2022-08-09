@@ -48,6 +48,9 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 		}
 	}()
 
+	handler.top.uri(r.RequestURI)
+	handler.top.method(r.Method)
+
 	return handler.presentWithProject(ctx, w, r, pr, project)
 }
 
