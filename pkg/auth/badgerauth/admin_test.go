@@ -17,32 +17,6 @@ import (
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
 
-func TestNodeAdmin_GetRecord(t *testing.T) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{
-		ID: badgerauth.NodeID{'a', 'd', 'm', 'g', 'e', 't'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
-		admin := badgerauth.NewAdmin(node.DB)
-		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
-
-		_, err := admin.GetRecord(ctx, &pb.GetRecordRequest{Key: []byte{}})
-		require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
-
-		_, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: []byte{'a'}})
-		require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
-
-		_, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: make([]byte, 33)})
-		require.Equal(t, rpcstatus.Code(err), rpcstatus.InvalidArgument)
-
-		resp, err := admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[0].Bytes()})
-		require.NoError(t, err)
-		require.Equal(t, records[keys[0]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
-
-		resp, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[1].Bytes()})
-		require.NoError(t, err)
-		require.Equal(t, records[keys[1]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
-	})
-}
-
 func TestNodeAdmin_InvalidateRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'a', 'd', 'm', 'i', 'n', 'v'},
@@ -77,13 +51,13 @@ func TestNodeAdmin_InvalidateRecord(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		resp, err := admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[0].Bytes()})
+		resp, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[0].Bytes()})
 		require.NoError(t, err)
 		require.Equal(t, records[keys[0]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
 		require.Equal(t, "your key is disabled", resp.Record.InvalidationReason)
 		require.NotZero(t, resp.Record.InvalidatedAtUnix)
 
-		resp, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[1].Bytes()})
+		resp, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[1].Bytes()})
 		require.NoError(t, err)
 		require.Equal(t, records[keys[1]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
 		require.Equal(t, "", resp.Record.InvalidationReason)
@@ -107,12 +81,12 @@ func TestNodeAdmin_UnpublishRecord(t *testing.T) {
 		_, err = admin.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: keys[0].Bytes()})
 		require.NoError(t, err)
 
-		resp, err := admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[0].Bytes()})
+		resp, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[0].Bytes()})
 		require.NoError(t, err)
 		require.Equal(t, records[keys[0]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
 		require.False(t, resp.Record.Public)
 
-		resp, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[1].Bytes()})
+		resp, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[1].Bytes()})
 		require.NoError(t, err)
 		require.Equal(t, records[keys[1]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
 		require.True(t, resp.Record.Public)
@@ -168,10 +142,10 @@ func TestNodeAdmin_DeleteRecord(t *testing.T) {
 			Entries: []badgerauthtest.ReplicationLogEntryWithTTL{entries[1]},
 		}.Check(ctx, t, node)
 
-		_, err = admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[0].Bytes()})
+		_, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[0].Bytes()})
 		require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
 
-		resp, err := admin.GetRecord(ctx, &pb.GetRecordRequest{Key: keys[1].Bytes()})
+		resp, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[1].Bytes()})
 		require.NoError(t, err)
 		require.Equal(t, resp.Record.EncryptedAccessGrant, records[keys[1]].EncryptedAccessGrant)
 	})

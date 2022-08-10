@@ -24,25 +24,6 @@ func NewAdmin(db *DB) *Admin {
 	return &Admin{db: db}
 }
 
-// GetRecord gets a database record.
-func (admin *Admin) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (_ *pb.GetRecordResponse, err error) {
-	defer mon.Task(admin.db.eventTags(adminGet)...)(&ctx)(&err)
-
-	var resp pb.GetRecordResponse
-
-	var keyHash authdb.KeyHash
-	if err = keyHash.SetBytes(req.Key); err != nil {
-		return nil, errToRPCStatusErr(err)
-	}
-
-	resp.Record, err = admin.db.lookupRecord(ctx, keyHash)
-	if err != nil {
-		return nil, errToRPCStatusErr(err)
-	}
-
-	return &resp, nil
-}
-
 // InvalidateRecord invalidates a record.
 func (admin *Admin) InvalidateRecord(ctx context.Context, req *pb.InvalidateRecordRequest) (_ *pb.InvalidateRecordResponse, err error) {
 	defer mon.Task(admin.db.eventTags(adminInvalidate)...)(&ctx)(&err)

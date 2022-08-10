@@ -38,7 +38,6 @@ func (drpcEncoding_File_badgerauth_admin_proto) JSONUnmarshal(buf []byte, msg dr
 type DRPCAdminServiceClient interface {
 	DRPCConn() drpc.Conn
 
-	GetRecord(ctx context.Context, in *GetRecordRequest) (*GetRecordResponse, error)
 	InvalidateRecord(ctx context.Context, in *InvalidateRecordRequest) (*InvalidateRecordResponse, error)
 	UnpublishRecord(ctx context.Context, in *UnpublishRecordRequest) (*UnpublishRecordResponse, error)
 	DeleteRecord(ctx context.Context, in *DeleteRecordRequest) (*DeleteRecordResponse, error)
@@ -53,15 +52,6 @@ func NewDRPCAdminServiceClient(cc drpc.Conn) DRPCAdminServiceClient {
 }
 
 func (c *drpcAdminServiceClient) DRPCConn() drpc.Conn { return c.cc }
-
-func (c *drpcAdminServiceClient) GetRecord(ctx context.Context, in *GetRecordRequest) (*GetRecordResponse, error) {
-	out := new(GetRecordResponse)
-	err := c.cc.Invoke(ctx, "/badgerauth.AdminService/GetRecord", drpcEncoding_File_badgerauth_admin_proto{}, in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
 
 func (c *drpcAdminServiceClient) InvalidateRecord(ctx context.Context, in *InvalidateRecordRequest) (*InvalidateRecordResponse, error) {
 	out := new(InvalidateRecordResponse)
@@ -91,17 +81,12 @@ func (c *drpcAdminServiceClient) DeleteRecord(ctx context.Context, in *DeleteRec
 }
 
 type DRPCAdminServiceServer interface {
-	GetRecord(context.Context, *GetRecordRequest) (*GetRecordResponse, error)
 	InvalidateRecord(context.Context, *InvalidateRecordRequest) (*InvalidateRecordResponse, error)
 	UnpublishRecord(context.Context, *UnpublishRecordRequest) (*UnpublishRecordResponse, error)
 	DeleteRecord(context.Context, *DeleteRecordRequest) (*DeleteRecordResponse, error)
 }
 
 type DRPCAdminServiceUnimplementedServer struct{}
-
-func (s *DRPCAdminServiceUnimplementedServer) GetRecord(context.Context, *GetRecordRequest) (*GetRecordResponse, error) {
-	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
-}
 
 func (s *DRPCAdminServiceUnimplementedServer) InvalidateRecord(context.Context, *InvalidateRecordRequest) (*InvalidateRecordResponse, error) {
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
@@ -117,20 +102,11 @@ func (s *DRPCAdminServiceUnimplementedServer) DeleteRecord(context.Context, *Del
 
 type DRPCAdminServiceDescription struct{}
 
-func (DRPCAdminServiceDescription) NumMethods() int { return 4 }
+func (DRPCAdminServiceDescription) NumMethods() int { return 3 }
 
 func (DRPCAdminServiceDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
 	case 0:
-		return "/badgerauth.AdminService/GetRecord", drpcEncoding_File_badgerauth_admin_proto{},
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCAdminServiceServer).
-					GetRecord(
-						ctx,
-						in1.(*GetRecordRequest),
-					)
-			}, DRPCAdminServiceServer.GetRecord, true
-	case 1:
 		return "/badgerauth.AdminService/InvalidateRecord", drpcEncoding_File_badgerauth_admin_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAdminServiceServer).
@@ -139,7 +115,7 @@ func (DRPCAdminServiceDescription) Method(n int) (string, drpc.Encoding, drpc.Re
 						in1.(*InvalidateRecordRequest),
 					)
 			}, DRPCAdminServiceServer.InvalidateRecord, true
-	case 2:
+	case 1:
 		return "/badgerauth.AdminService/UnpublishRecord", drpcEncoding_File_badgerauth_admin_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAdminServiceServer).
@@ -148,7 +124,7 @@ func (DRPCAdminServiceDescription) Method(n int) (string, drpc.Encoding, drpc.Re
 						in1.(*UnpublishRecordRequest),
 					)
 			}, DRPCAdminServiceServer.UnpublishRecord, true
-	case 3:
+	case 2:
 		return "/badgerauth.AdminService/DeleteRecord", drpcEncoding_File_badgerauth_admin_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAdminServiceServer).
@@ -164,22 +140,6 @@ func (DRPCAdminServiceDescription) Method(n int) (string, drpc.Encoding, drpc.Re
 
 func DRPCRegisterAdminService(mux drpc.Mux, impl DRPCAdminServiceServer) error {
 	return mux.Register(impl, DRPCAdminServiceDescription{})
-}
-
-type DRPCAdminService_GetRecordStream interface {
-	drpc.Stream
-	SendAndClose(*GetRecordResponse) error
-}
-
-type drpcAdminService_GetRecordStream struct {
-	drpc.Stream
-}
-
-func (x *drpcAdminService_GetRecordStream) SendAndClose(m *GetRecordResponse) error {
-	if err := x.MsgSend(m, drpcEncoding_File_badgerauth_admin_proto{}); err != nil {
-		return err
-	}
-	return x.CloseSend()
 }
 
 type DRPCAdminService_InvalidateRecordStream interface {

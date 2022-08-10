@@ -32,6 +32,7 @@ func TestGetRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
@@ -71,6 +72,9 @@ func TestGetRecord(t *testing.T) {
 			node.SyncCycle.TriggerWait()
 		}
 
+		_, err = noAddrClient.Get(ctx, encKey.ToBase32())
+		require.Error(t, err)
+
 		record, err = client.Get(ctx, encKey.ToBase32())
 		require.NoError(t, err)
 		require.True(t, record.Public)
@@ -88,6 +92,7 @@ func TestInvalidateRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
@@ -98,6 +103,7 @@ func TestInvalidateRecord(t *testing.T) {
 			node.SyncCycle.TriggerWait()
 		}
 
+		require.Error(t, noAddrClient.Invalidate(ctx, keys[0].ToHex(), ""))
 		require.NoError(t, client.Invalidate(ctx, keys[0].ToHex(), "no more access"))
 
 		for _, node := range cluster.Nodes {
@@ -116,6 +122,7 @@ func TestUnpublishRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
@@ -127,6 +134,8 @@ func TestUnpublishRecord(t *testing.T) {
 		}
 
 		require.True(t, records[keys[0]].Public)
+
+		require.Error(t, noAddrClient.Unpublish(ctx, keys[0].ToHex()))
 		require.NoError(t, client.Unpublish(ctx, keys[0].ToHex()))
 
 		records[keys[0]].Public = false
@@ -138,6 +147,7 @@ func TestDeleteRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
 		client := client.New(client.Config{
 			NodeAddresses:      cluster.Addresses(),
 			InsecureDisableTLS: true,
@@ -148,6 +158,7 @@ func TestDeleteRecord(t *testing.T) {
 			node.SyncCycle.TriggerWait()
 		}
 
+		require.Error(t, noAddrClient.Delete(ctx, keys[0].ToHex()))
 		require.NoError(t, client.Delete(ctx, keys[0].ToHex()))
 
 		delete(records, keys[0])
