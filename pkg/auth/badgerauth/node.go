@@ -13,6 +13,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/outcaste-io/badger/v3"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ import (
 	"storj.io/drpc/drpcconn"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 	"storj.io/gateway-mt/pkg/backoff"
 )
@@ -242,8 +244,22 @@ func (node *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingRespon
 }
 
 // Peek allows fetching a specific record from the node.
-func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (*pb.PeekResponse, error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "")
+func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var kh authdb.KeyHash
+	if err = kh.SetBytes(req.EncryptionKeyHash); err != nil {
+		return nil, errToRPCStatusErr(err)
+	}
+
+	record, err := node.lookupRecord(ctx, kh)
+	if err != nil {
+		return nil, errToRPCStatusErr(err)
+	}
+
+	return &pb.PeekResponse{
+		Record: record,
+	}, nil
 }
 
 // Replicate implements a node's ability to ship its replication log/records to
@@ -359,6 +375,24 @@ func (peer *Peer) Sync(ctx context.Context) (err error) {
 			if err = peer.syncRecords(ctx, client); err != nil {
 				return err // already wrapped if needed
 			}
+
+			return nil
+		})
+}
+
+// Peek returns a record from the peer.
+func (peer *Peer) Peek(ctx context.Context, keyHash authdb.KeyHash) (record *pb.Record, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return record, peer.withClient(ctx,
+		func(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
+			defer mon.Task()(&ctx)(&err)
+
+			resp, err := client.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keyHash.Bytes()})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			record = resp.Record
 
 			return nil
 		})
@@ -501,4 +535,21 @@ func fieldsFromRequestEntries(entries []*pb.ReplicationRequestEntry) []zap.Field
 		}
 	}
 	return fields
+}
+
+func errToRPCStatusErr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case ProtoError.Has(err),
+		authdb.KeyHashError.Has(err),
+		errs.Is(err, badger.ErrInvalidKey),
+		errs.Is(err, badger.ErrBannedKey),
+		errs.Is(err, badger.ErrEmptyKey):
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	case errs.Is(err, badger.ErrKeyNotFound):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	default:
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 }

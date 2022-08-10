@@ -7,9 +7,6 @@ import (
 	"context"
 	"time"
 
-	badger "github.com/outcaste-io/badger/v3"
-	"github.com/zeebo/errs"
-
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
@@ -95,21 +92,4 @@ func (admin *Admin) DeleteRecord(ctx context.Context, req *pb.DeleteRecordReques
 	}
 
 	return &resp, errToRPCStatusErr(admin.db.deleteRecord(ctx, keyHash))
-}
-
-func errToRPCStatusErr(err error) error {
-	switch {
-	case err == nil:
-		return nil
-	case ProtoError.Has(err),
-		authdb.KeyHashError.Has(err),
-		errs.Is(err, badger.ErrInvalidKey),
-		errs.Is(err, badger.ErrBannedKey),
-		errs.Is(err, badger.ErrEmptyKey):
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	case errs.Is(err, badger.ErrKeyNotFound):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
-	default:
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
 }

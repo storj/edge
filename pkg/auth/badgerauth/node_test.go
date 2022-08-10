@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
@@ -287,4 +288,45 @@ func TestNew_BadNodeID(t *testing.T) {
 	require.Nil(t, db)
 	require.Error(t, err)
 	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
+}
+
+func TestNode_PeekRecord(t *testing.T) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{
+		ID: badgerauth.NodeID{'p', 'e', 'e', 'k'},
+	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
+
+		_, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: []byte{}})
+		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
+
+		_, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: []byte{'a'}})
+		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
+
+		_, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: make([]byte, 33)})
+		require.Equal(t, rpcstatus.InvalidArgument, rpcstatus.Code(err))
+
+		resp, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[0].Bytes()})
+		require.NoError(t, err)
+		require.Equal(t, records[keys[0]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
+
+		resp, err = node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: keys[1].Bytes()})
+		require.NoError(t, err)
+		require.Equal(t, records[keys[1]].EncryptedAccessGrant, resp.Record.EncryptedAccessGrant)
+	})
+}
+
+func TestPeer_PeekRecord(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 2,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+
+		peer := badgerauth.NewPeer(cluster.Nodes[0], cluster.Nodes[0].Address())
+		record, err := peer.Peek(ctx, keys[0])
+		require.NoError(t, err)
+		require.Equal(t, records[keys[0]].EncryptedAccessGrant, record.EncryptedAccessGrant)
+
+		_, err = peer.Peek(ctx, authdb.KeyHash{'a'})
+		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
+	})
 }
