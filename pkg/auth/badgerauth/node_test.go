@@ -8,6 +8,7 @@ import (
 	"time"
 
 	badger "github.com/outcaste-io/badger/v3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -328,6 +329,20 @@ func TestPeer_PeekRecord(t *testing.T) {
 
 		_, err = peer.Peek(ctx, authdb.KeyHash{'a'})
 		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
+	})
+}
+
+func TestPeer_DialFailureIsReported(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 2,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		_, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+
+		_, err := badgerauth.NewPeer(cluster.Nodes[0], "").Peek(ctx, keys[0])
+		require.Error(t, err)
+
+		assert.True(t, badgerauth.DialError.Has(err))
+		assert.Nil(t, badgerauth.IgnoreDialFailures(err))
 	})
 }
 

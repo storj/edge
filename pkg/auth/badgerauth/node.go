@@ -36,6 +36,9 @@ var (
 
 	// Error is the default error class for the badgerauth package.
 	Error = errs.Class("badgerauth")
+
+	// DialError is an error class for dial failures.
+	DialError = errs.Class("dial")
 )
 
 // Config provides options for creating a Node.
@@ -292,7 +295,7 @@ func (node *Node) Run(ctx context.Context) error {
 // syncAll tries to synchronize all nodes.
 func (node *Node) syncAll(ctx context.Context) error {
 	for _, peer := range node.peers {
-		if err := peer.Sync(ctx); err != nil {
+		if err := IgnoreDialFailures(peer.Sync(ctx)); err != nil {
 			return Error.Wrap(err)
 		}
 	}
@@ -459,7 +462,7 @@ func (peer *Peer) Sync(ctx context.Context) (err error) {
 			}
 
 			return nil
-		})
+		}, "sync")
 }
 
 // Peek returns a record from the peer.
@@ -477,7 +480,7 @@ func (peer *Peer) Peek(ctx context.Context, keyHash authdb.KeyHash) (record *pb.
 			record = resp.Record
 
 			return nil
-		})
+		}, "peek")
 }
 
 func (peer *Peer) pingClient(ctx context.Context, client pb.DRPCReplicationServiceClient) (ok bool, err error) {
@@ -543,7 +546,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 	return nil
 }
 
-func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error) (err error) {
+func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error, task string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dialFinished := mon.TaskNamed("dial")(&ctx)
@@ -560,9 +563,9 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 	dialFinished(&err)
 
 	if err != nil {
-		peer.log.Warn("dial failed", zap.String("address", peer.address), zap.Error(err))
+		peer.log.Named(task).Warn("dial failed", zap.String("address", peer.address), zap.Error(err))
 		peer.statusDown(ctx, err)
-		return nil
+		return DialError.Wrap(err)
 	}
 
 	conn := drpcconn.New(rawconn)
@@ -603,6 +606,14 @@ func (peer *Peer) Status() PeerStatus {
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	return peer.status
+}
+
+// IgnoreDialFailures returns nil if err contains DialError (and err otherwise).
+func IgnoreDialFailures(err error) error {
+	if DialError.Has(err) {
+		return nil
+	}
+	return err
 }
 
 func fieldsFromRequestEntries(entries []*pb.ReplicationRequestEntry) []zap.Field {
