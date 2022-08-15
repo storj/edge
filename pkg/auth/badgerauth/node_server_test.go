@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -319,4 +320,35 @@ func ensureClusterConvergence(
 			Entries: entries,
 		}.Check(ctx, t, n)
 	}
+}
+
+// TestBroadcastedGet tests whether nodes can reach out to other nodes for
+// records they don't have before replication happens.
+func TestBroadcastedGet(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		for _, n := range cluster.Nodes {
+			n.SyncCycle.Pause() // ensure records won't replicate during the test
+		}
+
+		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+
+		for _, n := range cluster.Nodes {
+			for _, k := range keys {
+				r, err := n.Get(ctx, k)
+				require.NoError(t, err)
+				require.NotNil(t, r)
+				assert.Equal(t, records[k].SatelliteAddress, r.SatelliteAddress)
+				assert.Equal(t, records[k].MacaroonHead, r.MacaroonHead)
+				assert.Equal(t, records[k].EncryptedSecretKey, r.EncryptedSecretKey)
+				assert.Equal(t, records[k].EncryptedAccessGrant, r.EncryptedAccessGrant)
+				assert.Equal(t, records[k].ExpiresAt, r.ExpiresAt)
+				assert.Equal(t, records[k].Public, r.Public)
+			}
+			r, err := n.Get(ctx, authdb.KeyHash{'a'}) // "a" is a nonexistent record
+			require.NoError(t, err)
+			require.Nil(t, r)
+		}
+	})
 }

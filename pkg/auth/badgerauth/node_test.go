@@ -267,30 +267,6 @@ func TestNode_Replicate_Basic(t *testing.T) {
 	})
 }
 
-func TestNew_BadNodeID(t *testing.T) {
-	t.Parallel()
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	log := zaptest.NewLogger(t)
-	cfg := badgerauth.Config{
-		ID:       badgerauth.NodeID{'a'},
-		Path:     ctx.File("badger.db"),
-		CertsDir: ctx.Dir("certs-dir"),
-	}
-
-	db, err := badgerauth.New(log, cfg)
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	cfg.ID = badgerauth.NodeID{'b'}
-	db, err = badgerauth.New(log, cfg)
-	require.Nil(t, db)
-	require.Error(t, err)
-	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
-}
-
 func TestNode_PeekRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'p', 'e', 'e', 'k'},
@@ -346,21 +322,26 @@ func TestPeer_DialFailureIsReported(t *testing.T) {
 	})
 }
 
-func TestGetRecordPeers(t *testing.T) {
-	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: 3,
-	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+func TestNew_BadNodeID(t *testing.T) {
+	t.Parallel()
 
-		for i := 0; i < len(cluster.Nodes); i++ {
-			record, err := cluster.Nodes[i].Get(ctx, keys[0])
-			require.NoError(t, err)
-			require.NotNil(t, record)
-			require.Equal(t, records[keys[0]].EncryptedAccessGrant, record.EncryptedAccessGrant)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-			record, err = cluster.Nodes[i].Get(ctx, authdb.KeyHash{'a'})
-			require.NoError(t, err)
-			require.Nil(t, record)
-		}
-	})
+	log := zaptest.NewLogger(t)
+	cfg := badgerauth.Config{
+		ID:       badgerauth.NodeID{'a'},
+		Path:     ctx.File("badger.db"),
+		CertsDir: ctx.Dir("certs-dir"),
+	}
+
+	db, err := badgerauth.New(log, cfg)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	cfg.ID = badgerauth.NodeID{'b'}
+	db, err = badgerauth.New(log, cfg)
+	require.Nil(t, db)
+	require.Error(t, err)
+	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
 }
