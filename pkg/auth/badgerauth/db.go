@@ -397,10 +397,7 @@ func (db *DB) insertResponseEntries(ctx context.Context, response *pb.Replicatio
 func (db *DB) lookupRecord(ctx context.Context, keyHash authdb.KeyHash) (record *pb.Record, err error) {
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
 		record, err = lookupRecordWithTxn(txn, keyHash)
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	}))
 }
 

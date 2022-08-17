@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/sync2"
@@ -180,6 +181,87 @@ func (node *Node) Address() string {
 	return node.listener.Addr().String()
 }
 
+// Get returns a record from the database. If the record isn't found, we consult
+// peer nodes to see if they have the record. This covers the case of a user
+// putting a record onto one authservice node, but then retrieving it from
+// another before the record has been fully synced.
+func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
+	defer mon.Task(node.DB.eventTags(get)...)(&ctx)(&err)
+
+	record, err = node.DB.Get(ctx, keyHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fast path (the record is available locally):
+	if record != nil {
+		return record, nil
+	}
+
+	// Slow path (we need to contact other nodes):
+	if len(node.peers) == 0 {
+		// We have no peers, so we end here.
+		return nil, nil
+	}
+
+	// The idea behind this is that the first result cancels the rest, and if
+	// multiple succeed at once, subsequent results will be discarded by default
+	// case. When the group is finished, we do a non-blocking read which is
+	// guaranteed to succeed if the channel has value inside.
+
+	result := make(chan *authdb.Record, 1)
+
+	var group errs2.Group
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	for _, peer := range node.peers {
+		peer := peer
+		group.Go(func() error {
+			r, err := peer.Peek(ctx, keyHash)
+			if err != nil {
+				return errs.New("%s: %w", peer.address, err)
+			}
+
+			select {
+			case result <- &authdb.Record{
+				SatelliteAddress:     r.SatelliteAddress,
+				MacaroonHead:         r.MacaroonHead,
+				EncryptedSecretKey:   r.EncryptedSecretKey,
+				EncryptedAccessGrant: r.EncryptedAccessGrant,
+				ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
+				Public:               r.Public,
+			}:
+				cancel()
+			default:
+			}
+
+			return nil
+		})
+	}
+
+	allErrs := group.Wait()
+
+	select {
+	case record = <-result:
+		// If we had at least one success, we drop all errors and just go ahead
+		// and return the first result.
+		return record, nil
+	default:
+	}
+
+	// TODO(artur): should we even care about errors from other nodes?
+	var errGroup errs.Group
+	for _, e := range allErrs {
+		if !(errs2.IsRPC(e, rpcstatus.NotFound) || errs2.IsCanceled(e)) {
+			errGroup.Add(e)
+		}
+	}
+
+	return nil, Error.Wrap(errGroup.Err())
+}
+
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
 	if len(node.config.Join) == 0 {
@@ -252,7 +334,7 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 		return nil, errToRPCStatusErr(err)
 	}
 
-	record, err := node.lookupRecord(ctx, kh)
+	record, err := node.DB.lookupRecord(ctx, kh)
 	if err != nil {
 		return nil, errToRPCStatusErr(err)
 	}

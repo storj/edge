@@ -330,3 +330,22 @@ func TestPeer_PeekRecord(t *testing.T) {
 		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
 	})
 }
+
+func TestGetRecordPeers(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+
+		for i := 0; i < len(cluster.Nodes); i++ {
+			record, err := cluster.Nodes[i].Get(ctx, keys[0])
+			require.NoError(t, err)
+			require.NotNil(t, record)
+			require.Equal(t, records[keys[0]].EncryptedAccessGrant, record.EncryptedAccessGrant)
+
+			record, err = cluster.Nodes[i].Get(ctx, authdb.KeyHash{'a'})
+			require.NoError(t, err)
+			require.Nil(t, record)
+		}
+	})
+}
