@@ -9,7 +9,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	minio "github.com/minio/minio-go/v7"
@@ -189,7 +188,7 @@ func (client *Minio) Download(ctx context.Context, bucket, objectName string, bu
 
 	n, err := reader.Read(buffer[:cap(buffer)])
 	if !errors.Is(err, io.EOF) {
-		rest, err := ioutil.ReadAll(reader)
+		rest, err := io.ReadAll(reader)
 		if errors.Is(err, io.EOF) {
 			err = nil
 		}

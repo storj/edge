@@ -9,10 +9,11 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -65,10 +66,10 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		keyPath := filepath.Join(certDir, "cert.key")
 		certPath := filepath.Join(certDir, "cert.crt")
 
-		err := ioutil.WriteFile(keyPath, []byte(testKey), 0644)
+		err := os.WriteFile(keyPath, []byte(testKey), 0644)
 		require.NoError(t, err)
 
-		err = ioutil.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
+		err = os.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
 		require.NoError(t, err)
 	}
 
@@ -129,7 +130,7 @@ func testVersionInfo(ctx context.Context, t *testing.T, url string, client *http
 	require.NoError(t, err)
 	defer func() { _ = response.Body.Close() }()
 	require.Equal(t, 200, response.StatusCode)
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Equal(t, "v0.0.0", string(body))
 }

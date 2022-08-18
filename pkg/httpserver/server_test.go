@@ -10,10 +10,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -52,10 +53,10 @@ func TestServer(t *testing.T) {
 	keyPath := filepath.Join(tempdir, "privkey.pem")
 	certPath := filepath.Join(tempdir, "public.pem")
 
-	err = ioutil.WriteFile(keyPath, []byte(testKey), 0644)
+	err = os.WriteFile(keyPath, []byte(testKey), 0644)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
+	err = os.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
 	require.NoError(t, err)
 
 	tlsConfig := &TLSConfig{
@@ -190,7 +191,7 @@ func (testCase *serverTestCase) DoGet(ctx context.Context, tb testing.TB) {
 
 	assert.Equal(tb, resp.StatusCode, http.StatusBadRequest)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	require.NoError(tb, err)
 	assert.True(tb, strings.HasPrefix(strings.ToLower(string(body)), "<!doctype html>\n"))
 }

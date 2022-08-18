@@ -6,7 +6,6 @@ package middleware
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 
 	"github.com/zeebo/errs"
 )
@@ -21,7 +20,7 @@ type BodyCache struct {
 
 // NewBodyCache return a ReadCloser than can Seek the first bufferSize bytes.
 func NewBodyCache(stream io.ReadCloser, bufferSize int64) (*BodyCache, error) {
-	bytes, err := ioutil.ReadAll(io.LimitReader(stream, bufferSize))
+	bytes, err := io.ReadAll(io.LimitReader(stream, bufferSize))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}

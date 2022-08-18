@@ -9,10 +9,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"math/big"
 	mathrand "math/rand"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -34,11 +34,11 @@ func TestTLSOptions(t *testing.T) {
 	trusted := createTestingPool(t, 2)
 	untrusted := createTestingPool(t, 1)
 
-	err := ioutil.WriteFile(ctx.File("ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
+	err := os.WriteFile(ctx.File("ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(ctx.File("node.crt"), encodeCertificate(trusted.Certs[0].Certificate[0]), 0644)
+	err = os.WriteFile(ctx.File("node.crt"), encodeCertificate(trusted.Certs[0].Certificate[0]), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(ctx.File("node.key"), encodePrivateKey(trusted.Certs[0].PrivateKey), 0644)
+	err = os.WriteFile(ctx.File("node.key"), encodePrivateKey(trusted.Certs[0].PrivateKey), 0644)
 	require.NoError(t, err)
 
 	cfg, err := opts.Load()

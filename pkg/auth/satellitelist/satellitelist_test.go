@@ -5,9 +5,9 @@ package satellitelist
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -38,7 +38,7 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 	defer testServer.Close()
 
 	testFile := ctx.File("tempSatFile")
-	require.NoError(t, ioutil.WriteFile(testFile, []byte(strings.Join(withIds, "\r\n")), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte(strings.Join(withIds, "\r\n")), 0644))
 
 	tests := []struct {
 		input     []string

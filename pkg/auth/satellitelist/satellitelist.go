@@ -6,7 +6,7 @@ package satellitelist
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -48,7 +48,7 @@ func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[s
 			}
 		} else if _, err := os.Stat(c); err == nil {
 			hasNodeList = true
-			bodyBytes, err := ioutil.ReadFile(c)
+			bodyBytes, err := os.ReadFile(c)
 			if err != nil {
 				return satMap, hasNodeList, ErrAllowedSatelliteList.Wrap(err)
 			}
@@ -100,7 +100,7 @@ func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 	if res.StatusCode != 200 {
 		return nil, ErrAllowedSatelliteList.New("HTTP failed with HTTP status %d", res.StatusCode)
 	}
-	bodyBytes, err := ioutil.ReadAll(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, ErrAllowedSatelliteList.Wrap(err)
 	}

@@ -6,7 +6,6 @@ package middleware
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +13,7 @@ import (
 
 func TestNewBodyCache(t *testing.T) {
 
-	orig := ioutil.NopCloser(bytes.NewBuffer([]byte("This is a test")))
+	orig := io.NopCloser(bytes.NewBuffer([]byte("This is a test")))
 	bc, err := NewBodyCache(orig, 8)
 	require.NoError(t, err)
 

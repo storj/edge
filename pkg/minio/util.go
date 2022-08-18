@@ -4,7 +4,7 @@
 package minio
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -19,7 +19,7 @@ type allowAllOPA struct{}
 func (s allowAllOPA) RoundTrip(r *http.Request) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioutil.NopCloser(strings.NewReader(`{"result":true}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"result":true}`)),
 	}, nil
 }
 

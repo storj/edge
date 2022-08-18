@@ -5,9 +5,9 @@ package badgerauth_test
 
 import (
 	"crypto/tls"
-	"io/ioutil"
 	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -42,18 +42,18 @@ func TestServerCerts(t *testing.T) {
 	certsctx := testcontext.New(t)
 	trusted := createTestingPool(t, 2)
 
-	err := ioutil.WriteFile(certsctx.File("alpha", "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
+	err := os.WriteFile(certsctx.File("alpha", "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(certsctx.File("alpha", "node.crt"), encodeCertificate(trusted.Certs[0].Certificate[0]), 0644)
+	err = os.WriteFile(certsctx.File("alpha", "node.crt"), encodeCertificate(trusted.Certs[0].Certificate[0]), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(certsctx.File("alpha", "node.key"), encodePrivateKey(trusted.Certs[0].PrivateKey), 0644)
+	err = os.WriteFile(certsctx.File("alpha", "node.key"), encodePrivateKey(trusted.Certs[0].PrivateKey), 0644)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(certsctx.File("beta", "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
+	err = os.WriteFile(certsctx.File("beta", "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(certsctx.File("beta", "node.crt"), encodeCertificate(trusted.Certs[1].Certificate[0]), 0644)
+	err = os.WriteFile(certsctx.File("beta", "node.crt"), encodeCertificate(trusted.Certs[1].Certificate[0]), 0644)
 	require.NoError(t, err)
-	err = ioutil.WriteFile(certsctx.File("beta", "node.key"), encodePrivateKey(trusted.Certs[1].PrivateKey), 0644)
+	err = os.WriteFile(certsctx.File("beta", "node.key"), encodePrivateKey(trusted.Certs[1].PrivateKey), 0644)
 	require.NoError(t, err)
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
@@ -88,11 +88,11 @@ func TestCluster_Certs(t *testing.T) {
 	trusted := createTestingPool(t, 3)
 
 	for i, cert := range trusted.Certs {
-		err := ioutil.WriteFile(certsctx.File(strconv.Itoa(i), "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
+		err := os.WriteFile(certsctx.File(strconv.Itoa(i), "ca.crt"), encodeCertificate(trusted.CA.Raw), 0644)
 		require.NoError(t, err)
-		err = ioutil.WriteFile(certsctx.File(strconv.Itoa(i), "node.crt"), encodeCertificate(cert.Certificate[0]), 0644)
+		err = os.WriteFile(certsctx.File(strconv.Itoa(i), "node.crt"), encodeCertificate(cert.Certificate[0]), 0644)
 		require.NoError(t, err)
-		err = ioutil.WriteFile(certsctx.File(strconv.Itoa(i), "node.key"), encodePrivateKey(cert.PrivateKey), 0644)
+		err = os.WriteFile(certsctx.File(strconv.Itoa(i), "node.key"), encodePrivateKey(cert.PrivateKey), 0644)
 		require.NoError(t, err)
 	}
 
