@@ -54,6 +54,9 @@ func NewLimiter(allowed uint, keyFunc func(*http.Request) (string, error), limit
 // Limit applies per-key request concurrency limiting as an HTTP middleware.
 func (l *Limiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+		defer mon.TaskNamed("Limit")(&ctx)(&err)
 		key, err := l.keyFunc(r)
 		if err != nil {
 			// its easiest to let other parts of the code handle auth errors

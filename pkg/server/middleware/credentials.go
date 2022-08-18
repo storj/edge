@@ -63,7 +63,9 @@ var (
 func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log *zap.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var err error
 			ctx := r.Context()
+			defer mon.TaskNamed("AccessKey")(&ctx)(&err)
 			// extract the access key id from the request
 			accessKeyID, err := GetAccessKeyID(r)
 			if err != nil {

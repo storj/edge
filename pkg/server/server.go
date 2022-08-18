@@ -85,7 +85,9 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(middleware.CollectEvent)
-	r.Use(cmd.GlobalHandlers...)
+	for i, m := range cmd.GlobalHandlers {
+		r.Use(middleware.MonitorMinioGlobalHandler(i, m))
+	}
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information. Note that middleware.AccessKey is chained before
