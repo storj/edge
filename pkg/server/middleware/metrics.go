@@ -153,6 +153,7 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(d, r)
+		took := time.Since(start)
 
 		tags := []monkit.SeriesTag{
 			monkit.NewSeriesTag("api", log.API),
@@ -160,8 +161,9 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 			monkit.NewSeriesTag("status_code", strconv.Itoa(d.status)),
 		}
 
-		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(time.Since(start))
+		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(took)
 		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
+		mon.FloatVal(makeMetricName(prefix, "bps_written"), tags...).Observe(float64(d.written) / took.Seconds())
 
 		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
 			tags = append(tags, monkit.NewSeriesTag("error", err))
