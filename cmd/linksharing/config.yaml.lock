@@ -17,7 +17,7 @@ address-tls: :20021
 auth-service.base-url: ""
 
 # how many cached access grants to keep in cache
-auth-service.cache.capacity: 1000
+auth-service.cache.capacity: 10000
 
 # how long to keep cached access grants in cache
 auth-service.cache.expiration: 24h0m0s

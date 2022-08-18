@@ -47,7 +47,7 @@ func (a Config) Validate() error {
 // AuthServiceCacheConfig describes configuration necessary to cache the results of auth service lookups.
 type AuthServiceCacheConfig struct {
 	Expiration time.Duration `user:"true" help:"how long to keep cached access grants in cache" default:"24h"`
-	Capacity   int           `user:"true" help:"how many cached access grants to keep in cache" default:"1000"`
+	Capacity   int           `user:"true" help:"how many cached access grants to keep in cache" default:"10000"`
 }
 
 // AuthServiceResponse is the struct representing the response from the auth service.

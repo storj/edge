@@ -14,7 +14,7 @@
 auth.base-url: ""
 
 # how many cached access grants to keep in cache
-auth.cache.capacity: 1000
+auth.cache.capacity: 10000
 
 # how long to keep cached access grants in cache
 auth.cache.expiration: 24h0m0s
