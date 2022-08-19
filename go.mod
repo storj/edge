@@ -12,7 +12,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.17
+	github.com/spacemonkeygo/monkit/v3 v3.0.19
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
@@ -23,12 +23,12 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220708152916-e2f08365ed65
+	storj.io/common v0.0.0-20220802175255-aae0c09ec9d4
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.2
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
-	storj.io/private v0.0.0-20220801080548-639387a299f7
+	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
 	storj.io/uplink v1.9.1-0.20220718212340-6d414faa7c00
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
@@ -169,12 +169,13 @@ require (
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/api v0.20.0 // indirect
@@ -188,5 +189,5 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
 )

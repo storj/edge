@@ -11,10 +11,10 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.16.0
-	storj.io/common v0.0.0-20220708152916-e2f08365ed65
+	storj.io/common v0.0.0-20220802175255-aae0c09ec9d4
 	storj.io/drpc v0.0.32
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20220801080548-639387a299f7
+	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
 	storj.io/storj v1.60.1
 )
 
@@ -105,11 +105,12 @@ require (
 	github.com/klauspost/readahead v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
 	github.com/lib/pq v1.10.2 // indirect
-	github.com/lucas-clemente/quic-go v0.27.1 // indirect
+	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
@@ -157,7 +158,7 @@ require (
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.1 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.17 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.19 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cobra v1.1.3 // indirect
@@ -181,6 +182,7 @@ require (
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	github.com/zeebo/mwc v0.0.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
@@ -191,7 +193,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
@@ -215,7 +217,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/gateway v1.8.2 // indirect
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b // indirect
-	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
 	storj.io/uplink v1.9.1-0.20220718212340-6d414faa7c00 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )
