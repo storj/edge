@@ -88,8 +88,7 @@ func main() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, cancel := process.Ctx(cmd)
-	defer cancel()
+	ctx, _ := process.Ctx(cmd)
 
 	if runCfg.Migration {
 		if err = cmdMigrationRun(cmd, args); err != nil {
@@ -101,6 +100,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		return err
 	}
 
 	p, err := auth.New(ctx, log, runCfg, confDir)
@@ -108,18 +108,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var g errgroup.Group
+	defer func() {
+		err = errs.Combine(err, p.Close())
+	}()
 
-	g.Go(func() error {
-		<-ctx.Done()
-		return errs2.IgnoreCanceled(p.Close())
-	})
-
-	g.Go(func() error {
-		return errs2.IgnoreCanceled(p.Run(ctx))
-	})
-
-	return g.Wait()
+	return errs2.IgnoreCanceled(p.Run(ctx))
 }
 
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {

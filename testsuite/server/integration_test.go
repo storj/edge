@@ -79,9 +79,14 @@ func TestUploadDownload(t *testing.T) {
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
 		require.NoError(t, err)
 
-		defer ctx.Check(auth.Close)
+		// auth peer needs to be canceled to shut the servers down.
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-		ctx.Go(func() error { return auth.Run(ctx) })
+		ctx.Go(func() error {
+			defer ctx.Check(auth.Close)
+			return auth.Run(cancelCtx)
+		})
 
 		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
 

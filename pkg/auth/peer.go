@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/hex"
-	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -77,12 +76,18 @@ type DeleteUnusedConfig struct {
 
 // Peer is the representation of authservice.
 type Peer struct {
-	log        *zap.Logger
-	kv         authdb.KV
-	adb        *authdb.Database
-	res        *httpauth.Resources
-	httpServer *http.Server
-	drpcServer pb.DRPCEdgeAuthServer
+	log *zap.Logger
+	kv  authdb.KV
+	adb *authdb.Database
+	res *httpauth.Resources
+
+	handler       http.Handler
+	httpListener  net.Listener
+	httpsListener net.Listener
+
+	drpcServer      pb.DRPCEdgeAuthServer
+	drpcListener    net.Listener
+	drpcTLSListener net.Listener
 
 	config         Config
 	areSatsDynamic bool
@@ -91,11 +96,6 @@ type Peer struct {
 
 	satelliteListReload   *sync2.Cycle
 	unusedRecordsDeletion *sync2.Cycle
-
-	// TODO(artur, erik): having stopDRPCAuth is a little unusual compared to other
-	// dependencies that have, e.g. Close method. We should align drpcauth to match
-	// that behaviour.
-	stopDRPCAuth context.CancelFunc
 }
 
 // New constructs new Peer.
@@ -153,20 +153,42 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	// logging. do not log paths - paths have access keys in them.
 	handler = LogResponses(log, LogRequests(log, handler))
 
-	httpServer := &http.Server{
-		Addr:    config.ListenAddr,
-		Handler: handler,
-	}
-
 	drpcServer := drpcauth.NewServer(log, adb, endpoint, config.POSTSizeLimit)
 
+	httpListener, err := net.Listen("tcp", config.ListenAddr)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	drpcListener, err := net.Listen("tcp", config.DRPCListenAddr)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	var httpsListener, drpcTLSListener net.Listener
+	if tlsConfig != nil {
+		httpsListener, err = tls.Listen("tcp", config.ListenAddrTLS, tlsConfig)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		drpcTLSListener, err = tls.Listen("tcp", config.DRPCListenAddrTLS, tlsConfig)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
 	return &Peer{
-		log:        log,
-		kv:         kv,
-		adb:        adb,
-		res:        res,
-		httpServer: httpServer,
-		drpcServer: drpcServer,
+		log: log,
+		kv:  kv,
+		adb: adb,
+		res: res,
+
+		handler:       handler,
+		httpListener:  httpListener,
+		httpsListener: httpsListener,
+
+		drpcServer:      drpcServer,
+		drpcListener:    drpcListener,
+		drpcTLSListener: drpcTLSListener,
 
 		config:         config,
 		areSatsDynamic: areSatsDynamic,
@@ -175,8 +197,6 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 
 		satelliteListReload:   sync2.NewCycle(config.CacheExpiration),
 		unusedRecordsDeletion: sync2.NewCycle(config.DeleteUnused.Interval),
-
-		stopDRPCAuth: func() {},
 	}, nil
 }
 
@@ -223,7 +243,8 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 		}))
 }
 
-// Run starts authservice.
+// Run starts authservice. It is also responsible for shutting servers down
+// when the context is canceled.
 func (p *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -234,6 +255,7 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 			reloadSatelliteList(ctx, p.log, p.adb, p.config.AllowedSatellites)
 			return nil
 		})
+		defer p.satelliteListReload.Close()
 	}
 
 	if p.config.DeleteUnused.Run {
@@ -247,53 +269,30 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 				p.config.DeleteUnused.DeleteSize)
 			return nil
 		})
+		defer p.unusedRecordsDeletion.Close()
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(groupCtx)
-
-	p.stopDRPCAuth = cancel
-
 	group.Go(func() error {
-		httpListener, err := net.Listen("tcp", p.config.ListenAddr)
-		if err != nil {
-			return err
-		}
-
-		return p.ServeHTTP(httpListener)
+		return p.ServeHTTP(groupCtx, p.httpListener)
 	})
 
 	group.Go(func() error {
-		drpcListener, err := net.Listen("tcp", p.config.DRPCListenAddr)
-		if err != nil {
-			return err
-		}
-
-		return p.ServeDRPC(ctxWithCancel, drpcListener)
+		return p.ServeDRPC(groupCtx, p.drpcListener)
 	})
 
 	group.Go(func() error {
-		return p.kv.Run(ctxWithCancel)
+		return p.kv.Run(groupCtx)
 	})
 
 	if p.tlsConfig == nil {
 		p.log.Info("not starting DRPC+TLS and HTTPS because of missing TLS configuration")
 	} else {
 		group.Go(func() error {
-			httpsListener, err := tls.Listen("tcp", p.config.ListenAddrTLS, p.tlsConfig)
-			if err != nil {
-				return err
-			}
-
-			return p.ServeHTTP(httpsListener)
+			return p.ServeHTTP(groupCtx, p.httpsListener)
 		})
 
 		group.Go(func() error {
-			drpcTLSListener, err := tls.Listen("tcp", p.config.DRPCListenAddrTLS, p.tlsConfig)
-			if err != nil {
-				return err
-			}
-
-			return p.ServeDRPC(ctxWithCancel, drpcTLSListener)
+			return p.ServeDRPC(groupCtx, p.drpcTLSListener)
 		})
 	}
 
@@ -302,40 +301,81 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 	return errs.Wrap(group.Wait())
 }
 
-// Close closes all authservice's resources. It must not be called concurrently.
+// Close closes all authservice's resources. It does not shut down servers that
+// started serving in Run(). To do that, the context must be canceled.
+// Close will also close any listeners that may still be listening but haven't
+// been closed yet. Run() will take care of closing listeners if the context is
+// canceled, but closing them here is necessary if Run() was never called.
 func (p *Peer) Close() error {
-	p.stopDRPCAuth()
+	if p.httpListener != nil {
+		_ = p.httpListener.Close()
+	}
+	if p.httpsListener != nil {
+		_ = p.httpListener.Close()
+	}
+	if p.drpcListener != nil {
+		_ = p.drpcListener.Close()
+	}
+	if p.drpcTLSListener != nil {
+		_ = p.drpcTLSListener.Close()
+	}
 
-	p.satelliteListReload.Close()
-	p.unusedRecordsDeletion.Close()
-
-	// Don't wait more than a couple of seconds to shut down the HTTP server.
-	ctx, canc := context.WithTimeout(context.Background(), serverShutdownTimeout)
-	defer canc()
-
-	return errs.Combine(
-		errs.Wrap(p.httpServer.Shutdown(ctx)),
-		errs.Wrap(p.kv.Close()),
-	)
+	return errs.Wrap(p.kv.Close())
 }
 
 // ServeHTTP starts serving HTTP clients.
-func (p *Peer) ServeHTTP(listener net.Listener) error {
+func (p *Peer) ServeHTTP(ctx context.Context, listener net.Listener) (err error) {
 	p.log.Info("Starting HTTP server", zap.String("address", listener.Addr().String()))
-	err := p.httpServer.Serve(listener)
-	if errors.Is(err, http.ErrServerClosed) {
+
+	server := http.Server{
+		Handler: p.handler,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.Serve(listener)
+	}()
+
+	select {
+	case <-ctx.Done():
+		ctx, cancel := context.WithTimeout(context.Background(), serverShutdownTimeout)
+		defer cancel()
+
+		err = errs.Combine(server.Shutdown(ctx), server.Close(), ctx.Err())
+	case err = <-serverErr:
+	}
+
+	if errs.Is(err, http.ErrServerClosed) {
 		return nil
 	}
 	return err
 }
 
 // ServeDRPC starts serving DRPC clients.
-func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (p *Peer) ServeDRPC(ctx context.Context, listener net.Listener) error {
 	p.log.Info("Starting DRPC server", zap.String("address", listener.Addr().String()))
 
 	return drpcauth.StartListen(ctx, p.drpcServer, p.config.POSTSizeLimit, listener)
+}
+
+// Address returns the address of the HTTP listener.
+func (p *Peer) Address() string {
+	return p.httpListener.Addr().String()
+}
+
+// AddressTLS returns the address of the HTTPS listener.
+func (p *Peer) AddressTLS() string {
+	return p.httpsListener.Addr().String()
+}
+
+// DRPCAddress returns the address of the DRPC listener.
+func (p *Peer) DRPCAddress() string {
+	return p.drpcListener.Addr().String()
+}
+
+// DRPCTLSAddress returns the address of the DRPC+TLS listener.
+func (p *Peer) DRPCTLSAddress() string {
+	return p.drpcTLSListener.Addr().String()
 }
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {

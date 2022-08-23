@@ -46,6 +46,33 @@ func TestPeer_Close(t *testing.T) {
 	})
 }
 
+func TestPeer_BadListenerError(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	config := Config{
+		Endpoint:          "https://example.com",
+		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
+		KVBackend:         "memory://",
+		ListenAddr:        "127.0.0.1:0",
+		DRPCListenAddr:    "127.0.0.1:0",
+	}
+
+	p, err := New(ctx, zaptest.NewLogger(t), config, "")
+	require.NoError(t, err)
+	defer ctx.Check(p.Close)
+
+	// fails to listen when the address is already taken.
+	config.DRPCListenAddr = p.DRPCAddress()
+	_, err = New(ctx, zaptest.NewLogger(t), config, "")
+	require.Error(t, err)
+
+	// closing the peer means we can use the address again.
+	require.NoError(t, p.Close())
+	_, err = New(ctx, zaptest.NewLogger(t), config, "")
+	require.NoError(t, err)
+}
+
 type DRPCServerMock struct {
 	pb.DRPCEdgeAuthServer
 }
