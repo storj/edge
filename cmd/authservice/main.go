@@ -116,10 +116,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
-	ctx, cancel := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
+
+	migrationCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	kv, err := auth.OpenKV(ctx, zap.L().Named("migration"), runCfg)
+	kv, err := auth.OpenKV(migrationCtx, zap.L().Named("migration"), runCfg)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -128,7 +130,7 @@ func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	var g errgroup.Group
 
 	g.Go(func() error {
-		return errs2.IgnoreCanceled(kv.Run(ctx))
+		return errs2.IgnoreCanceled(kv.Run(migrationCtx))
 	})
 
 	migrator, ok := kv.(interface {
@@ -138,7 +140,7 @@ func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 		return errs.New("database backend %T does not support migrations", kv)
 	}
 
-	if err = migrator.MigrateToLatest(ctx); err != nil {
+	if err = migrator.MigrateToLatest(migrationCtx); err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -166,8 +168,7 @@ func cmdSetup(cmd *cobra.Command, _ []string) error {
 }
 
 func cmdRegister(cmd *cobra.Command, args []string) error {
-	ctx, cancel := process.Ctx(cmd)
-	defer cancel()
+	ctx, _ := process.Ctx(cmd)
 
 	res, err := register.Access(ctx, registerCfg.Address, args[0], registerCfg.Public)
 	if err != nil {
