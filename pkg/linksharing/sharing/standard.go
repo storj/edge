@@ -54,8 +54,11 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 		pr.realKey = parts[2]
 	}
 
+	clientIP := trustedip.GetClientIP(handler.trustedClientIPsList, r)
+	handler.top.clientIP(clientIP)
+
 	// TODO(artur): make signedAccessValidityTolerance a configuration attribute.
-	access, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, handler.authClient, trustedip.GetClientIP(handler.trustedClientIPsList, r))
+	access, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, handler.authClient, clientIP)
 	if err != nil {
 		return err
 	}

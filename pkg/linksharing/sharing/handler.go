@@ -18,12 +18,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/eventstat"
 	"storj.io/common/ranger"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/private/debug"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 	"storj.io/zipper"
@@ -140,6 +142,15 @@ type Handler struct {
 	standardRendersContent bool
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
+	top                    handlerTop
+}
+
+// handlerTop is an in-memory `top`-like counter.
+// (accessible via /top monitoring endpoint).
+type handlerTop struct {
+	uri      eventstat.Sink
+	method   eventstat.Sink
+	clientIP eventstat.Sink
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -209,6 +220,11 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
+		top: handlerTop{
+			uri:      debug.Top.NewTagCounter("http_request_uri", "uri"),
+			method:   debug.Top.NewTagCounter("http_request_method", "method"),
+			clientIP: debug.Top.NewTagCounter("http_request_ip", "ip"),
+		},
 	}, nil
 }
 

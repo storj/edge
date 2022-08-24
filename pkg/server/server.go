@@ -15,6 +15,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/eventstat"
 	"storj.io/common/rpc/rpcpool"
@@ -25,6 +26,7 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
+	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -94,8 +96,19 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	var handler http.Handler
 	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
 
-	agentCollector := NewAgentCollector("s3_user_agent", StatRegistry.NewTagCounter("s3_http_user_agent", "agent"))
+	// map with upper bound / memory limit, sent over UDP.
+	agentCounter := StatRegistry.NewTagCounter("s3_http_user_agent", "agent")
+	// similar, in-memory counter, but not sent over. Collects events since last /top call.
+	topCounter := debug.Top.NewTagCounter("s3_http_user_agent", "agent")
+
+	agentCollector := NewAgentCollector("s3_user_agent", func(name string) {
+		agentCounter(name)
+		topCounter(name)
+	})
 	handler = agentCollector.Wrap(handler)
+
+	ipCounter := debug.Top.NewTagCounter("s3_http_ip", "ip")
+	handler = wrapWithIPCounter(handler, ipCounter, trustedIPs)
 
 	var tlsConfig *httpserver.TLSConfig
 	if !config.InsecureDisableTLS {
@@ -120,6 +133,13 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		config:     config,
 		closeLayer: layer.Shutdown,
 	}, nil
+}
+
+func wrapWithIPCounter(handler http.Handler, counter eventstat.Sink, trustedIPs trustedip.List) http.Handler {
+	return whroute.HandlerFunc(handler, func(writer http.ResponseWriter, request *http.Request) {
+		counter(trustedip.GetClientIP(trustedIPs, request))
+		handler.ServeHTTP(writer, request)
+	})
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.
