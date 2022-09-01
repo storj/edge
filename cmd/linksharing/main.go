@@ -39,16 +39,17 @@ type LinkSharing struct {
 	GeoLocationDB          string        `user:"true" help:"maxmind database file path"`
 	TxtRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
 	AuthService            authclient.Config
-	DNSServer              string   `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
-	StaticSourcesPath      string   `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
-	Templates              string   `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
-	LandingRedirectTarget  string   `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
-	RedirectHTTPS          bool     `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
-	UseQosAndCC            bool     `user:"true" help:"use congestion control and QOS settings" default:"true"`
-	ClientTrustedIPSList   []string `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
-	UseClientIPHeaders     bool     `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
-	StandardRendersContent bool     `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
-	StandardViewsHTML      bool     `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
+	DNSServer              string        `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
+	StaticSourcesPath      string        `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
+	Templates              string        `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
+	LandingRedirectTarget  string        `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
+	RedirectHTTPS          bool          `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
+	DialTimeout            time.Duration `help:"timeout for dials" default:"10s"`
+	UseQosAndCC            bool          `user:"true" help:"use congestion control and QOS settings" default:"true"`
+	ClientTrustedIPSList   []string      `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
+	UseClientIPHeaders     bool          `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
+	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
+	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ConnectionPool         connectionPoolConfig
 }
 
@@ -140,7 +141,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			StandardViewsHTML:      runCfg.StandardViewsHTML,
 			StandardRendersContent: runCfg.StandardRendersContent,
 			Uplink: &uplink.Config{
-				UserAgent: "linksharing",
+				UserAgent:   "linksharing",
+				DialTimeout: runCfg.DialTimeout,
 			},
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,

@@ -49,6 +49,9 @@ connection-pool.key-capacity: 5
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# timeout for dials
+# dial-timeout: 10s
+
 # dns server address to use for TXT resolution
 dns-server: 1.1.1.1:53
 
