@@ -32,7 +32,7 @@ auth.token: ""
 # client-trusted-ips-list: []
 
 # timeout for dials
-# client.dial-timeout: 2m0s
+# client.dial-timeout: 10s
 
 # maximum buffer size for DRPC streams
 # client.maximum-buffer-size: 304.00 KB
