@@ -488,6 +488,9 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 		return Error.Wrap(err)
 	}
 
+	mon.IntVal("as_badgerauth_current_clock",
+		monkit.NewSeriesTag("node_id", nodeID.String())).Observe(int64(clock))
+
 	mainEntry := badger.NewEntry(keyHash.Bytes(), marshaled)
 	rlogEntry := ReplicationLogEntry{
 		ID:      nodeID,
