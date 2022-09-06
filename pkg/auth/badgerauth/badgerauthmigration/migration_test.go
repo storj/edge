@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
@@ -223,5 +224,65 @@ func testMigrateToLatest(t *testing.T, srcConnstr string) {
 				Error:   err,
 			}.Check(ctx, t, node)
 		}
+	})
+}
+
+func TestPutWithSkewedTimes_Postgres(t *testing.T) {
+	testPutWithSkewedTimes(t, pgtest.PickPostgres(t))
+}
+
+func TestPutWithSkewedTimes_Cockroach(t *testing.T) {
+	testPutWithSkewedTimes(t, pgtest.PickCockroachAlt(t))
+}
+
+func testPutWithSkewedTimes(t *testing.T, srcConnstr string) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		log := zaptest.NewLogger(t)
+		src, err := sqlauth.OpenTest(ctx, log, t.Name(), srcConnstr)
+		require.NoError(t, err)
+		defer ctx.Check(src.Close)
+
+		kv := New(log, src, node, Config{MigrationSelectSize: 1000})
+
+		require.NoError(t, kv.PingDB(ctx))
+		require.NoError(t, src.MigrateToLatest(ctx))
+
+		createdAt := time.Unix(time.Now().Unix(), 0)
+
+		keyHash := authdb.KeyHash{'a'}
+		record := &authdb.Record{
+			SatelliteAddress:     "migration",
+			MacaroonHead:         []byte{'b'},
+			EncryptedSecretKey:   []byte{'c'},
+			EncryptedAccessGrant: []byte{'d'},
+			ExpiresAt:            nil,
+			Public:               true,
+		}
+
+		require.NoError(t, kv.dst.PutAtTime(ctx, keyHash, record, createdAt))
+		require.True(t, sync2.Sleep(ctx, time.Second))
+		require.NoError(t, kv.src.PutAtTime(ctx, keyHash, record, createdAt))
+
+		// Inserting the same record into both stores with equal creation times
+		// must result in success.
+		require.NoError(t, kv.MigrateToLatest(ctx))
+
+		keyHash = authdb.KeyHash{'e'}
+		record = &authdb.Record{
+			SatelliteAddress:     "noitargim",
+			MacaroonHead:         []byte{'f'},
+			EncryptedSecretKey:   []byte{'g'},
+			EncryptedAccessGrant: []byte{'h'},
+			ExpiresAt:            nil,
+			Public:               false,
+		}
+
+		require.NoError(t, kv.dst.Put(ctx, keyHash, record))
+		require.True(t, sync2.Sleep(ctx, time.Second))
+		require.NoError(t, kv.src.Put(ctx, keyHash, record))
+
+		// Inserting the same record into both stores with different creation
+		// times must result in failure.
+		require.Error(t, kv.MigrateToLatest(ctx))
 	})
 }

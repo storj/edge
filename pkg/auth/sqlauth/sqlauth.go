@@ -124,13 +124,31 @@ func (d *KV) MigrateToLatest(ctx context.Context) (err error) {
 	return migration.ValidateVersions(ctx, log)
 }
 
-// Put stores the record in the key/value store.
-// It is an error if the key already exists.
+// Put is like PutAtTime, but it uses current time to store the record.
 func (d *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(d.db.CreateNoReturn_Record(ctx,
 		dbx.Record_EncryptionKeyHash(keyHash[:]),
+		dbx.Record_CreatedAt(time.Now().UTC()),
+		dbx.Record_Public(record.Public),
+		dbx.Record_SatelliteAddress(record.SatelliteAddress),
+		dbx.Record_MacaroonHead(record.MacaroonHead),
+		dbx.Record_EncryptedSecretKey(record.EncryptedSecretKey),
+		dbx.Record_EncryptedAccessGrant(record.EncryptedAccessGrant),
+		dbx.Record_Create_Fields{
+			ExpiresAt: dbx.Record_ExpiresAt_Raw(record.ExpiresAt),
+		}))
+}
+
+// PutAtTime stores the record at a specific time.
+// It is an error if the key already exists.
+func (d *KV) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, createdAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(d.db.CreateNoReturn_Record(ctx,
+		dbx.Record_EncryptionKeyHash(keyHash[:]),
+		dbx.Record_CreatedAt(createdAt),
 		dbx.Record_Public(record.Public),
 		dbx.Record_SatelliteAddress(record.SatelliteAddress),
 		dbx.Record_MacaroonHead(record.MacaroonHead),

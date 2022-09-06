@@ -3,7 +3,7 @@ model record (
 
 	// record data
 	field encryption_key_hash blob
-	field created_at          timestamp ( autoinsert )
+	field created_at          timestamp
 	field public              bool
 
 	// denormalized information from access grant

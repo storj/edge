@@ -61,15 +61,24 @@ func New(log *zap.Logger, src *sqlauth.KV, dst *badgerauth.Node, config Config) 
 
 // Put stores the record.
 // It is an error if the key already exists.
+//
+// We write to both stores to ensure we can perform a rollback in case of
+// anything.
 func (kv *KV) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
 	defer kv.mon.Task()(&ctx)(&err)
-	// We write to both stores to ensure we can perform a rollback in case of
-	// anything.
-	if err := kv.src.Put(ctx, keyHash, record); err != nil {
+
+	// createdAt is truncated to Unix time to make sure both stores get the same
+	// time. Otherwise, this could cause issues during the migration when
+	// inserted times differ (get rounded) by a second. In that case, records
+	// reimported to badgerauth by the migrator node wouldn't match and cancel
+	// migration.
+	createdAt := time.Unix(time.Now().Unix(), 0)
+
+	if err := kv.src.PutAtTime(ctx, keyHash, record, createdAt); err != nil {
 		return Error.New("failed to write to sqlauth: %w", err)
 	}
 	kv.log.Debug("Wrote to sqlauth", zap.Binary("keyHash", keyHash.Bytes()))
-	if err := kv.dst.Put(ctx, keyHash, record); err != nil {
+	if err := kv.dst.PutAtTime(ctx, keyHash, record, createdAt); err != nil {
 		kv.mon.Event("as_badgerauthmigration_destination_put_err")
 		return Error.New("failed to write to badgerauth: %w", err)
 	}

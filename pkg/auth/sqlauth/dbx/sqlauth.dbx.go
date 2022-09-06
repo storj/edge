@@ -1106,6 +1106,7 @@ type Paged_Record_Continuation struct {
 
 func (obj *pgxImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_created_at Record_CreatedAt_Field,
 	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
@@ -1113,10 +1114,8 @@ func (obj *pgxImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encrypted_access_grant Record_EncryptedAccessGrant_Field,
 	optional Record_Create_Fields) (
 	err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__encryption_key_hash_val := record_encryption_key_hash.value()
-	__created_at_val := __now
+	__created_at_val := record_created_at.value()
 	__public_val := record_public.value()
 	__satellite_address_val := record_satellite_address.value()
 	__macaroon_head_val := record_macaroon_head.value()
@@ -1328,6 +1327,7 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 
 func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_created_at Record_CreatedAt_Field,
 	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
@@ -1335,10 +1335,8 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Record(ctx context.Context,
 	record_encrypted_access_grant Record_EncryptedAccessGrant_Field,
 	optional Record_Create_Fields) (
 	err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__encryption_key_hash_val := record_encryption_key_hash.value()
-	__created_at_val := __now
+	__created_at_val := record_created_at.value()
 	__public_val := record_public.value()
 	__satellite_address_val := record_satellite_address.value()
 	__macaroon_head_val := record_macaroon_head.value()
@@ -1601,6 +1599,7 @@ func (rx *Rx) Count_Record(ctx context.Context) (
 
 func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 	record_encryption_key_hash Record_EncryptionKeyHash_Field,
+	record_created_at Record_CreatedAt_Field,
 	record_public Record_Public_Field,
 	record_satellite_address Record_SatelliteAddress_Field,
 	record_macaroon_head Record_MacaroonHead_Field,
@@ -1612,7 +1611,7 @@ func (rx *Rx) CreateNoReturn_Record(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_Record(ctx, record_encryption_key_hash, record_public, record_satellite_address, record_macaroon_head, record_encrypted_secret_key, record_encrypted_access_grant, optional)
+	return tx.CreateNoReturn_Record(ctx, record_encryption_key_hash, record_created_at, record_public, record_satellite_address, record_macaroon_head, record_encrypted_secret_key, record_encrypted_access_grant, optional)
 
 }
 
@@ -1663,6 +1662,7 @@ type Methods interface {
 
 	CreateNoReturn_Record(ctx context.Context,
 		record_encryption_key_hash Record_EncryptionKeyHash_Field,
+		record_created_at Record_CreatedAt_Field,
 		record_public Record_Public_Field,
 		record_satellite_address Record_SatelliteAddress_Field,
 		record_macaroon_head Record_MacaroonHead_Field,
