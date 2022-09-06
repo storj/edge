@@ -549,7 +549,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error, task string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialFinished := mon.TaskNamed("dial")(&ctx)
+	dialFinished := mon.TaskNamed("dial", monkit.NewSeriesTag("address", peer.address))(&ctx)
 
 	var dialer interface {
 		DialContext(context.Context, string, string) (net.Conn, error)
