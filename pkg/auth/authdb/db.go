@@ -243,8 +243,8 @@ func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Du
 	return count, rounds, deletesPerHead, errs.Wrap(err)
 }
 
-// Ping attempts to do a DB roundtrip. If it can't it will return an error.
-func (db *Database) Ping(ctx context.Context) (err error) {
+// PingDB attempts to do a DB roundtrip. If it can't it will return an error.
+func (db *Database) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return errs.Wrap(db.kv.PingDB(ctx))

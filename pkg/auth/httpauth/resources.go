@@ -139,7 +139,7 @@ func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Confirm we can at a minimum reach the database.
-	err := res.db.Ping(req.Context())
+	err := res.db.PingDB(req.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return

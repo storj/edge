@@ -52,17 +52,18 @@ func TestBackupRestore(t *testing.T) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 	cfg := badgerauth.Config{
-		ID:   badgerauth.NodeID{'a'},
-		Path: ctx.File("badger.db"),
+		ID:                 badgerauth.NodeID{'a'},
+		Path:               ctx.File("badger.db"),
+		InsecureDisableTLS: true,
 	}
 
 	// Restore to new db and ensure it matches
-	db, err := badgerauth.OpenDB(log, cfg)
+	n, err := badgerauth.New(log, cfg)
 	require.NoError(t, err)
-	err = db.UnderlyingDB().Load(bytes.NewReader(s3Client.backup), 1)
+	err = n.UnderlyingDB().UnderlyingDB().Load(bytes.NewReader(s3Client.backup), 1)
 	require.NoError(t, err)
 
-	cluster := badgerauthtest.Cluster{Nodes: []*badgerauth.Node{{DB: db}}}
+	cluster := badgerauthtest.Cluster{Nodes: []*badgerauth.Node{n}}
 	ensureClusterConvergence(ctx, t, &cluster, expectedRecords, expectedEntries)
 }
 

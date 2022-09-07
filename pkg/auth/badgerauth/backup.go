@@ -62,8 +62,8 @@ func NewBackup(db *DB, client Client) *Backup {
 // RunOnce performs a full backup of the database
 //
 // Each backup is split into separate prefix parts. For example:
-//     mybucket/myprefix/mynodeid/2022/04/13/2022-04-13T03:42:07Z
 //
+//	mybucket/myprefix/mynodeid/2022/04/13/2022-04-13T03:42:07Z
 func (b *Backup) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task(b.eventTags()...)(&ctx)(&err)
 
@@ -73,7 +73,7 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		_, err := b.db.UnderlyingDB().Backup(w, 0)
+		_, err := b.db.db.Backup(w, 0)
 		return w.CloseWithError(err)
 	})
 

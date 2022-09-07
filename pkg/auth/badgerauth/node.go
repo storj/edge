@@ -81,7 +81,7 @@ type Config struct {
 // replicate records from and to other nodes.
 type Node struct {
 	log *zap.Logger
-	*DB
+	db  *DB
 
 	config Config
 
@@ -121,7 +121,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		}
 	}()
 
-	node.DB, err = OpenDB(log, config)
+	node.db, err = OpenDB(log, config)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -130,7 +130,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		return nil, Error.New("failed to register server: %w", err)
 	}
 
-	node.admin = NewAdmin(node.DB)
+	node.admin = NewAdmin(node.db)
 	if err = pb.DRPCRegisterAdminService(node.mux, node.admin); err != nil {
 		return nil, Error.New("failed to register server: %w", err)
 	}
@@ -170,7 +170,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		if err != nil {
 			return nil, Error.New("failed to create s3 client: %w", err)
 		}
-		node.Backup = NewBackup(node.DB, s3Client)
+		node.Backup = NewBackup(node.db, s3Client)
 	}
 
 	return node, nil
@@ -184,14 +184,24 @@ func (node *Node) Address() string {
 	return node.listener.Addr().String()
 }
 
+// Put proxies DB's Put.
+func (node *Node) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) error {
+	return node.db.Put(ctx, keyHash, record)
+}
+
+// PutAtTime proxies DB's PutAtTime.
+func (node *Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) error {
+	return node.db.PutAtTime(ctx, keyHash, record, now)
+}
+
 // Get returns a record from the database. If the record isn't found, we consult
 // peer nodes to see if they have the record. This covers the case of a user
 // putting a record onto one authservice node, but then retrieving it from
 // another before the record has been fully synced.
 func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
-	defer mon.Task(node.DB.eventTags(get)...)(&ctx)(&err)
+	defer mon.Task(node.db.eventTags(get)...)(&ctx)(&err)
 
-	record, err = node.DB.Get(ctx, keyHash)
+	record, err = node.db.Get(ctx, keyHash)
 	if err != nil {
 		return nil, err
 	}
@@ -265,6 +275,24 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	return nil, Error.Wrap(errGroup.Err())
 }
 
+// DeleteUnused proxies DB's DeleteUnused.
+func (node *Node) DeleteUnused(
+	ctx context.Context,
+	asOfSystemInterval time.Duration,
+	selectSize, deleteSize int,
+) (
+	count, rounds int64,
+	deletesPerHead map[string]int64,
+	err error,
+) {
+	return node.db.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
+}
+
+// PingDB proxies DB's PingDB.
+func (node *Node) PingDB(ctx context.Context) error {
+	return node.db.PingDB(ctx)
+}
+
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
 	if len(node.config.Join) == 0 {
@@ -273,7 +301,7 @@ func (node *Node) Run(ctx context.Context) error {
 
 	group, gCtx := errgroup.WithContext(ctx)
 
-	node.gc.Start(gCtx, group, node.DB.gcValueLog)
+	node.gc.Start(gCtx, group, node.db.gcValueLog)
 
 	for _, join := range node.config.Join {
 		node.peers = append(node.peers, NewPeer(node, join))
@@ -315,8 +343,8 @@ func (node *Node) Close() error {
 		_ = node.listener.Close()
 	}
 	var g errs.Group
-	if node.DB != nil {
-		g.Add(node.DB.Close())
+	if node.db != nil {
+		g.Add(node.db.Close())
 	}
 	return Error.Wrap(g.Err())
 }
@@ -337,7 +365,7 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 		return nil, errToRPCStatusErr(err)
 	}
 
-	record, err := node.DB.lookupRecord(ctx, kh)
+	record, err := node.db.lookupRecord(ctx, kh)
 	if err != nil {
 		return nil, errToRPCStatusErr(err)
 	}
@@ -376,7 +404,7 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ 
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 
-		entries, err := node.DB.findResponseEntries(id, Clock(reqEntry.Clock))
+		entries, err := node.db.findResponseEntries(id, Clock(reqEntry.Clock))
 		if err != nil {
 			node.log.Error("replication response failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -391,9 +419,9 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ 
 	return &response, nil
 }
 
-// UnderlyingDB returns underlying DB.
+// UnderlyingDB returns underlying DB. This method is most useful in tests.
 func (node *Node) UnderlyingDB() *DB {
-	return node.DB
+	return node.db
 }
 
 // TestingSetJoin sets peer nodes to join to.
@@ -504,7 +532,7 @@ func (peer *Peer) pingClient(ctx context.Context, client pb.DRPCReplicationServi
 	}
 
 	if !peer.ensuredClock {
-		if err = peer.node.UnderlyingDB().ensureClock(ctx, clientID); err != nil {
+		if err = peer.node.db.ensureClock(ctx, clientID); err != nil {
 			return false, Error.New("couldn't ensure clock for %s: %w", clientID, err)
 		}
 		peer.ensuredClock = true
@@ -516,7 +544,7 @@ func (peer *Peer) pingClient(ctx context.Context, client pb.DRPCReplicationServi
 func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db := peer.node.UnderlyingDB()
+	db := peer.node.db
 
 	requestEntries, err := db.buildRequestEntries()
 	if err != nil {

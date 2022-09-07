@@ -84,7 +84,7 @@ type KV interface {
 	// parameters depends on the implementation.
 	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error)
 
-	// Ping attempts to do a DB roundtrip. If it can't it will return an
+	// PingDB attempts to do a DB roundtrip. If it can't it will return an
 	// error.
 	PingDB(ctx context.Context) error
 
