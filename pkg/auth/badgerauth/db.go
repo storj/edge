@@ -24,9 +24,6 @@ const (
 )
 
 var (
-	// Below is a compile-time check ensuring DB implements the KV interface.
-	_ authdb.KV = (*DB)(nil)
-
 	// ProtoError is a class of proto errors.
 	ProtoError = errs.Class("proto")
 
@@ -165,9 +162,6 @@ func (db *DB) prepare() (err error) {
 func (db *DB) Close() error {
 	return Error.Wrap(db.db.Close())
 }
-
-// Run runs the database.
-func (db *DB) Run(ctx context.Context) error { return nil }
 
 // Put is like PutAtTime, but it uses current time to store the record.
 func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) error {
@@ -394,7 +388,7 @@ func (db *DB) insertResponseEntries(ctx context.Context, response *pb.Replicatio
 	}))
 }
 
-func (db *DB) lookupRecord(ctx context.Context, keyHash authdb.KeyHash) (record *pb.Record, err error) {
+func (db *DB) lookupRecord(keyHash authdb.KeyHash) (record *pb.Record, err error) {
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
 		record, err = lookupRecordWithTxn(txn, keyHash)
 		return err
@@ -442,7 +436,7 @@ func (db *DB) eventTags(a action) []monkit.SeriesTag {
 }
 
 func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
-	mon.Event("as_badgerauth_"+name, db.eventTags(a)...)
+	mon.Event("as_badgerauth_"+name, append(db.eventTags(a), tags...)...)
 }
 
 // InsertRecord inserts a record, adding a corresponding replication log entry

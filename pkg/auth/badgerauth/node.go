@@ -365,7 +365,7 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 		return nil, errToRPCStatusErr(err)
 	}
 
-	record, err := node.db.lookupRecord(ctx, kh)
+	record, err := node.db.lookupRecord(kh)
 	if err != nil {
 		return nil, errToRPCStatusErr(err)
 	}
@@ -516,16 +516,16 @@ func (peer *Peer) pingClient(ctx context.Context, client pb.DRPCReplicationServi
 
 	resp, err := client.Ping(ctx, &pb.PingRequest{})
 	if err != nil {
-		peer.statusDown(ctx, err)
+		peer.statusDown(err)
 		return false, nil
 	}
 
 	var clientID NodeID
 	if err = clientID.SetBytes(resp.NodeId); err != nil {
-		peer.statusDown(ctx, err)
+		peer.statusDown(err)
 		return false, nil
 	}
-	peer.statusUp(ctx)
+	peer.statusUp()
 
 	if clientID == peer.node.ID() {
 		return false, Error.New("started with the same node ID (%s) as %s:", clientID, peer.address)
@@ -592,7 +592,7 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 
 	if err != nil {
 		peer.log.Named(task).Warn("dial failed", zap.String("address", peer.address), zap.Error(err))
-		peer.statusDown(ctx, err)
+		peer.statusDown(err)
 		return DialError.Wrap(err)
 	}
 
@@ -603,7 +603,7 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 }
 
 // statusUp changes peer status to up.
-func (peer *Peer) statusUp(ctx context.Context) {
+func (peer *Peer) statusUp() {
 	mon.Event("as_badgerauth_peer_up", monkit.NewSeriesTag("address", peer.address))
 	peer.changeStatus(func(status *PeerStatus) {
 		status.LastUpdated = time.Now()
@@ -613,7 +613,7 @@ func (peer *Peer) statusUp(ctx context.Context) {
 }
 
 // statusDown changes peer status to down.
-func (peer *Peer) statusDown(ctx context.Context, err error) {
+func (peer *Peer) statusDown(err error) {
 	mon.Event("as_badgerauth_peer_down", monkit.NewSeriesTag("address", peer.address))
 	peer.changeStatus(func(status *PeerStatus) {
 		status.LastUpdated = time.Now()
