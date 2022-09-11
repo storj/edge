@@ -85,13 +85,14 @@ type Node struct {
 
 	config Config
 
-	tls      *tls.Config
-	listener net.Listener
-	mux      *drpcmux.Mux
-	server   *drpcserver.Server
-	peers    []*Peer
-	admin    *Admin
-	Backup   *Backup
+	tls          *tls.Config
+	pooledDialer rpc.Dialer
+	listener     net.Listener
+	mux          *drpcmux.Mux
+	server       *drpcserver.Server
+	peers        []*Peer
+	admin        *Admin
+	Backup       *Backup
 
 	gc        sync2.Cycle
 	SyncCycle sync2.Cycle
@@ -126,6 +127,31 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		return nil, Error.Wrap(err)
 	}
 
+	if !config.InsecureDisableTLS {
+		opts := TLSOptions{
+			CertsDir: config.CertsDir,
+		}
+		node.tls, err = opts.Load()
+		if err != nil {
+			return nil, Error.New("failed to load tls config: %w", err)
+		}
+	}
+
+	//lint:ignore SA1019 calling SetSendDRPCMuxHeader on HybridConnector doesn't work yet
+	//nolint:staticcheck
+	c := rpc.NewDefaultTCPConnector(nil)
+	c.SetSendDRPCMuxHeader(false)
+
+	node.pooledDialer = rpc.Dialer{
+		HostnameTLSConfig: node.tls,
+		DialTimeout:       10 * time.Second,
+		Pool:              rpc.NewDefaultConnectionPool(),
+		ConnectionOptions: drpcconn.Options{
+			Manager: rpc.NewDefaultManagerOptions(),
+		},
+		Connector: c,
+	}
+
 	if err = pb.DRPCRegisterReplicationService(node.mux, node); err != nil {
 		return nil, Error.New("failed to register server: %w", err)
 	}
@@ -140,16 +166,6 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		Log:     func(err error) { log.Named("network").Debug(err.Error()) },
 	}
 	node.server = drpcserver.NewWithOptions(node.mux, serverOptions)
-
-	if !config.InsecureDisableTLS {
-		opts := TLSOptions{
-			CertsDir: config.CertsDir,
-		}
-		node.tls, err = opts.Load()
-		if err != nil {
-			return nil, Error.New("failed to load tls config: %w", err)
-		}
-	}
 
 	tcpListener, err := net.Listen("tcp", config.Address)
 	if err != nil {
@@ -343,6 +359,7 @@ func (node *Node) Close() error {
 		_ = node.listener.Close()
 	}
 	var g errs.Group
+	g.Add(node.pooledDialer.Pool.Close())
 	if node.db != nil {
 		g.Add(node.db.Close())
 	}
@@ -579,15 +596,12 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 
 	dialFinished := mon.TaskNamed("dial", monkit.NewSeriesTag("address", peer.address))(&ctx)
 
-	var dialer interface {
-		DialContext(context.Context, string, string) (net.Conn, error)
-	}
+	var conn *rpc.Conn
 	if !peer.node.config.InsecureDisableTLS {
-		dialer = &tls.Dialer{Config: peer.node.tls}
+		conn, err = peer.node.pooledDialer.DialAddressHostnameVerification(ctx, peer.address)
 	} else {
-		dialer = &net.Dialer{}
+		conn, err = peer.node.pooledDialer.DialAddressUnencrypted(ctx, peer.address)
 	}
-	rawconn, err := dialer.DialContext(ctx, "tcp", peer.address)
 	dialFinished(&err)
 
 	if err != nil {
@@ -596,8 +610,11 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 		return DialError.Wrap(err)
 	}
 
-	conn := drpcconn.New(rawconn)
-	defer func() { _ = rawconn.Close() }()
+	// TODO(artur): Should we be closing the connection? Intuitively we
+	// shouldn't, but it looks like it doesn't matter after all:
+	// https://review.dev.storj.io/c/storj/common/+/8406
+	//
+	// defer func() { _ = conn.Close() }()
 
 	return fn(ctx, pb.NewDRPCReplicationServiceClient(conn))
 }
