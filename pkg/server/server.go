@@ -90,8 +90,8 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	// we deliberately don't log paths for this service because they have
 	// sensitive information. Note that middleware.AccessKey is chained before
 	// so we can use encrypted credentials while logging requests/responses.
-	r.Use(NewLogRequests(log, config.InsecureLogAll))
-	r.Use(NewLogResponses(log, config.InsecureLogAll))
+	r.Use(middleware.NewLogRequests(log, config.InsecureLogAll))
+	r.Use(middleware.NewLogResponses(log, config.InsecureLogAll))
 
 	var handler http.Handler
 	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}

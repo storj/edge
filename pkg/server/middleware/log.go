@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package middleware
 
 import (
 	"encoding/hex"
@@ -19,7 +19,6 @@ import (
 	"storj.io/common/grant"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/server/gwlog"
-	"storj.io/gateway-mt/pkg/server/middleware"
 	xhttp "storj.io/minio/cmd/http"
 )
 
@@ -176,7 +175,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 // getMacaroonHead gets the macaroon head corresponding to the current request.
 // Macaroon head is the best available criteria for associating a request to a user.
 func getMacaroonHead(r *http.Request) string {
-	credentials := middleware.GetAccess(r.Context())
+	credentials := GetAccess(r.Context())
 	if credentials == nil || credentials.AccessGrant == "" {
 		return ""
 	}
@@ -189,7 +188,7 @@ func getMacaroonHead(r *http.Request) string {
 
 // getEncryptionKeyHash gets the encrypted Access Key ID corresponding to the current request.
 func getEncryptionKeyHash(r *http.Request) string {
-	credentials := middleware.GetAccess(r.Context())
+	credentials := GetAccess(r.Context())
 	if credentials == nil || credentials.AccessKey == "" {
 		return ""
 	}

@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package middleware
 
 import (
 	"fmt"
@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server/gwlog"
-	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 )
@@ -131,7 +130,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 
 	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 
-	middleware.AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
+	AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
 
 	filteredLogs := observedLogs.FilterField(zap.String("encryption-key-hash", "64f74892360a5cd203e9111d2ce72dd46ee195bf3dc33a2f0dddc892529b145d"))
 	require.Len(t, filteredLogs.All(), 1)
