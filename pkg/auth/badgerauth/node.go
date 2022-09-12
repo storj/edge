@@ -85,14 +85,14 @@ type Node struct {
 
 	config Config
 
+	Backup       *Backup
 	tls          *tls.Config
 	pooledDialer rpc.Dialer
 	listener     net.Listener
 	mux          *drpcmux.Mux
 	server       *drpcserver.Server
-	peers        []*Peer
 	admin        *Admin
-	Backup       *Backup
+	peers        []*Peer
 
 	gc        sync2.Cycle
 	SyncCycle sync2.Cycle
@@ -113,8 +113,6 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		config: config,
 		mux:    drpcmux.New(),
 	}
-	node.gc.SetInterval(5 * time.Minute)
-	node.SyncCycle.SetInterval(config.ReplicationInterval)
 
 	defer func() {
 		if err != nil {
@@ -125,6 +123,17 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	node.db, err = OpenDB(log, config)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if config.Backup.Enabled {
+		s3Client, err := minio.New(config.Backup.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(config.Backup.AccessKeyID, config.Backup.SecretAccessKey, ""),
+			Secure: !config.InsecureDisableTLS,
+		})
+		if err != nil {
+			return nil, Error.New("failed to create s3 client: %w", err)
+		}
+		node.Backup = NewBackup(node.db, s3Client)
 	}
 
 	if !config.InsecureDisableTLS {
@@ -178,16 +187,8 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		node.listener = tcpListener
 	}
 
-	if config.Backup.Enabled {
-		s3Client, err := minio.New(config.Backup.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(config.Backup.AccessKeyID, config.Backup.SecretAccessKey, ""),
-			Secure: !config.InsecureDisableTLS,
-		})
-		if err != nil {
-			return nil, Error.New("failed to create s3 client: %w", err)
-		}
-		node.Backup = NewBackup(node.db, s3Client)
-	}
+	node.gc.SetInterval(5 * time.Minute)
+	node.SyncCycle.SetInterval(config.ReplicationInterval)
 
 	return node, nil
 }
@@ -318,20 +319,23 @@ func (node *Node) Run(ctx context.Context) error {
 	group, gCtx := errgroup.WithContext(ctx)
 
 	node.gc.Start(gCtx, group, node.db.gcValueLog)
+	defer node.gc.Close()
+
+	if node.Backup != nil {
+		node.Backup.SyncCycle.Start(gCtx, group, node.Backup.RunOnce)
+		defer node.Backup.SyncCycle.Close()
+	}
 
 	for _, join := range node.config.Join {
 		node.peers = append(node.peers, NewPeer(node, join))
 	}
 	node.SyncCycle.Start(gCtx, group, node.syncAll)
+	defer node.SyncCycle.Close()
 
 	group.Go(func() error {
 		node.log.Info("Starting replication server", zap.String("address", node.listener.Addr().String()))
 		return Error.Wrap(node.server.Serve(gCtx, node.listener))
 	})
-
-	if node.Backup != nil {
-		node.Backup.SyncCycle.Start(gCtx, group, node.Backup.RunOnce)
-	}
 
 	return Error.Wrap(group.Wait())
 }
@@ -348,21 +352,24 @@ func (node *Node) syncAll(ctx context.Context) error {
 
 // Close releases underlying resources.
 func (node *Node) Close() error {
-	node.gc.Close()
-	node.SyncCycle.Close()
-	if node.Backup != nil {
-		node.Backup.SyncCycle.Close()
-	}
+	var g errs.Group
+
+	// 1. incoming replication's server
 	if node.listener != nil {
 		// if the server is started, then `server.Serve` automatically closes
 		// the listener.
 		_ = node.listener.Close()
 	}
-	var g errs.Group
+	// 2. outgoing replication is closed after Run finishes
+	// 3. dialer
 	g.Add(node.pooledDialer.Pool.Close())
+	// 4. backups are closed after Run finishes
+	// 5. storage engine's GC is closed after Run finishes
+	// 6. storage engine
 	if node.db != nil {
 		g.Add(node.db.Close())
 	}
+
 	return Error.Wrap(g.Err())
 }
 
@@ -610,11 +617,9 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 		return DialError.Wrap(err)
 	}
 
-	// TODO(artur): Should we be closing the connection? Intuitively we
-	// shouldn't, but it looks like it doesn't matter after all:
-	// https://review.dev.storj.io/c/storj/common/+/8406
-	//
-	// defer func() { _ = conn.Close() }()
+	// NOTE(artur): Calling Close on pooled connection doesn't close it. It only
+	// closes the handle to the underlying resource.
+	defer func() { _ = conn.Close() }()
 
 	return fn(ctx, pb.NewDRPCReplicationServiceClient(conn))
 }
