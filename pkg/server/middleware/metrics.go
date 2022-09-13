@@ -4,13 +4,17 @@
 package middleware
 
 import (
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 
+	"storj.io/common/rpc/rpctracing"
 	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
@@ -19,6 +23,14 @@ var mon = monkit.Package()
 var (
 	_ http.ResponseWriter = (*flusherDelegator)(nil)
 	_ http.Flusher        = (*flusherDelegator)(nil)
+)
+
+// see: https://github.com/w3c/trace-context/blob/main/spec/20-http_request_header_format.md
+const (
+	traceSampled     = byte(1)
+	traceFlagsHeader = "trace-flags"
+	traceStateHeader = "tracestate"
+	traceIDKey       = "trace-id"
 )
 
 // measureFunc is a common type for functions called at particular points of the
@@ -115,6 +127,17 @@ func sanitizeMethod(m string) string {
 	}
 }
 
+func parseTraceFlags(flag string) (byte, error) {
+	decoded, err := hex.DecodeString(flag)
+	if err != nil {
+		return 0, errs.New("%s should be defined as HEX %s", traceFlagsHeader, err.Error())
+	}
+	if len(decoded) != 1 {
+		return 0, errs.New("%s should be one byte", traceFlagsHeader)
+	}
+	return decoded[0], nil
+}
+
 // Metrics sends a bunch of useful metrics using monkit:
 // - response time
 // - time to write header
@@ -132,6 +155,25 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 			log = gwlog.New()
 			r = r.WithContext(log.WithContext(ctx))
 		}
+
+		trace := monkit.NewTrace(monkit.NewId())
+		flags := r.Header.Get(traceFlagsHeader)
+		if flags != "" {
+			parsed, err := parseTraceFlags(flags)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(err.Error()))
+				return
+			}
+			if (parsed & traceSampled) == traceSampled {
+				trace.Set(rpctracing.Sampled, true)
+				w.Header().Set(traceStateHeader, fmt.Sprintf("%s=%x", traceIDKey, trace.Id()))
+			}
+		}
+
+		ctx = r.Context()
+		defer mon.Func().RemoteTrace(&ctx, 0, trace)(nil)
+		r = r.WithContext(ctx)
 
 		start := time.Now()
 
