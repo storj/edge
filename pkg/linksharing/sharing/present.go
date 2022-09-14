@@ -153,10 +153,19 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(o.Key))
 		}
 	}
+
+	// note: s3 stores metadata keys in lowercase, so we should check both.
+	// todo: canonicalize and support more headers as part of https://github.com/storj/gateway-mt/issues/196.
+	cacheControl := o.Custom["Cache-Control"]
+	if cacheControl == "" {
+		cacheControl = o.Custom["cache-control"]
+	}
+
 	if (download || !wrap) && !mapOnly {
 		if len(archivePath) > 0 { // handle zip archives
 			contentType := mime.TypeByExtension(filepath.Ext(archivePath))
-			handler.setHeaders(w, contentType, o.Custom["Cache-Control"], pr.hosting, archivePath)
+
+			handler.setHeaders(w, contentType, cacheControl, pr.hosting, archivePath)
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
 				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
@@ -172,9 +181,12 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		} else {
 			contentType := o.Custom["Content-Type"]
 			if contentType == "" {
-				contentType = mime.TypeByExtension(filepath.Ext(o.Key))
+				contentType = o.Custom["content-type"]
+				if contentType == "" {
+					contentType = mime.TypeByExtension(filepath.Ext(o.Key))
+				}
 			}
-			handler.setHeaders(w, contentType, o.Custom["Cache-Control"], pr.hosting, filepath.Base(o.Key))
+			handler.setHeaders(w, contentType, cacheControl, pr.hosting, filepath.Base(o.Key))
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
 		return nil

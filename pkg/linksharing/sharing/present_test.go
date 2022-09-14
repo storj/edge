@@ -22,65 +22,86 @@ import (
 )
 
 func TestDownloadContentTypeHeader(t *testing.T) {
-	cfg := Config{
-		URLBases:  []string{"http://test.test"},
-		Templates: "../../../pkg/linksharing/web/",
+	testCases := []struct {
+		desc                    string
+		cacheControlMetadataKey string
+		contentTypeMetadataKey  string
+	}{
+		{
+			desc:                    "lowercase cache control and content type",
+			cacheControlMetadataKey: "cache-control",
+			contentTypeMetadataKey:  "content-type",
+		},
+		{
+			desc:                    "capitalized cache control and content type",
+			cacheControlMetadataKey: "Cache-Control",
+			contentTypeMetadataKey:  "Content-Type",
+		},
 	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := Config{
+				URLBases:  []string{"http://test.test"},
+				Templates: "../../../pkg/linksharing/web/",
+			}
 
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
-	require.NoError(t, err)
+			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
+			require.NoError(t, err)
 
-	ctx := testcontext.New(t)
-	w := httptest.NewRecorder()
-	r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test?download", nil)
-	require.NoError(t, err)
+			ctx := testcontext.New(t)
+			w := httptest.NewRecorder()
+			r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test?download", nil)
+			require.NoError(t, err)
 
-	pr := &parsedRequest{}
-	project := &uplink.Project{}
-	object := &uplink.Object{
-		Key: "test.jpg",
+			pr := &parsedRequest{}
+			project := &uplink.Project{}
+			object := &uplink.Object{
+				Key: "test.jpg",
+			}
+			err = handler.showObject(ctx, w, r, pr, project, object)
+			require.NoError(t, err)
+
+			ctypes, haveType := w.Header()["Content-Type"]
+			require.True(t, haveType)
+			require.Equal(t, "image/jpeg", ctypes[0])
+
+			require.Equal(t, "", w.Header().Get("Cache-Control"))
+
+			object.Key = "test"
+			object.Custom = uplink.CustomMetadata{
+				tc.cacheControlMetadataKey: "max-age=0, must-revalidate",
+			}
+			err = handler.showObject(ctx, w, r, pr, project, object)
+			require.NoError(t, err)
+
+			ctypes, haveType = w.Header()["Content-Type"]
+			require.True(t, haveType)
+			require.Equal(t, "application/octet-stream", ctypes[0])
+
+			require.Equal(t, "max-age=0, must-revalidate", w.Header().Get("Cache-Control"))
+
+			object.Custom = uplink.CustomMetadata{
+				tc.contentTypeMetadataKey: "image/somethingelse",
+			}
+			err = handler.showObject(ctx, w, r, pr, project, object)
+			require.NoError(t, err)
+
+			ctypes, haveType = w.Header()["Content-Type"]
+			require.True(t, haveType)
+			require.Equal(t, "image/somethingelse", ctypes[0])
+
+			object.Custom = uplink.CustomMetadata{
+				tc.contentTypeMetadataKey: "text/html",
+			}
+			err = handler.showObject(ctx, w, r, pr, project, object)
+			require.NoError(t, err)
+
+			ctypes, haveType = w.Header()["Content-Type"]
+			require.True(t, haveType)
+			require.Equal(t, "text/plain", ctypes[0]) // html isn't allowed for security reasons
+		})
 	}
-	err = handler.showObject(ctx, w, r, pr, project, object)
-	require.NoError(t, err)
-
-	ctypes, haveType := w.Header()["Content-Type"]
-	require.True(t, haveType)
-	require.Equal(t, "image/jpeg", ctypes[0])
-
-	require.Equal(t, "", w.Header().Get("Cache-Control"))
-
-	object.Key = "test"
-	object.Custom = uplink.CustomMetadata{
-		"Cache-Control": "max-age=0, must-revalidate",
-	}
-	err = handler.showObject(ctx, w, r, pr, project, object)
-	require.NoError(t, err)
-
-	ctypes, haveType = w.Header()["Content-Type"]
-	require.True(t, haveType)
-	require.Equal(t, "application/octet-stream", ctypes[0])
-
-	require.Equal(t, "max-age=0, must-revalidate", w.Header().Get("Cache-Control"))
-
-	object.Custom = uplink.CustomMetadata{
-		"Content-Type": "image/somethingelse",
-	}
-	err = handler.showObject(ctx, w, r, pr, project, object)
-	require.NoError(t, err)
-
-	ctypes, haveType = w.Header()["Content-Type"]
-	require.True(t, haveType)
-	require.Equal(t, "image/somethingelse", ctypes[0])
-
-	object.Custom = uplink.CustomMetadata{
-		"Content-Type": "text/html",
-	}
-	err = handler.showObject(ctx, w, r, pr, project, object)
-	require.NoError(t, err)
-
-	ctypes, haveType = w.Header()["Content-Type"]
-	require.True(t, haveType)
-	require.Equal(t, "text/plain", ctypes[0]) // html isn't allowed for security reasons
 }
 
 func TestZipArchiveContentType(t *testing.T) {
