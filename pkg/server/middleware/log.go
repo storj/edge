@@ -19,6 +19,7 @@ import (
 	"storj.io/common/grant"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/gateway-mt/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 )
 
@@ -32,6 +33,7 @@ func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Ha
 			zap.String("method", r.Method),
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
+			zap.String("remote-ip", getRemoteIP(r)),
 		}
 
 		if insecureLogPaths {
@@ -152,6 +154,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("host", r.Host),
 		zap.Int("code", rw.StatusCode()),
 		zap.String("user-agent", r.UserAgent()),
+		zap.String("remote-ip", getRemoteIP(r)),
 		zap.String("api", gl.API),
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", gl.RequestID),
@@ -200,6 +203,10 @@ func getEncryptionKeyHash(r *http.Request) string {
 	return key.Hash().ToHex()
 }
 
+func getRemoteIP(r *http.Request) string {
+	return trustedip.GetClientIP(trustedip.NewListTrustAll(), r)
+}
+
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
 	level := log.Debug
 	if rw.StatusCode() >= 300 {
@@ -213,6 +220,7 @@ func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d ti
 		zap.String("host", r.Host),
 		zap.Int("code", rw.StatusCode()),
 		zap.String("user-agent", r.UserAgent()),
+		zap.String("remote-ip", getRemoteIP(r)),
 		zap.Int64("content-length", r.ContentLength),
 		zap.Int64("written", rw.Written()),
 		zap.Duration("duration", d),
