@@ -152,7 +152,7 @@ func TestCluster_ReplicationManyRecords(t *testing.T) {
 	const limit = 100
 
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: 10,
+		NodeCount: 5,
 		Defaults: badgerauth.Config{
 			ReplicationLimit: limit,
 		},
@@ -170,7 +170,7 @@ func TestCluster_ReplicationManyRecordsSingleLoop(t *testing.T) {
 	const limit = 100
 
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: 10,
+		NodeCount: 5,
 		Defaults: badgerauth.Config{
 			ReplicationLimit: limit,
 		},
@@ -224,7 +224,7 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 	}
 
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: testrand.Intn(11),
+		NodeCount: testrand.Intn(7),
 		ReconfigureNode: func(index int, config *badgerauth.Config) {
 			config.ReplicationLimit = testrand.Intn(index+1) + 1
 		},
@@ -257,7 +257,7 @@ func TestCluster_ReplicationRandomized(t *testing.T) {
 
 func TestCluster_ReplicationRandomizedSingleLoop(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: testrand.Intn(11),
+		NodeCount: testrand.Intn(7),
 		ReconfigureNode: func(index int, config *badgerauth.Config) {
 			config.ReplicationLimit = testrand.Intn(index+1) + 1
 		},
@@ -266,7 +266,7 @@ func TestCluster_ReplicationRandomizedSingleLoop(t *testing.T) {
 		var expectedEntries []badgerauthtest.ReplicationLogEntryWithTTL
 
 		for _, n := range shuffleNodesOrder(cluster.Nodes) {
-			count := testrand.Intn(11)
+			count := testrand.Intn(7)
 
 			records, _, entries := badgerauthtest.CreateFullRecords(ctx, t, n, count)
 			appendRecords(expectedRecords, records)
