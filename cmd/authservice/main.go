@@ -99,8 +99,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
-		return err
+		return errs.New("failed to initialize telemetry batcher: %w", err)
 	}
 
 	p, err := auth.New(ctx, log, runCfg, confDir)

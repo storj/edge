@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 // handleHostingService deals with linksharing via custom URLs.
@@ -57,6 +59,10 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		// explicitly assume they shared a prefix and are looking for index.html
 		key += "index.html"
 	}
+
+	head := hex.EncodeToString(privateAccess.APIKey(access).Head())
+	handler.top.macaroonHead(head)
+	handler.statRegistry.customDomainMacaroonHead(head)
 
 	err = handler.presentWithProject(ctx, w, r, &parsedRequest{
 		access:          access,

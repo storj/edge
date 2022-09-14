@@ -218,6 +218,6 @@ require (
 	storj.io/gateway v1.8.3-0.20220825161942-aeb1c5d7a749 // indirect
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b // indirect
 	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
-	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31 // indirect
+	storj.io/uplink v1.9.1-0.20220926210601-997e38a1e257 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )

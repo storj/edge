@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
@@ -62,6 +64,8 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	if err != nil {
 		return err
 	}
+
+	handler.top.macaroonHead(hex.EncodeToString(privateAccess.APIKey(access).Head()))
 
 	pr.access = access
 	pr.serializedAccess = serializedAccess

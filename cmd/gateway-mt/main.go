@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/eventstat"
 	"storj.io/common/fpath"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
@@ -84,35 +82,16 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, _ []string) (err error) {
-	address := runCfg.Server.Address
-	host, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return err
-	}
-	if host == "" {
-		address = net.JoinHostPort("127.0.0.1", port)
-	}
-
 	ctx, cancel := process.Ctx(cmd)
 	defer cancel()
 
-	if err := process.InitMetricsWithHostname(ctx, zap.L(), nil); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
-	}
+	log := zap.L()
 
-	var metricsID string
-	hostname, err := os.Hostname()
-	if err != nil {
-		zap.S().Warn("Could not read hostname for eventstat setup", zap.Error(err))
-	} else {
-		metricsID = strings.ReplaceAll(hostname, ".", "_")
+	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+		return errs.New("Failed to initialize telemetry batcher: %w", err)
 	}
-
-	// special event stat publisher for counters with unbounded cardinality
-	if err := process.InitEventStatPublisher(ctx, zap.L(), &server.StatRegistry, func(opts *eventstat.ClientOpts) {
-		opts.Instance = metricsID
-	}); err != nil {
-		zap.S().Warn("Failed to initialize event stat publisher for statistics: ", err)
+	if err := process.InitEventStatPublisherWithHostname(ctx, log, &server.StatRegistry); err != nil {
+		return errs.New("failed to initialize event stat publisher: %w", err)
 	}
 
 	// setup environment variables for Minio
@@ -133,11 +112,10 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		return err
 	}
 
-	zap.S().Info("Starting Storj DCS S3 Gateway")
-	zap.S().Infof("Endpoint: %s", address)
+	log.Info("Starting Storj DCS S3 Gateway")
 
 	if runCfg.InsecureLogAll {
-		zap.S().Info("Insecurely logging all errors, paths, and headers")
+		log.Info("Insecurely logging all errors, paths, and headers")
 	}
 
 	var trustedClientIPs trustedip.List
@@ -157,7 +135,7 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 	if err := runCfg.Auth.Validate(); err != nil {
 		return err
 	}
-	peer, err := server.New(runCfg, zap.L(), trustedClientIPs, corsAllowedOrigins,
+	peer, err := server.New(runCfg, log, trustedClientIPs, corsAllowedOrigins,
 		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","), runCfg.ConcurrentAllowed)
 	if err != nil {
 		return err

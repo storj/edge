@@ -31,7 +31,13 @@ import (
 	"storj.io/zipper"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// StatRegistry is a specific registry which is reported only to one destination
+	// it is used for event statistics with unbounded cardinality.
+	StatRegistry = eventstat.Registry{}
+)
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {
@@ -143,14 +149,21 @@ type Handler struct {
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 	top                    handlerTop
+	statRegistry           statRegistry
 }
 
 // handlerTop is an in-memory `top`-like counter.
 // (accessible via /top monitoring endpoint).
 type handlerTop struct {
-	uri      eventstat.Sink
-	method   eventstat.Sink
-	clientIP eventstat.Sink
+	uri          eventstat.Sink
+	method       eventstat.Sink
+	clientIP     eventstat.Sink
+	macaroonHead eventstat.Sink
+}
+
+// statRegistry is for counters that will be sent to an external registry service.
+type statRegistry struct {
+	customDomainMacaroonHead eventstat.Sink
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -221,9 +234,13 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
 		top: handlerTop{
-			uri:      debug.Top.NewTagCounter("http_request_uri", "uri"),
-			method:   debug.Top.NewTagCounter("http_request_method", "method"),
-			clientIP: debug.Top.NewTagCounter("http_request_ip", "ip"),
+			uri:          debug.Top.NewTagCounter("http_request_uri", "uri"),
+			method:       debug.Top.NewTagCounter("http_request_method", "method"),
+			clientIP:     debug.Top.NewTagCounter("http_request_ip", "ip"),
+			macaroonHead: debug.Top.NewTagCounter("storj_macaroon_head", "head"),
+		},
+		statRegistry: statRegistry{
+			customDomainMacaroonHead: StatRegistry.NewTagCounter("storj_custom_domain_macaroon_head", "head"),
 		},
 	}, nil
 }

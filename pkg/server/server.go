@@ -107,6 +107,10 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	})
 	handler = agentCollector.Wrap(handler)
 
+	macaroonHeadCollector := NewMacaroonHeadCollector("storj_macaroon_head",
+		debug.Top.NewTagCounter("storj_macaroon_head", "head"))
+	handler = macaroonHeadCollector.Wrap(handler)
+
 	ipCounter := debug.Top.NewTagCounter("s3_http_ip", "ip")
 	handler = wrapWithIPCounter(handler, ipCounter, trustedIPs)
 
