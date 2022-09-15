@@ -54,6 +54,7 @@ type Config struct {
 
 	ID NodeID `user:"true" help:"unique identifier for the node" default:""`
 
+	FirstStart bool `user:"true" help:"allow start with empty storage" devDefault:"true" releaseDefault:"false"`
 	// Path is where to store data. Empty means in memory.
 	Path string `user:"true" help:"path where to store data" default:""`
 

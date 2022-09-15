@@ -133,6 +133,8 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 }
 
 func setConfigDefaults(config *badgerauth.Config) {
+	config.FirstStart = true
+
 	if config.Address == "" {
 		config.Address = "127.0.0.1:0"
 	}

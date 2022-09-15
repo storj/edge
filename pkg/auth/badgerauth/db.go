@@ -73,6 +73,10 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, Error.New("open: %w", err)
 	}
+	if err := db.checkFirstStart(); err != nil {
+		_ = db.db.Close()
+		return nil, Error.New("checkFirstStart: %w", err)
+	}
 	if err := db.prepare(); err != nil {
 		_ = db.db.Close()
 		return nil, Error.New("prepare: %w", err)
@@ -102,6 +106,24 @@ gcLoop:
 	}
 	db.log.Info("value log garbage collection finished", zap.Error(err))
 	return nil
+}
+
+func (db *DB) checkFirstStart() (err error) {
+	defer mon.Task(db.eventTags()...)(nil)(&err)
+
+	if db.config.FirstStart {
+		return nil // first-start is toggled true, so we're safe to end here
+	}
+
+	return db.db.View(func(txn *badger.Txn) error {
+		if _, err = txn.Get([]byte(nodeIDKey)); errs.Is(err, badger.ErrKeyNotFound) {
+			return errs.New("You've attempted to start the storage engine " +
+				"with a clean storage directory (often signaling underlying " +
+				"storage stopped being reliable), so we will defensively shut " +
+				"down (if you know what you're doing, toggle FirstStart)")
+		}
+		return err
+	})
 }
 
 // prepare ensures there's a value in the database.

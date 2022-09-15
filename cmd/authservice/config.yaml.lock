@@ -143,6 +143,9 @@ node.certs-dir: ""
 # The minimum time between retries
 # node.conflict-backoff.min: 100ms
 
+# allow start with empty storage
+node.first-start: false
+
 # unique identifier for the node
 node.id: ""
 

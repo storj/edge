@@ -425,8 +425,9 @@ func TestOpenDB_BadNodeID(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 	cfg := badgerauth.Config{
-		ID:   badgerauth.NodeID{'a'},
-		Path: ctx.File("badger.db"),
+		ID:         badgerauth.NodeID{'a'},
+		FirstStart: true,
+		Path:       ctx.File("badger.db"),
 	}
 
 	db, err := badgerauth.OpenDB(log, cfg)
@@ -438,4 +439,20 @@ func TestOpenDB_BadNodeID(t *testing.T) {
 	require.Nil(t, db)
 	require.Error(t, err)
 	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
+}
+
+func TestOpenDB_CheckFirstStart(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	cfg := badgerauth.Config{
+		FirstStart: false,
+	}
+
+	db, err := badgerauth.OpenDB(log, cfg)
+	require.Nil(t, db)
+	require.Error(t, err)
 }

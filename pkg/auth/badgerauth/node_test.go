@@ -330,18 +330,35 @@ func TestNew_BadNodeID(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 	cfg := badgerauth.Config{
-		ID:       badgerauth.NodeID{'a'},
-		Path:     ctx.File("badger.db"),
-		CertsDir: ctx.Dir("certs-dir"),
+		ID:         badgerauth.NodeID{'a'},
+		FirstStart: true,
+		Path:       ctx.File("badger.db"),
+		CertsDir:   ctx.Dir("certs-dir"),
 	}
 
-	db, err := badgerauth.New(log, cfg)
+	n, err := badgerauth.New(log, cfg)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
+	require.NoError(t, n.Close())
 
 	cfg.ID = badgerauth.NodeID{'b'}
-	db, err = badgerauth.New(log, cfg)
-	require.Nil(t, db)
+	n, err = badgerauth.New(log, cfg)
+	require.Nil(t, n)
 	require.Error(t, err)
 	require.True(t, badgerauth.ErrDBStartedWithDifferentNodeID.Has(err))
+}
+
+func TestNew_CheckFirstStart(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	cfg := badgerauth.Config{
+		FirstStart: false,
+	}
+
+	n, err := badgerauth.New(log, cfg)
+	require.Nil(t, n)
+	require.Error(t, err)
 }

@@ -26,15 +26,18 @@ Several parameters need to be specified to run a production-grade cluster; other
 
 #### Storage engine configuration
 
-|         **Parameter**         |                                 **Description**                                | **Default value** |
-|:-----------------------------:|:------------------------------------------------------------------------------:|:-----------------:|
-| `node.conflict-backoff.delay` |               The active time between retries, typically not set               |        `0s`       |
-|  `node.conflict-backoff.max`  |                     The maximum total time to allow retries                    |        `5m`       |
-|  `node.conflict-backoff.min`  |                        The minimum time between retries                        |      `100ms`      |
-|           `node.id`           |                         Unique identifier for the node                         |                   |
-|          `node.path`          | A path where to store data (WARNING: data will be stored in RAM only if empty) |                   |
+|         **Parameter**         |                                 **Description**                                |      **Default value**      |
+|:-----------------------------:|:------------------------------------------------------------------------------:|:---------------------------:|
+| `node.conflict-backoff.delay` |               The active time between retries, typically not set               |             `0s`            |
+|  `node.conflict-backoff.max`  |                     The maximum total time to allow retries                    |             `5m`            |
+|  `node.conflict-backoff.min`  |                        The minimum time between retries                        |           `100ms`           |
+|       `node.first-start`      |                  Whether to allow starting with empty storage                  | dev/release: `true`/`false` |
+|           `node.id`           |                         Unique identifier for the node                         |                             |
+|          `node.path`          | A path where to store data (WARNING: data will be stored in RAM only if empty) |                             |
 
 `node.conflict-backoff.*` are settings related to backing off for retrying execution of write transactions. The current underlying storage engine uses concurrent ACID transactions; hence transactions need retrying in a rare case of conflict (see https://dgraph.io/blog/post/badger-txn/).
+
+`node.first-start` is needed while starting nodes in production for the first time and shouldn't ever be used later on. It guards against dangerous restarts of nodes with empty storage attached that often signals underlying storage stopped being reliable.
 
 #### Backups configuration
 

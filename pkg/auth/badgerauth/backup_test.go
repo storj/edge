@@ -53,6 +53,7 @@ func TestBackupRestore(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	cfg := badgerauth.Config{
 		ID:                 badgerauth.NodeID{'a'},
+		FirstStart:         true,
 		Path:               ctx.File("badger.db"),
 		InsecureDisableTLS: true,
 	}
