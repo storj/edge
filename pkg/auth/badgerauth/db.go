@@ -18,10 +18,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 )
 
-const (
-	recordTerminatedEventName = "record_terminated"
-	nodeIDKey                 = "node_id"
-)
+const nodeIDKey = "node_id"
 
 var (
 	// ProtoError is a class of proto errors.
@@ -36,36 +33,6 @@ var (
 	errOperationNotSupported           = Error.New("operation not supported")
 	errKeyAlreadyExistsRecordsNotEqual = Error.New("key already exists and records aren't equal")
 )
-
-type action int
-
-const (
-	put action = iota
-	get
-	adminGet
-	adminInvalidate
-	adminUnpublish
-	adminDelete
-)
-
-func (a action) String() string {
-	switch a {
-	case put:
-		return "put"
-	case get:
-		return "get"
-	case adminGet:
-		return "admin_get"
-	case adminInvalidate:
-		return "admin_invalidate"
-	case adminUnpublish:
-		return "admin_unpublish"
-	case adminDelete:
-		return "admin_delete"
-	default:
-		return "unknown"
-	}
-}
 
 // DB represents authentication storage based on BadgerDB.
 // This implements the data-storage layer for a distributed Node.
@@ -140,7 +107,8 @@ gcLoop:
 // prepare ensures there's a value in the database.
 // this allows to ensure that the database is functional.
 func (db *DB) prepare() (err error) {
-	defer mon.Task(db.eventTags(put)...)(nil)(&err)
+	defer mon.Task(db.eventTags()...)(nil)(&err)
+
 	return db.db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(nodeIDKey))
 		if err != nil {
@@ -171,7 +139,7 @@ func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 // PutAtTime stores the record at a specific time.
 // It is an error if the key already exists.
 func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
-	defer mon.Task(db.eventTags(put)...)(&ctx)(&err)
+	defer mon.Task(db.eventTags()...)(&ctx)(&err)
 
 	// The check below is to make sure we conform to the KV interface
 	// definition, and it's performed outside of the transaction because it's
@@ -206,7 +174,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 // Get retrieves the record from the key/value store. It returns nil if the key
 // does not exist. If the record is invalid, the error contains why.
 func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
-	defer mon.Task(db.eventTags(get)...)(&ctx)(&err)
+	defer mon.Task(db.eventTags()...)(&ctx)(&err)
 
 	return record, Error.Wrap(db.db.View(func(txn *badger.Txn) error {
 		r, err := lookupRecordWithTxn(txn, keyHash)
@@ -218,7 +186,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 		}
 
 		if r.InvalidationReason != "" {
-			db.monitorEvent(recordTerminatedEventName, get)
+			mon.Event("as_badgerauth_record_terminated", db.eventTags()...)
 			return authdb.Invalid.New("%s", r.InvalidationReason)
 		}
 
@@ -428,15 +396,10 @@ func (db *DB) deleteRecord(ctx context.Context, keyHash authdb.KeyHash) error {
 	}))
 }
 
-func (db *DB) eventTags(a action) []monkit.SeriesTag {
+func (db *DB) eventTags() []monkit.SeriesTag {
 	return []monkit.SeriesTag{
-		monkit.NewSeriesTag("action", a.String()),
 		monkit.NewSeriesTag("node_id", db.config.ID.String()),
 	}
-}
-
-func (db *DB) monitorEvent(name string, a action, tags ...monkit.SeriesTag) {
-	mon.Event("as_badgerauth_"+name, append(db.eventTags(a), tags...)...)
 }
 
 // InsertRecord inserts a record, adding a corresponding replication log entry

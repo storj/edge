@@ -342,12 +342,12 @@ func TestBasicCycle(t *testing.T) {
 		c := monkit.Collect(monkit.ScopeNamed(scope))
 
 		for name, count := range map[string]float64{
-			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
-			"function,action=put,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
-			"function,action=get,name=(*DB).Get,node_id=basic,scope=" + scope + " total":                                   3,
-			"function,action=get,name=(*DB).Get,node_id=basic,scope=" + scope + " errors":                                  0,
-			"function,action=put,error_name=InvalidKey,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count":       1,
-			"function,action=put,error_name=KeyAlreadyExists,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count": 1,
+			"function,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " total":                             3,
+			"function,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " errors":                            2,
+			"function,name=(*DB).Get,node_id=basic,scope=" + scope + " total":                                   3,
+			"function,name=(*DB).Get,node_id=basic,scope=" + scope + " errors":                                  0,
+			"function,error_name=InvalidKey,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count":       1,
+			"function,error_name=KeyAlreadyExists,name=(*DB).PutAtTime,node_id=basic,scope=" + scope + " count": 1,
 		} {
 			assert.Equal(t, count, c[name], name)
 		}

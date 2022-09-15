@@ -216,7 +216,7 @@ func (node *Node) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record 
 // putting a record onto one authservice node, but then retrieving it from
 // another before the record has been fully synced.
 func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
-	defer mon.Task(node.db.eventTags(get)...)(&ctx)(&err)
+	defer mon.Task(node.db.eventTags()...)(&ctx)(&err)
 
 	record, err = node.db.Get(ctx, keyHash)
 	if err != nil {
