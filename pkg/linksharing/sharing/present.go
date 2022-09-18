@@ -179,14 +179,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			}
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
 		} else {
-			contentType := o.Custom["Content-Type"]
-			if contentType == "" {
-				contentType = o.Custom["content-type"]
-				if contentType == "" {
-					contentType = mime.TypeByExtension(filepath.Ext(o.Key))
-				}
-			}
-			handler.setHeaders(w, contentType, cacheControl, pr.hosting, filepath.Base(o.Key))
+			handler.setHeaders(w, contentType(o, r.Header.Get("X-Storj-No-Detect-Default-Content-Types") == ""), cacheControl, pr.hosting, filepath.Base(o.Key))
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
 		return nil
@@ -325,4 +318,25 @@ func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogI
 	}
 
 	return twitterImage, ogImage
+}
+
+func contentType(o *uplink.Object, detectDefaultTypes bool) (contentType string) {
+	contentType = o.Custom["Content-Type"]
+	if contentType == "" {
+		contentType = o.Custom["content-type"]
+	}
+
+	if detectDefaultTypes {
+		// AWS SDK does not automatically detect the content type and will set
+		// content-type to either application/octet-stream or binary/octet-stream
+		// if nothing was set explicitly when uploading an object.
+		if contentType == "application/octet-stream" || contentType == "binary/octet-stream" {
+			contentType = ""
+		}
+	}
+
+	if contentType == "" {
+		return mime.TypeByExtension(filepath.Ext(o.Key))
+	}
+	return contentType
 }

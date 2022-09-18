@@ -104,6 +104,79 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 	}
 }
 
+func TestContentType(t *testing.T) {
+	testCases := []struct {
+		desc               string
+		object             *uplink.Object
+		detectDefaultTypes bool
+		expected           string
+	}{
+		{
+			desc:     "object with no metadata",
+			object:   &uplink.Object{Key: "test.gif"},
+			expected: "image/gif",
+		},
+		{
+			desc: "object with Content-Type metadata",
+			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+				"Content-Type": "custom/mime",
+			}},
+			expected: "custom/mime",
+		},
+		{
+			desc: "object with content-type metadata",
+			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+				"content-type": "custom/mime",
+			}},
+			expected: "custom/mime",
+		},
+		{
+			desc: "object with content-type application/octet-stream is automatically detected",
+			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+				"content-type": "application/octet-stream",
+			}},
+			detectDefaultTypes: true,
+			expected:           "image/svg+xml",
+		},
+		{
+			desc: "object with content-type binary/octet-stream is automatically detected",
+			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+				"content-type": "binary/octet-stream",
+			}},
+			detectDefaultTypes: true,
+			expected:           "image/png",
+		},
+		{
+			desc: "object with content-type application/octet-stream is not automatically detected",
+			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+				"content-type": "application/octet-stream",
+			}},
+			expected: "application/octet-stream",
+		},
+		{
+			desc: "object with content-type binary/octet-stream is not automatically detected",
+			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+				"content-type": "binary/octet-stream",
+			}},
+			expected: "binary/octet-stream",
+		},
+		{
+			desc: "Content-Type overrides content-type",
+			object: &uplink.Object{Key: "test.txt", Custom: map[string]string{
+				"Content-Type": "text/html",
+				"content-type": "text/plain",
+			}},
+			expected: "text/html",
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.expected, contentType(tc.object, tc.detectDefaultTypes))
+		})
+	}
+}
+
 func TestZipArchiveContentType(t *testing.T) {
 	cfg := Config{
 		URLBases:  []string{"http://test.test"},
