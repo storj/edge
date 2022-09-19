@@ -169,7 +169,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
 				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
-			acceptsGz := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+			acceptsGz := hasValue(r.Header, "Accept-Encoding", "gzip")
 			ranger, isGz, err := handler.archiveRanger(ctx, project, pr.bucket, o.Key, archivePath, acceptsGz)
 			if err != nil {
 				return errdata.WithStatus(err, http.StatusUnsupportedMediaType)
@@ -179,7 +179,8 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			}
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
 		} else {
-			handler.setHeaders(w, contentType(o, r.Header.Get("X-Storj-No-Detect-Default-Content-Types") == ""), cacheControl, pr.hosting, filepath.Base(o.Key))
+			detectType := !hasValue(r.Header, "X-Content-Type-Options", "nosniff")
+			handler.setHeaders(w, contentType(o, detectType), cacheControl, pr.hosting, filepath.Base(o.Key))
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
 		return nil
@@ -320,23 +321,33 @@ func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogI
 	return twitterImage, ogImage
 }
 
-func contentType(o *uplink.Object, detectDefaultTypes bool) (contentType string) {
+func contentType(o *uplink.Object, detectType bool) (contentType string) {
 	contentType = o.Custom["Content-Type"]
 	if contentType == "" {
 		contentType = o.Custom["content-type"]
 	}
 
-	if detectDefaultTypes {
+	if detectType {
 		// AWS SDK does not automatically detect the content type and will set
 		// content-type to either application/octet-stream or binary/octet-stream
 		// if nothing was set explicitly when uploading an object.
 		if contentType == "application/octet-stream" || contentType == "binary/octet-stream" {
 			contentType = ""
 		}
+
+		if contentType == "" {
+			return mime.TypeByExtension(filepath.Ext(o.Key))
+		}
 	}
 
-	if contentType == "" {
-		return mime.TypeByExtension(filepath.Ext(o.Key))
-	}
 	return contentType
+}
+
+func hasValue(header http.Header, key, value string) bool {
+	for _, v := range header.Values(key) {
+		if strings.EqualFold(v, value) {
+			return true
+		}
+	}
+	return false
 }

@@ -106,62 +106,68 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 
 func TestContentType(t *testing.T) {
 	testCases := []struct {
-		desc               string
-		object             *uplink.Object
-		detectDefaultTypes bool
-		expected           string
+		desc       string
+		object     *uplink.Object
+		detectType bool
+		expected   string
 	}{
 		{
-			desc:     "object with no metadata",
+			desc:     "object with no metadata, no detection",
 			object:   &uplink.Object{Key: "test.gif"},
-			expected: "image/gif",
+			expected: "",
 		},
 		{
-			desc: "object with Content-Type metadata",
+			desc:       "object with no metadata, type detected",
+			object:     &uplink.Object{Key: "test.gif"},
+			detectType: true,
+			expected:   "image/gif",
+		},
+		{
+			desc: "object with Content-Type metadata, no detection",
 			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
 				"Content-Type": "custom/mime",
 			}},
 			expected: "custom/mime",
 		},
 		{
-			desc: "object with content-type metadata",
+			desc: "object with content-type metadata, no detection",
 			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
 				"content-type": "custom/mime",
 			}},
 			expected: "custom/mime",
 		},
 		{
-			desc: "object with content-type application/octet-stream is automatically detected",
+			desc: "object with default content-type application/octet-stream, type detected",
 			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
 				"content-type": "application/octet-stream",
 			}},
-			detectDefaultTypes: true,
-			expected:           "image/svg+xml",
+			detectType: true,
+			expected:   "image/svg+xml",
 		},
 		{
-			desc: "object with content-type binary/octet-stream is automatically detected",
+			desc: "object with default content-type binary/octet-stream, type detected",
 			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
 				"content-type": "binary/octet-stream",
 			}},
-			detectDefaultTypes: true,
-			expected:           "image/png",
+			detectType: true,
+			expected:   "image/png",
 		},
 		{
-			desc: "object with content-type application/octet-stream is not automatically detected",
+			desc: "object with default content-type application/octet-stream, no detection",
 			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
 				"content-type": "application/octet-stream",
 			}},
 			expected: "application/octet-stream",
 		},
 		{
-			desc: "object with content-type binary/octet-stream is not automatically detected",
+			desc: "object with default content-type binary/octet-stream, no detection",
 			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
 				"content-type": "binary/octet-stream",
 			}},
 			expected: "binary/octet-stream",
 		},
 		{
-			desc: "Content-Type overrides content-type",
+			desc: "Content-Type overrides content-type, no detection",
 			object: &uplink.Object{Key: "test.txt", Custom: map[string]string{
 				"Content-Type": "text/html",
 				"content-type": "text/plain",
@@ -172,7 +178,7 @@ func TestContentType(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.expected, contentType(tc.object, tc.detectDefaultTypes))
+			require.Equal(t, tc.expected, contentType(tc.object, tc.detectType))
 		})
 	}
 }
