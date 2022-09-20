@@ -14,7 +14,7 @@ require (
 	storj.io/common v0.0.0-20220822090045-1b57fc2bbda1
 	storj.io/drpc v0.0.32
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20220823161836-79135887c9be
+	storj.io/private v0.0.0-20220915132359-957cab776577
 	storj.io/storj v1.60.1
 )
 

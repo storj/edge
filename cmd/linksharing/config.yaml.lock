@@ -76,7 +76,7 @@ lets-encrypt: false
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
 # log.encoding: ""
 
 # the minimum log level to log

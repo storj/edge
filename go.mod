@@ -28,7 +28,7 @@ require (
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.3-0.20220825161942-aeb1c5d7a749
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
-	storj.io/private v0.0.0-20220823161836-79135887c9be
+	storj.io/private v0.0.0-20220915132359-957cab776577
 	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
