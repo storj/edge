@@ -73,7 +73,11 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		_, err := b.db.db.Backup(w, 0)
+		stream := b.db.db.NewStream()
+		stream.LogPrefix = "DB.Backup"
+		stream.SinceTs = 0
+		stream.NumGo = 1
+		_, err := stream.Backup(w, 0)
 		return w.CloseWithError(err)
 	})
 
