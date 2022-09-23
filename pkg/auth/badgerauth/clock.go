@@ -88,6 +88,9 @@ func readAvailableClocks(txn *badger.Txn) (map[NodeID]Clock, error) {
 	idToClock := make(map[NodeID]Clock)
 
 	opt := badger.DefaultIteratorOptions
+	// It's much faster without prefetching values, probably because we discard
+	// a lot of them anyway.
+	opt.PrefetchValues = false
 	opt.Prefix = []byte(clockPrefix)
 
 	it := txn.NewIterator(opt)

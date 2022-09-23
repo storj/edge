@@ -63,9 +63,13 @@ func OpenDB(log *zap.Logger, config Config) (*DB, error) {
 
 	// We want to fsync after each write to ensure we don't lose data:
 	opt = opt.WithSyncWrites(true)
+	opt = opt.WithCompactL0OnClose(true)
 	// Currently, we don't want to compress because authservice is mostly
 	// deployed in environments where filesystem-level compression is on:
 	opt = opt.WithCompression(options.None)
+	// If compression and encryption are disabled, adding a cache will lead to
+	// unnecessary overhead affecting read performance. Let's disable it then:
+	opt = opt.WithBlockCacheSize(0)
 	opt = opt.WithLogger(badgerLogger{log.Sugar().Named("storage")})
 
 	var err error
