@@ -11,6 +11,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/sync2"
@@ -284,5 +285,44 @@ func testPutWithSkewedTimes(t *testing.T, srcConnstr string) {
 		// Inserting the same record into both stores with different creation
 		// times must result in failure.
 		require.Error(t, kv.MigrateToLatest(ctx))
+	})
+}
+
+func TestGetExpired_Postgres(t *testing.T) {
+	testGetExpired(t, pgtest.PickPostgres(t))
+}
+
+func TestGetExpired_Cockroach(t *testing.T) {
+	testGetExpired(t, pgtest.PickCockroachAlt(t))
+}
+
+func testGetExpired(t *testing.T, srcConnstr string) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		src, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), srcConnstr)
+		require.NoError(t, err)
+		defer ctx.Check(src.Close)
+
+		kv := New(zap.NewNop(), src, node, Config{MigrationSelectSize: 1000})
+
+		require.NoError(t, kv.PingDB(ctx))
+		require.NoError(t, src.MigrateToLatest(ctx))
+
+		now := time.Now()
+
+		keyHash := authdb.KeyHash{'a'}
+		record := &authdb.Record{
+			SatelliteAddress:     "migration",
+			MacaroonHead:         []byte{'b'},
+			EncryptedSecretKey:   []byte{'c'},
+			EncryptedAccessGrant: []byte{'d'},
+			ExpiresAt:            &now,
+			Public:               true,
+		}
+
+		require.NoError(t, kv.Put(ctx, keyHash, record))
+
+		record, err = kv.Get(ctx, keyHash)
+		require.NoError(t, err)
+		require.Nil(t, record)
 	})
 }
