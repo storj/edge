@@ -123,6 +123,52 @@ or [S3 gateway](https://docs.storj.io/api-reference/s3-gateway). Download the [U
 
 [Maxmind]: https://dev.maxmind.com/geoip/geoipupdate/
 
+## Custom response metadata
+
+Linksharing will respond with certain headers if they are set on an object's metadata.
+
+This metadata can be set when uploading a file using either native Storj upload using Uplink, or using an S3 gateway.
+
+A few common examples:
+
+* Uplink CLI: `uplink cp /tmp/myfile.txt sj://files/myfile.txt --metadata '{"content-type":"text/html","cache-control":"no-cache"}'`
+* AWS S3 CLI: `aws s3 cp /tmp/myfile.txt s3://files/myfile.txt --content-type text/html --cache-control no-cache`
+
+The following headers can be customized:
+
+* `Content-Type`
+* `Cache-Control`
+
+Linksharing will look for metadata header names in an object by the following order:
+
+* `Content-Type` (canonical form)
+* `content-type` (all lowercase, typically how S3 gateway sets this header metadata on upload)
+* any other case that is found first in the list
+
+Metadata set through AWS S3 CLI or SDKs will be lowercase. Uplink currently does not automatically normalize these, so it is recommended to consistently use lowercase header names when setting metadata with Uplink if you're using both Uplink and S3 to interact with your storage.
+
+See sections below for further details.
+
+### Content-Type
+
+This header indicates the media type of content.
+
+Linksharing will attempt to detect the type based on the object key extension if the header is not set in object metadata or if set to a default value of `application/octet-stream` or `binary/octet-stream` which S3 clients will usually set if a type has not been specified.
+
+If you wish to avoid this detection when a default type is set, you can set `X-Content-Type-Options: nosniff` in the request headers.
+
+If a type is missing from metadata entirely, a default will be set based on the file extension even if `X-Content-Type-Options: nosniff` is requested.
+
+See [Content-Type - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Type) for more information.
+
+### Cache-Control
+
+This header influences caching behavior of browsers and shared caches (e.g. proxies, CDNs).
+
+Linksharing does not set a default for this header.
+
+See [Cache-Control - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Cache-Control) for more information.
+
 ## LICENSE
 
 This project is licensed under the AGPL-v3. See LICENSE for more.

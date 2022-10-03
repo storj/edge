@@ -21,21 +21,26 @@ import (
 	"storj.io/uplink"
 )
 
-func TestDownloadContentTypeHeader(t *testing.T) {
+func TestDownloadMetadataHeaders(t *testing.T) {
 	testCases := []struct {
 		desc                    string
 		cacheControlMetadataKey string
 		contentTypeMetadataKey  string
 	}{
 		{
-			desc:                    "lowercase cache control and content type",
+			desc:                    "lowercase",
 			cacheControlMetadataKey: "cache-control",
 			contentTypeMetadataKey:  "content-type",
 		},
 		{
-			desc:                    "capitalized cache control and content type",
+			desc:                    "capitalized",
 			cacheControlMetadataKey: "Cache-Control",
 			contentTypeMetadataKey:  "Content-Type",
+		},
+		{
+			desc:                    "mixed case",
+			cacheControlMetadataKey: "Cache-control",
+			contentTypeMetadataKey:  "Content-type",
 		},
 	}
 	for _, tc := range testCases {
@@ -104,83 +109,141 @@ func TestDownloadContentTypeHeader(t *testing.T) {
 	}
 }
 
+func TestMetadataHeaderValue(t *testing.T) {
+	assert.Equal(t, "", metadataHeaderValue(nil, "something"))
+	assert.Equal(t, "", metadataHeaderValue(map[string]string{}, "something"))
+	assert.Equal(t, "", metadataHeaderValue(map[string]string{"something": "value"}, ""))
+	assert.Equal(t, "value", metadataHeaderValue(map[string]string{"something": "value"}, "something"))
+
+	metadata := map[string]string{
+		"Content-Type":  "value1",
+		"content-type":  "value2",
+		"Content-type":  "value3",
+		"Cache-Control": "value4",
+		"cache-control": "value5",
+		"Cache-control": "value6",
+	}
+
+	assert.Equal(t, "value1", metadataHeaderValue(metadata, "Content-Type"))
+	assert.Equal(t, "value4", metadataHeaderValue(metadata, "Cache-Control"))
+	assert.Equal(t, "value1", metadataHeaderValue(metadata, "content-type"))
+	assert.Equal(t, "value4", metadataHeaderValue(metadata, "cache-control"))
+	assert.Equal(t, "value1", metadataHeaderValue(metadata, "Content-type"))
+	assert.Equal(t, "value4", metadataHeaderValue(metadata, "Cache-control"))
+
+	delete(metadata, "Content-Type")
+	delete(metadata, "Cache-Control")
+
+	assert.Equal(t, "value2", metadataHeaderValue(metadata, "Content-Type"))
+	assert.Equal(t, "value5", metadataHeaderValue(metadata, "Cache-Control"))
+	assert.Equal(t, "value2", metadataHeaderValue(metadata, "content-type"))
+	assert.Equal(t, "value5", metadataHeaderValue(metadata, "cache-control"))
+	assert.Equal(t, "value2", metadataHeaderValue(metadata, "Content-Type"))
+	assert.Equal(t, "value5", metadataHeaderValue(metadata, "Cache-control"))
+
+	delete(metadata, "content-type")
+	delete(metadata, "cache-control")
+
+	assert.Equal(t, "value3", metadataHeaderValue(metadata, "Content-Type"))
+	assert.Equal(t, "value6", metadataHeaderValue(metadata, "Cache-Control"))
+	assert.Equal(t, "value3", metadataHeaderValue(metadata, "content-type"))
+	assert.Equal(t, "value6", metadataHeaderValue(metadata, "cache-control"))
+	assert.Equal(t, "value3", metadataHeaderValue(metadata, "Content-type"))
+	assert.Equal(t, "value6", metadataHeaderValue(metadata, "Cache-control"))
+}
+
 func TestContentType(t *testing.T) {
 	testCases := []struct {
 		desc       string
-		object     *uplink.Object
+		key        string
+		metadata   map[string]string
 		detectType bool
 		expected   string
 	}{
 		{
 			desc:     "object with no metadata, no detection",
-			object:   &uplink.Object{Key: "test.gif"},
+			key:      "test.gif",
 			expected: "",
 		},
 		{
 			desc:       "object with no metadata, type detected",
-			object:     &uplink.Object{Key: "test.gif"},
+			key:        "test.gif",
 			detectType: true,
 			expected:   "image/gif",
 		},
 		{
 			desc: "object with Content-Type metadata, no detection",
-			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+			key:  "test.svg",
+			metadata: map[string]string{
 				"Content-Type": "custom/mime",
-			}},
+			},
 			expected: "custom/mime",
 		},
 		{
 			desc: "object with content-type metadata, no detection",
-			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+			key:  "test.svg",
+			metadata: map[string]string{
 				"content-type": "custom/mime",
-			}},
+			},
 			expected: "custom/mime",
 		},
 		{
 			desc: "object with default content-type application/octet-stream, type detected",
-			object: &uplink.Object{Key: "test.svg", Custom: map[string]string{
+			key:  "test.svg",
+			metadata: map[string]string{
 				"content-type": "application/octet-stream",
-			}},
+			},
 			detectType: true,
 			expected:   "image/svg+xml",
 		},
 		{
 			desc: "object with default content-type binary/octet-stream, type detected",
-			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+			key:  "test.png",
+			metadata: map[string]string{
 				"content-type": "binary/octet-stream",
-			}},
+			},
 			detectType: true,
 			expected:   "image/png",
 		},
 		{
 			desc: "object with default content-type application/octet-stream, no detection",
-			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+			key:  "test.png",
+			metadata: map[string]string{
 				"content-type": "application/octet-stream",
-			}},
+			},
 			expected: "application/octet-stream",
 		},
 		{
 			desc: "object with default content-type binary/octet-stream, no detection",
-			object: &uplink.Object{Key: "test.png", Custom: map[string]string{
+			key:  "test.png",
+			metadata: map[string]string{
 				"content-type": "binary/octet-stream",
-			}},
+			},
 			expected: "binary/octet-stream",
 		},
 		{
 			desc: "Content-Type overrides content-type, no detection",
-			object: &uplink.Object{Key: "test.txt", Custom: map[string]string{
+			key:  "test.txt",
+			metadata: map[string]string{
 				"Content-Type": "text/html",
 				"content-type": "text/plain",
-			}},
+			},
 			expected: "text/html",
 		},
 	}
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.expected, contentType(tc.object, tc.detectType))
+			require.Equal(t, tc.expected, contentType(tc.key, tc.metadata, tc.detectType))
 		})
 	}
+}
+
+func TestHasValue(t *testing.T) {
+	assert.False(t, hasValue(http.Header{}, "Content-Encoding", "gzip"))
+	assert.False(t, hasValue(http.Header{"Content-Encoding": []string{"deflate", "gzip"}}, "Content-Encoding", "a"))
+	assert.True(t, hasValue(http.Header{"Content-Encoding": []string{"deflate", "gzip"}}, "Content-Encoding", "deflate"))
+	assert.True(t, hasValue(http.Header{"Content-Encoding": []string{"deflate", "gzip"}}, "Content-Encoding", "gzip"))
 }
 
 func TestZipArchiveContentType(t *testing.T) {

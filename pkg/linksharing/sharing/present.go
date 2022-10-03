@@ -154,18 +154,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		}
 	}
 
-	// note: s3 stores metadata keys in lowercase, so we should check both.
-	// todo: canonicalize and support more headers as part of https://github.com/storj/gateway-mt/issues/196.
-	cacheControl := o.Custom["Cache-Control"]
-	if cacheControl == "" {
-		cacheControl = o.Custom["cache-control"]
-	}
-
 	if (download || !wrap) && !mapOnly {
 		if len(archivePath) > 0 { // handle zip archives
-			contentType := mime.TypeByExtension(filepath.Ext(archivePath))
-
-			handler.setHeaders(w, contentType, cacheControl, pr.hosting, archivePath)
+			handler.setHeaders(w, r, o.Custom, pr.hosting, archivePath)
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
 				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
@@ -179,8 +170,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			}
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
 		} else {
-			detectType := !hasValue(r.Header, "X-Content-Type-Options", "nosniff")
-			handler.setHeaders(w, contentType(o, detectType), cacheControl, pr.hosting, filepath.Base(o.Key))
+			handler.setHeaders(w, r, o.Custom, pr.hosting, filepath.Base(o.Key))
 			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
 		}
 		return nil
@@ -242,8 +232,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	return nil
 }
 
-func (handler *Handler) setHeaders(w http.ResponseWriter, contentType, cacheControl string, hosting bool, filename string) {
-	// Content-Type
+func (handler *Handler) setHeaders(w http.ResponseWriter, r *http.Request, metadata map[string]string, hosting bool, filename string) {
+	detectType := !hasValue(r.Header, "X-Content-Type-Options", "nosniff")
+	contentType := contentType(filename, metadata, detectType)
 	if contentType != "" {
 		if !handler.standardViewsHTML && !hosting && strings.Contains(strings.ToLower(contentType), "html") {
 			contentType = "text/plain"
@@ -252,11 +243,14 @@ func (handler *Handler) setHeaders(w http.ResponseWriter, contentType, cacheCont
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
-	// Cache-Control
-	w.Header().Set("Cache-Control", cacheControl)
-	// Content-Disposition
+
 	if !handler.standardRendersContent && !hosting {
 		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	}
+
+	cacheControl := metadataHeaderValue(metadata, "Cache-Control")
+	if cacheControl != "" {
+		w.Header().Set("Cache-Control", cacheControl)
 	}
 }
 
@@ -321,11 +315,25 @@ func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogI
 	return twitterImage, ogImage
 }
 
-func contentType(o *uplink.Object, detectType bool) (contentType string) {
-	contentType = o.Custom["Content-Type"]
-	if contentType == "" {
-		contentType = o.Custom["content-type"]
+func metadataHeaderValue(metadata map[string]string, header string) string {
+	// order of preference: canonical form (e.g. "Content-Type"), then
+	// all lowercase, then any other case.
+	if v, ok := metadata[http.CanonicalHeaderKey(header)]; ok {
+		return v
 	}
+	if v, ok := metadata[strings.ToLower(header)]; ok {
+		return v
+	}
+	for k, v := range metadata {
+		if strings.EqualFold(k, header) {
+			return v
+		}
+	}
+	return ""
+}
+
+func contentType(key string, metadata map[string]string, detectType bool) (contentType string) {
+	contentType = metadataHeaderValue(metadata, "Content-Type")
 
 	if detectType {
 		// AWS SDK does not automatically detect the content type and will set
@@ -336,7 +344,7 @@ func contentType(o *uplink.Object, detectType bool) (contentType string) {
 		}
 
 		if contentType == "" {
-			return mime.TypeByExtension(filepath.Ext(o.Key))
+			return mime.TypeByExtension(filepath.Ext(key))
 		}
 	}
 
