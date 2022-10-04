@@ -252,6 +252,11 @@ func (handler *Handler) setHeaders(w http.ResponseWriter, r *http.Request, metad
 	if cacheControl != "" {
 		w.Header().Set("Cache-Control", cacheControl)
 	}
+
+	contentEncoding := metadataHeaderValue(metadata, "Content-Encoding")
+	if contentEncoding != "" {
+		w.Header().Set("Content-Encoding", contentEncoding)
+	}
 }
 
 func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest) (_ bool, err error) {

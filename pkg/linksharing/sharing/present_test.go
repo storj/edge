@@ -23,24 +23,28 @@ import (
 
 func TestDownloadMetadataHeaders(t *testing.T) {
 	testCases := []struct {
-		desc                    string
-		cacheControlMetadataKey string
-		contentTypeMetadataKey  string
+		desc                       string
+		cacheControlMetadataKey    string
+		contentTypeMetadataKey     string
+		contentEncodingMetadataKey string
 	}{
 		{
-			desc:                    "lowercase",
-			cacheControlMetadataKey: "cache-control",
-			contentTypeMetadataKey:  "content-type",
+			desc:                       "lowercase",
+			cacheControlMetadataKey:    "cache-control",
+			contentTypeMetadataKey:     "content-type",
+			contentEncodingMetadataKey: "content-encoding",
 		},
 		{
-			desc:                    "capitalized",
-			cacheControlMetadataKey: "Cache-Control",
-			contentTypeMetadataKey:  "Content-Type",
+			desc:                       "capitalized",
+			cacheControlMetadataKey:    "Cache-Control",
+			contentTypeMetadataKey:     "Content-Type",
+			contentEncodingMetadataKey: "Content-Encoding",
 		},
 		{
-			desc:                    "mixed case",
-			cacheControlMetadataKey: "Cache-control",
-			contentTypeMetadataKey:  "Content-type",
+			desc:                       "mixed case",
+			cacheControlMetadataKey:    "Cache-control",
+			contentTypeMetadataKey:     "Content-type",
+			contentEncodingMetadataKey: "Content-encoding",
 		},
 	}
 	for _, tc := range testCases {
@@ -75,7 +79,8 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 
 			object.Key = "test"
 			object.Custom = uplink.CustomMetadata{
-				tc.cacheControlMetadataKey: "max-age=0, must-revalidate",
+				tc.cacheControlMetadataKey:    "max-age=0, must-revalidate",
+				tc.contentEncodingMetadataKey: "gzip",
 			}
 			err = handler.showObject(ctx, w, r, pr, project, object)
 			require.NoError(t, err)
@@ -85,6 +90,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 			require.Equal(t, "application/octet-stream", ctypes[0])
 
 			require.Equal(t, "max-age=0, must-revalidate", w.Header().Get("Cache-Control"))
+			require.Equal(t, "gzip", w.Header().Get("Content-Encoding"))
 
 			object.Custom = uplink.CustomMetadata{
 				tc.contentTypeMetadataKey: "image/somethingelse",

@@ -138,6 +138,7 @@ The following headers can be customized:
 
 * `Content-Type`
 * `Cache-Control`
+* `Content-Encoding`
 
 Linksharing will look for metadata header names in an object by the following order:
 
@@ -168,6 +169,16 @@ This header influences caching behavior of browsers and shared caches (e.g. prox
 Linksharing does not set a default for this header.
 
 See [Cache-Control - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Cache-Control) for more information.
+
+### Content-Encoding
+
+This header indicates any encoding applied to the content.
+
+This is useful for indicating already compressed content that should be decompressed by the client when downloaded from Linksharing. For example, for static web assets. In the case of a CSS file, you would compress the file and upload it with `Content-Type: text/css` and `Content-Encoding: gzip` as the metadata.
+
+Linksharing does not set a default for this header unless you are accessing a compressed zip file, in which case it will be set to `gzip`.
+
+See [Content-Encoding - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Encoding) for more information.
 
 ## LICENSE
 
