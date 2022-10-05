@@ -115,14 +115,14 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 	// the inserted record however we cannot ensure that it's actually such query
 	// which is returning the error so, we use a delete and get in a row to ensure
 	// it, see below.
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Second)
 
 	require.NoError(t, kv.Delete(ctx, keyHash), "delete")
 
 	// NOTE: The below query associated with GetWithNonDefaultAsOfInterval
-	// assumes that the previous Delete query took less than 100ms. This might
+	// assumes that the previous Delete query took less than 750ms. This might
 	// not always be true (TODO?), but the chances of this happening are tiny.
-	retrievedRecord, err := kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -200*time.Millisecond)
+	retrievedRecord, err := kv.GetWithNonDefaultAsOfInterval(ctx, keyHash, -750*time.Millisecond)
 	require.NoError(t, err, "get")
 
 	// Make sure that the query using 'AS OF SYSTEM TIME' clause query is
