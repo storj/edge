@@ -30,6 +30,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
+	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
 var mon = monkit.Package()
@@ -102,6 +103,7 @@ type Peer struct {
 //
 // TODO(artur): New and constructors, in general, shouldn't take context.Context
 // as a parameter.
+
 func New(ctx context.Context, log *zap.Logger, config Config, configDir string) (*Peer, error) {
 	if len(config.AllowedSatellites) == 0 {
 		return nil, errs.New("allowed satellites parameter '--allowed-satellites' is required")
@@ -150,8 +152,9 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
+	handleWithRequestId := middleware.AddRequestIds(handler)
 	// logging. do not log paths - paths have access keys in them.
-	handler = LogResponses(log, LogRequests(log, handler))
+	handler = LogResponses(log, LogRequests(log, handleWithRequestId))
 
 	drpcServer := drpcauth.NewServer(log, adb, endpoint, config.POSTSizeLimit)
 
@@ -203,12 +206,14 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 // LogRequests logs requests.
 func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
+
 		log.Info("request",
 			zap.String("protocol", r.Proto),
 			zap.String("method", r.Method),
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
 		)
+
 		h.ServeHTTP(w, r)
 	})
 }
@@ -234,6 +239,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				zap.String("method", r.Method),
 				zap.String("host", r.Host),
 				zap.Int("code", rw.StatusCode()),
+				zap.String("request-id", rw.Header().Get("X-Amz-Request-Id")),
 				zap.String("user-agent", r.UserAgent()),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),
