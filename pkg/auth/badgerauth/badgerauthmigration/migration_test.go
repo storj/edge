@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
@@ -32,8 +31,7 @@ func TestKV_Cockroach(t *testing.T) {
 }
 
 func testKV(t *testing.T, srcConnstr string) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
-		log := zaptest.NewLogger(t)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
 		src, err := sqlauth.OpenTest(ctx, log, t.Name(), srcConnstr)
 		require.NoError(t, err)
 		defer ctx.Check(src.Close)
@@ -171,8 +169,7 @@ func TestMigrateToLatest_Cockroach(t *testing.T) {
 }
 
 func testMigrateToLatest(t *testing.T, srcConnstr string) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
-		log := zaptest.NewLogger(t)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
 		src, err := sqlauth.OpenTest(ctx, log, t.Name(), srcConnstr)
 		require.NoError(t, err)
 		defer ctx.Check(src.Close)
@@ -237,8 +234,7 @@ func TestPutWithSkewedTimes_Cockroach(t *testing.T) {
 }
 
 func testPutWithSkewedTimes(t *testing.T, srcConnstr string) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
-		log := zaptest.NewLogger(t)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
 		src, err := sqlauth.OpenTest(ctx, log, t.Name(), srcConnstr)
 		require.NoError(t, err)
 		defer ctx.Check(src.Close)
@@ -297,12 +293,12 @@ func TestGetExpired_Cockroach(t *testing.T) {
 }
 
 func testGetExpired(t *testing.T, srcConnstr string) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
-		src, err := sqlauth.OpenTest(ctx, zap.NewNop(), t.Name(), srcConnstr)
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
+		src, err := sqlauth.OpenTest(ctx, log, t.Name(), srcConnstr)
 		require.NoError(t, err)
 		defer ctx.Check(src.Close)
 
-		kv := New(zap.NewNop(), src, node, Config{MigrationSelectSize: 1000})
+		kv := New(log, src, node, Config{MigrationSelectSize: 1000})
 
 		require.NoError(t, kv.PingDB(ctx))
 		require.NoError(t, src.MigrateToLatest(ctx))

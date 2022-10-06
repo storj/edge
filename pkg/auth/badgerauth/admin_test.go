@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
@@ -20,7 +21,7 @@ import (
 func TestNodeAdmin_InvalidateRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'a', 'd', 'm', 'i', 'n', 'v'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		admin := badgerauth.NewAdmin(node.UnderlyingDB())
 		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
 
@@ -68,7 +69,7 @@ func TestNodeAdmin_InvalidateRecord(t *testing.T) {
 func TestNodeAdmin_UnpublishRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'a', 'd', 'm', 'p', 'u', 'b'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		admin := badgerauth.NewAdmin(node.UnderlyingDB())
 		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
 
@@ -96,7 +97,7 @@ func TestNodeAdmin_UnpublishRecord(t *testing.T) {
 func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'a', 'd', 'm', 'e', 'x', 'p'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		admin := badgerauth.NewAdmin(node.UnderlyingDB())
 		key := authdb.KeyHash{'e', 'x', 'p'}
 		expiresAt := time.Unix(time.Now().Add(time.Second).Unix(), 0)
@@ -121,7 +122,7 @@ func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 func TestNodeAdmin_DeleteRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'a', 'd', 'm', 'd', 'e', 'l'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		admin := badgerauth.NewAdmin(node.UnderlyingDB())
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
 
