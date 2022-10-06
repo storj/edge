@@ -146,7 +146,7 @@ Linksharing will look for metadata header names in an object by the following or
 * `content-type` (all lowercase, typically how S3 gateway sets this header metadata on upload)
 * any other case that is found first in the list
 
-Metadata set through AWS S3 CLI or SDKs will be lowercase. Uplink currently does not automatically normalize these, so it is recommended to consistently use lowercase header names when setting metadata with Uplink if you're using both Uplink and S3 to interact with your storage.
+Metadata header names set through AWS S3 CLI or SDKs will be lowercase. Uplink currently does not automatically normalize these, so it is recommended to consistently use lowercase header names when setting metadata with Uplink if you're using both Uplink and S3 to interact with your storage.
 
 See sections below for further details.
 
@@ -154,11 +154,11 @@ See sections below for further details.
 
 This header indicates the media type of content.
 
-Linksharing will attempt to detect the type based on the object key extension if the header is not set in object metadata or if set to a default value of `application/octet-stream` or `binary/octet-stream` which S3 clients will usually set if a type has not been specified.
+If no type is set in metadata, Linksharing will attempt to detect the type based on the file extension of the object key. It will also detect if a default value of `application/octet-stream` or `binary/octet-stream` is set. S3 clients and SDKs typically set these defaults automatically if a type was not specified on upload.
 
-If you wish to avoid this detection when a default type is set, you can set `X-Content-Type-Options: nosniff` in the request headers.
+If you wish to avoid this detection on default types, you can set `X-Content-Type-Options: nosniff` in the request headers.
 
-If a type is missing from metadata entirely, a default will be set based on the file extension even if `X-Content-Type-Options: nosniff` is requested.
+If a type is missing from metadata entirely, a type will be set based on the file extension even if `X-Content-Type-Options: nosniff` is requested.
 
 See [Content-Type - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Type) for more information.
 
