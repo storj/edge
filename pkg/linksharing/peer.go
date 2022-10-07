@@ -57,7 +57,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	}
 
 	instrumentedHandle := middleware.Metrics("linksharing", handle)
-	handleWithRequestId := middleware.AddRequestIds(instrumentedHandle)
+	handleWithRequestId := middleware.AddRequestIds("linksharing", instrumentedHandle)
 
 	peer.Server, err = httpserver.New(log, handleWithRequestId, config.Server)
 	if err != nil {
