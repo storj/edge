@@ -29,7 +29,7 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	newHandler := AddRequestIds("linksharing", handler)
 	newHandler.ServeHTTP(rw, request)
 
-	require.NotEqual(t, "", rw.Header().Get("X-Storj-Request-Id"), "RequestId value is not set")
+	require.NotEqual(t, "", rw.Header().Get(XStorjRequestId), "RequestId value is not set")
 }
 
 func TestAddRequestIdsOnAuth(t *testing.T) {
@@ -49,6 +49,6 @@ func TestAddRequestIdsOnAuth(t *testing.T) {
 	newHandler := AddRequestIds("auth", handler)
 	newHandler.ServeHTTP(rw, request)
 
-	require.NotEqual(t, "", rw.Header().Get("X-Storj-Request-Id"), "RequestId value is not set")
-	require.Equal(t, "", rw.Header().Get("X-Storj-Parent-Request-Id"), "ParentRequestId value is incorrect")
+	require.NotEqual(t, "", rw.Header().Get(XStorjRequestId), "RequestId value is not set")
+	require.Equal(t, "", rw.Header().Get(XStorjParentRequestId), "ParentRequestId value is incorrect")
 }
