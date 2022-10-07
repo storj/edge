@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/spacemonkeygo/monkit/v3"
+
 	xhttp "storj.io/minio/cmd/http"
 )
 
