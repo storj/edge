@@ -17,39 +17,37 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", "", http.NoBody)
 	require.NoError(t, err)
 
 	rw := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-
 	})
 
 	newHandler := AddRequestIds("linksharing", handler)
 	newHandler.ServeHTTP(rw, request)
 
-	require.NotEqual(t, "", rw.Header().Get(XStorjRequestId), "RequestId value is not set")
+	require.NotEqual(t, "", rw.Header().Get(XStorjRequestID), "RequestId value is not set")
 }
 
 func TestAddRequestIdsOnAuth(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", "", http.NoBody)
 	require.NoError(t, err)
 
 	rw := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-
 	})
 
 	newHandler := AddRequestIds("auth", handler)
 	newHandler.ServeHTTP(rw, request)
 
-	require.NotEqual(t, "", rw.Header().Get(XStorjRequestId), "RequestId value is not set")
-	require.Equal(t, "", rw.Header().Get(XStorjParentRequestId), "ParentRequestId value is incorrect")
+	require.NotEqual(t, "", rw.Header().Get(XStorjRequestID), "RequestId value is not set")
+	require.Equal(t, "", rw.Header().Get(XStorjParentRequestID), "ParentRequestId value is incorrect")
 }
