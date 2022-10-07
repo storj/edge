@@ -152,7 +152,8 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	handleWithRequestId := middleware.AddRequestIds(handler)
+	handleWithRequestId := middleware.AddRequestIds("auth", handler)
+
 	// logging. do not log paths - paths have access keys in them.
 	handler = LogResponses(log, LogRequests(log, handleWithRequestId))
 
@@ -222,6 +223,7 @@ func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 	return whmon.MonitorResponse(whroute.HandlerFunc(h,
 		func(w http.ResponseWriter, r *http.Request) {
+
 			rw := w.(whmon.ResponseWriter)
 			start := time.Now()
 			h.ServeHTTP(rw, r)
@@ -239,7 +241,8 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				zap.String("method", r.Method),
 				zap.String("host", r.Host),
 				zap.Int("code", rw.StatusCode()),
-				zap.String("request-id", rw.Header().Get("X-Amz-Request-Id")),
+				zap.String("parent-request-id", rw.Header().Get("X-Storj-Parent-Request-Id")),
+				zap.String("request-id", rw.Header().Get("X-Storj-Request-Id")),
 				zap.String("user-agent", r.UserAgent()),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),
