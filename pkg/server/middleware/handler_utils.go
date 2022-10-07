@@ -13,15 +13,18 @@ import (
 )
 
 const (
+	// Response request id and Parent request Id (only used for auth service)
 	XStorjRequestId       = "X-Storj-Request-Id"
 	XStorjParentRequestId = "X-Storj-Parent-Request-Id"
 )
 
-// Uses the field XStorjRequestId to set unique request Ids in the response headers for each request.
+// AddRequestIds uses XStorjRequestId field to set unique request Ids,
+// in the response headers for each request of auth and linksharing service.
+// It also mantains calling service request Id in the XStorjParentRequestId field in auth service response header.
 func AddRequestIds(service string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		//Storing calling service requestId as ParentRequestID for auth service
+		// Storing calling service requestId as ParentRequestID for auth service
 		if service == "auth" {
 			if w.Header().Get(XStorjRequestId) != "" {
 				w.Header().Set(XStorjParentRequestId, w.Header().Get(XStorjRequestId))
@@ -35,7 +38,6 @@ func AddRequestIds(service string, h http.Handler) http.Handler {
 
 		trace := monkit.NewTrace(monkit.NewId())
 		w.Header().Set(XStorjRequestId, fmt.Sprintf("%x", trace.Id()))
-		//zap.S().Info("ParentRequestIs: %s and RequestId: %s", xhttp.XStorjParentRequestId, xhttp.XStorjRequestId)
 		h.ServeHTTP(w, r)
 
 	})
