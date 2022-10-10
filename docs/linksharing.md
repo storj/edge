@@ -158,7 +158,7 @@ If no type is set in metadata, Linksharing will attempt to detect the type based
 
 If you wish to avoid this detection on default types, you can set `X-Content-Type-Options: nosniff` in the request headers.
 
-If a type is missing from metadata entirely, a type will be set based on the file extension even if `X-Content-Type-Options: nosniff` is requested.
+If a type is missing from metadata and detection is disabled, then type defaults to `application/octet-stream`.
 
 See [Content-Type - HTTP - MDN Web Docs](https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Type) for more information.
 
