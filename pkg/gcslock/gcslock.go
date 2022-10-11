@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -33,10 +34,11 @@ const (
 	mutexLocked      = 1
 )
 
-// Error is the error class for this package.
-var Error errs.Class = "gcslock"
-
-// TODO(artur): where's monkit?!
+var (
+	// Error is the error class for this package.
+	Error errs.Class = "gcslock"
+	mon              = monkit.Package()
+)
 
 // Mutex is a distributed lock implemented on top of Google Cloud Storage.
 // NewMutex or NewDefaultMutex should always be used to construct a Mutex.
@@ -55,7 +57,9 @@ type Mutex struct {
 }
 
 // Lock locks m.
-func (m *Mutex) Lock(ctx context.Context) error {
+func (m *Mutex) Lock(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for {
 		// Step 1: create the object at the given URL
 		resp, err := m.put(ctx)
@@ -100,7 +104,9 @@ func (m *Mutex) Lock(ctx context.Context) error {
 }
 
 // Unlock unlocks m.
-func (m *Mutex) Unlock(ctx context.Context) error {
+func (m *Mutex) Unlock(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Step 1: stop refreshing the lock in the background
 	m.refreshCycle.Close()
 	if err := m.refreshGroup.Wait(); err != nil {
@@ -131,7 +137,9 @@ func NewMutex(
 	jsonKey []byte,
 	name, bucket string,
 	ttl, refreshInterval time.Duration,
-) (*Mutex, error) {
+) (_ *Mutex, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	c, err := google.CredentialsFromJSON(ctx, jsonKey, "https://www.googleapis.com/auth/devstorage.full_control")
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -159,11 +167,15 @@ func NewDefaultMutex(
 	ctx context.Context,
 	jsonKey []byte,
 	name, bucket string,
-) (*Mutex, error) {
+) (_ *Mutex, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return NewMutex(ctx, jsonKey, name, bucket, 5*time.Minute, 37*time.Second)
 }
 
-func (m *Mutex) put(ctx context.Context) (*http.Response, error) {
+func (m *Mutex) put(ctx context.Context) (_ *http.Response, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	u := xmlAPIEndpoint(m.bucket, m.name)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, nil)
@@ -184,7 +196,9 @@ func (m *Mutex) put(ctx context.Context) (*http.Response, error) {
 // configurable, i.e., it should be allowed to fail, e.g., 3x at maximum).
 //
 // NOTE(artur): unfortunately, we have to use JSON API for this, not XML.
-func (m *Mutex) refresh(ctx context.Context) error {
+func (m *Mutex) refresh(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	reqData := struct {
 		Metadata map[string]string `json:"metadata"`
 	}{
@@ -235,7 +249,9 @@ func (m *Mutex) refresh(ctx context.Context) error {
 	return nil
 }
 
-func (m *Mutex) head(ctx context.Context) (*http.Response, error) {
+func (m *Mutex) head(ctx context.Context) (_ *http.Response, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	u := xmlAPIEndpoint(m.bucket, m.name)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
@@ -248,6 +264,8 @@ func (m *Mutex) head(ctx context.Context) (*http.Response, error) {
 
 // shouldWait treats every error as transient.
 func (m *Mutex) shouldWait(ctx context.Context, statusCode int, headers http.Header) bool {
+	defer mon.Task()(&ctx)(nil)
+
 	if statusCode != http.StatusOK {
 		return statusCode != http.StatusNotFound
 	}
@@ -272,7 +290,9 @@ func (m *Mutex) shouldWait(ctx context.Context, statusCode int, headers http.Hea
 	return true
 }
 
-func (m *Mutex) delete(ctx context.Context, metageneration string) (*http.Response, error) {
+func (m *Mutex) delete(ctx context.Context, metageneration string) (_ *http.Response, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	u := xmlAPIEndpoint(m.bucket, m.name)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
