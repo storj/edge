@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -25,7 +26,7 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		rawconn, err := (&net.Dialer{}).DialContext(ctx, "tcp", node.Address())
 		require.NoError(t, err)
 		conn := drpcconn.New(rawconn)
@@ -58,7 +59,7 @@ func TestServerCerts(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		CertsDir: certsctx.Dir("alpha"),
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		config, err := badgerauth.TLSOptions{CertsDir: certsctx.Dir("beta")}.Load()
 		require.NoError(t, err)
 

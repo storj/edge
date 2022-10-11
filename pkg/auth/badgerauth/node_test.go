@@ -10,6 +10,7 @@ import (
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/rpc/rpcstatus"
@@ -24,7 +25,7 @@ func TestNode_Replicate_EmptyRequestResponse(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'t', 'e', 's', 't'},
 		ReplicationLimit: 123,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		// empty request/response
 		badgerauthtest.Replicate{
 			Request: &pb.ReplicationRequest{},
@@ -74,7 +75,7 @@ func TestNode_Replicate_OverlappingNodeIDs(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'a', 'a'},
 		ReplicationLimit: 123,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		badgerauthtest.Put{
 			KeyHash: authdb.KeyHash{'k', 'h'},
 			Record:  &authdb.Record{},
@@ -102,7 +103,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID:               badgerauth.NodeID{'a'},
 		ReplicationLimit: 25,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
 		// test's outline:
 		//  1. node A knows about nodes A B C D
 		//  2. another node requests information about A B C D E from A
@@ -151,7 +152,6 @@ func TestNode_Replicate_Basic(t *testing.T) {
 		}
 
 		require.NoError(t, node.UnderlyingDB().UnderlyingDB().Update(func(txn *badger.Txn) error {
-			log := zaptest.NewLogger(t)
 			for i := 52; i < 100; i++ {
 				id := badgerauth.NodeID{'c'}
 				kh := authdb.KeyHash{byte(i)}
@@ -270,7 +270,7 @@ func TestNode_Replicate_Basic(t *testing.T) {
 func TestNode_PeekRecord(t *testing.T) {
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: badgerauth.NodeID{'p', 'e', 'e', 'k'},
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		records, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, node, 2)
 
 		_, err := node.Peek(ctx, &pb.PeekRequest{EncryptionKeyHash: []byte{}})
@@ -329,6 +329,7 @@ func TestNew_BadNodeID(t *testing.T) {
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
 	cfg := badgerauth.Config{
 		ID:         badgerauth.NodeID{'a'},
 		FirstStart: true,
@@ -354,6 +355,7 @@ func TestNew_CheckFirstStart(t *testing.T) {
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
 	cfg := badgerauth.Config{
 		FirstStart: false,
 	}

@@ -51,7 +51,7 @@ func testKVFullCycle(t *testing.T, connStr string) {
 
 		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.
-		expAt := time.Now().UTC().Round(time.Second)
+		expAt := time.Now().Add(time.Hour).UTC().Round(time.Second)
 		record.ExpiresAt = &expAt
 		record.Public = true
 	}
@@ -105,7 +105,7 @@ func TestKV_CrdbAsOfSystemInterval(t *testing.T) {
 
 		// Round to a second for avoiding mismatches with monotonic clock
 		// differences.
-		expAt := time.Now().UTC().Round(time.Second)
+		expAt := time.Now().Add(time.Hour).UTC().Round(time.Second)
 		record.ExpiresAt = &expAt
 		record.Public = true
 	}

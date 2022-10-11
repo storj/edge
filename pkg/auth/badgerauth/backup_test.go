@@ -12,6 +12,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
@@ -41,7 +42,7 @@ func TestBackupRestore(t *testing.T) {
 				Interval: 1 * time.Hour,
 			},
 		},
-		func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+		func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 			node.Backup.Client = &s3Client
 			expectedRecords, _, expectedEntries = badgerauthtest.CreateFullRecords(ctx, t, node, 10)
 			node.Backup.SyncCycle.TriggerWait()
@@ -51,6 +52,7 @@ func TestBackupRestore(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
 	cfg := badgerauth.Config{
 		ID:                 badgerauth.NodeID{'a'},
 		FirstStart:         true,
