@@ -17,13 +17,14 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", "", http.NoBody)
+	request, err := http.NewRequestWithContext(ctx, "GET", "", nil)
 	require.NoError(t, err)
 
 	rw := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+
 	})
 
 	newHandler := AddRequestIds("linksharing", handler)
@@ -36,13 +37,14 @@ func TestAddRequestIdsOnAuth(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", "", http.NoBody)
+	request, err := http.NewRequestWithContext(ctx, "GET", "", nil)
 	require.NoError(t, err)
 
 	rw := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+
 	})
 
 	newHandler := AddRequestIds("auth", handler)

@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	// Response request id.
+	// XStorjRequestID is the response request id.
 	XStorjRequestID = "X-Storj-Request-Id"
-	// Parent request Id for auth service.
+	// XStorjParentRequestID is the parent request Id for auth service.
 	XStorjParentRequestID = "X-Storj-Parent-Request-Id"
 )
 
