@@ -31,7 +31,6 @@ import (
 const (
 	expirationHeader = "x-goog-meta-expiration"
 	gcsURL           = "https://storage.googleapis.com"
-	mutexLocked      = 1
 )
 
 var (
@@ -108,7 +107,10 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Step 1: stop refreshing the lock in the background
-	m.refreshCycle.Close()
+	if m.refreshCycle != nil {
+		m.refreshCycle.Close()
+		m.refreshCycle = nil
+	}
 	if err := m.refreshGroup.Wait(); err != nil {
 		return Error.Wrap(err) // TODO(artur): ✓ just log it
 	}
