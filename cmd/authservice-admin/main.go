@@ -70,7 +70,7 @@ func (cmd *cmdShow) Setup(params clingy.Parameters) {
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
-func (cmd *cmdShow) Execute(ctx clingy.Context) error {
+func (cmd *cmdShow) Execute(ctx context.Context) error {
 	record, err := client.New(cmd.clientConfig, logger).Get(ctx, cmd.key)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (cmd *cmdInvalidate) Setup(params clingy.Parameters) {
 	cmd.reason = params.Arg("reason", "invalidation reason").(string)
 }
 
-func (cmd *cmdInvalidate) Execute(ctx clingy.Context) error {
+func (cmd *cmdInvalidate) Execute(ctx context.Context) error {
 	return client.New(cmd.clientConfig, logger).Invalidate(ctx, cmd.key, cmd.reason)
 }
 
@@ -114,7 +114,7 @@ func (cmd *cmdUnpublish) Setup(params clingy.Parameters) {
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
-func (cmd *cmdUnpublish) Execute(ctx clingy.Context) error {
+func (cmd *cmdUnpublish) Execute(ctx context.Context) error {
 	return client.New(cmd.clientConfig, logger).Unpublish(ctx, cmd.key)
 }
 
@@ -129,7 +129,7 @@ func (cmd *cmdDelete) Setup(params clingy.Parameters) {
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
-func (cmd *cmdDelete) Execute(ctx clingy.Context) error {
+func (cmd *cmdDelete) Execute(ctx context.Context) error {
 	return client.New(cmd.clientConfig, logger).Delete(ctx, cmd.key)
 }
 

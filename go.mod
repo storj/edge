@@ -12,11 +12,11 @@ require (
 	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.19
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221005143214-d1a4a14fa263
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
-	github.com/zeebo/clingy v0.0.0-20220412150312-389f1ba2553d
+	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
