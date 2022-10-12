@@ -11,6 +11,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
@@ -22,7 +23,7 @@ import (
 )
 
 func TestKV(t *testing.T) {
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		r1 := authdb.Record{
 			SatelliteAddress:     "test satellite address 1",
 			MacaroonHead:         []byte{'v', 'e', 'r', 'y'},
@@ -128,7 +129,7 @@ func TestClockState(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: nodeID,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		r := authdb.Record{
 			SatelliteAddress:     "test",
 			MacaroonHead:         []byte{'t', 'e', 's', 't'},
@@ -187,7 +188,7 @@ func TestKVParallel(t *testing.T) {
 		ops = 1000
 	}
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		db := node.UnderlyingDB()
 
 		ctx.Go(func() error {
@@ -238,7 +239,7 @@ func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
 
 	var err error
 
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		db := node.UnderlyingDB()
 
 		_, _, _, err = db.DeleteUnused(ctx, 0, 0, 0)
@@ -270,7 +271,7 @@ func TestBasicCycle(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: id,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		var currentReplicationLogEntries []badgerauthtest.ReplicationLogEntryWithTTL
 		// verify replication log (empty)
 		badgerauthtest.VerifyReplicationLog{
@@ -361,7 +362,7 @@ func TestBasicCycleWithExpiration(t *testing.T) {
 
 	badgerauthtest.RunSingleNode(t, badgerauth.Config{
 		ID: id,
-	}, func(ctx *testcontext.Context, t *testing.T, node *badgerauth.Node) {
+	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		// construct current time used in this test so that it is stripped of
 		// the number of nanoseconds and the monotonic clock reading.
 		now := time.Unix(time.Now().Unix(), 0)
@@ -424,6 +425,7 @@ func TestOpenDB_BadNodeID(t *testing.T) {
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
 	cfg := badgerauth.Config{
 		ID:         badgerauth.NodeID{'a'},
 		FirstStart: true,
@@ -448,6 +450,7 @@ func TestOpenDB_CheckFirstStart(t *testing.T) {
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
 	cfg := badgerauth.Config{
 		FirstStart: false,
 	}
