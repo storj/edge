@@ -151,7 +151,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	handleWithRequestId := middleware.AddRequestIds("auth", handler)
+	handleWithRequestId := middleware.AddRequestIds(handler)
 	// logging. do not log paths - paths have access keys in them.
 	handler = LogResponses(log, LogRequests(log, handleWithRequestId))
 
