@@ -14,6 +14,7 @@ import (
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/gateway-mt/pkg/pkgmiddleware"
 	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
@@ -57,7 +58,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	}
 
 	instrumentedHandle := middleware.Metrics("linksharing", handle)
-	handleWithRequestId := middleware.AddRequestIds(instrumentedHandle)
+	handleWithRequestId := pkgmiddleware.AddRequestIds(instrumentedHandle)
 
 	peer.Server, err = httpserver.New(log, handleWithRequestId, config.Server)
 	if err != nil {
