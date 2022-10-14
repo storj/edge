@@ -43,6 +43,11 @@ func GetReqID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
+
+	if ctx.Value(RequestIDKey) == nil {
+		return ""
+	}
+
 	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
 		return reqID
 	}
@@ -51,6 +56,10 @@ func GetReqID(ctx context.Context) string {
 
 // AddReqIDHeader adds the request ID from the context to the response header.
 func AddReqIDHeader(ctx context.Context, resp *http.Response) {
+	if resp == nil {
+		return
+	}
+
 	// Ideally, the context should always have request ID, since it is being set in the middleware.
 	resp.Header.Set(XStorjRequestID, GetReqID(ctx))
 }
