@@ -23,7 +23,7 @@ const (
 )
 
 // AddRequestID uses XStorjRequestId field to set unique request Ids
-// in the response headers for each request of auth and linksharing service, if it dosen't alreasy exist
+// in the response headers for each request of auth and linksharing service, if it dosen't alreasy exist.
 func AddRequestID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -49,7 +49,7 @@ func GetReqID(ctx context.Context) string {
 	return ""
 }
 
-// AddRequestIDHeader adds the request ID from the context to the response header.
+// AddReqIDHeader adds the request ID from the context to the response header.
 func AddReqIDHeader(ctx context.Context, resp *http.Response) {
 	// Ideally, the context should always have request ID, since it is being set in the middleware.
 	resp.Header.Set(XStorjRequestID, GetReqID(ctx))
