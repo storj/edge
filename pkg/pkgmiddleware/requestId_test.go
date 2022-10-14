@@ -34,6 +34,7 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	newHandler.ServeHTTP(rw, request)
 
 	require.NotEqual(t, "", rw.Header().Get(XStorjRequestID), "RequestId value is not set")
+	require.NotNil(t, "", reqContext.Value(RequestIDKey), "RequestId should not be nil")
 	require.NotEqual(t, "", reqContext.Value(RequestIDKey).(string), "RequestId not set in Context")
 }
 
