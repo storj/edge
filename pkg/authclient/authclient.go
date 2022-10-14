@@ -60,7 +60,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	for {
 		resp, err := client.Do(req)
-		pkgmiddleware.AddReqIdHeader(ctx, resp)
+		pkgmiddleware.AddReqIDHeader(ctx, resp)
 
 		if err != nil {
 			if !delay.Maxed() {

@@ -19,21 +19,22 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", "", http.NoBody)
 	require.NoError(t, err)
 
 	rw := httptest.NewRecorder()
+	var reqContext context.Context = nil
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-
+		reqContext = r.Context()
 	})
 
-	newHandler := AddRequestIds(handler)
+	newHandler := AddRequestID(handler)
 	newHandler.ServeHTTP(rw, request)
 
 	require.NotEqual(t, "", rw.Header().Get(XStorjRequestID), "RequestId value is not set")
-	require.NotEqual(t, "", ctx.Value(RequestIDKey).(string), "RequestId not set in Context")
+	require.NotEqual(t, "", reqContext.Value(RequestIDKey).(string), "RequestId not set in Context")
 }
 
 func TestAddRequestIdsOnAuth(t *testing.T) {
@@ -45,7 +46,7 @@ func TestAddRequestIdsOnAuth(t *testing.T) {
 
 	responseRecorder := httptest.NewRecorder()
 	response := responseRecorder.Result()
-	AddReqIdHeader(reqctx, response)
+	AddReqIDHeader(reqctx, response)
 
 	fmt.Printf("\n\nRequest ID: %s", response.Header.Get(XStorjRequestID))
 
