@@ -5,7 +5,6 @@ package pkgmiddleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -48,8 +47,6 @@ func TestAddRequestIDHeader(t *testing.T) {
 	responseRecorder := httptest.NewRecorder()
 	response := responseRecorder.Result()
 	AddReqIDHeader(reqctx, response)
-
-	fmt.Printf("\n\nRequest ID: %s", response.Header.Get(XStorjRequestID))
 
 	require.Equal(t, requestID, response.Header.Get(XStorjRequestID), "RequestID value is not set")
 	require.NotNil(t, reqctx.Value(RequestIDKey))
