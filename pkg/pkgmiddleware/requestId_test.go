@@ -15,7 +15,7 @@ import (
 	"storj.io/common/testcontext"
 )
 
-func TestAddRequestIdsOnLinksharing(t *testing.T) {
+func TestAddRequestIDLinksharing(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -38,7 +38,7 @@ func TestAddRequestIdsOnLinksharing(t *testing.T) {
 	require.NotEqual(t, "", reqContext.Value(RequestIDKey).(string), "RequestId not set in Context")
 }
 
-func TestAddRequestIdsOnAuth(t *testing.T) {
+func TestAddRequestIDAuth(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
