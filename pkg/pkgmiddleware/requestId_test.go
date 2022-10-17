@@ -51,7 +51,7 @@ func TestAddRequestIdsOnAuth(t *testing.T) {
 
 	fmt.Printf("\n\nRequest ID: %s", response.Header.Get(XStorjRequestID))
 
-	require.Equal(t, requestID, response.Header.Get(XStorjRequestID), "RequestId value is not set")
+	require.Equal(t, requestID, response.Header.Get(XStorjRequestID), "RequestID value is not set")
 	require.NotNil(t, reqctx.Value(RequestIDKey))
-	require.Equal(t, requestID, reqctx.Value(RequestIDKey).(string), "RequestId not set in Context")
+	require.Equal(t, requestID, reqctx.Value(RequestIDKey).(string), "RequestID not set in Context")
 }
