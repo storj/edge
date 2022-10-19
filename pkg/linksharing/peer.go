@@ -14,7 +14,7 @@ import (
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
-	"storj.io/gateway-mt/pkg/pkgmiddleware"
+	pkgmiddleware "storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/server/middleware"
 )
 

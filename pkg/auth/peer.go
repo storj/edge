@@ -30,7 +30,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
-	"storj.io/gateway-mt/pkg/pkgmiddleware"
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
@@ -151,7 +151,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	handleWithRequestId := pkgmiddleware.AddRequestID(handler)
+	handleWithRequestId := middleware.AddRequestID(handler)
 	// logging. do not log paths - paths have access keys in them.
 	handler = LogResponses(log, LogRequests(log, handleWithRequestId))
 
@@ -236,7 +236,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				zap.String("method", r.Method),
 				zap.String("host", r.Host),
 				zap.Int("code", rw.StatusCode()),
-				zap.String("request-id", rw.Header().Get("X-Storj-Request-Id")),
+				zap.String("request-id", middleware.GetReqID(r.Context())),
 				zap.String("user-agent", r.UserAgent()),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),

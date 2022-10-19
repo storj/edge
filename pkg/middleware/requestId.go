@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package pkgmiddleware
+package middleware
 
 import (
 	"context"
@@ -11,15 +11,12 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 )
 
-// Key to use when setting the request ID.
-type ctxKeyRequestID string
+// RequestIDKey is the key that holds the unique request ID in a request context.
+type RequestIDKey struct{}
 
 const (
 	// XStorjRequestID is the header key for the request ID.
 	XStorjRequestID = "X-Storj-Request-Id"
-
-	// RequestIDKey is the key that holds the unique request ID in a request context.
-	RequestIDKey ctxKeyRequestID = "request-id"
 )
 
 // AddRequestID uses XStorjRequestId field to set unique request Ids
@@ -27,13 +24,16 @@ const (
 func AddRequestID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if w.Header().Get(XStorjRequestID) == "" {
-			trace := monkit.NewTrace(monkit.NewId())
-			requestID := fmt.Sprintf("%x", trace.Id())
-			w.Header().Set(XStorjRequestID, requestID)
-			ctx = context.WithValue(ctx, RequestIDKey, requestID)
+		if r.Header.Get(XStorjRequestID) != "" {
+			ctx = context.WithValue(ctx, RequestIDKey{}, r.Header.Get(XStorjRequestID))
+			h.ServeHTTP(w, r.WithContext(ctx))
+			return
 		}
 
+		trace := monkit.NewTrace(monkit.NewId())
+		requestID := fmt.Sprintf("%x", trace.Id())
+		w.Header().Set(XStorjRequestID, requestID)
+		ctx = context.WithValue(ctx, RequestIDKey{}, requestID)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -44,11 +44,11 @@ func GetReqID(ctx context.Context) string {
 		return ""
 	}
 
-	if ctx.Value(RequestIDKey) == nil {
+	if ctx.Value(RequestIDKey{}) == nil {
 		return ""
 	}
 
-	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
+	if reqID, ok := ctx.Value(RequestIDKey{}).(string); ok {
 		return reqID
 	}
 	return ""

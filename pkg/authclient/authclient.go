@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/pkgmiddleware"
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
@@ -60,7 +60,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	for {
 		resp, err := client.Do(req)
-		pkgmiddleware.AddReqIDHeader(ctx, resp)
+		middleware.AddReqIDHeader(ctx, resp)
 
 		if err != nil {
 			if !delay.Maxed() {
