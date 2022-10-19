@@ -20,16 +20,16 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20220822090045-1b57fc2bbda1
+	storj.io/common v0.0.0-20221018143517-9eb8213fe465
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.3-0.20220825161942-aeb1c5d7a749
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
 	storj.io/private v0.0.0-20220915132359-957cab776577
-	storj.io/uplink v1.9.1-0.20220926210601-997e38a1e257
+	storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -96,6 +96,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/jtolio/eventkit v0.0.0-20221004135224-074cf276595b // indirect
 	github.com/klauspost/compress v1.14.3 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
