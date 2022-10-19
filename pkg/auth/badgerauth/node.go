@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/sync2"
 	"storj.io/drpc/drpcconn"
@@ -606,9 +607,9 @@ func (peer *Peer) withClient(ctx context.Context, fn func(ctx context.Context, c
 
 	var conn *rpc.Conn
 	if !peer.node.config.InsecureDisableTLS {
-		conn, err = peer.node.pooledDialer.DialAddressHostnameVerification(ctx, peer.address)
+		conn, err = peer.node.pooledDialer.DialAddressHostnameVerification(rpcpool.WithForceDial(ctx), peer.address)
 	} else {
-		conn, err = peer.node.pooledDialer.DialAddressUnencrypted(ctx, peer.address)
+		conn, err = peer.node.pooledDialer.DialAddressUnencrypted(rpcpool.WithForceDial(ctx), peer.address)
 	}
 	dialFinished(&err)
 
