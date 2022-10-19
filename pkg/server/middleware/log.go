@@ -34,6 +34,7 @@ func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Ha
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
 			zap.String("remote-ip", getRemoteIP(r)),
+			zap.Int64("request-content-length", r.ContentLength),
 		}
 
 		if insecureLogPaths {
