@@ -44,11 +44,12 @@ func TestAddRequestIDHeader(t *testing.T) {
 	requestID := "test-request-id"
 	reqctx := context.WithValue(ctx, RequestIDKey{}, requestID)
 
-	responseRecorder := httptest.NewRecorder()
-	response := responseRecorder.Result()
-	AddReqIDHeader(reqctx, response)
+	request, err := http.NewRequestWithContext(reqctx, "GET", "", http.NoBody)
+	require.NoError(t, err)
 
-	require.Equal(t, requestID, response.Header.Get(XStorjRequestID), "RequestID value is not set")
+	AddReqIDHeader(request)
+
+	require.Equal(t, requestID, request.Header.Get(XStorjRequestID), "RequestID value is not set")
 	require.NotNil(t, reqctx.Value(RequestIDKey{}))
 	require.Equal(t, requestID, reqctx.Value(RequestIDKey{}).(string), "RequestID not set in Context")
 }

@@ -23,17 +23,13 @@ const (
 // in the response headers for each request of auth and linksharing service, if it dosen't alreasy exist.
 func AddRequestID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		if r.Header.Get(XStorjRequestID) != "" {
-			ctx = context.WithValue(ctx, RequestIDKey{}, r.Header.Get(XStorjRequestID))
-			h.ServeHTTP(w, r.WithContext(ctx))
-			return
+		requestID := r.Header.Get(XStorjRequestID)
+		if requestID == "" {
+			requestID = fmt.Sprintf("%x", monkit.NewId())
 		}
 
-		trace := monkit.NewTrace(monkit.NewId())
-		requestID := fmt.Sprintf("%x", trace.Id())
 		w.Header().Set(XStorjRequestID, requestID)
-		ctx = context.WithValue(ctx, RequestIDKey{}, requestID)
+		ctx := context.WithValue(r.Context(), RequestIDKey{}, requestID)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -54,12 +50,12 @@ func GetReqID(ctx context.Context) string {
 	return ""
 }
 
-// AddReqIDHeader adds the request ID from the context to the response header.
-func AddReqIDHeader(ctx context.Context, resp *http.Response) {
-	if resp == nil {
+// AddReqIDHeader adds the request ID from the context to the request header.
+func AddReqIDHeader(req *http.Request) {
+	if req == nil {
 		return
 	}
 
 	// Ideally, the context should always have request ID, since it is being set in the middleware.
-	resp.Header.Set(XStorjRequestID, GetReqID(ctx))
+	req.Header.Set(XStorjRequestID, GetReqID(req.Context()))
 }

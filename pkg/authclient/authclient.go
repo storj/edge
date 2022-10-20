@@ -52,6 +52,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
+	middleware.AddReqIDHeader(req)
 
 	delay := a.BackOff
 	client := http.Client{
@@ -60,7 +61,6 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	for {
 		resp, err := client.Do(req)
-		middleware.AddReqIDHeader(ctx, resp)
 
 		if err != nil {
 			if !delay.Maxed() {
