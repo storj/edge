@@ -21,14 +21,14 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20221019144311-705673f51b62
+	storj.io/common v0.0.0-20221019194537-83504d6cb1c1
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
-	storj.io/gateway v1.8.3-0.20220825161942-aeb1c5d7a749
+	storj.io/gateway v1.8.3-0.20221020152109-1c6075e292f7
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b
-	storj.io/private v0.0.0-20220915132359-957cab776577
+	storj.io/private v0.0.0-20221019181214-bb056017e937
 	storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
@@ -190,5 +190,5 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
+	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 )
