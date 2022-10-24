@@ -8,6 +8,7 @@ import (
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -57,7 +58,8 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	instrumentedHandle := middleware.Metrics("linksharing", handle)
+	handleWithTracing := http.TraceHandler(handle, mon)
+	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
 	handleWithRequestID := pkgmiddleware.AddRequestID(instrumentedHandle)
 
 	peer.Server, err = httpserver.New(log, handleWithRequestID, config.Server)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
+	mhttp "github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/webhelp.v1/whroute"
@@ -83,6 +84,9 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	}
 	minio.RegisterAPIRouter(r, layer, domainNames, concurrentAllowed, corsAllowedOrigins)
 
+	r.Use(func(handler http.Handler) http.Handler {
+		return mhttp.TraceHandler(handler, mon)
+	})
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(minio.GlobalHandlers...)
