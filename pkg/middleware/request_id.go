@@ -32,7 +32,7 @@ func AddRequestID(h http.Handler) http.Handler {
 	})
 }
 
-// GetReqID returns the request ID from the context.
+// GetRequestID returns the request ID from the context.
 func GetRequestID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -44,7 +44,7 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
-// AddReqIDHeader adds the request ID from the context to the request header.
+// AddRequestIDToHeaders adds the request ID from the context to the request header.
 func AddRequestIDToHeaders(req *http.Request) {
 	if req == nil {
 		return
