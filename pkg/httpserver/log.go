@@ -61,7 +61,7 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				// we are deliberately not logging the request URI as it has
 				// sensitive information in it.
 				zap.Int("code", code),
-				zap.String("request-id", middleware.GetReqID(r.Context())),
+				zap.String("request-id", middleware.GetRequestID(r.Context())),
 				zap.String("user-agent", r.UserAgent()),
 				zap.String("remote-ip", remoteIP(r)),
 				zap.Int64("content-length", r.ContentLength),

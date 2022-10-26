@@ -12,15 +12,13 @@ import (
 )
 
 // RequestIDKey is the key that holds the unique request ID in a request context.
-type RequestIDKey struct{}
+type requestIDKey struct{}
 
-const (
-	// XStorjRequestID is the header key for the request ID.
-	XStorjRequestID = "X-Storj-Request-Id"
-)
+// XStorjRequestID is the header key for the request ID.
+const XStorjRequestID = "X-Storj-Request-Id"
 
-// AddRequestID uses XStorjRequestId field to set unique request Ids
-// in the response headers for each request of auth and linksharing service, if it dosen't alreasy exist.
+// AddRequestID uses XStorjRequestID to set a unique request ID in response
+// headers for each request if it doesn't already exist.
 func AddRequestID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Header.Get(XStorjRequestID)
@@ -29,33 +27,29 @@ func AddRequestID(h http.Handler) http.Handler {
 		}
 
 		w.Header().Set(XStorjRequestID, requestID)
-		ctx := context.WithValue(r.Context(), RequestIDKey{}, requestID)
+		ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // GetReqID returns the request ID from the context.
-func GetReqID(ctx context.Context) string {
+func GetRequestID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
 
-	if ctx.Value(RequestIDKey{}) == nil {
-		return ""
-	}
-
-	if reqID, ok := ctx.Value(RequestIDKey{}).(string); ok {
+	if reqID, ok := ctx.Value(requestIDKey{}).(string); ok {
 		return reqID
 	}
 	return ""
 }
 
 // AddReqIDHeader adds the request ID from the context to the request header.
-func AddReqIDHeader(req *http.Request) {
+func AddRequestIDToHeaders(req *http.Request) {
 	if req == nil {
 		return
 	}
 
 	// Ideally, the context should always have request ID, since it is being set in the middleware.
-	req.Header.Set(XStorjRequestID, GetReqID(req.Context()))
+	req.Header.Set(XStorjRequestID, GetRequestID(req.Context()))
 }
