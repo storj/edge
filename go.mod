@@ -12,7 +12,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.7.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221005143214-d1a4a14fa263
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221026154455-f053d3fae32c
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
