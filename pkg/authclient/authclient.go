@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
@@ -51,6 +52,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
+	middleware.AddRequestIDToHeaders(req)
 
 	delay := a.BackOff
 	client := http.Client{

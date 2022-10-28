@@ -11,6 +11,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 )
 
@@ -60,6 +61,7 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				// we are deliberately not logging the request URI as it has
 				// sensitive information in it.
 				zap.Int("code", code),
+				zap.String("request-id", middleware.GetRequestID(r.Context())),
 				zap.String("user-agent", r.UserAgent()),
 				zap.String("remote-ip", remoteIP(r)),
 				zap.Int64("content-length", r.ContentLength),
