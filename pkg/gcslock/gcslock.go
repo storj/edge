@@ -110,6 +110,7 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 
 // Options define how Mutex should be configured.
 type Options struct {
+	// JSONKey must be set except when Client is set.
 	JSONKey []byte
 	Name    string
 	Bucket  string
@@ -119,6 +120,8 @@ type Options struct {
 	RefreshInterval time.Duration
 	// If Logger is not set, nothing will be logged.
 	Logger Logger
+	// If Client is not set, a new one will be created.
+	Client *gcsops.Client
 }
 
 // NewMutex initializes new Mutex. If TTL and RefreshInterval aren't set in opt,
@@ -126,14 +129,16 @@ type Options struct {
 func NewMutex(ctx context.Context, opt Options) (_ *Mutex, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c, err := gcsops.NewClient(ctx, opt.JSONKey)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if opt.Client == nil {
+		opt.Client, err = gcsops.NewClient(ctx, opt.JSONKey)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	m := &Mutex{
 		logger:          &wrappedLogger{logger: opt.Logger},
-		client:          c,
+		client:          opt.Client,
 		name:            opt.Name,
 		bucket:          opt.Bucket,
 		ttl:             opt.TTL,
