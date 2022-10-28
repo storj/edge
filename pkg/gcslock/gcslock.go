@@ -40,9 +40,10 @@ var (
 )
 
 // Mutex is a distributed lock implemented on top of Google Cloud Storage.
-// NewMutex or NewDefaultMutex should always be used to construct a Mutex.
+// NewMutex should always be used to construct a Mutex.
 type Mutex struct {
 	client *http.Client
+	logger Logger
 
 	name string
 
@@ -75,9 +76,11 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 			m.refreshCycle = sync2.NewCycle(m.refreshInterval)
 			m.refreshCycle.SetDelayStart()
 			m.refreshCycle.Start(ctx, m.refreshGroup, m.refresh)
+			m.logger.Infof("%s: locked", m.name)
 			return nil
 		}
 		if resp.StatusCode != http.StatusPreconditionFailed {
+			m.logger.Infof("%s: waiting (status code: %d)", m.name, resp.StatusCode)
 			if err = m.backoff.Wait(ctx); err != nil {
 				return Error.Wrap(err)
 			}
@@ -95,6 +98,7 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 		}
 
 		if m.shouldWait(ctx, resp.StatusCode, resp.Header) {
+			m.logger.Infof("%s: waiting", m.name)
 			if err = m.backoff.Wait(ctx); err != nil {
 				return Error.Wrap(err)
 			}
@@ -112,7 +116,7 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 		m.refreshCycle = nil
 	}
 	if err := m.refreshGroup.Wait(); err != nil {
-		return Error.Wrap(err) // TODO(artur): ✓ just log it
+		m.logger.Errorf("%s: refresh cycle terminated with an error while locked: %v", m.name, err)
 	}
 	// Step 2: delete the lock object at the given URL
 	// Step 2.1: Use the x-goog-if-metageneration-match: [last known metageneration] header
@@ -127,32 +131,43 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 	// Step 2.2: ignore the 412 Precondition Failed error, if any
 	switch resp.StatusCode {
 	case http.StatusNoContent, http.StatusPreconditionFailed:
+		m.logger.Infof("%s: unlocked", m.name)
 		return nil
 	default:
 		return Error.New("unexpected response status code: %d", resp.StatusCode)
 	}
 }
 
-// NewMutex initializes new Mutex.
-func NewMutex(
-	ctx context.Context,
-	jsonKey []byte,
-	name, bucket string,
-	ttl, refreshInterval time.Duration,
-) (_ *Mutex, err error) {
+// Options define how Mutex should be configured.
+type Options struct {
+	JSONKey []byte
+	Name    string
+	Bucket  string
+	// TTL's default is 5 minutes.
+	TTL time.Duration
+	// RefreshInterval's default is 37 seconds.
+	RefreshInterval time.Duration
+	// If Logger is not set, nothing will be logged.
+	Logger Logger
+}
+
+// NewMutex initializes new Mutex. If TTL and RefreshInterval aren't set in opt,
+// reasonable defaults are applied.
+func NewMutex(ctx context.Context, opt Options) (_ *Mutex, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c, err := google.CredentialsFromJSON(ctx, jsonKey, "https://www.googleapis.com/auth/devstorage.full_control")
+	c, err := google.CredentialsFromJSON(ctx, opt.JSONKey, "https://www.googleapis.com/auth/devstorage.full_control")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return &Mutex{
+	m := &Mutex{
+		logger:          &wrappedLogger{logger: opt.Logger},
 		client:          oauth2.NewClient(ctx, c.TokenSource),
-		name:            name,
-		bucket:          bucket,
-		ttl:             ttl,
-		refreshInterval: refreshInterval,
+		name:            opt.Name,
+		bucket:          opt.Bucket,
+		ttl:             opt.TTL,
+		refreshInterval: opt.RefreshInterval,
 		backoff: backoff.ExponentialBackoff{
 			Max: 30 * time.Second,
 			Min: time.Second,
@@ -160,19 +175,16 @@ func NewMutex(
 		refreshCycle:            new(sync2.Cycle), // will be recreated in Lock.
 		refreshGroup:            new(errgroup.Group),
 		lastKnownMetageneration: "1",
-	}, nil
-}
+	}
 
-// NewDefaultMutex initializes new Mutex with recommended TTL and refresh
-// interval.
-func NewDefaultMutex(
-	ctx context.Context,
-	jsonKey []byte,
-	name, bucket string,
-) (_ *Mutex, err error) {
-	defer mon.Task()(&ctx)(&err)
+	if m.ttl == 0 {
+		m.ttl = 5 * time.Minute
+	}
+	if m.refreshInterval == 0 {
+		m.refreshInterval = 37 * time.Second
+	}
 
-	return NewMutex(ctx, jsonKey, name, bucket, 5*time.Minute, 37*time.Second)
+	return m, nil
 }
 
 func (m *Mutex) put(ctx context.Context) (_ *http.Response, err error) {

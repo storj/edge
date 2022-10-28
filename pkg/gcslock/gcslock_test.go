@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
@@ -82,7 +83,15 @@ func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
 	jsonKey, err := os.ReadFile(pathToJsonKey)
 	require.NoError(t, err)
 
-	m, err := NewDefaultMutex(ctx, jsonKey, "test", "gcslock_test")
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	m, err := NewMutex(ctx, Options{
+		JSONKey: jsonKey,
+		Name:    "test",
+		Bucket:  "gcslock_test",
+		Logger:  logger.Named("distributed lock").Sugar(),
+	})
 	require.NoError(t, err)
 
 	return m
