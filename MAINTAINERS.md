@@ -25,7 +25,7 @@ Examples of Release Candidates:
 - `v2.1.0-rc.1`
 
 ## Step-by-step release process
-1. Announce your intention to make a new release to the #team-edge Slack channel.
+1. Announce your intention to make a new release to the #team-integrations-edge Slack channel.
 2. Wait for a confirmation by at least one maintainer of this project (storj/gateway-mt) before proceeding with the next step.
 3. Create a new release from the Github web interface:
   - Go to https://github.com/storj/gateway-mt/releases.
