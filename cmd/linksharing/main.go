@@ -103,9 +103,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		return errs.New("failed to initialize telemetry batcher: %w", err)
 	}
-	if err := process.InitEventStatPublisherWithHostname(ctx, log, &sharing.StatRegistry); err != nil {
-		return errs.New("failed to initialize event stat publisher: %w", err)
-	}
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
 

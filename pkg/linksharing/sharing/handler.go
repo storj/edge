@@ -14,18 +14,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/eventstat"
 	"storj.io/common/ranger"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
-	"storj.io/private/debug"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 	"storj.io/zipper"
@@ -33,10 +32,7 @@ import (
 
 var (
 	mon = monkit.Package()
-
-	// StatRegistry is a specific registry which is reported only to one destination
-	// it is used for event statistics with unbounded cardinality.
-	StatRegistry = eventstat.Registry{}
+	ek  = eventkit.Package()
 )
 
 // pageData is the type that is passed to the template rendering engine.
@@ -148,22 +144,6 @@ type Handler struct {
 	standardRendersContent bool
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
-	top                    handlerTop
-	statRegistry           statRegistry
-}
-
-// handlerTop is an in-memory `top`-like counter.
-// (accessible via /top monitoring endpoint).
-type handlerTop struct {
-	uri          eventstat.Sink
-	method       eventstat.Sink
-	clientIP     eventstat.Sink
-	macaroonHead eventstat.Sink
-}
-
-// statRegistry is for counters that will be sent to an external registry service.
-type statRegistry struct {
-	customDomainMacaroonHead eventstat.Sink
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -233,15 +213,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
-		top: handlerTop{
-			uri:          debug.Top.NewTagCounter("http_request_uri", "uri"),
-			method:       debug.Top.NewTagCounter("http_request_method", "method"),
-			clientIP:     debug.Top.NewTagCounter("http_request_ip", "ip"),
-			macaroonHead: debug.Top.NewTagCounter("storj_macaroon_head", "head"),
-		},
-		statRegistry: statRegistry{
-			customDomainMacaroonHead: StatRegistry.NewTagCounter("storj_custom_domain_macaroon_head", "head"),
-		},
 	}, nil
 }
 

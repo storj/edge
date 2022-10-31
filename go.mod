@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.11.0
 	github.com/jackc/pgx/v4 v4.15.0
+	github.com/jtolio/eventkit v0.0.0-20221004135224-074cf276595b
 	github.com/miekg/dns v1.1.35
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.7.0
@@ -98,7 +99,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/jtolio/eventkit v0.0.0-20221004135224-074cf276595b // indirect
 	github.com/klauspost/compress v1.14.3 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect

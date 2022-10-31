@@ -16,9 +16,7 @@ import (
 	mhttp "github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/webhelp.v1/whroute"
 
-	"storj.io/common/eventstat"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/httpserver"
@@ -27,7 +25,6 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
-	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -40,10 +37,6 @@ var (
 	Error = errs.Class("gateway")
 
 	minioOnce sync.Once
-
-	// StatRegistry is a specific registry which is reported only to one destination
-	// it is used for event statistics with unbounded cardinality.
-	StatRegistry = eventstat.Registry{}
 )
 
 // Peer represents an S3 compatible http server.
@@ -89,6 +82,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	})
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
+	r.Use(middleware.CollectEvent)
 	r.Use(minio.GlobalHandlers...)
 
 	// we deliberately don't log paths for this service because they have
@@ -97,26 +91,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.Use(middleware.NewLogRequests(log, config.InsecureLogAll))
 	r.Use(middleware.NewLogResponses(log, config.InsecureLogAll))
 
-	var handler http.Handler
-	handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
-
-	// map with upper bound / memory limit, sent over UDP.
-	agentCounter := StatRegistry.NewTagCounter("s3_http_user_agent", "agent")
-	// similar, in-memory counter, but not sent over. Collects events since last /top call.
-	topCounter := debug.Top.NewTagCounter("s3_http_user_agent", "agent")
-
-	agentCollector := NewAgentCollector("s3_user_agent", func(name string) {
-		agentCounter(name)
-		topCounter(name)
-	})
-	handler = agentCollector.Wrap(handler)
-
-	macaroonHeadCollector := NewMacaroonHeadCollector("storj_macaroon_head",
-		debug.Top.NewTagCounter("storj_macaroon_head", "head"))
-	handler = macaroonHeadCollector.Wrap(handler)
-
-	ipCounter := debug.Top.NewTagCounter("s3_http_ip", "ip")
-	handler = wrapWithIPCounter(handler, ipCounter, trustedIPs)
+	var handler http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
 
 	var tlsConfig *httpserver.TLSConfig
 	if !config.InsecureDisableTLS {
@@ -141,13 +116,6 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		config:     config,
 		closeLayer: layer.Shutdown,
 	}, nil
-}
-
-func wrapWithIPCounter(handler http.Handler, counter eventstat.Sink, trustedIPs trustedip.List) http.Handler {
-	return whroute.HandlerFunc(handler, func(writer http.ResponseWriter, request *http.Request) {
-		counter(trustedip.GetClientIP(trustedIPs, request))
-		handler.ServeHTTP(writer, request)
-	})
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.

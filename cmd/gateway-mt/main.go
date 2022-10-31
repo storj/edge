@@ -90,9 +90,6 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		return errs.New("Failed to initialize telemetry batcher: %w", err)
 	}
-	if err := process.InitEventStatPublisherWithHostname(ctx, log, &server.StatRegistry); err != nil {
-		return errs.New("failed to initialize event stat publisher: %w", err)
-	}
 
 	// setup environment variables for Minio
 	validate := func(value, configName string) {

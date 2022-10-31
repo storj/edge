@@ -5,7 +5,6 @@ package sharing
 
 import (
 	"context"
-	"encoding/hex"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,7 +14,6 @@ import (
 
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/trustedip"
-	privateAccess "storj.io/uplink/private/access"
 )
 
 func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
@@ -57,15 +55,12 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	}
 
 	clientIP := trustedip.GetClientIP(handler.trustedClientIPsList, r)
-	handler.top.clientIP(clientIP)
 
 	// TODO(artur): make signedAccessValidityTolerance a configuration attribute.
 	access, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, handler.authClient, clientIP)
 	if err != nil {
 		return err
 	}
-
-	handler.top.macaroonHead(hex.EncodeToString(privateAccess.APIKey(access).Head()))
 
 	pr.access = access
 	pr.serializedAccess = serializedAccess

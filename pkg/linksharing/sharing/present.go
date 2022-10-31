@@ -5,12 +5,14 @@ package sharing
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"mime"
 	"net/http"
 	"path/filepath"
 	"strings"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -18,7 +20,9 @@ import (
 	"storj.io/common/ranger/httpranger"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectranger"
+	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 	"storj.io/zipper"
 )
 
@@ -48,8 +52,13 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 		}
 	}()
 
-	handler.top.uri(r.RequestURI)
-	handler.top.method(r.Method)
+	ek.Event("present",
+		eventkit.String("host", r.Host),
+		eventkit.String("uri", r.RequestURI),
+		eventkit.String("method", r.Method),
+		eventkit.Bool("hosting", pr.hosting),
+		eventkit.String("remote-ip", trustedip.GetClientIP(handler.trustedClientIPsList, r)),
+		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())))
 
 	return handler.presentWithProject(ctx, w, r, pr, project)
 }
