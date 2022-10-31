@@ -78,7 +78,7 @@ popd
 mkdir -p certs/wildcard
 
 pushd certs/wildcard
-go run ../generate_cert.go -host '*.gateway.local'
+go run ../../generate_cert.go -host '*.gateway.local'
 ln -s cert.pem cert.crt
 ln -s key.pem cert.key
 popd
