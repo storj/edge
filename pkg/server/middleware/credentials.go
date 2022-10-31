@@ -546,12 +546,12 @@ func errToAPIErrCode(err error) cmd.APIErrorCode {
 
 // writeErrorResponse exposes minio's cmd.writeErrorResponse.
 //
-//nolint: golint
+//nolint:golint
 //go:linkname writeErrorResponse storj.io/minio/cmd.writeErrorResponse
 func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
 
 // getAPIError exposes minio's cmd.getAPIError.
 //
-//nolint: golint
+//nolint:golint
 //go:linkname getAPIError storj.io/minio/cmd.getAPIError
 func getAPIError(code cmd.APIErrorCode) cmd.APIError

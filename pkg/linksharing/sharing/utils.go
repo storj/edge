@@ -12,10 +12,10 @@ import (
 
 // queryFlagLookup finds a boolean value in a url.Values struct, returning
 // defValue if not found.
-//  * no flag is the default value
-//  * ?flag is assumed true
-//  * ?flag=no (or false or 0 or off) is assumed false (case insensitive)
-//  * everything else is true
+//   - no flag is the default value
+//   - ?flag is assumed true
+//   - ?flag=no (or false or 0 or off) is assumed false (case insensitive)
+//   - everything else is true
 func queryFlagLookup(q url.Values, name string, defValue bool) bool {
 	vals, ok := q[name]
 	if !ok || len(vals) == 0 {

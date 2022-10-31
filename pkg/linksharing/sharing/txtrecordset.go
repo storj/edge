@@ -14,9 +14,9 @@ import (
 // pairs defined across multiple TXT records.
 //
 // TXT records can be defined in a number of ways:
-//     * TXT sub.domain.tld "a value"
-//     * TXT sub.domain.tld "field:value"
-//     * TXT sub.domain.tld "another-field:value" "another-field-again:value"
+//   - TXT sub.domain.tld "a value"
+//   - TXT sub.domain.tld "field:value"
+//   - TXT sub.domain.tld "another-field:value" "another-field-again:value"
 //
 // This data structure ignores the first type (TXT records without a colon)
 // but presents all of the key/value representations in a uniform manner.
@@ -59,8 +59,9 @@ func (set *TXTRecordSet) Finalize() {
 // set. Because TXT records have length limitations, if Lookup doesn't find
 // the field directly, it will try to concatenate fields with ordered number
 // suffixes. For instance:
-//     * TXT sub.domain.tld "field-3:c"
-//     * TXT sub.domain.tld "field-1:a" "field-2:b"
+//   - TXT sub.domain.tld "field-3:c"
+//   - TXT sub.domain.tld "field-1:a" "field-2:b"
+//
 // will be concatenated as when "field" is looked up as "abc".
 func (set *TXTRecordSet) Lookup(field string) (value string) {
 	if len(set.vals[field]) > 0 {

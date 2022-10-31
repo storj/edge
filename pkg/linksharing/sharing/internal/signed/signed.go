@@ -16,10 +16,11 @@
 // requests.
 //
 // [0]:
-//  - https://github.com/minio/minio/blob/e0d3a8c1f4e52bb4a7d82f7f369b6796103740b3/cmd/signature-v4-parser.go
+//   - https://github.com/minio/minio/blob/e0d3a8c1f4e52bb4a7d82f7f369b6796103740b3/cmd/signature-v4-parser.go
+//
 // [1]:
-//  - https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html
-//  - https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
+//   - https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html
+//   - https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 package signed
 
 import (
