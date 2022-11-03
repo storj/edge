@@ -81,11 +81,7 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 		return w.CloseWithError(err)
 	})
 
-	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{
-		UserMetadata: map[string]string{
-			"Storj-Expires": "+2160h", // 3 months
-		},
-	})
+	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return BackupError.New("upload object: %w", err)
 	}
