@@ -195,7 +195,7 @@ func (d *KV) GetWithNonDefaultAsOfInterval(ctx context.Context, keyHash authdb.K
 			if invalidReason.Valid {
 				return nil, authdb.Invalid.New("%s", invalidReason.String)
 			}
-			if record.ExpiresAt != nil && record.ExpiresAt.Add(asOfSystemInterval).Before(time.Now()) {
+			if record.ExpiresAt != nil && record.ExpiresAt.Before(time.Now()) {
 				return nil, nil
 			}
 
