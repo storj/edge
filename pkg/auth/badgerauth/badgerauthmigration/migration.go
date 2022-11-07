@@ -99,6 +99,13 @@ func (kv *KV) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 		}
 		record, err = kv.src.Get(ctx, keyHash)
 		if record != nil && err == nil {
+			kv.log.Warn(
+				"destination miss",
+				zap.String("keyHash (hex)", keyHash.ToHex()),
+				zap.String("SatelliteAddress", record.SatelliteAddress),
+				zap.Binary("MacaroonHead", record.MacaroonHead),
+				zap.Timep("ExpiresAt", record.ExpiresAt),
+			)
 			kv.mon.Event("as_badgerauthmigration_destination_miss")
 		}
 	} else {

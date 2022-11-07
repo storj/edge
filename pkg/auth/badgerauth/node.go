@@ -291,6 +291,10 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 		}
 	}
 
+	if errGroup.Err() == nil {
+		node.log.Debug("broadcasted Get finishes with NotFound/Canceled errors only", zap.Errors("allErrs", allErrs))
+	}
+
 	return nil, Error.Wrap(errGroup.Err())
 }
 
