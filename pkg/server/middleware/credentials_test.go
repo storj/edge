@@ -223,9 +223,6 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 			filteredLogs := observedLogs.FilterField(zap.String("error", fmt.Sprintf("auth service: invalid status code: %d", tc.status)))
 			require.Len(t, filteredLogs.All(), 1)
 			require.Equal(t, tc.expectedLevel, filteredLogs.All()[0].Level)
-
-			c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
-			require.Equal(t, 1.0, c[fmt.Sprintf("%s,api=SYSTEM,error=auth\\ service:\\ invalid\\ status\\ code:\\ %d,scope=storj.io/gateway-mt/pkg/server/middleware total", tc.expectedMetric, tc.status)])
 		})
 	}
 }

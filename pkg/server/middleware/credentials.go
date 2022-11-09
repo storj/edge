@@ -16,6 +16,7 @@ import (
 	_ "unsafe" // for go:linkname
 
 	"github.com/gorilla/mux"
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,6 +44,8 @@ const (
 )
 
 var (
+	ekCredentials = ek.Subscope("Credentials")
+
 	accessRegexp = regexp.MustCompile("/access/.*\"")
 
 	errNoAccessKey              = errs.New("no access key id")
@@ -118,9 +121,7 @@ func logError(log *zap.Logger, err error) {
 		metricName = "gmt_unmapped_error"
 	}
 
-	mon.Event(metricName,
-		monkit.NewSeriesTag("api", "SYSTEM"),
-		monkit.NewSeriesTag("error", msg))
+	ekCredentials.Event(metricName, eventkit.String("api", "SYSTEM"), eventkit.String("error", msg))
 
 	ce := log.Check(level, "system")
 	if ce != nil {

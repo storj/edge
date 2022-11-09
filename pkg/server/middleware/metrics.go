@@ -9,12 +9,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/gateway-mt/pkg/server/gwlog"
 )
 
-var mon = monkit.Package()
+var (
+	mon       = monkit.Package()
+	ekMetrics = ek.Subscope("Metrics")
+)
 
 var (
 	_ http.ResponseWriter = (*flusherDelegator)(nil)
@@ -121,6 +125,8 @@ func sanitizeMethod(m string) string {
 // - bytes written
 // partitioned by method, status code, API.
 //
+// It also sends unmapped errors (in the case of Gateway-MT) through eventkit.
+//
 // TODO(artur): calculate approximate request size.
 func Metrics(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -162,6 +168,10 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(took)
 		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
 		mon.FloatVal(makeMetricName(prefix, "bps_written"), tags...).Observe(float64(d.written) / took.Seconds())
+
+		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
+			ekMetrics.Event(makeMetricName(prefix, "unmapped_error"), eventkit.String("error", err))
+		}
 	})
 }
 
