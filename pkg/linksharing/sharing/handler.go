@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/ranger"
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/errdata"
@@ -263,6 +264,10 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
 		skipLog = true
+	case httpranger.ErrInvalidRange.Has(handlerErr):
+		status = http.StatusRequestedRangeNotSatisfiable
+		message = "Range header isn't compatible with path query."
+		skipLog = true
 	default:
 		status = errdata.GetStatus(handlerErr, status)
 		switch status {
@@ -297,6 +302,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
+	delete(w.Header(), "Content-Disposition")
 	w.WriteHeader(status)
 	handler.renderTemplate(w, "error.html", pageData{Data: message, Title: "Error"})
 }

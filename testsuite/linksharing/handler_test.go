@@ -27,6 +27,7 @@ import (
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
+	"storj.io/uplink"
 )
 
 func TestNewHandler(t *testing.T) {
@@ -106,8 +107,8 @@ func TestNewHandler(t *testing.T) {
 
 func TestHandlerRequests(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   2,
-		StorageNodeCount: 1,
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
 		UplinkCount:      1,
 	}, testHandlerRequests)
 }
@@ -125,10 +126,20 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	serializedAccess, err := access.Serialize()
 	require.NoError(t, err)
 
+	listOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: true},
+		uplink.SharePrefix{Bucket: "testbucket", Prefix: "test/foo"},
+	)
+	require.NoError(t, err)
+
+	serializedListOnlyAccess, err := listOnlyAccess.Serialize()
+	require.NoError(t, err)
+
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
 	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
-		"GOODACCESS":    {serializedAccess, true},
-		"PRIVATEACCESS": {serializedAccess, false},
+		"GOODACCESS":     {serializedAccess, true},
+		"PRIVATEACCESS":  {serializedAccess, false},
+		"LISTONLYACCESS": {serializedListOnlyAccess, true},
 	}, authToken))
 	defer validAuthServer.Close()
 
@@ -137,10 +148,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		method           string
 		path             string
 		status           int
-		header           http.Header
 		body             string
 		authserver       string
 		expectedRPCCalls []string
+		prepFunc         func() error
 	}{
 		{
 			name:   "invalid method",
@@ -210,6 +221,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
+			name:             "GET download success",
+			method:           "GET",
+			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
 			name:             "GET bucket listing success",
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket") + "/",
@@ -238,6 +256,21 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test"),
 			status:           http.StatusSeeOther,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET list-only access grant",
+			method:           "GET",
+			path:             path.Join("s", serializedListOnlyAccess, "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "GET download with list-only access grant",
+			method:           "GET",
+			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
+			status:           http.StatusForbidden,
+			body:             "Access denied",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:             "HEAD missing access",
@@ -303,6 +336,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:             "",
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
+		{
+			name:             "GET download when bandwidth exceeded",
+			method:           "GET",
+			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			status:           http.StatusTooManyRequests,
+			body:             "Bandwidth limit exceeded",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				// set bandwidth limit to 0
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
+			},
+		},
 	}
 
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
@@ -322,6 +367,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			callRecorder.Reset()
+
+			if testCase.prepFunc != nil {
+				err := testCase.prepFunc()
+				require.NoError(t, err)
+			}
+
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
 				URLBases:  []string{"http://localhost"},
 				Templates: "./../../pkg/linksharing/web/",
@@ -339,9 +390,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			handler.ServeHTTP(w, r)
 
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
-			for h, v := range testCase.header {
-				assert.Equal(t, v, w.Header()[h], "%q header does not match", h)
-			}
 			assert.Contains(t, w.Body.String(), testCase.body, "body does not match")
 			if testCase.expectedRPCCalls != nil {
 				assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())

@@ -177,10 +177,16 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			if isGz {
 				w.Header().Set("Content-Encoding", "gzip")
 			}
-			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
+			err = httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
+			if err != nil {
+				return errdata.WithAction(err, "serve content")
+			}
 		} else {
 			handler.setHeaders(w, r, o.Custom, pr.hosting, filepath.Base(o.Key))
-			httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
+			err = httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, objectranger.New(project, o, pr.bucket))
+			if err != nil {
+				return errdata.WithAction(err, "serve content")
+			}
 		}
 		return nil
 	}
