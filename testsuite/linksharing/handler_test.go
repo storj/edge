@@ -337,7 +337,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
-			name:             "GET download when bandwidth exceeded",
+			name:             "GET download when exceeded bandwidth limit",
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusTooManyRequests,

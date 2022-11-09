@@ -73,6 +73,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		expectedRPCCalls []string
 		acceptGzip       bool
 		expectGzip       bool
+		prepFunc         func() error
 	}{
 		{
 			name:             "ZIP wrap",
@@ -159,6 +160,19 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			body:             "Files under 4k are stored as metadata with strong encryption.",
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
+		{
+			name:             "ZIP list when exceeded bandwidth limit",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=/",
+			archivePath:      "/",
+			status:           http.StatusTooManyRequests,
+			body:             "Bandwidth limit exceeded",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				// set bandwidth limit to 0
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
+			},
+		},
 	}
 
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
@@ -178,6 +192,12 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			callRecorder.Reset()
+
+			if testCase.prepFunc != nil {
+				err := testCase.prepFunc()
+				require.NoError(t, err)
+			}
+
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, sharing.Config{
 				URLBases:  []string{"http://localhost"},
 				Templates: "./../../pkg/linksharing/web/",

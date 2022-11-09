@@ -57,6 +57,9 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 	} else {
 		input.Objects, err = listObjectsPrefix(ctx, project, pr)
 	}
+	if err != nil {
+		return err
+	}
 
 	if len(input.Objects) == 0 {
 		return errdata.WithAction(uplink.ErrObjectNotFound, "serve prefix - empty")
