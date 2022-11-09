@@ -100,7 +100,8 @@ func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 	}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
 		admin := badgerauth.NewAdmin(node.UnderlyingDB())
 		key := authdb.KeyHash{'e', 'x', 'p'}
-		expiresAt := time.Unix(time.Now().Add(time.Second).Unix(), 0)
+		duration := 2 * time.Second
+		expiresAt := time.Unix(time.Now().Add(duration).Unix(), 0)
 
 		badgerauthtest.Put{
 			KeyHash: key,
@@ -110,7 +111,7 @@ func TestNodeAdmin_UpdateExpiringRecord(t *testing.T) {
 		_, err := admin.UnpublishRecord(ctx, &pb.UnpublishRecordRequest{Key: key.Bytes()})
 		require.NoError(t, err)
 
-		time.Sleep(time.Second)
+		time.Sleep(duration)
 
 		badgerauthtest.Get{
 			KeyHash: key,
