@@ -63,8 +63,4 @@ func TestMetrics(t *testing.T) {
 	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 recent"])
 	assert.EqualValues(t, 3*bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 sum"])
 	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 recent"])
-
-	assert.Equal(t, 1.0, c["gmt_unmapped_error,api=ListObjects,error=error!,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 total"])
-	assert.Equal(t, 2.0, c["gmt_unmapped_error,api=ListObjects,error=error!,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 total"])
-	assert.Equal(t, 3.0, c["gmt_unmapped_error,api=ListObjects,error=error!,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 total"])
 }

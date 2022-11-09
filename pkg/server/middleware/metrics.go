@@ -121,8 +121,6 @@ func sanitizeMethod(m string) string {
 // - bytes written
 // partitioned by method, status code, API.
 //
-// It also sends unmapped errors (in the case of Gateway-MT).
-//
 // TODO(artur): calculate approximate request size.
 func Metrics(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -164,11 +162,6 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(took)
 		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
 		mon.FloatVal(makeMetricName(prefix, "bps_written"), tags...).Observe(float64(d.written) / took.Seconds())
-
-		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
-			tags = append(tags, monkit.NewSeriesTag("error", err))
-			mon.Event(makeMetricName(prefix, "unmapped_error"), tags...)
-		}
 	})
 }
 
