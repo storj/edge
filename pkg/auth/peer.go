@@ -31,6 +31,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/middleware"
+	"storj.io/gateway-mt/pkg/trustedip"
 )
 
 var mon = monkit.Package()
@@ -210,6 +211,7 @@ func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 			zap.String("method", r.Method),
 			zap.String("host", r.Host),
 			zap.String("user-agent", r.UserAgent()),
+			zap.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
 		)
 		h.ServeHTTP(w, r)
 	})
@@ -238,6 +240,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				zap.Int("code", rw.StatusCode()),
 				zap.String("request-id", middleware.GetRequestID(r.Context())),
 				zap.String("user-agent", r.UserAgent()),
+				zap.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
 				zap.Int64("content-length", r.ContentLength),
 				zap.Int64("written", rw.Written()),
 				zap.Duration("duration", time.Since(start)),
