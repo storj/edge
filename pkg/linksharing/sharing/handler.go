@@ -71,8 +71,8 @@ type Config struct {
 	// on disk.
 	StaticSourcesPath string
 
-	// TxtRecordTTL is the duration for which an entry in the txtRecordCache is valid.
-	TxtRecordTTL time.Duration
+	// TXTRecordTTL is the duration for which an entry in the txtRecordCache is valid.
+	TXTRecordTTL time.Duration
 
 	// AuthServiceConfig contains configuration required to use the auth service to resolve
 	// access key ids into access grants.
@@ -135,7 +135,7 @@ type Handler struct {
 	urlBases               []*url.URL
 	templates              *template.Template
 	mapper                 *objectmap.IPDB
-	txtRecords             *txtRecords
+	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
 	static                 http.Handler
 	redirectHTTPS          bool
@@ -148,12 +148,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handler, error) {
-	dns, err := NewDNSClient(config.DNSServer)
-	if err != nil {
-		return nil, err
-	}
-
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, config Config) (*Handler, error) {
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -197,14 +192,24 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, config Config) (*Handle
 		trustedClientIPs = trustedip.NewListUntrustAll()
 	}
 
-	authClient := authclient.New(config.AuthServiceConfig)
+	if authClient == nil {
+		authClient = authclient.New(config.AuthServiceConfig)
+	}
+
+	if txtRecords == nil {
+		dns, err := NewDNSClient(config.DNSServer)
+		if err != nil {
+			return nil, err
+		}
+		txtRecords = NewTXTRecords(config.TXTRecordTTL, dns, authClient)
+	}
 
 	return &Handler{
 		log:                    log,
 		urlBases:               bases,
 		templates:              templates,
 		mapper:                 mapper,
-		txtRecords:             newTxtRecords(config.TxtRecordTTL, dns, authClient),
+		txtRecords:             txtRecords,
 		authClient:             authClient,
 		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
 		landingRedirect:        config.LandingRedirectTarget,

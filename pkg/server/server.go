@@ -100,7 +100,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		}
 	}
 
-	server, err := httpserver.New(log, handler, httpserver.Config{
+	server, err := httpserver.New(log, handler, nil, httpserver.Config{
 		Address:        config.Server.Address,
 		AddressTLS:     config.Server.AddressTLS,
 		TLSConfig:      tlsConfig,

@@ -44,6 +44,7 @@ func NewGCS(ctx context.Context, logger *zap.Logger, jsonKey []byte, bucket stri
 	gcs := &GCS{
 		logger: logger,
 		bucket: bucket,
+		locks:  make(map[string]*gcslock.Mutex),
 	}
 
 	gcs.client, err = gcsops.NewClient(ctx, jsonKey)

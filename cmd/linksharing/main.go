@@ -32,13 +32,12 @@ import (
 type LinkSharing struct {
 	Address                string        `user:"true" help:"public address to listen on" default:":20020"`
 	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":20021"`
-	LetsEncrypt            bool          `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
 	InsecureDisableTLS     bool          `user:"true" help:"listen using insecure connections only" releaseDefault:"false" devDefault:"true"`
 	CertFile               string        `user:"true" help:"server certificate file"`
 	KeyFile                string        `user:"true" help:"server key file"`
 	PublicURL              string        `user:"true" help:"comma separated list of public urls for the server" devDefault:"http://localhost:20020" releaseDefault:""`
 	GeoLocationDB          string        `user:"true" help:"maxmind database file path"`
-	TxtRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
+	TXTRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
 	AuthService            authclient.Config
 	DNSServer              string        `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
 	StaticSourcesPath      string        `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
@@ -52,6 +51,7 @@ type LinkSharing struct {
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ConnectionPool         connectionPoolConfig
+	CertMagic              certMagic
 }
 
 // connectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -59,6 +59,15 @@ type connectionPoolConfig struct {
 	Capacity       int           `user:"true" help:"RPC connection pool capacity" default:"100"`
 	KeyCapacity    int           `user:"true" help:"RPC connection pool key capacity" default:"5"`
 	IdleExpiration time.Duration `user:"true" help:"RPC connection pool idle expiration" default:"2m0s"`
+}
+
+// certMagic is a config struct for configuring CertMagic options.
+type certMagic struct {
+	Enabled bool   `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
+	KeyFile string `user:"true" help:"path to the service account key file"`
+	Email   string `user:"true" help:"email address to use when creating an ACME account"`
+	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
+	Bucket  string `user:"true" help:"bucket to use for certificate storage"`
 }
 
 var (
@@ -109,11 +118,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			LetsEncrypt: runCfg.LetsEncrypt,
-			CertFile:    runCfg.CertFile,
-			KeyFile:     runCfg.KeyFile,
-			PublicURLs:  publicURLs,
-			ConfigDir:   confDir,
+			CertMagic:        runCfg.CertMagic.Enabled,
+			CertMagicKeyFile: runCfg.CertMagic.KeyFile,
+			CertMagicEmail:   runCfg.CertMagic.Email,
+			CertMagicStaging: runCfg.CertMagic.Staging,
+			CertMagicBucket:  runCfg.CertMagic.Bucket,
+			CertFile:         runCfg.CertFile,
+			KeyFile:          runCfg.KeyFile,
+			PublicURLs:       publicURLs,
+			ConfigDir:        confDir,
+			Ctx:              ctx,
 		}
 	}
 
@@ -132,7 +146,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			StaticSourcesPath:      runCfg.StaticSourcesPath,
 			RedirectHTTPS:          runCfg.RedirectHTTPS,
 			LandingRedirectTarget:  runCfg.LandingRedirectTarget,
-			TxtRecordTTL:           runCfg.TxtRecordTTL,
+			TXTRecordTTL:           runCfg.TXTRecordTTL,
 			AuthServiceConfig:      runCfg.AuthService,
 			DNSServer:              runCfg.DNSServer,
 			ConnectionPool:         sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
