@@ -135,7 +135,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		if err != nil {
 			return nil, Error.New("failed to create s3 client: %w", err)
 		}
-		node.Backup = NewBackup(node.db, s3Client)
+		node.Backup = NewBackup(log, node.db, s3Client)
 	}
 
 	if !config.InsecureDisableTLS {

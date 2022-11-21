@@ -7,11 +7,13 @@ import (
 	"context"
 	"io"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
@@ -22,8 +24,7 @@ var BackupError = errs.Class("backup")
 
 // Client is the interface for the object store.
 type Client interface {
-	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64,
-		opts minio.PutObjectOptions) (info minio.UploadInfo, err error)
+	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (info minio.UploadInfo, err error)
 }
 
 // BackupConfig provides options for creating a backup.
@@ -39,6 +40,7 @@ type BackupConfig struct {
 
 // Backup represents a backup job that backs up the database.
 type Backup struct {
+	log       *zap.Logger
 	db        *DB
 	Client    Client
 	SyncCycle *sync2.Cycle
@@ -48,10 +50,11 @@ type Backup struct {
 // NewBackup returns a new Backup. Note that BadgerDB does not support opening
 // multiple connections to the same database, so we must use the same DB
 // connection as normal KV operations.
-func NewBackup(db *DB, client Client) *Backup {
+func NewBackup(log *zap.Logger, db *DB, client Client) *Backup {
 	syncCycle := sync2.NewCycle(db.config.Backup.Interval)
 	syncCycle.SetDelayStart()
 	return &Backup{
+		log:       log.Named("storage backup"),
 		db:        db,
 		SyncCycle: syncCycle,
 		Client:    client,
@@ -81,10 +84,14 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 		return w.CloseWithError(err)
 	})
 
+	ok := true
 	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{})
 	if err != nil {
-		return BackupError.New("upload object: %w", err)
+		ok = false
+		b.log.Error("upload object", zap.Error(err))
 	}
+
+	mon.Event("as_badgerauth_backup", monkit.NewSeriesTag("successful", strconv.FormatBool(ok)))
 
 	return BackupError.Wrap(group.Wait())
 }
