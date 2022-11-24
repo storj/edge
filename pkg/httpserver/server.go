@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
+
 	middleware "storj.io/gateway-mt/pkg/middleware"
 )
 
