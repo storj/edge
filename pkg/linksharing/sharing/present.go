@@ -52,6 +52,12 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 		}
 	}()
 
+	return handler.presentWithProject(ctx, w, r, pr, project)
+}
+
+func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ek.Event("present",
 		eventkit.String("host", r.Host),
 		eventkit.String("uri", r.RequestURI),
@@ -59,12 +65,6 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 		eventkit.Bool("hosting", pr.hosting),
 		eventkit.String("remote-ip", trustedip.GetClientIP(handler.trustedClientIPsList, r)),
 		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())))
-
-	return handler.presentWithProject(ctx, w, r, pr, project)
-}
-
-func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project) (err error) {
-	defer mon.Task()(&ctx)(&err)
 
 	// first, kick off background index.html request, if appropriate. we do this
 	// to cut down on sequential round trips.
