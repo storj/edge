@@ -202,7 +202,7 @@ func (m *Mutex) refresh(ctx context.Context) (err error) {
 		"ifMetagenerationMatch": {m.lastKnownMetageneration},
 		"prettyPrint":           {"false"},
 	}
-	u := fmt.Sprintf(gcsops.Endpoint+"/storage/v1/b/%s/o/%s", m.bucket, m.name) + "?" + q.Encode()
+	u := fmt.Sprintf(gcsops.Endpoint+"/storage/v1/b/%s/o/%s", m.bucket, url.PathEscape(m.name)) + "?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, u, bytes.NewReader(b))
 	if err != nil {

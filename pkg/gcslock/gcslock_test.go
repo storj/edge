@@ -66,7 +66,7 @@ func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
 
 	m, err := NewMutex(ctx, Options{
 		JSONKey: jsonKey,
-		Name:    testrand.URLPathNonFolder(),
+		Name:    testrand.Path(),
 		Bucket:  bucket,
 		Logger:  logger.Named("distributed lock").Sugar(),
 	})

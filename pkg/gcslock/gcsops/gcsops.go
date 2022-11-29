@@ -238,7 +238,7 @@ func (c *Client) Upload(ctx context.Context, headers http.Header, bucket, name s
 }
 
 func xmlAPIEndpoint(bucket, object string) string {
-	return fmt.Sprintf(Endpoint+"/%s/%s", bucket, object)
+	return fmt.Sprintf(Endpoint+"/%s/%s", bucket, url.PathEscape(object))
 }
 
 type listing struct {
