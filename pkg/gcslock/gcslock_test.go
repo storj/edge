@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/gcslock/gcsops"
 )
 
@@ -48,10 +49,13 @@ func TestMutex_LockUnlock(t *testing.T) {
 }
 
 func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
-	pathToJsonKey := os.Getenv("STORJ_TEST_PATH_TO_JSON_KEY")
+	var (
+		pathToJsonKey = os.Getenv("STORJ_TEST_GCSLOCK_PATH_TO_JSON_KEY")
+		bucket        = os.Getenv("STORJ_TEST_GCSLOCK_BUCKET")
+	)
 
-	if pathToJsonKey == "" {
-		t.Skipf("Skipping %s without credentials provided", t.Name())
+	if pathToJsonKey == "" || bucket == "" {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
 
 	jsonKey, err := os.ReadFile(pathToJsonKey)
@@ -62,8 +66,8 @@ func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
 
 	m, err := NewMutex(ctx, Options{
 		JSONKey: jsonKey,
-		Name:    "test",
-		Bucket:  "gcslock_test",
+		Name:    testrand.URLPathNonFolder(),
+		Bucket:  bucket,
 		Logger:  logger.Named("distributed lock").Sugar(),
 	})
 	require.NoError(t, err)
