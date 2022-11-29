@@ -55,11 +55,11 @@ type Mutex struct {
 func (m *Mutex) Lock(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for {
+	for i := 1; ; i++ {
 		// Step 1: create the object at the given URL
 		if err = m.put(ctx); err != nil {
 			if !errs.Is(err, gcsops.ErrPreconditionFailed) {
-				m.logger.Infof("%s: waiting (%s)", m.name, err)
+				m.logger.Infof("waiting (attempt=%d,%s)", i, err)
 				if err = m.backoff.Wait(ctx); err != nil {
 					return Error.Wrap(err)
 				}
@@ -68,7 +68,7 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 			// If creation fails with a 412 Precondition Failed error (meaning
 			// the object already exists), then...
 			if m.shouldWait(ctx) {
-				m.logger.Infof("%s: waiting", m.name)
+				m.logger.Infof("waiting (attempt=%d,lock already exists)", i)
 				if err = m.backoff.Wait(ctx); err != nil {
 					return Error.Wrap(err)
 				}
@@ -80,7 +80,7 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 		m.refreshCycle = sync2.NewCycle(m.refreshInterval)
 		m.refreshCycle.SetDelayStart()
 		m.refreshCycle.Start(ctx, m.refreshGroup, m.refresh)
-		m.logger.Infof("%s: locked", m.name)
+		m.logger.Infof("locked (attempt=%d)", i)
 		return nil
 	}
 }
@@ -94,17 +94,17 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 		m.refreshCycle.Close()
 		m.refreshCycle = nil
 	}
-	if err := m.refreshGroup.Wait(); err != nil {
-		m.logger.Errorf("%s: refresh cycle terminated with an error while locked: %v", m.name, err)
+	if err = m.refreshGroup.Wait(); err != nil {
+		m.logger.Errorf("refresh cycle terminated with an error while locked: %s", err)
 	}
 	// Step 2: delete the lock object at the given URL
 	// Step 2.1: Use the x-goog-if-metageneration-match: [last known metageneration] header
 	err = m.delete(ctx, m.lastKnownMetageneration)
 	// Step 2.2: ignore the 412 Precondition Failed error, if any
 	if err != nil && !errs.Is(err, gcsops.ErrPreconditionFailed) {
-		return Error.New("unexpected response: %s", err)
+		return Error.New("unexpected response: %w", err)
 	}
-	m.logger.Infof("%s: unlocked", m.name)
+	m.logger.Infof("unlocked")
 	return nil
 }
 
