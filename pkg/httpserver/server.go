@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
 
-	middleware "storj.io/gateway-mt/pkg/middleware"
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
