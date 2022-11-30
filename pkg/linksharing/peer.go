@@ -15,7 +15,6 @@ import (
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
-	pkgmiddleware "storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
@@ -60,9 +59,8 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 
 	handleWithTracing := http.TraceHandler(handle, mon)
 	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
-	handleWithRequestID := pkgmiddleware.AddRequestID(instrumentedHandle)
 
-	peer.Server, err = httpserver.New(log, handleWithRequestID, config.Server)
+	peer.Server, err = httpserver.New(log, instrumentedHandle, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}

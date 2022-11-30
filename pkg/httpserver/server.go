@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
@@ -123,8 +125,8 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 
 	// logging
 	if config.TrafficLogging {
-		httpHandler = logResponses(log, logRequests(log, httpHandler))
-		handler = logResponses(log, logRequests(log, handler))
+		httpHandler = middleware.AddRequestID(logResponses(log, logRequests(log, httpHandler)))
+		handler = middleware.AddRequestID(logResponses(log, logRequests(log, handler)))
 	}
 
 	server := &http.Server{
