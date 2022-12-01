@@ -11,208 +11,202 @@ import (
 	"storj.io/minio/cmd"
 )
 
-// objectAPIHandlers is linked to Minio's cmd.objectAPIHandlers and should not be changed.
-type objectAPIHandlers struct {
-	ObjectAPI func() cmd.ObjectLayer
-	CacheAPI  func() cmd.CacheObjectLayer
-}
-
-// objectAPIHandlersWrapper should be used to extend objectAPIHandlers.
+// objectAPIHandlersWrapper should be used to extend cmd.ObjectAPIHandlers.
 type objectAPIHandlersWrapper struct {
-	core               objectAPIHandlers
+	core               cmd.ObjectAPIHandlers
 	corsAllowedOrigins []string
 }
 
 func (h objectAPIHandlersWrapper) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	HeadObjectHandler(h.core, w, r)
+	h.core.HeadObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	CopyObjectPartHandler(h.core, w, r)
+	h.core.CopyObjectPartHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectPartHandler(h.core, w, r)
+	h.core.PutObjectPartHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListObjectPartsHandler(h.core, w, r)
+	h.core.ListObjectPartsHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	CompleteMultipartUploadHandler(h.core, w, r)
+	h.core.CompleteMultipartUploadHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	NewMultipartUploadHandler(h.core, w, r)
+	h.core.NewMultipartUploadHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) AbortMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	AbortMultipartUploadHandler(h.core, w, r)
+	h.core.AbortMultipartUploadHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetObjectACLHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetObjectACLHandler(h.core, w, r)
+	h.core.GetObjectACLHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectACLHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectACLHandler(h.core, w, r)
+	h.core.PutObjectACLHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetObjectTaggingHandler(h.core, w, r)
+	h.core.GetObjectTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectTaggingHandler(h.core, w, r)
+	h.core.PutObjectTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteObjectTaggingHandler(h.core, w, r)
+	h.core.DeleteObjectTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) SelectObjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	SelectObjectContentHandler(h.core, w, r)
+	h.core.SelectObjectContentHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetObjectRetentionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetObjectRetentionHandler(h.core, w, r)
+	h.core.GetObjectRetentionHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetObjectLegalHoldHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetObjectLegalHoldHandler(h.core, w, r)
+	h.core.GetObjectLegalHoldHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetObjectHandler(h.core, w, r)
+	h.core.GetObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	CopyObjectHandler(h.core, w, r)
+	h.core.CopyObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectRetentionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectRetentionHandler(h.core, w, r)
+	h.core.PutObjectRetentionHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectLegalHoldHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectLegalHoldHandler(h.core, w, r)
+	h.core.PutObjectLegalHoldHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutObjectHandler(h.core, w, r)
+	h.core.PutObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteObjectHandler(h.core, w, r)
+	h.core.DeleteObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketLocationHandler(h.core, w, r)
+	h.core.GetBucketLocationHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketPolicyHandler(h.core, w, r)
+	h.core.GetBucketPolicyHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketLifecycleHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketLifecycleHandler(h.core, w, r)
+	h.core.GetBucketLifecycleHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketEncryptionHandler(h.core, w, r)
+	h.core.GetBucketEncryptionHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketObjectLockConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketObjectLockConfigHandler(h.core, w, r)
+	h.core.GetBucketObjectLockConfigHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketReplicationConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketReplicationConfigHandler(h.core, w, r)
+	h.core.GetBucketReplicationConfigHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketVersioningHandler(h.core, w, r)
+	h.core.GetBucketVersioningHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketNotificationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketNotificationHandler(h.core, w, r)
+	h.core.GetBucketNotificationHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListenNotificationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListenNotificationHandler(h.core, w, r)
+	h.core.ListenNotificationHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketACLHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketACLHandler(h.core, w, r)
+	h.core.GetBucketACLHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketACLHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketACLHandler(h.core, w, r)
+	h.core.PutBucketACLHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
@@ -249,185 +243,185 @@ func (h objectAPIHandlersWrapper) DeleteBucketCorsHandler(w http.ResponseWriter,
 func (h objectAPIHandlersWrapper) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketWebsiteHandler(h.core, w, r)
+	h.core.GetBucketWebsiteHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketAccelerateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketAccelerateHandler(h.core, w, r)
+	h.core.GetBucketAccelerateHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketRequestPaymentHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketRequestPaymentHandler(h.core, w, r)
+	h.core.GetBucketRequestPaymentHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketLoggingHandler(h.core, w, r)
+	h.core.GetBucketLoggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	GetBucketTaggingHandler(h.core, w, r)
+	h.core.GetBucketTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketWebsiteHandler(h.core, w, r)
+	h.core.DeleteBucketWebsiteHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketTaggingHandler(h.core, w, r)
+	h.core.DeleteBucketTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListMultipartUploadsHandler(h.core, w, r)
+	h.core.ListMultipartUploadsHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListObjectsV2MHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListObjectsV2MHandler(h.core, w, r)
+	h.core.ListObjectsV2MHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListObjectsV2Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListObjectsV2Handler(h.core, w, r)
+	h.core.ListObjectsV2Handler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListObjectVersionsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListObjectVersionsHandler(h.core, w, r)
+	h.core.ListObjectVersionsHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListObjectsV1Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListObjectsV1Handler(h.core, w, r)
+	h.core.ListObjectsV1Handler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketLifecycleHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketLifecycleHandler(h.core, w, r)
+	h.core.PutBucketLifecycleHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketReplicationConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketReplicationConfigHandler(h.core, w, r)
+	h.core.PutBucketReplicationConfigHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketEncryptionHandler(h.core, w, r)
+	h.core.PutBucketEncryptionHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketPolicyHandler(h.core, w, r)
+	h.core.PutBucketPolicyHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketObjectLockConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketObjectLockConfigHandler(h.core, w, r)
+	h.core.PutBucketObjectLockConfigHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketTaggingHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketTaggingHandler(h.core, w, r)
+	h.core.PutBucketTaggingHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketVersioningHandler(h.core, w, r)
+	h.core.PutBucketVersioningHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketNotificationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketNotificationHandler(h.core, w, r)
+	h.core.PutBucketNotificationHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PutBucketHandler(h.core, w, r)
+	h.core.PutBucketHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) HeadBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	HeadBucketHandler(h.core, w, r)
+	h.core.HeadBucketHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PostPolicyBucketHandler(h.core, w, r)
+	h.core.PostPolicyBucketHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteMultipleObjectsHandler(h.core, w, r)
+	h.core.DeleteMultipleObjectsHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketPolicyHandler(h.core, w, r)
+	h.core.DeleteBucketPolicyHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketReplicationConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketReplicationConfigHandler(h.core, w, r)
+	h.core.DeleteBucketReplicationConfigHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketLifecycleHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketLifecycleHandler(h.core, w, r)
+	h.core.DeleteBucketLifecycleHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketEncryptionHandler(h.core, w, r)
+	h.core.DeleteBucketEncryptionHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	DeleteBucketHandler(h.core, w, r)
+	h.core.DeleteBucketHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PostRestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	PostRestoreObjectHandler(h.core, w, r)
+	h.core.PostRestoreObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	ListBucketsHandler(h.core, w, r)
+	h.core.ListBucketsHandler(w, r)
 }

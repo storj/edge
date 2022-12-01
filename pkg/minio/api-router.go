@@ -17,7 +17,7 @@ import (
 
 // RegisterAPIRouter - registers S3 compatible APIs.
 func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
-	api := objectAPIHandlersWrapper{objectAPIHandlers{
+	api := objectAPIHandlersWrapper{cmd.ObjectAPIHandlers{
 		ObjectAPI: func() cmd.ObjectLayer { return layer },
 		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
 	}, corsAllowedOrigins}
