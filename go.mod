@@ -8,11 +8,11 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.11.0
 	github.com/jackc/pgx/v4 v4.15.0
-	github.com/jtolio/eventkit v0.0.0-20221004135224-074cf276595b
+	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
 	github.com/mholt/acmez v1.0.4
 	github.com/miekg/dns v1.1.50
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
-	github.com/oschwald/maxminddb-golang v1.7.0
+	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221026154455-f053d3fae32c
@@ -27,13 +27,13 @@ require (
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20221108142031-baf3c0e5a72f
+	storj.io/common v0.0.0-20221123115229-fed3e6651b63
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.3-0.20221020152109-1c6075e292f7
 	storj.io/minio v0.0.0-20221201234724-d0af19bf6813
-	storj.io/private v0.0.0-20221019181214-bb056017e937
-	storj.io/uplink v1.9.1-0.20221109130115-0078dabed3a8
+	storj.io/private v0.0.0-20221108123115-3a27297f0b78
+	storj.io/uplink v1.9.1-0.20221201125039-97ec26dd8010
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -102,7 +102,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/klauspost/compress v1.14.3 // indirect
+	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -116,7 +116,7 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
+	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/cli v1.22.0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
@@ -189,7 +189,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.20.0 // indirect
-	google.golang.org/appengine v1.6.5 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
