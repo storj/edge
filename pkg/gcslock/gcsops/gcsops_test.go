@@ -41,6 +41,9 @@ func TestClient_BasicCycle(t *testing.T) {
 	assert.Equal(t, headers.Get("Cache-Control"), actualHeaders.Get("Cache-Control"))
 	assert.Equal(t, headers.Get("x-goog-meta-test"), actualHeaders.Get("x-goog-meta-test"))
 
+	require.ErrorIs(t, c.Delete(ctx, nil, bucket, "something else"), ErrNotFound)
+	_, err = c.Download(ctx, bucket, "something else")
+	require.ErrorIs(t, err, ErrNotFound)
 	_, err = c.Stat(ctx, bucket, "something else")
 	require.ErrorIs(t, err, ErrNotFound)
 

@@ -75,6 +75,8 @@ func (c *Client) Delete(ctx context.Context, headers http.Header, bucket, name s
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		return nil
+	case http.StatusNotFound:
+		return ErrNotFound
 	case http.StatusPreconditionFailed:
 		return ErrPreconditionFailed
 	default:
@@ -102,6 +104,9 @@ func (c *Client) Download(ctx context.Context, bucket, name string) (_ io.ReadCl
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return resp.Body, nil
+	case http.StatusNotFound:
+		_ = resp.Body.Close()
+		return nil, ErrNotFound
 	default:
 		_ = resp.Body.Close()
 		return nil, Error.New("unexpected status: %s", resp.Status)
