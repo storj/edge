@@ -215,7 +215,7 @@ func (m *Mutex) refresh(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("unhealthy lock: ret. status code: %d", resp.StatusCode)

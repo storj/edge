@@ -17,8 +17,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-
-	"storj.io/common/sync2"
 )
 
 // Endpoint is the top-level part of request endpoints to access Cloud Storage.
@@ -72,11 +70,7 @@ func (c *Client) Delete(ctx context.Context, headers http.Header, bucket, name s
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-	if err = errs.Combine(err, resp.Body.Close()); err != nil {
-		return Error.Wrap(err)
-	}
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusNoContent:
@@ -100,7 +94,6 @@ func (c *Client) Download(ctx context.Context, bucket, name string) (_ io.ReadCl
 	}
 
 	// The caller is responsible for closing the body.
-	//nolint:bodyclose
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -110,6 +103,7 @@ func (c *Client) Download(ctx context.Context, bucket, name string) (_ io.ReadCl
 	case http.StatusOK:
 		return resp.Body, nil
 	default:
+		_ = resp.Body.Close()
 		return nil, Error.New("unexpected status: %s", resp.Status)
 	}
 
@@ -148,17 +142,17 @@ func (c *Client) List(ctx context.Context, bucket, prefix string, recursive bool
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, Error.Wrap(errs.Combine(errs.New("unexpected status: %s", resp.Status), resp.Body.Close()))
+			_ = resp.Body.Close()
+			return nil, Error.Wrap(errs.New("unexpected status: %s", resp.Status))
 		}
 
 		var rawList listing
 		if err = json.NewDecoder(resp.Body).Decode(&rawList); err != nil {
-			return nil, Error.Wrap(errs.Combine(err, resp.Body.Close()))
-		}
-
-		if err = resp.Body.Close(); err != nil {
+			_ = resp.Body.Close()
 			return nil, Error.Wrap(err)
 		}
+
+		_ = resp.Body.Close()
 
 		list = append(list, combineLists(rawList.Prefixes, rawList.Items)...)
 
@@ -187,11 +181,7 @@ func (c *Client) Stat(ctx context.Context, bucket, name string) (_ http.Header, 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-	if err = errs.Combine(err, resp.Body.Close()); err != nil {
-		return nil, Error.Wrap(err)
-	}
+	defer func() { _ = resp.Body.Close() }()
 
 	ret := resp.Header.Clone() // avoid resp lingering in memory
 
@@ -221,11 +211,7 @@ func (c *Client) Upload(ctx context.Context, headers http.Header, bucket, name s
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-	if err = errs.Combine(err, resp.Body.Close()); err != nil {
-		return Error.Wrap(err)
-	}
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
