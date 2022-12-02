@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/fs"
 	"strconv"
 	"sync"
 	"time"
@@ -102,6 +103,9 @@ func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 
 	rc, err := gcs.client.Download(ctx, gcs.bucket, key)
 	if err != nil {
+		if errs.Is(err, gcsops.ErrNotFound) {
+			return nil, Error.Wrap(fs.ErrNotExist)
+		}
 		return nil, Error.Wrap(err)
 	}
 	defer func() { err = Error.Wrap(errs.Combine(err, rc.Close())) }()
@@ -113,7 +117,11 @@ func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 func (gcs *GCS) Delete(ctx context.Context, key string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(gcs.client.Delete(ctx, nil, gcs.bucket, key))
+	err = gcs.client.Delete(ctx, nil, gcs.bucket, key)
+	if errs.Is(err, gcsops.ErrNotFound) {
+		return Error.Wrap(fs.ErrNotExist)
+	}
+	return Error.Wrap(err)
 }
 
 // Exists implements certmagics's Storage interface.
@@ -142,6 +150,9 @@ func (gcs *GCS) Stat(ctx context.Context, key string) (_ certmagic.KeyInfo, err 
 
 	headers, err := gcs.client.Stat(ctx, gcs.bucket, key)
 	if err != nil {
+		if errs.Is(err, gcsops.ErrNotFound) {
+			return keyInfo, Error.Wrap(fs.ErrNotExist)
+		}
 		return keyInfo, Error.Wrap(err)
 	}
 
