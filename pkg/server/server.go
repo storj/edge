@@ -25,6 +25,7 @@ import (
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/gateway/miniogw"
+	"storj.io/minio/cmd"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -83,7 +84,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(middleware.CollectEvent)
-	r.Use(minio.GlobalHandlers...)
+	r.Use(cmd.GlobalHandlers...)
 
 	// we deliberately don't log paths for this service because they have
 	// sensitive information. Note that middleware.AccessKey is chained before

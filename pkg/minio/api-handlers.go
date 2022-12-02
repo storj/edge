@@ -225,19 +225,19 @@ func (h objectAPIHandlersWrapper) GetBucketCorsHandler(w http.ResponseWriter, r 
 	}
 	// CorsHandler's AllowedHeader list is not implemented here, because it includes "*"
 	sb.WriteString("<AllowedHeader>*</AllowedHeader><ExposeHeader>*</ExposeHeader></CORSRule></CORSConfiguration>")
-	writeSuccessResponseXML(w, []byte(sb.String()))
+	cmd.WriteSuccessResponseXML(w, []byte(sb.String()))
 }
 
 func (h objectAPIHandlersWrapper) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	writeErrorResponse(r.Context(), w, GetAPIError(cmd.ErrNotImplemented), r.URL, false)
+	cmd.WriteErrorResponse(r.Context(), w, cmd.GetAPIError(cmd.ErrNotImplemented), r.URL, false)
 }
 
 func (h objectAPIHandlersWrapper) DeleteBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	writeErrorResponse(r.Context(), w, GetAPIError(cmd.ErrNotImplemented), r.URL, false)
+	cmd.WriteErrorResponse(r.Context(), w, cmd.GetAPIError(cmd.ErrNotImplemented), r.URL, false)
 }
 
 func (h objectAPIHandlersWrapper) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {

@@ -225,7 +225,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/gateway v1.8.3-0.20221020152109-1c6075e292f7 // indirect
-	storj.io/minio v0.0.0-20221201020607-354f17605ae5 // indirect
+	storj.io/minio v0.0.0-20221201234724-d0af19bf6813 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )

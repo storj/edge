@@ -31,7 +31,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
 	storj.io/gateway v1.8.3-0.20221020152109-1c6075e292f7
-	storj.io/minio v0.0.0-20221201020607-354f17605ae5
+	storj.io/minio v0.0.0-20221201234724-d0af19bf6813
 	storj.io/private v0.0.0-20221019181214-bb056017e937
 	storj.io/uplink v1.9.1-0.20221109130115-0078dabed3a8
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
