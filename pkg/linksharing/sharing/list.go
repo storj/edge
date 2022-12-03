@@ -91,7 +91,7 @@ func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedR
 		}
 		objects = append(objects, listObject{
 			Key:    key,
-			URL:    template.URL(keyURL + "?wrap=1"),
+			URL:    template.URL("./" + keyURL + "?wrap=1"),
 			Size:   memory.Size(item.System.ContentLength).Base10String(),
 			Prefix: item.IsPrefix,
 		})
@@ -116,7 +116,7 @@ func listObjectsArchive(ctx context.Context, project *uplink.Project, pr *parsed
 		}
 		objects = append(objects, listObject{
 			Key:    name,
-			URL:    template.URL(keyURL + "&wrap=1"),
+			URL:    template.URL("./" + keyURL + "&wrap=1"),
 			Size:   memory.Size(f.Size).Base10String(),
 			Prefix: false,
 		})
