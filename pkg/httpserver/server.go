@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/caddyserver/certmagic"
@@ -353,8 +354,6 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 	}
 
 	magic = certmagic.New(cache, certmagic.Config{
-		// TODO add event callback for metrics
-		// OnEvent:
 		OnDemand: &certmagic.OnDemandConfig{
 			// if the decision function returns an error a certificate
 			// may not be obtained for that name
@@ -378,6 +377,19 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 				// request cert
 				return nil
 			},
+		},
+		OnEvent: func(ctx context.Context, event string, data map[string]any) error {
+			switch event {
+			case "cert_obtaining", "cert_obtained", "cert_failed":
+				var renewal bool
+				if r, ok := data["renewal"].(bool); ok {
+					renewal = r
+				}
+				mon.Event("certmagic_"+event, monkit.NewSeriesTag("renewal", strconv.FormatBool(renewal)))
+			default:
+				mon.Event("certmagic_" + event)
+			}
+			return nil
 		},
 		Storage: cs,
 		Logger:  log,
