@@ -29,8 +29,13 @@ type AuthClient struct {
 
 // New returns a new auth client.
 func New(config Config) *AuthClient {
-	return &AuthClient{Config: config, Cache: lrucache.New(
-		lrucache.Options{Expiration: config.Cache.Expiration, Capacity: config.Cache.Capacity})}
+	return &AuthClient{
+		Config: config,
+		Cache: lrucache.New(lrucache.Options{
+			Expiration: config.Cache.Expiration,
+			Capacity:   config.Cache.Capacity,
+		}),
+	}
 }
 
 // Resolve maps an access key into an auth service response. clientIP is the IP
@@ -51,8 +56,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	reqURL.Path = path.Join(reqURL.Path, "/v1/access", accessKeyID)
 	req, err := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
 	if err != nil {
-		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
-			http.StatusInternalServerError)
+		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
@@ -72,8 +76,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 				}
 				continue
 			}
-			return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
-				http.StatusInternalServerError)
+			return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
 		}
 
 		// Use an anonymous function for deferring the response close before the
@@ -86,9 +89,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				return false, AuthServiceResponse{}, errdata.WithStatus(
-					AuthServiceError.New("invalid status code: %d", resp.StatusCode),
-					resp.StatusCode)
+				return false, AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.New("%s", resp.Status), resp.StatusCode)
 			}
 
 			var authResp AuthServiceResponse
@@ -96,8 +97,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 				if !delay.Maxed() {
 					return true, AuthServiceResponse{}, nil
 				}
-				return false, AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err),
-					http.StatusInternalServerError)
+				return false, AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
 			}
 
 			return false, authResp, nil
@@ -179,7 +179,7 @@ func (a *AuthClient) GetHealthLive(ctx context.Context) (_ bool, err error) {
 	}
 	defer func() { err = errs.Combine(err, AuthServiceError.Wrap(res.Body.Close())) }()
 	if res.StatusCode != http.StatusOK {
-		return false, AuthServiceError.New("unexpected response code %d %s", res.StatusCode, res.Status)
+		return false, AuthServiceError.New("%s", res.Status)
 	}
 	return true, nil
 }

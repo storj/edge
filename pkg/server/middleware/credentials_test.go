@@ -220,7 +220,7 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 			authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 			AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(verify).ServeHTTP(nil, req)
 
-			filteredLogs := observedLogs.FilterField(zap.String("error", fmt.Sprintf("auth service: invalid status code: %d", tc.status)))
+			filteredLogs := observedLogs.FilterField(zap.String("error", fmt.Sprintf("auth service: %d %s", tc.status, http.StatusText(tc.status))))
 			require.Len(t, filteredLogs.All(), 1)
 			require.Equal(t, tc.expectedLevel, filteredLogs.All()[0].Level)
 		})
