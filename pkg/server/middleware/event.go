@@ -38,6 +38,7 @@ func CollectEvent(next http.Handler) http.Handler {
 		}
 
 		ek.Event("gmt",
+			eventkit.String("method", r.Method),
 			eventkit.String("user-agent", product),
 			eventkit.String("macaroon-head", macHead),
 			eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)))
