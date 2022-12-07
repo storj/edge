@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 		Templates: "../../pkg/linksharing/web/",
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
-	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, handlerConfig)
+	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, handlerConfig)
 	require.NoError(t, err)
 
 	tempdir := t.TempDir()
@@ -60,19 +60,17 @@ func TestServer(t *testing.T) {
 	require.NoError(t, err)
 
 	tlsConfig := &TLSConfig{
-		CertFile:    certPath,
-		KeyFile:     keyPath,
-		LetsEncrypt: false,
-		ConfigDir:   tempdir,
-		PublicURLs:  []string{address},
+		CertFile:   certPath,
+		KeyFile:    keyPath,
+		ConfigDir:  tempdir,
+		PublicURLs: []string{address},
 	}
 
 	noTLSConfig := &TLSConfig{
-		CertFile:    "",
-		KeyFile:     "",
-		LetsEncrypt: false,
-		ConfigDir:   tempdir,
-		PublicURLs:  []string{address},
+		CertFile:   "",
+		KeyFile:    "",
+		ConfigDir:  tempdir,
+		PublicURLs: []string{address},
 	}
 
 	testCases := []serverTestCase{
@@ -154,7 +152,7 @@ type serverTestCase struct {
 }
 
 func (testCase *serverTestCase) NewServer(tb testing.TB) (*Server, bool) {
-	s, err := New(zaptest.NewLogger(tb), testCase.Handler, Config{
+	s, err := New(zaptest.NewLogger(tb), testCase.Handler, nil, Config{
 		Name:       "test",
 		Address:    testCase.Address,
 		AddressTLS: testCase.AddressTLS,

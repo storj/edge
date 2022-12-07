@@ -90,7 +90,7 @@ type CriticalErrorHandler struct{ Handler http.Handler }
 func (h CriticalErrorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := recover(); err == logger.ErrCritical { // handle
-			writeErrorResponse(r.Context(), w, GetAPIError(cmd.ErrInternalError), r.URL, false)
+			cmd.WriteErrorResponse(r.Context(), w, cmd.GetAPIError(cmd.ErrInternalError), r.URL, false)
 			return
 		} else if err != nil {
 			panic(err) // forward other panic calls

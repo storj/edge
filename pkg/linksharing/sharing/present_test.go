@@ -55,7 +55,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 				Templates: "../../../pkg/linksharing/web/",
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
+			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -257,7 +257,7 @@ func TestZipArchiveContentType(t *testing.T) {
 		URLBases:  []string{"http://test.test"},
 		Templates: "../../../pkg/linksharing/web/",
 	}
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, cfg)
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, cfg)
 	require.NoError(t, err)
 	handler.archiveRanger = func(_ context.Context, _ *uplink.Project, _, _, _ string, _ bool) (ranger.Ranger, bool, error) {
 		return SimpleRanger(nil, 0), false, nil
@@ -267,7 +267,7 @@ func TestZipArchiveContentType(t *testing.T) {
 	testZipItemContentType(ctx, t, handler, "test.txt", "bytes=0-100", "text/plain; charset=utf-8", http.StatusRequestedRangeNotSatisfiable)
 	testZipItemContentType(ctx, t, handler, "test.html", "", "text/plain", http.StatusOK) // by default, html isn't allowed for security reasons
 	testZipItemContentType(ctx, t, handler, "test.jpg", "", "image/jpeg", http.StatusOK)
-	testZipItemContentType(ctx, t, handler, "test.abc", "", "application/octet-stream", http.StatusOK)
+	testZipItemContentType(ctx, t, handler, "test.qwe", "", "application/octet-stream", http.StatusOK)
 	testZipItemContentType(ctx, t, handler, "test", "", "application/octet-stream", http.StatusOK)
 }
 

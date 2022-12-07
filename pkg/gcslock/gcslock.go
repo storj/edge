@@ -13,25 +13,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/backoff"
+	"storj.io/gateway-mt/pkg/gcslock/gcsops"
 )
 
-const (
-	expirationHeader = "x-goog-meta-expiration"
-	gcsURL           = "https://storage.googleapis.com"
-)
+const expirationHeader = "x-goog-meta-expiration"
 
 var (
 	// Error is the error class for this package.
@@ -42,7 +37,7 @@ var (
 // Mutex is a distributed lock implemented on top of Google Cloud Storage.
 // NewMutex should always be used to construct a Mutex.
 type Mutex struct {
-	client *http.Client
+	client *gcsops.Client
 	logger Logger
 
 	name string
@@ -60,49 +55,33 @@ type Mutex struct {
 func (m *Mutex) Lock(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for {
+	for i := 1; ; i++ {
 		// Step 1: create the object at the given URL
-		resp, err := m.put(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-		if err = errs.Combine(err, resp.Body.Close()); err != nil {
-			return Error.Wrap(err)
-		}
-		// Step 2: if creation is successful, then it means we've taken the lock
-		if resp.StatusCode == http.StatusOK {
-			// Step 2.1: start refreshing the lock in the background
-			m.refreshCycle = sync2.NewCycle(m.refreshInterval)
-			m.refreshCycle.SetDelayStart()
-			m.refreshCycle.Start(ctx, m.refreshGroup, m.refresh)
-			m.logger.Infof("%s: locked", m.name)
-			return nil
-		}
-		if resp.StatusCode != http.StatusPreconditionFailed {
-			m.logger.Infof("%s: waiting (status code: %d)", m.name, resp.StatusCode)
-			if err = m.backoff.Wait(ctx); err != nil {
-				return Error.Wrap(err)
+		if err = m.put(ctx); err != nil {
+			if !errs.Is(err, gcsops.ErrPreconditionFailed) {
+				m.logger.Infof("waiting (attempt=%d,%s)", i, err)
+				if err = m.backoff.Wait(ctx); err != nil {
+					return Error.Wrap(err)
+				}
+				continue
+			}
+			// If creation fails with a 412 Precondition Failed error (meaning
+			// the object already exists), then...
+			if m.shouldWait(ctx) {
+				m.logger.Infof("waiting (attempt=%d,lock already exists)", i)
+				if err = m.backoff.Wait(ctx); err != nil {
+					return Error.Wrap(err)
+				}
 			}
 			continue
 		}
-		// Step 3: if creation fails with a 412 Precondition Failed error
-		// (meaning the object already exists), then...
-		resp, err = m.head(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-		if err = errs.Combine(err, resp.Body.Close()); err != nil {
-			return Error.Wrap(err)
-		}
-
-		if m.shouldWait(ctx, resp.StatusCode, resp.Header) {
-			m.logger.Infof("%s: waiting", m.name)
-			if err = m.backoff.Wait(ctx); err != nil {
-				return Error.Wrap(err)
-			}
-		}
+		// Step 2: if creation is successful, then it means we've taken the lock
+		// Step 2.1: start refreshing the lock in the background
+		m.refreshCycle = sync2.NewCycle(m.refreshInterval)
+		m.refreshCycle.SetDelayStart()
+		m.refreshCycle.Start(ctx, m.refreshGroup, m.refresh)
+		m.logger.Infof("locked (attempt=%d)", i)
+		return nil
 	}
 }
 
@@ -115,31 +94,23 @@ func (m *Mutex) Unlock(ctx context.Context) (err error) {
 		m.refreshCycle.Close()
 		m.refreshCycle = nil
 	}
-	if err := m.refreshGroup.Wait(); err != nil {
-		m.logger.Errorf("%s: refresh cycle terminated with an error while locked: %v", m.name, err)
+	if err = m.refreshGroup.Wait(); err != nil {
+		m.logger.Errorf("refresh cycle terminated with an error while locked: %s", err)
 	}
 	// Step 2: delete the lock object at the given URL
 	// Step 2.1: Use the x-goog-if-metageneration-match: [last known metageneration] header
-	resp, err := m.delete(ctx, m.lastKnownMetageneration)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-	if err = errs.Combine(err, resp.Body.Close()); err != nil {
-		return Error.Wrap(err)
-	}
+	err = m.delete(ctx, m.lastKnownMetageneration)
 	// Step 2.2: ignore the 412 Precondition Failed error, if any
-	switch resp.StatusCode {
-	case http.StatusNoContent, http.StatusPreconditionFailed:
-		m.logger.Infof("%s: unlocked", m.name)
-		return nil
-	default:
-		return Error.New("unexpected response status code: %d", resp.StatusCode)
+	if err != nil && !errs.Is(err, gcsops.ErrPreconditionFailed) {
+		return Error.New("unexpected response: %w", err)
 	}
+	m.logger.Infof("unlocked")
+	return nil
 }
 
 // Options define how Mutex should be configured.
 type Options struct {
+	// JSONKey must be set except when Client is set.
 	JSONKey []byte
 	Name    string
 	Bucket  string
@@ -149,6 +120,8 @@ type Options struct {
 	RefreshInterval time.Duration
 	// If Logger is not set, nothing will be logged.
 	Logger Logger
+	// If Client is not set, a new one will be created.
+	Client *gcsops.Client
 }
 
 // NewMutex initializes new Mutex. If TTL and RefreshInterval aren't set in opt,
@@ -156,14 +129,16 @@ type Options struct {
 func NewMutex(ctx context.Context, opt Options) (_ *Mutex, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c, err := google.CredentialsFromJSON(ctx, opt.JSONKey, "https://www.googleapis.com/auth/devstorage.full_control")
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if opt.Client == nil {
+		opt.Client, err = gcsops.NewClient(ctx, opt.JSONKey)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	m := &Mutex{
 		logger:          &wrappedLogger{logger: opt.Logger},
-		client:          oauth2.NewClient(ctx, c.TokenSource),
+		client:          opt.Client,
 		name:            opt.Name,
 		bucket:          opt.Bucket,
 		ttl:             opt.TTL,
@@ -187,21 +162,15 @@ func NewMutex(ctx context.Context, opt Options) (_ *Mutex, err error) {
 	return m, nil
 }
 
-func (m *Mutex) put(ctx context.Context) (_ *http.Response, err error) {
+func (m *Mutex) put(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	u := xmlAPIEndpoint(m.bucket, m.name)
+	headers := make(http.Header)
+	headers.Add("x-goog-if-generation-match", "0")
+	headers.Add("Cache-Control", "no-store")
+	headers.Add(expirationHeader, time.Now().Add(m.ttl).Format(time.RFC3339))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("x-goog-if-generation-match", "0")
-	req.Header.Add("Cache-Control", "no-store")
-	req.Header.Add(expirationHeader, time.Now().Add(m.ttl).Format(time.RFC3339))
-
-	return m.client.Do(req)
+	return m.client.Upload(ctx, headers, m.bucket, m.name, nil)
 }
 
 // refresh refreshes the lock's expiration.
@@ -209,7 +178,9 @@ func (m *Mutex) put(ctx context.Context) (_ *http.Response, err error) {
 // TODO(artur): refresh is currently not allowed to fail (it should be
 // configurable, i.e., it should be allowed to fail, e.g., 3x at maximum).
 //
-// NOTE(artur): unfortunately, we have to use JSON API for this, not XML.
+// NOTE(artur): refresh uses custom code to call GCS because gcsops does not
+// export updating metadata. We might backport this code to gcsops, but it's
+// very specific to this package.
 func (m *Mutex) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -231,7 +202,7 @@ func (m *Mutex) refresh(ctx context.Context) (err error) {
 		"ifMetagenerationMatch": {m.lastKnownMetageneration},
 		"prettyPrint":           {"false"},
 	}
-	u := jsonAPIEndpoint(m.bucket, m.name) + "?" + q.Encode()
+	u := fmt.Sprintf(gcsops.Endpoint+"/storage/v1/b/%s/o/%s", m.bucket, url.PathEscape(m.name)) + "?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, u, bytes.NewReader(b))
 	if err != nil {
@@ -240,11 +211,11 @@ func (m *Mutex) refresh(ctx context.Context) (err error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := m.client.Do(req)
+	resp, err := m.client.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("unhealthy lock: ret. status code: %d", resp.StatusCode)
@@ -263,25 +234,13 @@ func (m *Mutex) refresh(ctx context.Context) (err error) {
 	return nil
 }
 
-func (m *Mutex) head(ctx context.Context) (_ *http.Response, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	u := xmlAPIEndpoint(m.bucket, m.name)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return m.client.Do(req)
-}
-
 // shouldWait treats every error as transient.
-func (m *Mutex) shouldWait(ctx context.Context, statusCode int, headers http.Header) bool {
+func (m *Mutex) shouldWait(ctx context.Context) bool {
 	defer mon.Task()(&ctx)(nil)
 
-	if statusCode != http.StatusOK {
-		return statusCode != http.StatusNotFound
+	headers, err := m.client.Stat(ctx, m.bucket, m.name)
+	if err != nil {
+		return !errs.Is(err, gcsops.ErrNotFound)
 	}
 
 	expiration, err := time.Parse(time.RFC3339, headers.Get(expirationHeader))
@@ -290,39 +249,17 @@ func (m *Mutex) shouldWait(ctx context.Context, statusCode int, headers http.Hea
 	}
 
 	if time.Now().After(expiration) {
-		resp, err := m.delete(ctx, headers.Get("x-goog-metageneration"))
-		if err != nil {
-			return true
-		}
-		_, err = sync2.Copy(ctx, io.Discard, resp.Body)
-		if err = errs.Combine(err, resp.Body.Close()); err != nil {
-			return true
-		}
-		return resp.StatusCode != http.StatusNoContent
+		return m.delete(ctx, headers.Get("x-goog-metageneration")) != nil
 	}
 
 	return true
 }
 
-func (m *Mutex) delete(ctx context.Context, metageneration string) (_ *http.Response, err error) {
+func (m *Mutex) delete(ctx context.Context, metageneration string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	u := xmlAPIEndpoint(m.bucket, m.name)
+	headers := make(http.Header)
+	headers.Add("x-goog-if-metageneration-match", metageneration)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("x-goog-if-metageneration-match", metageneration)
-
-	return m.client.Do(req)
-}
-
-func xmlAPIEndpoint(bucket, object string) string {
-	return fmt.Sprintf(gcsURL+"/%s/%s", bucket, object)
-}
-
-func jsonAPIEndpoint(bucket, object string) string {
-	return fmt.Sprintf(gcsURL+"/storage/v1/b/%s/o/%s", bucket, object)
+	return m.client.Delete(ctx, headers, m.bucket, m.name)
 }

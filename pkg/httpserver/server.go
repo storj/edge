@@ -14,11 +14,17 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/caddyserver/certmagic"
+	"github.com/mholt/acmez"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/gateway-mt/pkg/certstorage"
+	"storj.io/gateway-mt/pkg/gpublicca"
+	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
@@ -55,10 +61,22 @@ type Config struct {
 
 // TLSConfig is a struct to handle the preferred/configured TLS options.
 type TLSConfig struct {
-	// LetsEncrypt controls whether certs from Let's Encrypt are obtained or not.
-	// Setting this to true will mean the server only obtains a Let's Encrypt
-	// certificate, and no other config such as CertDir, or CertFile will be considered.
-	LetsEncrypt bool
+	// CertMagic obtains and renews TLS certificates and staples OCSP responses
+	// Setting this to true will mean the server obtains certificate through Certmagic
+	// and no other config such as CertDir, or CertFile will be considered.
+	CertMagic bool
+
+	// CertMagicKeyFile is a path to a file containing the CertMagic service account key.
+	CertMagicKeyFile string
+
+	// CertMagicEmail is the email address to use when creating an ACME account
+	CertMagicEmail string
+
+	// CertMagicStaging use staging CA endpoints
+	CertMagicStaging bool
+
+	// CertMagicBucket bucket to use for certstorage
+	CertMagicBucket string
 
 	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
 	PublicURLs []string
@@ -77,6 +95,10 @@ type TLSConfig struct {
 
 	// KeyFile is a path to a file containing a corresponding key for CertFile.
 	KeyFile string
+
+	// Ctx context for the oauth2 package which gcslock and gcsops use.
+	// oauth2 stores the context passed into its constructors.
+	Ctx context.Context
 }
 
 // Server is the HTTP server.
@@ -95,7 +117,7 @@ type Server struct {
 }
 
 // New creates a new URL Service Server.
-func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) {
+func New(log *zap.Logger, handler http.Handler, txtRecords *sharing.TXTRecords, config Config) (*Server, error) {
 	switch {
 	case config.Address == "":
 		return nil, errs.New("server address is required")
@@ -103,7 +125,7 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 		return nil, errs.New("server handler is required")
 	}
 
-	tlsConfig, httpHandler, err := configureTLS(config.TLSConfig, handler)
+	tlsConfig, httpHandler, err := configureTLS(config, log, txtRecords, handler)
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +145,8 @@ func New(log *zap.Logger, handler http.Handler, config Config) (*Server, error) 
 
 	// logging
 	if config.TrafficLogging {
-		httpHandler = logResponses(log, logRequests(log, httpHandler))
-		handler = logResponses(log, logRequests(log, handler))
+		httpHandler = middleware.AddRequestID(logResponses(log, logRequests(log, httpHandler)))
+		handler = middleware.AddRequestID(logResponses(log, logRequests(log, handler)))
 	}
 
 	server := &http.Server{
@@ -234,19 +256,22 @@ func BaseTLSConfig() *tls.Config {
 	}
 }
 
-func configureTLS(config *TLSConfig, handler http.Handler) (*tls.Config, http.Handler, error) {
-	if config == nil {
+func configureTLS(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords, handler http.Handler) (*tls.Config, http.Handler, error) {
+	if config.TLSConfig == nil {
 		return nil, handler, nil
 	}
 
-	if config.LetsEncrypt {
-		return configureLetsEncrypt(config, handler)
+	if config.TLSConfig.CertMagic {
+		if config.TLSConfig.CertMagicEmail == "" {
+			return nil, nil, errs.New("cert-magic.email must be provided when cert-magic is enabled")
+		}
+		return configureCertMagic(config, log, txtRecords, handler)
 	}
 
 	tlsConfig := BaseTLSConfig()
 
-	if config.CertDir != "" {
-		certs, err := loadCertsFromDir(config.CertDir)
+	if config.TLSConfig.CertDir != "" {
+		certs, err := loadCertsFromDir(config.TLSConfig.CertDir)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -255,16 +280,16 @@ func configureTLS(config *TLSConfig, handler http.Handler) (*tls.Config, http.Ha
 	}
 
 	switch {
-	case config.CertFile != "" && config.KeyFile != "":
-	case config.CertFile == "" && config.KeyFile == "":
+	case config.TLSConfig.CertFile != "" && config.TLSConfig.KeyFile != "":
+	case config.TLSConfig.CertFile == "" && config.TLSConfig.KeyFile == "":
 		return nil, handler, nil
-	case config.CertFile != "" && config.KeyFile == "":
+	case config.TLSConfig.CertFile != "" && config.TLSConfig.KeyFile == "":
 		return nil, nil, errs.New("key file must be provided with cert file")
-	case config.CertFile == "" && config.KeyFile != "":
+	case config.TLSConfig.CertFile == "" && config.TLSConfig.KeyFile != "":
 		return nil, nil, errs.New("cert file must be provided with key file")
 	}
 
-	cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+	cert, err := tls.LoadX509KeyPair(config.TLSConfig.CertFile, config.TLSConfig.KeyFile)
 	if err != nil {
 		return nil, nil, errs.New("unable to load server keypair: %v", err)
 	}
@@ -296,23 +321,108 @@ func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
 	return certificates, nil
 }
 
-func configureLetsEncrypt(config *TLSConfig, handler http.Handler) (*tls.Config, http.Handler, error) {
-	if len(config.PublicURLs) != 1 {
-		return nil, nil, errs.New("cannot do self lets encrypt configuration for multiple hostnames")
+func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords, handler http.Handler) (*tls.Config, http.Handler, error) {
+	// make a list of our public-urls
+	bases := make([]*url.URL, 0, len(config.TLSConfig.PublicURLs))
+	for _, base := range config.TLSConfig.PublicURLs {
+		parsed, err := url.Parse(base)
+		if err != nil {
+			continue
+		}
+		bases = append(bases, parsed)
 	}
-	parsedURL, err := url.Parse(config.PublicURLs[0])
+
+	// We can't set the logger with the default cache so make our own
+	var magic *certmagic.Config
+	cache := certmagic.NewCache(certmagic.CacheOptions{
+		GetConfigForCert: func(cert certmagic.Certificate) (*certmagic.Config, error) {
+			return magic, nil
+		},
+		// TODO decide on cache limit
+		Capacity: 0,
+		Logger:   log,
+	})
+
+	jsonKey, err := os.ReadFile(config.TLSConfig.CertMagicKeyFile)
+	if err != nil {
+		return nil, nil, errs.New("unable to read cert-magic-key-file: %v", err)
+	}
+	cs, err := certstorage.NewGCS(config.TLSConfig.Ctx, log, jsonKey, config.TLSConfig.CertMagicBucket)
+	if err != nil {
+		return nil, nil, errs.New("initializing certstorage: %v", err)
+	}
+
+	magic = certmagic.New(cache, certmagic.Config{
+		// TODO add event callback for metrics
+		// OnEvent:
+		OnDemand: &certmagic.OnDemandConfig{
+			// if the decision function returns an error a certificate
+			// may not be obtained for that name
+			DecisionFunc: func(name string) error {
+				// allow configured urls
+				for _, url := range bases {
+					if name == url.Host {
+						return nil
+					}
+				}
+				// validate dns txt records for everyone else
+				_, _, tls, err := txtRecords.FetchAccessForHost(config.TLSConfig.Ctx, name, "")
+				if err != nil {
+					return err
+				}
+				if !tls {
+					return errs.New("tls not enabled")
+				}
+				// TODO check apikey paid/free status and update txtRecords cache if free status
+
+				// request cert
+				return nil
+			},
+		},
+		Storage: cs,
+		Logger:  log,
+	})
+
+	// Set the AltTLSALPNPort so the solver won't start another listener
+	_, port, err := net.SplitHostPort(config.AddressTLS)
 	if err != nil {
 		return nil, nil, err
 	}
-	certManager := autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(parsedURL.Host),
-		Cache:      autocert.DirCache(filepath.Join(config.ConfigDir, ".certs")),
+	tlsALPNPort, err := net.LookupPort("tcp", port)
+	if err != nil {
+		return nil, nil, err
 	}
 
+	// Configure Issuers
+	googleCA := gpublicca.New(certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
+		CA:                   gpublicca.GooglePublicCAProduction,
+		DisableHTTPChallenge: true,
+		AltTLSALPNPort:       tlsALPNPort,
+		Logger:               log,
+		Email:                config.TLSConfig.CertMagicEmail,
+		Agreed:               true,
+	}), jsonKey)
+	letsEncryptCA := certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
+		CA:                   certmagic.LetsEncryptProductionCA,
+		DisableHTTPChallenge: true,
+		AltTLSALPNPort:       tlsALPNPort,
+		Logger:               log,
+		Email:                config.TLSConfig.CertMagicEmail,
+		Agreed:               true,
+	})
+
+	if config.TLSConfig.CertMagicStaging {
+		googleCA.CA = gpublicca.GooglePublicCAStaging
+		letsEncryptCA.CA = certmagic.LetsEncryptStagingCA
+	}
+
+	// Use google public CA and fallback to letsEncrypt
+	magic.Issuers = []certmagic.Issuer{googleCA, letsEncryptCA}
+
 	tlsConfig := BaseTLSConfig()
-	tlsConfig.GetCertificate = certManager.GetCertificate
-	return tlsConfig, certManager.HTTPHandler(handler), nil
+	tlsConfig.GetCertificate = magic.GetCertificate
+	tlsConfig.NextProtos = append(tlsConfig.NextProtos, acmez.ACMETLS1Protocol)
+	return tlsConfig, handler, nil
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {

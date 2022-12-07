@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,7 +16,8 @@ import (
 	"storj.io/uplink"
 )
 
-type txtRecords struct {
+// TXTRecords fetches and caches linksharing DNS txt records.
+type TXTRecords struct {
 	maxTTL time.Duration
 	dns    *DNSClient
 	auth   *authclient.AuthClient
@@ -34,21 +36,23 @@ type txtRecord struct {
 	// revoking access keys due to this confusion.
 	access     *uplink.Access
 	root       string
+	tls        bool
 	expiration time.Time
 }
 
-func newTxtRecords(maxTTL time.Duration, dns *DNSClient, auth *authclient.AuthClient) *txtRecords {
-	return &txtRecords{
+// NewTXTRecords constructs a TXTRecords.
+func NewTXTRecords(maxTTL time.Duration, dns *DNSClient, auth *authclient.AuthClient) *TXTRecords {
+	return &TXTRecords{
 		maxTTL: maxTTL,
 		dns:    dns,
 		auth:   auth,
 	}
 }
 
-// fetchAccessForHost fetches the root and access grant from the cache or dns
+// FetchAccessForHost fetches the root and access grant from the cache or dns
 // server when applicable. clientIP is the IP of the client that originated the
 // request.
-func (records *txtRecords) fetchAccessForHost(ctx context.Context, hostname string, clientIP string) (access *uplink.Access, root string, err error) {
+func (records *TXTRecords) FetchAccessForHost(ctx context.Context, hostname string, clientIP string) (access *uplink.Access, root string, tls bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	val, ok := records.cache.Load(hostname)
@@ -57,9 +61,9 @@ func (records *txtRecords) fetchAccessForHost(ctx context.Context, hostname stri
 		// we can return.
 		record, err := records.updateCache(ctx, hostname, time.Time{}, clientIP)
 		if err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
-		return record.access, record.root, nil
+		return record.access, record.root, record.tls, nil
 	}
 
 	// there's something in the cache!
@@ -80,7 +84,7 @@ func (records *txtRecords) fetchAccessForHost(ctx context.Context, hostname stri
 		}(ctx, hostname, record)
 	}
 
-	return record.access, record.root, nil
+	return record.access, record.root, record.tls, nil
 }
 
 // updateCache will attempt to fetch and update the dns record for the given
@@ -90,7 +94,7 @@ func (records *txtRecords) fetchAccessForHost(ctx context.Context, hostname stri
 // nothing if the currently cached expiration is different than
 // currentExpiration. clientIP is the IP of the client that originated the
 // request.
-func (records *txtRecords) updateCache(ctx context.Context, hostname string, currentExpiration time.Time, clientIP string) (record *txtRecord, err error) {
+func (records *TXTRecords) updateCache(ctx context.Context, hostname string, currentExpiration time.Time, clientIP string) (record *txtRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer records.updateLocks.Lock(hostname)()
 
@@ -115,7 +119,7 @@ func (records *txtRecords) updateCache(ctx context.Context, hostname string, cur
 // queryAccessFromDNS does an txt record lookup for the hostname on the DNS
 // server. clientIP is the IP of the client that originated the request and it's
 // required to be sent to the Auth Service.
-func (records *txtRecords) queryAccessFromDNS(ctx context.Context, hostname string, clientIP string) (record *txtRecord, err error) {
+func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname string, clientIP string) (record *txtRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	r, err := records.dns.Lookup(ctx, "txt-"+hostname, dns.TypeTXT)
@@ -134,6 +138,7 @@ func (records *txtRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 		// backcompat
 		root = set.Lookup("storj-path")
 	}
+	tls, _ := strconv.ParseBool(set.Lookup("storj-tls"))
 
 	// NOTE(artur): due to cache shared among all clients per hostname for
 	// hosting requests, signed requests cannot be served. One client with a
@@ -150,5 +155,5 @@ func (records *txtRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 		ttl = records.maxTTL
 	}
 
-	return &txtRecord{access: access, root: root, expiration: time.Now().Add(ttl)}, nil
+	return &txtRecord{access: access, root: root, tls: tls, expiration: time.Now().Add(ttl)}, nil
 }

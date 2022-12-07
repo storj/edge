@@ -27,31 +27,31 @@ func (s allowAllOPA) RoundTrip(r *http.Request) (*http.Response, error) {
 func StartMinio(secureConn bool) {
 	// wire up domain names for Minio
 	// TODO (wthorp): can we set globalDomainNames directly instead?
-	HandleCommonEnvVars()
+	cmd.HandleCommonEnvVars()
 
 	// make Minio not use random ETags
-	GlobalCLIContext.Quiet = true
-	GlobalCLIContext.StrictS3Compat = true
-	GlobalIsSSL = secureConn
+	cmd.GlobalCLIContext.Quiet = true
+	cmd.GlobalCLIContext.StrictS3Compat = true
+	cmd.GlobalIsTLS = secureConn
 
 	// wire up dummy object layer
-	SetObjectLayer(&NotImplementedObjectStore{})
+	cmd.SetObjectLayer(&NotImplementedObjectStore{})
 
 	// wire up Auth layer
 	iamSys := cmd.NewIAMSys()
 	iamSys.InitStore(&IAMAuthStore{})
-	GlobalIAMSys = iamSys
+	cmd.GlobalIAMSys = iamSys
 
 	// force globalIAMSys.IsAllowed() to always return true
-	GlobalPolicyOPA = opa.New(opa.Args{URL: &xnet.URL{Scheme: "http"}, AuthToken: " ", Transport: allowAllOPA{}, CloseRespFn: xhttp.DrainBody})
+	cmd.GlobalPolicyOPA = opa.New(opa.Args{URL: &xnet.URL{Scheme: "http"}, AuthToken: " ", Transport: allowAllOPA{}, CloseRespFn: xhttp.DrainBody})
 
-	GlobalIsGateway = true
+	cmd.GlobalIsGateway = true
 
-	GlobalBucketQuotaSys = cmd.NewBucketQuotaSys()
+	cmd.GlobalBucketQuotaSys = cmd.NewBucketQuotaSys()
 
 	// GlobalNotificationSys (minio/cmd.globalNotificationSys) can be left as a
 	// global and have passed endpoints as nil because all its methods do
 	// nothing when it's zero-valued. We don't care because we don't use it.
 	// MinIO also doesn't initialise it for gateways except for the NAS gateway.
-	GlobalNotificationSys = cmd.NewNotificationSys(nil)
+	cmd.GlobalNotificationSys = cmd.NewNotificationSys(nil)
 }

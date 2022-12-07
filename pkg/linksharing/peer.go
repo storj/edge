@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/httpserver"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
-	pkgmiddleware "storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/server/middleware"
 )
 
@@ -34,15 +34,24 @@ type Config struct {
 //
 // architecture: Peer
 type Peer struct {
-	Log    *zap.Logger
-	Mapper *objectmap.IPDB
-	Server *httpserver.Server
+	Log        *zap.Logger
+	Mapper     *objectmap.IPDB
+	Server     *httpserver.Server
+	TXTRecords *sharing.TXTRecords
 }
 
 // New is a constructor for Linksharing Peer.
 func New(log *zap.Logger, config Config) (_ *Peer, err error) {
+	authClient := authclient.New(config.Handler.AuthServiceConfig)
+	dns, err := sharing.NewDNSClient(config.Handler.DNSServer)
+	if err != nil {
+		return nil, err
+	}
+	txtRecords := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dns, authClient)
+
 	peer := &Peer{
-		Log: log,
+		Log:        log,
+		TXTRecords: txtRecords,
 	}
 
 	if config.GeoLocationDB != "" {
@@ -53,16 +62,15 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		peer.Mapper = objectmap.NewIPDB(reader)
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, config.Handler)
+	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
 	handleWithTracing := http.TraceHandler(handle, mon)
 	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
-	handleWithRequestID := pkgmiddleware.AddRequestID(instrumentedHandle)
 
-	peer.Server, err = httpserver.New(log, handleWithRequestID, config.Server)
+	peer.Server, err = httpserver.New(log, instrumentedHandle, txtRecords, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}

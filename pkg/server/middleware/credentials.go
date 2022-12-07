@@ -9,11 +9,9 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
-	_ "unsafe" // for go:linkname
 
 	"github.com/gorilla/mux"
 	"github.com/jtolio/eventkit"
@@ -83,9 +81,9 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 						HTTPStatusCode: http.StatusBadRequest,
 					}
 				} else {
-					apiError = getAPIError(errCode)
+					apiError = cmd.GetAPIError(errCode)
 				}
-				writeErrorResponse(ctx, w, apiError, r.URL, false)
+				cmd.WriteErrorResponse(ctx, w, apiError, r.URL, false)
 				return
 			}
 			var creds Credentials
@@ -544,15 +542,3 @@ func errToAPIErrCode(err error) cmd.APIErrorCode {
 		return 0
 	}
 }
-
-// writeErrorResponse exposes minio's cmd.writeErrorResponse.
-//
-//nolint:golint
-//go:linkname writeErrorResponse storj.io/minio/cmd.writeErrorResponse
-func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err cmd.APIError, reqURL *url.URL, browser bool)
-
-// getAPIError exposes minio's cmd.getAPIError.
-//
-//nolint:golint
-//go:linkname getAPIError storj.io/minio/cmd.getAPIError
-func getAPIError(code cmd.APIErrorCode) cmd.APIError
