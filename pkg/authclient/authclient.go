@@ -39,6 +39,10 @@ func New(config Config) *AuthClient {
 func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP string) (_ AuthServiceResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(accessKeyID) == 0 {
+		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.New("Access Key ID is empty"), http.StatusBadRequest)
+	}
+
 	reqURL, err := url.Parse(a.BaseURL)
 	if err != nil {
 		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
