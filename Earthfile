@@ -26,7 +26,7 @@ linksharing-bin:
 build-storjup:
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        CGO_ENABLED=0 go install storj.io/storj-up@83293ba
+        CGO_ENABLED=0 go install storj.io/storj-up@main
     SAVE ARTIFACT /go/bin binaries AS LOCAL dist/up
 
 deploy-remote:
