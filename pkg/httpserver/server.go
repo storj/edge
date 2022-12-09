@@ -355,8 +355,8 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 
 	magic = certmagic.New(cache, certmagic.Config{
 		OnDemand: &certmagic.OnDemandConfig{
-			// if the decision function returns an error a certificate
-			// may not be obtained for that name
+			// if the decision function returns an error a certificate may not
+			// be obtained for that name
 			DecisionFunc: func(name string) error {
 				// allow configured urls
 				for _, url := range bases {
@@ -365,15 +365,17 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 					}
 				}
 				// validate dns txt records for everyone else
-				_, _, tls, err := txtRecords.FetchAccessForHost(config.TLSConfig.Ctx, name, "")
+				result, err := txtRecords.FetchAccessForHostWithTierVerification(config.TLSConfig.Ctx, name, "")
 				if err != nil {
 					return err
 				}
-				if !tls {
+				if !result.TLS {
 					return errs.New("tls not enabled")
 				}
-				// TODO check apikey paid/free status and update txtRecords cache if free status
-
+				// validate requester is a paying customer
+				if !result.PaidTier {
+					return errs.New("not paid tier")
+				}
 				// request cert
 				return nil
 			},

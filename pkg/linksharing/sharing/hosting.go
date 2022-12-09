@@ -32,16 +32,14 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		}
 	}
 
-	access, root, tls, err := handler.txtRecords.FetchAccessForHost(
-		ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r),
-	)
+	result, err := handler.txtRecords.FetchAccessForHost(ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r))
 	if err != nil {
 		return errdata.WithAction(err, "fetch access")
 	}
 
-	bucket, key := determineBucketAndObjectKey(root, r.URL.Path)
+	bucket, key := determineBucketAndObjectKey(result.Root, r.URL.Path)
 
-	project, err := handler.uplink.OpenProject(ctx, access)
+	project, err := handler.uplink.OpenProject(ctx, result.Access)
 	if err != nil {
 		return errdata.WithAction(err, "open project")
 	}
@@ -59,7 +57,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}
 
 	err = handler.presentWithProject(ctx, w, r, &parsedRequest{
-		access:          access,
+		access:          result.Access,
 		bucket:          bucket,
 		realKey:         key,
 		visibleKey:      visibleKey,
@@ -68,7 +66,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		wrapDefault:     false,
 		downloadDefault: false,
 		hosting:         true,
-		hostingTLS:      tls,
+		hostingTLS:      result.TLS,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal
@@ -79,7 +77,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 
 	// in ObjectNotFound, let the user provide a custom 404 page
 
-	bucket, key = determineBucketAndObjectKey(root, "/404.html")
+	bucket, key = determineBucketAndObjectKey(result.Root, "/404.html")
 	download, err := project.DownloadObject(ctx, bucket, key, nil)
 	if err != nil {
 		// if this returns uplink.ErrObjectNotFound, then, that's still

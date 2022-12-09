@@ -201,7 +201,10 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		if err != nil {
 			return nil, err
 		}
-		txtRecords = NewTXTRecords(config.TXTRecordTTL, dns, authClient)
+		txtRecords, err = NewTXTRecords(config.TXTRecordTTL, dns, authClient)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Handler{

@@ -42,12 +42,15 @@ type Peer struct {
 
 // New is a constructor for Linksharing Peer.
 func New(log *zap.Logger, config Config) (_ *Peer, err error) {
-	authClient := authclient.New(config.Handler.AuthServiceConfig)
 	dns, err := sharing.NewDNSClient(config.Handler.DNSServer)
 	if err != nil {
 		return nil, err
 	}
-	txtRecords := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dns, authClient)
+	authClient := authclient.New(config.Handler.AuthServiceConfig)
+	txtRecords, err := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dns, authClient)
+	if err != nil {
+		return nil, err
+	}
 
 	peer := &Peer{
 		Log:        log,
