@@ -37,6 +37,7 @@ type parsedRequest struct {
 	wrapDefault      bool
 	downloadDefault  bool
 	hosting          bool
+	hostingTLS       bool
 }
 
 func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest) (err error) {
@@ -63,6 +64,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		eventkit.String("uri", r.RequestURI),
 		eventkit.String("method", r.Method),
 		eventkit.Bool("hosting", pr.hosting),
+		eventkit.Bool("hosting-tls", pr.hostingTLS),
 		eventkit.String("remote-ip", trustedip.GetClientIP(handler.trustedClientIPsList, r)),
 		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())))
 

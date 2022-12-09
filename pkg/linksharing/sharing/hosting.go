@@ -32,7 +32,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		}
 	}
 
-	access, root, _, err := handler.txtRecords.FetchAccessForHost(
+	access, root, tls, err := handler.txtRecords.FetchAccessForHost(
 		ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r),
 	)
 	if err != nil {
@@ -68,6 +68,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		wrapDefault:     false,
 		downloadDefault: false,
 		hosting:         true,
+		hostingTLS:      tls,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal
