@@ -1602,7 +1602,7 @@ storj.io/private v0.0.0-20221108123115-3a27297f0b78/go.mod h1:hc63X333SVJ3UrOxXp
 storj.io/storj v0.12.1-0.20221207112735-c6e48fb71df1 h1:OvfnbQuBtlvkTneMdtxDXpRZc08VL5TUv5rw/w4DjeQ=
 storj.io/storj v0.12.1-0.20221207112735-c6e48fb71df1/go.mod h1:eN6alWciJuCd6R5+v1LbCVDMz1zjE9kCkys9AowU4P4=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.9.1-0.20221201125039-97ec26dd8010 h1:0kq6JpXxgCAAZNYSYWNUXOJXw2NL/znfFAwjFrdBRQo=
-storj.io/uplink v1.9.1-0.20221201125039-97ec26dd8010/go.mod h1:gJIQumB8T3tBHPRive51AVpbc+v2xe+P/goFNMSRLG4=
+storj.io/uplink v1.10.0 h1:3hS0hszupHSxEoC4DsMpljaRy0uNoijEPVF6siIE28Q=
+storj.io/uplink v1.10.0/go.mod h1:gJIQumB8T3tBHPRive51AVpbc+v2xe+P/goFNMSRLG4=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=
