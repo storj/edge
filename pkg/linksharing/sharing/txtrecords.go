@@ -196,6 +196,9 @@ func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 		// backcompat
 		serializedAccess = set.Lookup("storj-grant")
 	}
+	if fetchTier && isProductionAccessGrant(serializedAccess) { // fail fast
+		return nil, errs.New("cannot use access grant with fetchTier=true because of the risk of an untrusted satellite")
+	}
 	root := set.Lookup("storj-root")
 	if root == "" {
 		// backcompat

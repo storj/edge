@@ -41,8 +41,7 @@ func parseAccess(
 		return parsed, nil
 	}
 
-	// production access grants are base58check encoded with version zero.
-	if _, version, err := base58.CheckDecode(access); err == nil && version == 0 {
+	if isProductionAccessGrant(access) {
 		return wrappedParse(access)
 	}
 
@@ -61,4 +60,10 @@ func parseAccess(
 	}
 
 	return wrappedParse(authResp.AccessGrant)
+}
+
+func isProductionAccessGrant(s string) bool {
+	// production access grants are base58check encoded with version zero.
+	_, version, err := base58.CheckDecode(s)
+	return err == nil && version == 0
 }
