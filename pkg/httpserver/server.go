@@ -79,6 +79,15 @@ type TLSConfig struct {
 	// CertMagicBucket bucket to use for certstorage
 	CertMagicBucket string
 
+	// TierCacheExpiration is the expiration time for the tier querying service cache
+	TierCacheExpiration time.Duration
+
+	// TierCacheCapacity is the tier querying service cache size
+	TierCacheCapacity int
+
+	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries
+	SkipPaidTierAllowlist []string
+
 	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
 	PublicURLs []string
 
@@ -339,7 +348,7 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 		GetConfigForCert: func(cert certmagic.Certificate) (*certmagic.Config, error) {
 			return magic, nil
 		},
-		// TODO decide on cache limit
+		// Unlimited cache size
 		Capacity: 0,
 		Logger:   log,
 	})
@@ -351,6 +360,11 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 	cs, err := certstorage.NewGCS(config.TLSConfig.Ctx, log, jsonKey, config.TLSConfig.CertMagicBucket)
 	if err != nil {
 		return nil, nil, errs.New("initializing certstorage: %v", err)
+	}
+
+	tqs, err := sharing.NewTierQueryingService(config.TLSConfig.TierCacheExpiration, config.TLSConfig.TierCacheCapacity)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	magic = certmagic.New(cache, certmagic.Config{
@@ -365,17 +379,29 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 					}
 				}
 				// validate dns txt records for everyone else
-				result, err := txtRecords.FetchAccessForHostWithTierVerification(config.TLSConfig.Ctx, name, "")
+				result, err := txtRecords.FetchAccessForHostNoAccessGrant(config.TLSConfig.Ctx, name, "")
 				if err != nil {
 					return err
 				}
 				if !result.TLS {
 					return errs.New("tls not enabled")
 				}
+
 				// validate requester is a paying customer
-				if !result.PaidTier {
+				for _, allowed := range config.TLSConfig.SkipPaidTierAllowlist {
+					if name == allowed {
+						// Skip paid tier query
+						return nil
+					}
+				}
+				paidTier, err := tqs.Do(config.TLSConfig.Ctx, result.Access, name)
+				if err != nil {
+					return err
+				}
+				if !paidTier {
 					return errs.New("not paid tier")
 				}
+
 				// request cert
 				return nil
 			},

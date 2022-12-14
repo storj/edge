@@ -63,11 +63,14 @@ type connectionPoolConfig struct {
 
 // certMagic is a config struct for configuring CertMagic options.
 type certMagic struct {
-	Enabled bool   `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
-	KeyFile string `user:"true" help:"path to the service account key file"`
-	Email   string `user:"true" help:"email address to use when creating an ACME account"`
-	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
-	Bucket  string `user:"true" help:"bucket to use for certificate storage"`
+	Enabled               bool          `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
+	KeyFile               string        `user:"true" help:"path to the service account key file"`
+	Email                 string        `user:"true" help:"email address to use when creating an ACME account"`
+	Staging               bool          `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
+	Bucket                string        `user:"true" help:"bucket to use for certificate storage"`
+	TierCacheExpiration   time.Duration `user:"true" help:"expiration time for tier querying service cache" devDefault:"10s" releaseDefault:"5m"`
+	TierCacheCapacity     int           `user:"true" help:"tier querying service cache capacity" default:"10000"`
+	SkipPaidTierAllowlist string        `user:"true" help:"comma separated list of domain names which bypass paid tier queries"`
 }
 
 var (
@@ -114,20 +117,24 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
+	tierAllowlist := strings.Split(runCfg.CertMagic.SkipPaidTierAllowlist, ",")
 
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertMagic:        runCfg.CertMagic.Enabled,
-			CertMagicKeyFile: runCfg.CertMagic.KeyFile,
-			CertMagicEmail:   runCfg.CertMagic.Email,
-			CertMagicStaging: runCfg.CertMagic.Staging,
-			CertMagicBucket:  runCfg.CertMagic.Bucket,
-			CertFile:         runCfg.CertFile,
-			KeyFile:          runCfg.KeyFile,
-			PublicURLs:       publicURLs,
-			ConfigDir:        confDir,
-			Ctx:              ctx,
+			CertMagic:             runCfg.CertMagic.Enabled,
+			CertMagicKeyFile:      runCfg.CertMagic.KeyFile,
+			CertMagicEmail:        runCfg.CertMagic.Email,
+			CertMagicStaging:      runCfg.CertMagic.Staging,
+			CertMagicBucket:       runCfg.CertMagic.Bucket,
+			TierCacheExpiration:   runCfg.CertMagic.TierCacheExpiration,
+			TierCacheCapacity:     runCfg.CertMagic.TierCacheCapacity,
+			SkipPaidTierAllowlist: tierAllowlist,
+			CertFile:              runCfg.CertFile,
+			KeyFile:               runCfg.KeyFile,
+			PublicURLs:            publicURLs,
+			ConfigDir:             confDir,
+			Ctx:                   ctx,
 		}
 	}
 

@@ -47,7 +47,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, err
 	}
 	authClient := authclient.New(config.Handler.AuthServiceConfig)
-	txtRecords, err := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dns, authClient)
+	txtRecords := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dns, authClient)
 	if err != nil {
 		return nil, err
 	}

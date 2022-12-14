@@ -43,8 +43,17 @@ cert-magic.enabled: false
 # path to the service account key file
 cert-magic.key-file: ""
 
+# comma separated list of domain names which bypass paid tier queries
+cert-magic.skip-paid-tier-allowlist: ""
+
 # use staging CA endpoints
 cert-magic.staging: false
+
+# tier querying service cache capacity
+cert-magic.tier-cache-capacity: 10000
+
+# expiration time for tier querying service cache
+cert-magic.tier-cache-expiration: 5m0s
 
 # list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
 client-trusted-ips-list: []
