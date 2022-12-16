@@ -79,6 +79,9 @@ type TLSConfig struct {
 	// CertMagicBucket bucket to use for certstorage
 	CertMagicBucket string
 
+	// TierServiceIdentityPath is the path to tier querying service identity credentials
+	TierServiceIdentityPath string
+
 	// TierCacheExpiration is the expiration time for the tier querying service cache
 	TierCacheExpiration time.Duration
 
@@ -362,9 +365,9 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 		return nil, nil, errs.New("initializing certstorage: %v", err)
 	}
 
-	tqs, err := sharing.NewTierQueryingService(config.TLSConfig.TierCacheExpiration, config.TLSConfig.TierCacheCapacity)
+	tqs, err := sharing.NewTierQueryingService(config.TLSConfig.TierServiceIdentityPath, config.TLSConfig.TierCacheExpiration, config.TLSConfig.TierCacheCapacity)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errs.New("unable to create tier querying service: %w", err)
 	}
 
 	magic = certmagic.New(cache, certmagic.Config{

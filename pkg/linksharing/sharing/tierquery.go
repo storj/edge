@@ -6,6 +6,7 @@ package sharing
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -33,16 +34,12 @@ type tierQueryResponse struct {
 }
 
 // NewTierQueryingService constructs a TierQueryingService.
-func NewTierQueryingService(expiration time.Duration, capacity int) (*TierQueryingService, error) {
-	// NOTE(artur): We use context.Background() because we don't expect
-	// NewFullIdentity to be long-running here. If it's long-running, then we
-	// shouldn't use it anyway, but we don't really have a choice; we need to
-	// supply TLS options to securely call satellite while verifying the user's
-	// tier.
-	identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-		Difficulty:  0,
-		Concurrency: 1,
-	})
+func NewTierQueryingService(identityPath string, expiration time.Duration, capacity int) (*TierQueryingService, error) {
+	identConfig := identity.Config{
+		CertPath: filepath.Join(identityPath, "identity.cert"),
+		KeyPath:  filepath.Join(identityPath, "identity.key"),
+	}
+	identity, err := identConfig.Load()
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
