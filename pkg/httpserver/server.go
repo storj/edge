@@ -88,7 +88,8 @@ type TLSConfig struct {
 	// TierCacheCapacity is the tier querying service cache size
 	TierCacheCapacity int
 
-	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries
+	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries.
+	// If any one value is set to "*" then the paid tier checking is disabled entirely.
 	SkipPaidTierAllowlist []string
 
 	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
@@ -392,7 +393,7 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 
 				// validate requester is a paying customer
 				for _, allowed := range config.TLSConfig.SkipPaidTierAllowlist {
-					if name == allowed {
+					if allowed == "*" || name == allowed {
 						// Skip paid tier query
 						return nil
 					}
