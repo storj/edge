@@ -5,11 +5,15 @@ package gcslock
 
 import (
 	"os"
+	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/gcslock/gcsops"
@@ -19,7 +23,7 @@ func TestMutex_PutHeadPatchDeleteCycle(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t)
+	mu := newMutex(ctx, t, testrand.Path(), "")
 	// 1st put should succeed & 2nd put should fail
 	require.NoError(t, mu.put(ctx))
 	require.ErrorIs(t, mu.put(ctx), gcsops.ErrPreconditionFailed)
@@ -36,7 +40,7 @@ func TestMutex_LockUnlock(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t)
+	mu := newMutex(ctx, t, testrand.Path(), "")
 
 	for i := 0; i < 3; i++ {
 		require.NoError(t, mu.Lock(ctx))
@@ -48,7 +52,32 @@ func TestMutex_LockUnlock(t *testing.T) {
 	})
 }
 
-func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
+func TestMutex_ConcurrentLockUnlock(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	name := testrand.Path()
+
+	// Make sure we clean up after a failed test:
+	defer func() {
+		_ = newMutex(ctx, t, name, "11").Unlock(ctx)
+	}()
+
+	var observedLock uint32
+	for i := 0; i < 10; i++ {
+		i := i
+		ctx.Go(func() error {
+			mu := newMutex(ctx, t, name, strconv.Itoa(i))
+			require.NoError(t, mu.Lock(ctx))
+			require.True(t, atomic.CompareAndSwapUint32(&observedLock, 0, 1), "%d already locked", i)
+			require.True(t, sync2.Sleep(ctx, 100*time.Millisecond))
+			require.True(t, atomic.CompareAndSwapUint32(&observedLock, 1, 0))
+			return mu.Unlock(ctx)
+		})
+	}
+}
+
+func newMutex(ctx *testcontext.Context, t *testing.T, name, tag string) *Mutex {
 	var (
 		pathToJsonKey = os.Getenv("STORJ_TEST_GCSLOCK_PATH_TO_JSON_KEY")
 		bucket        = os.Getenv("STORJ_TEST_GCSLOCK_BUCKET")
@@ -64,11 +93,15 @@ func newMutex(ctx *testcontext.Context, t *testing.T) *Mutex {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
+	if tag == "" {
+		tag = "distributed lock"
+	}
+
 	m, err := NewMutex(ctx, Options{
 		JSONKey: jsonKey,
-		Name:    testrand.Path(),
+		Name:    name,
 		Bucket:  bucket,
-		Logger:  logger.Named("distributed lock").Sugar(),
+		Logger:  logger.Named(tag).Sugar(),
 	})
 	require.NoError(t, err)
 
