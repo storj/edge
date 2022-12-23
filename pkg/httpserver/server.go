@@ -334,6 +334,26 @@ func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
 	return certificates, nil
 }
 
+func testCertMagicBucketAccess(cs *certstorage.GCS) error {
+	// Try to store/load/delete a test object to check if the bucket is accessible
+	err := cs.Store(context.Background(), "test", []byte("test"))
+	if err != nil {
+		return err
+	}
+
+	_, err = cs.Load(context.Background(), "test")
+	if err != nil {
+		return err
+	}
+
+	err = cs.Delete(context.Background(), "test")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords, handler http.Handler) (*tls.Config, http.Handler, error) {
 	// make a list of our public-urls
 	bases := make([]*url.URL, 0, len(config.TLSConfig.PublicURLs))
@@ -363,6 +383,11 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 	cs, err := certstorage.NewGCS(config.TLSConfig.Ctx, log, jsonKey, config.TLSConfig.CertMagicBucket)
 	if err != nil {
 		return nil, nil, errs.New("initializing certstorage: %v", err)
+	}
+
+	err = testCertMagicBucketAccess(cs)
+	if err != nil {
+		return nil, nil, errs.New("unable to access cert-magic bucket: %v", err)
 	}
 
 	tqs, err := sharing.NewTierQueryingService(config.TLSConfig.TierServiceIdentityPath, config.TLSConfig.TierCacheExpiration, config.TLSConfig.TierCacheCapacity)
