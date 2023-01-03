@@ -95,7 +95,7 @@ func (gcs *GCS) Unlock(ctx context.Context, name string) (err error) {
 
 // Store implements certmagics's Storage interface.
 func (gcs *GCS) Store(ctx context.Context, key string, value []byte) error {
-	gcs.logger.Debug("writing to storage", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("store", zap.String("bucket", gcs.bucket), zap.String("key", key))
 
 	return Error.Wrap(gcs.client.Upload(ctx, nil, gcs.bucket, key, bytes.NewReader(value)))
 }
@@ -104,7 +104,7 @@ func (gcs *GCS) Store(ctx context.Context, key string, value []byte) error {
 func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	gcs.logger.Debug("reading from storage", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("load", zap.String("bucket", gcs.bucket), zap.String("key", key))
 
 	rc, err := gcs.client.Download(ctx, gcs.bucket, key)
 	if err != nil {
@@ -122,7 +122,7 @@ func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 func (gcs *GCS) Delete(ctx context.Context, key string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	gcs.logger.Debug("deleting from storage", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("delete", zap.String("bucket", gcs.bucket), zap.String("key", key))
 
 	err = gcs.client.Delete(ctx, nil, gcs.bucket, key)
 	if errs.Is(err, gcsops.ErrNotFound) {
@@ -145,10 +145,7 @@ func (gcs *GCS) Exists(ctx context.Context, key string) bool {
 func (gcs *GCS) List(ctx context.Context, prefix string, recursive bool) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	gcs.logger.Debug("listing storage",
-		zap.String("bucket", gcs.bucket),
-		zap.String("prefix", prefix),
-		zap.Bool("recursive", recursive))
+	gcs.logger.Debug("list", zap.String("bucket", gcs.bucket), zap.String("prefix", prefix), zap.Bool("recursive", recursive))
 
 	r, err := gcs.client.List(ctx, gcs.bucket, prefix, recursive)
 	return r, Error.Wrap(err)
@@ -160,7 +157,7 @@ func (gcs *GCS) Stat(ctx context.Context, key string) (_ certmagic.KeyInfo, err 
 
 	var keyInfo certmagic.KeyInfo
 
-	gcs.logger.Debug("stat storage", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("stat", zap.String("bucket", gcs.bucket), zap.String("key", key))
 
 	headers, err := gcs.client.Stat(ctx, gcs.bucket, key)
 	if err != nil {

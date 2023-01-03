@@ -4,26 +4,26 @@
 package gcslock
 
 import (
-	"os"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/gcslock/gcsops"
+	"storj.io/gateway-mt/pkg/internal/gcstest"
 )
 
 func TestMutex_PutHeadPatchDeleteCycle(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t, testrand.Path(), "")
+	mu := newMutex(ctx, t, gcstest.RandPathUTF8(1024), "")
 	// 1st put should succeed & 2nd put should fail
 	require.NoError(t, mu.put(ctx))
 	require.ErrorIs(t, mu.put(ctx), gcsops.ErrPreconditionFailed)
@@ -40,7 +40,7 @@ func TestMutex_LockUnlock(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t, testrand.Path(), "")
+	mu := newMutex(ctx, t, gcstest.RandPathUTF8(1024), "")
 
 	for i := 0; i < 3; i++ {
 		require.NoError(t, mu.Lock(ctx))
@@ -56,7 +56,7 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	name := testrand.Path()
+	name := gcstest.RandPathUTF8(1024)
 
 	// Make sure we clean up after a failed test:
 	defer func() {
@@ -78,17 +78,10 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 }
 
 func newMutex(ctx *testcontext.Context, t *testing.T, name, tag string) *Mutex {
-	var (
-		pathToJsonKey = os.Getenv("STORJ_TEST_GCSLOCK_PATH_TO_JSON_KEY")
-		bucket        = os.Getenv("STORJ_TEST_GCSLOCK_BUCKET")
-	)
-
-	if pathToJsonKey == "" || bucket == "" {
+	jsonKey, bucket, err := gcstest.FindCredentials()
+	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
 		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
-
-	jsonKey, err := os.ReadFile(pathToJsonKey)
-	require.NoError(t, err)
 
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
