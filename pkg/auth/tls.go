@@ -4,27 +4,49 @@
 package auth
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
-	"net/url"
-	"path/filepath"
+	"os"
 
+	"github.com/caddyserver/certmagic"
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/acme/autocert"
+	"go.uber.org/zap"
+
+	"storj.io/gateway-mt/pkg/certstorage"
 )
 
 // TLSInfo is a struct to handle the preferred/configured TLS options.
 type TLSInfo struct {
-	LetsEncrypt bool
-	CertFile    string
-	KeyFile     string
-	PublicURL   string
-	ConfigDir   string
+	CertFile   string
+	KeyFile    string
+	PublicURL  []string
+	ConfigDir  string
+	ListenAddr string
+
+	// CertMagic obtains and renews TLS certificates and staples OCSP responses
+	// Setting this to true will mean the server obtains certificate through Certmagic
+	// CertFile and KeyFile options will NOT be considered.
+	CertMagic bool
+
+	// CertMagicKeyFile is a path to a file containing the CertMagic service account key.
+	CertMagicKeyFile string
+
+	// CertMagicEmail is the email address to use when creating an ACME account
+	CertMagicEmail string
+
+	// CertMagicStaging use staging CA endpoints
+	CertMagicStaging bool
+
+	// CertMagicBucket bucket to use for certstorage
+	CertMagicBucket string
 }
 
-func configureTLS(config *TLSInfo, handler http.Handler) (*tls.Config, http.Handler, error) {
-	if config.LetsEncrypt {
-		return configureLetsEncrypt(config, handler)
+func configureTLS(ctx context.Context, log *zap.Logger, config *TLSInfo, handler http.Handler) (*tls.Config, http.Handler, error) {
+	if config.CertMagic {
+		tlsConfig, err := configureCertMagic(ctx, log, config)
+		return tlsConfig, handler, err
 	}
 
 	switch {
@@ -48,21 +70,39 @@ func configureTLS(config *TLSInfo, handler http.Handler) (*tls.Config, http.Hand
 	}, handler, nil
 }
 
-func configureLetsEncrypt(config *TLSInfo, handler http.Handler) (*tls.Config, http.Handler, error) {
-	parsedURL, err := url.Parse(config.PublicURL)
+func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (*tls.Config, error) {
+	// Use the GCS cert storage backend
+	jsonKey, err := os.ReadFile(config.CertMagicKeyFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, errs.New("unable to read cert-magic-key-file: %v", err)
 	}
-	certManager := autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(parsedURL.Host),
-		Cache:      autocert.DirCache(filepath.Join(config.ConfigDir, ".certs")),
+	cs, err := certstorage.NewGCS(ctx, log, jsonKey, config.CertMagicBucket)
+	if err != nil {
+		return nil, errs.New("initializing certstorage: %v", err)
+	}
+	certmagic.Default.Storage = cs
+
+	// Set the AltTLSALPNPort so the solver won't start another listener
+	_, port, err := net.SplitHostPort(config.ListenAddr)
+	if err != nil {
+		return nil, err
+	}
+	tlsALPNPort, err := net.LookupPort("tcp", port)
+	if err != nil {
+		return nil, err
+	}
+	certmagic.DefaultACME.AltTLSALPNPort = tlsALPNPort
+	certmagic.DefaultACME.Email = config.CertMagicEmail
+
+	if config.CertMagicStaging {
+		certmagic.DefaultACME.CA = certmagic.LetsEncryptStagingCA
 	}
 
-	tlsConfig := &tls.Config{
-		MinVersion:     tls.VersionTLS12,
-		GetCertificate: certManager.GetCertificate,
+	certmagic.Default.Logger = log
+	tlsConfig, err := certmagic.TLS(config.PublicURL)
+	if err != nil {
+		return nil, err
 	}
-
-	return tlsConfig, certManager.HTTPHandler(handler), nil
+	tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
+	return tlsConfig, nil
 }
