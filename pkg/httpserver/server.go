@@ -341,7 +341,7 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 	for _, base := range config.TLSConfig.PublicURLs {
 		parsed, err := url.Parse(base)
 		if err != nil {
-			continue
+			return nil, nil, errs.New("invalid public URL %q: %v", base, err)
 		}
 		bases = append(bases, parsed)
 	}
