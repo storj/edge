@@ -48,8 +48,15 @@ func NewGCS(ctx context.Context, logger *zap.Logger, jsonKey []byte, bucket stri
 	}
 
 	gcs.client, err = gcsops.NewClient(ctx, jsonKey)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return gcs, Error.Wrap(err)
+	if err = gcs.client.TestPermissions(ctx, bucket); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return gcs, nil
 }
 
 var _ certmagic.Storage = (*GCS)(nil) // make sure GCS implements certmagic.Storage
