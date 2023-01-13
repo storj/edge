@@ -98,7 +98,15 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	var tlsConfig *httpserver.TLSConfig
 	if !config.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertDir: config.CertDir,
+			CertDir:                            config.CertDir,
+			CertMagic:                          config.CertMagic.Enabled,
+			CertMagicKeyFile:                   config.CertMagic.KeyFile,
+			CertMagicDNSChallengeWithGCloudDNS: true,
+			CertMagicDNSChallengeWithGCloudDNSProject: config.CertMagic.Project,
+			CertMagicEmail:      config.CertMagic.Email,
+			CertMagicStaging:    config.CertMagic.Staging,
+			CertMagicBucket:     config.CertMagic.Bucket,
+			CertMagicPublicURLs: domainNames,
 		}
 	}
 

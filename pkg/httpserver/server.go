@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/caddyserver/certmagic"
+	"github.com/libdns/googleclouddns"
 	"github.com/mholt/acmez"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -68,6 +69,15 @@ type TLSConfig struct {
 	// CertMagicKeyFile is a path to a file containing the CertMagic service account key.
 	CertMagicKeyFile string
 
+	// CertMagicDNSChallengeWithGCloudDNS is whether to disable HTTP and TLS
+	// ALPN challenges and perform the DNS challenge with Google Cloud DNS (no
+	// other providers are supported at the moment).
+	CertMagicDNSChallengeWithGCloudDNS bool
+
+	// CertMagicDNSChallengeWithGCloudDNSProject is the project where the Google
+	// Cloud DNS zone exists.
+	CertMagicDNSChallengeWithGCloudDNSProject string
+
 	// CertMagicEmail is the email address to use when creating an ACME account
 	CertMagicEmail string
 
@@ -90,8 +100,11 @@ type TLSConfig struct {
 	// If any one value is set to "*" then the paid tier checking is disabled entirely.
 	SkipPaidTierAllowlist []string
 
-	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
-	PublicURLs []string
+	// CertMagicPublicURLs is a list of URLs to always issue certificates for.
+	//
+	// Typically, these are URLs that the service will be mainly reached
+	// through, like link.storjshare.io or *.gateway.storjshare.io, etc.
+	CertMagicPublicURLs []string
 
 	// ConfigDir is a path for storing certificate cache data for Let's Encrypt.
 	ConfigDir string
@@ -372,10 +385,14 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 			}
 			return nil
 		},
-		OnDemand: &certmagic.OnDemandConfig{DecisionFunc: decisionFunc},
-		Storage:  cs,
-		Logger:   log,
+		Storage: cs,
+		Logger:  log,
 	})
+	// if decisionFunc is nil, it's better to skip configuring on-demand config
+	// as it will delay obtaining certificates for public URLs.
+	if decisionFunc != nil {
+		magic.OnDemand = &certmagic.OnDemandConfig{DecisionFunc: decisionFunc}
+	}
 
 	// Set the AltTLSALPNPort so the solver won't start another listener
 	_, port, err := net.SplitHostPort(config.AddressTLS)
@@ -387,7 +404,6 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 		return nil, nil, err
 	}
 
-	// Configure Issuers
 	googleCA := gpublicca.New(certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
 		CA:                   gpublicca.GooglePublicCAProduction,
 		DisableHTTPChallenge: true,
@@ -405,18 +421,37 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 		Agreed:               true,
 	})
 
+	tlsConfig := BaseTLSConfig()
+	tlsConfig.GetCertificate = magic.GetCertificate
+
+	if config.TLSConfig.CertMagicDNSChallengeWithGCloudDNS {
+		// Enabling the DNS challenge disables the other challenges for that
+		// certmagic.ACMEIssuer instance.
+		s := &certmagic.DNS01Solver{
+			DNSProvider: &googleclouddns.Provider{
+				Project:            config.TLSConfig.CertMagicDNSChallengeWithGCloudDNSProject,
+				ServiceAccountJSON: config.TLSConfig.CertMagicKeyFile,
+			},
+		}
+		googleCA.DNS01Solver, letsEncryptCA.DNS01Solver = s, s
+	} else {
+		tlsConfig.NextProtos = append(tlsConfig.NextProtos, acmez.ACMETLS1Protocol)
+	}
+
 	if config.TLSConfig.CertMagicStaging {
 		googleCA.CA = gpublicca.GooglePublicCAStaging
 		letsEncryptCA.CA = certmagic.LetsEncryptStagingCA
 	}
 
-	// Use google public CA and fallback to letsEncrypt
+	// Issuers' priority (issuers are tried in order of priority) for obtaining
+	// certificates:
+	//  1. Google Certificate Manager Public CA
+	//  2. Let's Encrypt
 	magic.Issuers = []certmagic.Issuer{googleCA, letsEncryptCA}
 
-	tlsConfig := BaseTLSConfig()
-	tlsConfig.GetCertificate = magic.GetCertificate
-	tlsConfig.NextProtos = append(tlsConfig.NextProtos, acmez.ACMETLS1Protocol)
-	return tlsConfig, handler, nil
+	// TODO(artur): figure out if we want to ManageSync here or somewhere else
+	// to use the process's context. certmagic.TLS uses context.Background...
+	return tlsConfig, handler, magic.ManageSync(context.TODO(), config.TLSConfig.CertMagicPublicURLs)
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {

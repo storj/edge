@@ -134,7 +134,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			SkipPaidTierAllowlist:   runCfg.CertMagic.SkipPaidTierAllowlist,
 			CertFile:                runCfg.CertFile,
 			KeyFile:                 runCfg.KeyFile,
-			PublicURLs:              publicURLs,
+			CertMagicPublicURLs:     publicURLs,
 			ConfigDir:               confDir,
 			Ctx:                     ctx,
 		}

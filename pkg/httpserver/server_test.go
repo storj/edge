@@ -60,17 +60,17 @@ func TestServer(t *testing.T) {
 	require.NoError(t, err)
 
 	tlsConfig := &TLSConfig{
-		CertFile:   certPath,
-		KeyFile:    keyPath,
-		ConfigDir:  tempdir,
-		PublicURLs: []string{address},
+		CertFile:            certPath,
+		KeyFile:             keyPath,
+		ConfigDir:           tempdir,
+		CertMagicPublicURLs: []string{address},
 	}
 
 	noTLSConfig := &TLSConfig{
-		CertFile:   "",
-		KeyFile:    "",
-		ConfigDir:  tempdir,
-		PublicURLs: []string{address},
+		CertFile:            "",
+		KeyFile:             "",
+		ConfigDir:           tempdir,
+		CertMagicPublicURLs: []string{address},
 	}
 
 	testCases := []serverTestCase{

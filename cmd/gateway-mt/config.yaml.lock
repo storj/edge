@@ -28,6 +28,24 @@ auth.token: ""
 # directory path to search for TLS certificates
 # cert-dir: testdata/certs
 
+# bucket to use for certificate storage
+cert-magic.bucket: ""
+
+# email address to use while creating an ACME account
+cert-magic.email: ""
+
+# use CertMagic to handle TLS certificates
+cert-magic.enabled: false
+
+# path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)
+cert-magic.key-file: ""
+
+# a project where the Google Cloud DNS zone exists
+cert-magic.project: ""
+
+# use staging CA endpoints
+cert-magic.staging: false
+
 # list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
 # client-trusted-ips-list: []
 

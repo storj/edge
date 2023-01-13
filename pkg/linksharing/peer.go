@@ -103,8 +103,8 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 }
 
 func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords) (httpserver.CertMagicOnDemandDecisionFunc, error) {
-	bases := make([]*url.URL, 0, len(tlsConfig.PublicURLs))
-	for _, base := range tlsConfig.PublicURLs {
+	bases := make([]*url.URL, 0, len(tlsConfig.CertMagicPublicURLs))
+	for _, base := range tlsConfig.CertMagicPublicURLs {
 		parsed, err := url.Parse(base)
 		if err != nil {
 			return nil, errs.New("invalid public URL %q: %v", base, err)
