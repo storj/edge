@@ -26,7 +26,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthmigration"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
@@ -62,8 +61,7 @@ type Config struct {
 	DeleteUnused DeleteUnusedConfig
 	CertMagic    certMagic
 
-	Node          badgerauth.Config
-	NodeMigration badgerauthmigration.Config
+	Node badgerauth.Config
 }
 
 // DeleteUnusedConfig is a config struct for configuring unused records deletion
