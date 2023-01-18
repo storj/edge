@@ -41,21 +41,6 @@ cert-magic.staging: false
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the interval specified in AS OF SYSTEM in unused records deletion chore query as negative interval
-# delete-unused.as-of-system-interval: 5s
-
-# batch size of records to delete from selected records at a time
-# delete-unused.delete-size: 1000
-
-# interval unused records deletion chore waits to start next iteration
-# delete-unused.interval: 24h0m0s
-
-# whether to run unused records deletion chore
-# delete-unused.run: false
-
-# batch size of records selected for deletion at a time
-# delete-unused.select-size: 10000
-
 # public DRPC address to listen on
 drpc-listen-addr: :20002
 
