@@ -74,9 +74,12 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	handleWithTracing := http.TraceHandler(handle, mon)
 	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
 
-	decisionFunc, err := customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords)
-	if err != nil {
-		return nil, errs.New("unable to get decision func for Custom Domains@TLS feature: %w", err)
+	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
+	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
+		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords)
+		if err != nil {
+			return nil, errs.New("unable to get decision func for Custom Domains@TLS feature: %w", err)
+		}
 	}
 
 	peer.Server, err = httpserver.New(log, instrumentedHandle, decisionFunc, config.Server)
