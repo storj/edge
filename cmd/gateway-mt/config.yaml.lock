@@ -109,6 +109,9 @@ auth.token: ""
 # how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
 
+# The default number of iterations for each check
+# quickchecks: 100
+
 # return 501 (Not Implemented) for CopyObject calls
 # s3compatibility.disable-copy-object: false
 

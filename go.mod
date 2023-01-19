@@ -27,8 +27,8 @@ require (
 	storj.io/common v0.0.0-20221215155610-3715c7f7ce66
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
-	storj.io/gateway v1.8.3
-	storj.io/minio v0.0.0-20221201234724-d0af19bf6813
+	storj.io/gateway v1.8.4-0.20230118210906-ad9333efd516
+	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3
 	storj.io/private v0.0.0-20221108123115-3a27297f0b78
 	storj.io/uplink v1.10.0
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
@@ -54,10 +54,6 @@ require (
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
-	github.com/coredns/coredns v1.6.6 // indirect
-	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
-	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
@@ -69,7 +65,6 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.3.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.1 // indirect
@@ -101,7 +96,6 @@ require (
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
-	github.com/magefile/mage v1.11.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
@@ -169,7 +163,6 @@ require (
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
@@ -182,8 +175,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
-	google.golang.org/grpc v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect

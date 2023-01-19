@@ -133,6 +133,9 @@ landing-redirect-target: https://www.storj.io/
 # comma separated list of public urls for the server
 public-url: ""
 
+# The default number of iterations for each check
+# quickchecks: 100
+
 # redirect to HTTPS
 redirect-https: true
 
