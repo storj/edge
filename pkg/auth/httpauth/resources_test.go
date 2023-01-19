@@ -286,6 +286,41 @@ func TestResources_CORS(t *testing.T) {
 	require.False(t, check("DELETE", "/v1/access/someid"))
 }
 
+func TestResources_Shutdown(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	kv := newKV(t, logger)
+	defer ctx.Check(kv.Close)
+
+	endpoint, err := url.Parse("http://endpoint.test/")
+	require.NoError(t, err)
+
+	check := func(inShutdown bool) int {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/v1/health/live", nil)
+
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res.SetStartupDone()
+		if inShutdown {
+			res.SetShutdown()
+		}
+		res.ServeHTTP(rec, req)
+
+		result := rec.Result()
+		require.NoError(t, result.Body.Close())
+
+		return rec.Code
+	}
+
+	assert.Equal(t, http.StatusOK, check(false))
+	assert.Equal(t, http.StatusServiceUnavailable, check(true))
+}
+
 func TestResources_EntityTooLarge(t *testing.T) {
 	const path = "/v1/access"
 

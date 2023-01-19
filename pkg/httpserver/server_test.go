@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 		Templates: "../../pkg/linksharing/web/",
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
-	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, handlerConfig)
+	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, handlerConfig)
 	require.NoError(t, err)
 
 	tempdir := t.TempDir()

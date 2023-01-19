@@ -161,6 +161,9 @@ node.replication-limit: 1000
 # comma separated list of public urls for the server TLS certificates (e.g. auth.example.com,auth.us1.example.com)
 public-url: []
 
+# time to delay server shutdown while returning 503s on the health endpoint
+# shutdown-delay: 45s
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

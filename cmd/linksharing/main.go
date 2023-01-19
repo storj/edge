@@ -52,6 +52,7 @@ type LinkSharing struct {
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ConnectionPool         connectionPoolConfig
 	CertMagic              certMagic
+	ShutdownDelay          time.Duration `user:"true" help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 }
 
 // connectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -169,6 +170,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			},
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
+		ShutdownDelay: runCfg.ShutdownDelay,
 	})
 	if err != nil {
 		return err

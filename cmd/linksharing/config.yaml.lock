@@ -139,6 +139,9 @@ public-url: ""
 # redirect to HTTPS
 redirect-https: true
 
+# time to delay server shutdown while returning 503s on the health endpoint
+shutdown-delay: 45s
+
 # enable standard (non-hosting) requests to render content and not only download it
 standard-renders-content: false
 

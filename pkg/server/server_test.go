@@ -38,25 +38,30 @@ eAOcuTgWmgqXRnHVwKJl2g1pCb2hRANCAARWxVAPyT1BRs2hqiDuHlPXr1kVDXuw
 
 func TestPathStyle(t *testing.T) {
 	t.Parallel()
-	testServer(t, false, false)
+	testServer(t, false, false, false)
 }
 
 func TestVirtualHostStyle(t *testing.T) {
 	t.Parallel()
-	testServer(t, false, true)
+	testServer(t, false, true, false)
 }
 
 func TestPathStyleTLS(t *testing.T) {
 	t.Parallel()
-	testServer(t, true, false)
+	testServer(t, true, false, false)
 }
 
 func TestVirtualHostStyleTLS(t *testing.T) {
 	t.Parallel()
-	testServer(t, true, true)
+	testServer(t, true, true, false)
 }
 
-func testServer(t *testing.T, useTLS, vHostStyle bool) {
+func TestShutdown(t *testing.T) {
+	t.Parallel()
+	testServer(t, false, false, true)
+}
+
+func testServer(t *testing.T, useTLS, vHostStyle bool, shutdownDelay bool) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -73,6 +78,11 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		require.NoError(t, err)
 	}
 
+	delay := 0 * time.Second
+	if shutdownDelay {
+		delay = 100 * time.Millisecond
+	}
+
 	config := server.Config{
 		Server: server.AddrConfig{
 			Address:    "127.0.0.1:0",
@@ -81,6 +91,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 		CertDir:        certDir,
 		InsecureLogAll: true,
 		EncodeInMemory: true,
+		ShutdownDelay:  delay,
 	}
 	s, err := server.New(config, zaptest.NewLogger(t), trustedip.NewListTrustAll(), []string{}, nil, []string{}, 10)
 	require.NoError(t, err)
@@ -112,6 +123,9 @@ func testServer(t *testing.T, useTLS, vHostStyle bool) {
 
 	testHealthCheck(ctx, t, urlBase+"-/health", client)
 	testVersionInfo(ctx, t, urlBase+"-/version", client)
+	if shutdownDelay {
+		testShutdown(ctx, t, s, urlBase+"-/health", client)
+	}
 }
 
 func testHealthCheck(ctx context.Context, t *testing.T, url string, client *http.Client) {
@@ -133,6 +147,26 @@ func testVersionInfo(ctx context.Context, t *testing.T, url string, client *http
 	body, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Equal(t, "v0.0.0", string(body))
+}
+
+func testShutdown(ctx *testcontext.Context, t *testing.T, s *server.Peer, url string, client *http.Client) {
+	ctx.Go(s.Close)
+
+	// Make sure the health check returns 503s before the shutdown delay expires
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		require.NoError(t, err)
+		response, err := client.Do(req)
+		// Shutdown delay expired
+		require.NoError(t, err, "health check failed to return expected status before shutdown")
+		// Success
+		if response.StatusCode == http.StatusServiceUnavailable {
+			require.NoError(t, response.Body.Close())
+			break
+		}
+		require.NoError(t, response.Body.Close())
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 func mustCreateLocalhostCert() *x509.Certificate {

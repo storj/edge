@@ -43,6 +43,7 @@ type Config struct {
 	POSTSizeLimit     memory.Size   `help:"maximum size that the incoming POST request body with access grant can be" default:"4KiB"`
 	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
 	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
+	ShutdownDelay     time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
@@ -333,6 +334,12 @@ func (p *Peer) ServeHTTP(ctx context.Context, listener net.Listener) (err error)
 
 	select {
 	case <-ctx.Done():
+		p.res.SetShutdown()
+		if p.config.ShutdownDelay > 0 {
+			p.log.Info("Waiting before server shutdown:", zap.Duration("Delay", p.config.ShutdownDelay))
+			time.Sleep(p.config.ShutdownDelay)
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), serverShutdownTimeout)
 		defer cancel()
 

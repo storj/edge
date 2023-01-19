@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -50,6 +51,7 @@ type Peer struct {
 	log        *zap.Logger
 	config     Config
 	closeLayer func(context.Context) error
+	inShutdown int32
 }
 
 // New returns new instance of an S3 compatible http server.
@@ -60,7 +62,6 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.UseEncodedPath()
 
 	publicServices := r.PathPrefix("/-/").Subrouter()
-	publicServices.HandleFunc("/health", healthCheck)
 	publicServices.HandleFunc("/version", versionInfo)
 
 	if config.EncodeInMemory {
@@ -111,12 +112,14 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		return nil, err
 	}
 
-	return &Peer{
+	peer := Peer{
 		log:        log,
 		server:     server,
 		config:     config,
 		closeLayer: layer.Shutdown,
-	}, nil
+	}
+	publicServices.HandleFunc("/health", peer.healthCheck)
+	return &peer, nil
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.
@@ -136,9 +139,13 @@ func configureUplinkConfig(clientConfig ClientConfig) uplink.Config {
 	return ret
 }
 
-func healthCheck(w http.ResponseWriter, r *http.Request) {
+func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {
 	// TODO: should this function do any tests to confirm the server is operational before returning a 200?
 	// this function should be low-effort, in the sense that the load balancer is going to be hitting it regularly.
+	if atomic.LoadInt32(&s.inShutdown) != 0 {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -162,6 +169,12 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 
 // Close shuts down the server and all underlying resources.
 func (s *Peer) Close() error {
+	atomic.StoreInt32(&s.inShutdown, 1)
+	if s.config.ShutdownDelay > 0 {
+		s.log.Info("Waiting before server shutdown:", zap.Duration("Delay", s.config.ShutdownDelay))
+		time.Sleep(s.config.ShutdownDelay)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

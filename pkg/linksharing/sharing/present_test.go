@@ -55,7 +55,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 				Templates: "../../../pkg/linksharing/web/",
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, cfg)
+			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -257,7 +257,7 @@ func TestZipArchiveContentType(t *testing.T) {
 		URLBases:  []string{"http://test.test"},
 		Templates: "../../../pkg/linksharing/web/",
 	}
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, cfg)
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
 	require.NoError(t, err)
 	handler.archiveRanger = func(_ context.Context, _ *uplink.Project, _, _, _ string, _ bool) (ranger.Ranger, bool, error) {
 		return SimpleRanger(nil, 0), false, nil

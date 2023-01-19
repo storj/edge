@@ -6,6 +6,8 @@ package linksharing
 import (
 	"context"
 	"net/url"
+	"sync/atomic"
+	"time"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -27,6 +29,11 @@ type Config struct {
 	Server  httpserver.Config
 	Handler sharing.Config
 
+	// ShutdownDelay is how long to wait until Shutdown is called. During
+	// the delay the health endpoint should return 503s to allow a load
+	// balancer time to re-route requests.
+	ShutdownDelay time.Duration
+
 	// Maxmind geolocation database path.
 	GeoLocationDB string
 }
@@ -39,6 +46,10 @@ type Peer struct {
 	Mapper     *objectmap.IPDB
 	Server     *httpserver.Server
 	TXTRecords *sharing.TXTRecords
+
+	shutdownDelay time.Duration
+
+	inShutdown int32
 }
 
 // New is a constructor for Linksharing Peer.
@@ -54,8 +65,9 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	}
 
 	peer := &Peer{
-		Log:        log,
-		TXTRecords: txtRecords,
+		Log:           log,
+		TXTRecords:    txtRecords,
+		shutdownDelay: config.ShutdownDelay,
 	}
 
 	if config.GeoLocationDB != "" {
@@ -66,7 +78,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		peer.Mapper = objectmap.NewIPDB(reader)
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, config.Handler)
+	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, &peer.inShutdown, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
@@ -149,6 +161,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 // Close shuts down the server and all underlying resources.
 func (peer *Peer) Close() error {
 	var errlist errs.Group
+
+	atomic.StoreInt32(&peer.inShutdown, 1)
+	if peer.shutdownDelay > 0 {
+		peer.Log.Info("Waiting before server shutdown:", zap.Duration("Delay", peer.shutdownDelay))
+		time.Sleep(peer.shutdownDelay)
+	}
 
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Shutdown())

@@ -139,6 +139,9 @@ auth.token: ""
 # Address to securely serve (TLS) gateway on
 # server.address-tls: 127.0.0.1:20011
 
+# time to delay server shutdown while returning 503s on the health endpoint
+# shutdown-delay: 45s
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

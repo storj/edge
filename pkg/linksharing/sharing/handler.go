@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -145,10 +146,11 @@ type Handler struct {
 	standardRendersContent bool
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
+	inShutdown             *int32
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, inShutdown *int32, config Config) (*Handler, error) {
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -219,6 +221,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
+		inShutdown:             inShutdown,
 	}, nil
 }
 
@@ -371,6 +374,10 @@ func (handler *Handler) cors(ctx context.Context, w http.ResponseWriter, r *http
 
 func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if atomic.LoadInt32(handler.inShutdown) != 0 {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+		return nil
+	}
 	_, err = w.Write([]byte("okay"))
 	return err
 }

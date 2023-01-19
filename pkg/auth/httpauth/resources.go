@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -29,8 +29,8 @@ type Resources struct {
 
 	log *zap.Logger
 
-	mu      sync.Mutex
-	startup bool
+	startup    int32
+	inShutdown int32
 }
 
 // New constructs Resources for some database.
@@ -101,21 +101,19 @@ func (res *Resources) writeError(w http.ResponseWriter, method string, msg strin
 
 // SetStartupDone sets the startup status flag to true indicating startup is complete.
 func (res *Resources) SetStartupDone() {
-	res.mu.Lock()
-	defer res.mu.Unlock()
+	atomic.StoreInt32(&res.startup, 1)
+}
 
-	res.startup = true
+// SetShutdown sets the inShutdown status flag to true indicating the server is shutting down.
+func (res *Resources) SetShutdown() {
+	atomic.StoreInt32(&res.inShutdown, 1)
 }
 
 // getStartup returns 200 when the service has finished initial start up
 // processing and 503 Service Unavailable otherwise (e.g. established initial
 // database connection, finished database migrations).
 func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
-	res.mu.Lock()
-	startup := res.startup
-	res.mu.Unlock()
-
-	if startup {
+	if atomic.LoadInt32(&res.startup) != 0 {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -128,12 +126,8 @@ func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
 func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 	res.log.Debug("getLive request", zap.String("remote address", req.RemoteAddr))
 
-	res.mu.Lock()
-	startup := res.startup
-	res.mu.Unlock()
-
-	// Confirm we have finished startup.
-	if !startup {
+	// Confirm we have finished startup and are not shutting down.
+	if atomic.LoadInt32(&res.startup) == 0 || atomic.LoadInt32(&res.inShutdown) != 0 {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
