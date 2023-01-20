@@ -59,9 +59,12 @@ type Config struct {
 	// Path is where to store data. Empty means in memory.
 	Path string `user:"true" help:"path where to store data" default:""`
 
-	Address  string   `user:"true" help:"address that the node listens on" default:":20004"`
-	Join     []string `user:"true" help:"comma delimited list of cluster peers" default:""`
-	CertsDir string   `user:"true" help:"directory for certificates for mutual authentication"`
+	Address string   `user:"true" help:"address that the node listens on" default:":20004"`
+	Join    []string `user:"true" help:"comma delimited list of cluster peers" default:""`
+	// CertsDir is a path to a directory for certificates for mutual
+	// authentication. If empty, no certificates will be loaded, and it will be
+	// impossible to connect the node to any cluster.
+	CertsDir string `user:"true" help:"directory for certificates for mutual authentication"`
 
 	// ReplicationInterval defines how often to connect and request status from
 	// other nodes.
@@ -305,8 +308,8 @@ func (node *Node) PingDB(ctx context.Context) error {
 
 // Run runs the server and the associated servers.
 func (node *Node) Run(ctx context.Context) error {
-	if len(node.config.Join) == 0 {
-		node.log.Warn("node doesn't know about other nodes in the cluster (no entries for join parameter)")
+	if len(node.config.Join) == 0 || len(node.config.CertsDir) == 0 {
+		node.log.Warn("node is alone in the cluster (empty join and/or certs-dir parameters)")
 	}
 
 	group, gCtx := errgroup.WithContext(ctx)

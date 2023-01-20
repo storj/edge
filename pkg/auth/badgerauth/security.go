@@ -19,10 +19,10 @@ var TLSError = errs.Class("tls")
 // TLSOptions contains configuration for tls.
 type TLSOptions struct {
 	// CertsDir defines a folder for loading the certificates.
-	// The filenames follow this convention:
 	//
-	//    node.crt, node.key: define certificate and private key
-	//    ca.crt: defines certificate authority for other peers.
+	// The filenames follow this convention:
+	//  - node.crt, node.key: define certificate and private key
+	//  -             ca.crt: defines certificate authority for other peers
 	CertsDir string
 }
 
@@ -39,6 +39,15 @@ func (opts TLSOptions) Load() (*tls.Config, error) {
 		ClientCAs: x509.NewCertPool(),
 		// verify client certs
 		VerifyPeerCertificate: nil,
+	}
+
+	if opts.CertsDir == "" {
+		// Return empty, initialized config. It's safe to do because all
+		// authentication requirements are in place. If this tls.Config is used
+		// for any client/listener, it will only be impossible to interact with
+		// the other side of the connection in any way. All handshakes will
+		// fail.
+		return config, nil
 	}
 
 	entries, err := os.ReadDir(opts.CertsDir)
