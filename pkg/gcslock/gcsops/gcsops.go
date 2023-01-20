@@ -54,6 +54,40 @@ func NewClient(ctx context.Context, jsonKey []byte) (_ *Client, err error) {
 	return &Client{HTTPClient: oauth2.NewClient(ctx, c.TokenSource)}, nil
 }
 
+// TestPermissions does a self-check of the current user's permissions in GCS.
+// It returns nil if all permissions are correct, otherwise an error about
+// the missing permission or error contacting the API.
+func (c *Client) TestPermissions(ctx context.Context, bucket string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	q := make(url.Values)
+	q.Add("permissions", "storage.objects.delete")
+	q.Add("permissions", "storage.objects.get")
+	q.Add("permissions", "storage.objects.list")
+	q.Add("permissions", "storage.objects.create")
+
+	u := fmt.Sprintf(Endpoint+"/storage/v1/b/%s/iam/testPermissions", bucket) + "?" + q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return Error.New("unexpected status: %s", resp.Status)
+	}
+
+	return nil
+}
+
 // Delete deletes from the bucket. It uses XML API.
 func (c *Client) Delete(ctx context.Context, headers http.Header, bucket, name string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -148,7 +182,7 @@ func (c *Client) List(ctx context.Context, bucket, prefix string, recursive bool
 
 		if resp.StatusCode != http.StatusOK {
 			_ = resp.Body.Close()
-			return nil, Error.Wrap(errs.New("unexpected status: %s", resp.Status))
+			return nil, Error.New("unexpected status: %s", resp.Status)
 		}
 
 		var rawList listing

@@ -6,11 +6,9 @@ package auth
 import (
 	"context"
 	"crypto/tls"
-	"encoding/hex"
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -26,7 +24,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthmigration"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
@@ -55,25 +52,22 @@ type Config struct {
 	DRPCListenAddr    string `user:"true" help:"public DRPC address to listen on" default:":20002"`
 	DRPCListenAddrTLS string `user:"true" help:"public DRPC+TLS address to listen on" default:":20003"`
 
-	LetsEncrypt bool   `user:"true" help:"use lets-encrypt to handle TLS certificates" default:"false"`
-	CertFile    string `user:"true" help:"server certificate file" default:""`
-	KeyFile     string `user:"true" help:"server key file" default:""`
-	PublicURL   string `user:"true" help:"public url for the server, for the TLS certificate" devDefault:"http://localhost:20000" releaseDefault:""`
+	CertFile  string   `user:"true" help:"server certificate file" default:""`
+	KeyFile   string   `user:"true" help:"server key file" default:""`
+	PublicURL []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. auth.example.com,auth.us1.example.com)"`
 
-	DeleteUnused DeleteUnusedConfig
+	CertMagic certMagic
 
-	Node          badgerauth.Config
-	NodeMigration badgerauthmigration.Config
+	Node badgerauth.Config
 }
 
-// DeleteUnusedConfig is a config struct for configuring unused records deletion
-// chores.
-type DeleteUnusedConfig struct {
-	Run                bool          `help:"whether to run unused records deletion chore" default:"false"`
-	Interval           time.Duration `help:"interval unused records deletion chore waits to start next iteration" default:"24h"`
-	AsOfSystemInterval time.Duration `help:"the interval specified in AS OF SYSTEM in unused records deletion chore query as negative interval" default:"5s"`
-	SelectSize         int           `help:"batch size of records selected for deletion at a time" default:"10000"`
-	DeleteSize         int           `help:"batch size of records to delete from selected records at a time" default:"1000"`
+// certMagic is a config struct for configuring CertMagic options.
+type certMagic struct {
+	Enabled bool   `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
+	KeyFile string `user:"true" help:"path to the service account key file"`
+	Email   string `user:"true" help:"email address to use when creating an ACME account"`
+	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
+	Bucket  string `user:"true" help:"bucket to use for certificate storage"`
 }
 
 // Peer is the representation of authservice.
@@ -96,8 +90,7 @@ type Peer struct {
 	endpoint       *url.URL
 	tlsConfig      *tls.Config
 
-	satelliteListReload   *sync2.Cycle
-	unusedRecordsDeletion *sync2.Cycle
+	satelliteListReload *sync2.Cycle
 }
 
 // New constructs new Peer.
@@ -140,14 +133,19 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
-		LetsEncrypt: config.LetsEncrypt,
-		CertFile:    config.CertFile,
-		KeyFile:     config.KeyFile,
-		PublicURL:   config.PublicURL,
-		ConfigDir:   configDir,
+		CertFile:         config.CertFile,
+		KeyFile:          config.KeyFile,
+		PublicURL:        config.PublicURL,
+		ConfigDir:        configDir,
+		ListenAddr:       config.ListenAddrTLS,
+		CertMagic:        config.CertMagic.Enabled,
+		CertMagicKeyFile: config.CertMagic.KeyFile,
+		CertMagicEmail:   config.CertMagic.Email,
+		CertMagicStaging: config.CertMagic.Staging,
+		CertMagicBucket:  config.CertMagic.Bucket,
 	}
 
-	tlsConfig, handler, err := configureTLS(tlsInfo, res)
+	tlsConfig, handler, err := configureTLS(ctx, log, tlsInfo, res)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -197,8 +195,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		endpoint:       endpoint,
 		tlsConfig:      tlsConfig,
 
-		satelliteListReload:   sync2.NewCycle(config.CacheExpiration),
-		unusedRecordsDeletion: sync2.NewCycle(config.DeleteUnused.Interval),
+		satelliteListReload: sync2.NewCycle(config.CacheExpiration),
 	}, nil
 }
 
@@ -263,21 +260,8 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 		defer p.satelliteListReload.Close()
 	}
 
-	if p.config.DeleteUnused.Run {
-		p.unusedRecordsDeletion.Start(groupCtx, group, func(ctx context.Context) error {
-			deleteUnusedRecords(
-				ctx,
-				p.log,
-				p.adb,
-				p.config.DeleteUnused.AsOfSystemInterval,
-				p.config.DeleteUnused.SelectSize,
-				p.config.DeleteUnused.DeleteSize)
-			return nil
-		})
-		defer p.unusedRecordsDeletion.Close()
-	}
-
 	group.Go(func() error {
+		p.log.Info("Starting HTTP server", zap.String("address", p.httpListener.Addr().String()))
 		return p.ServeHTTP(groupCtx, p.httpListener)
 	})
 
@@ -293,6 +277,7 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 		p.log.Info("not starting DRPC+TLS and HTTPS because of missing TLS configuration")
 	} else {
 		group.Go(func() error {
+			p.log.Info("Starting HTTPS server", zap.String("address", p.httpsListener.Addr().String()))
 			return p.ServeHTTP(groupCtx, p.httpsListener)
 		})
 
@@ -330,8 +315,6 @@ func (p *Peer) Close() error {
 
 // ServeHTTP starts serving HTTP clients.
 func (p *Peer) ServeHTTP(ctx context.Context, listener net.Listener) (err error) {
-	p.log.Info("Starting HTTP server", zap.String("address", listener.Addr().String()))
-
 	server := http.Server{
 		Handler: p.handler,
 	}
@@ -391,59 +374,4 @@ func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Datab
 	} else {
 		adb.SetAllowedSatellites(allowedSatelliteURLs)
 	}
-}
-
-func deleteUnusedRecords(
-	ctx context.Context,
-	log *zap.Logger,
-	adb *authdb.Database,
-	asOfSystemInterval time.Duration,
-	selectSize, deleteSize int) {
-	log.Info("Beginning of next iteration of unused records deletion chore")
-
-	count, rounds, heads, err := adb.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
-	if err != nil {
-		log.Warn("Error deleting unused records", zap.Error(err))
-	}
-
-	log.Info(
-		"Deleted unused records",
-		zap.Int64("count", count),
-		zap.Int64("rounds", rounds))
-
-	log.Debug(
-		"Heads deleted",
-		zap.Array("heads", headsMapToLoggableHeads(heads)))
-
-	monkit.Package().IntVal("authservice_deleted_unused_records_count").Observe(count)
-	monkit.Package().IntVal("authservice_deleted_unused_records_rounds").Observe(rounds)
-}
-
-func headsMapToLoggableHeads(heads map[string]int64) zapcore.ArrayMarshalerFunc {
-	type loggableHead struct {
-		head  string
-		count int64
-	}
-
-	var loggableHeads []loggableHead
-
-	for k, v := range heads {
-		loggableHeads = append(loggableHeads, loggableHead{head: k, count: v})
-	}
-
-	sort.Slice(loggableHeads, func(i, j int) bool {
-		return loggableHeads[i].count > loggableHeads[j].count
-	})
-
-	return zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
-		for _, h := range loggableHeads {
-			if err := ae.AppendObject(zapcore.ObjectMarshalerFunc(func(oe zapcore.ObjectEncoder) error {
-				oe.AddInt64(hex.EncodeToString([]byte(h.head)), h.count)
-				return nil
-			})); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }

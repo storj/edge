@@ -43,8 +43,8 @@ cert-magic.enabled: false
 # path to the service account key file
 cert-magic.key-file: ""
 
-# comma separated list of domain names which bypass paid tier queries
-cert-magic.skip-paid-tier-allowlist: ""
+# comma separated list of domain names which bypass paid tier queries. Set to * to disable tier check entirely
+cert-magic.skip-paid-tier-allowlist: []
 
 # use staging CA endpoints
 cert-magic.staging: false
@@ -132,6 +132,9 @@ landing-redirect-target: https://www.storj.io/
 
 # comma separated list of public urls for the server
 public-url: ""
+
+# The default number of iterations for each check
+# quickchecks: 100
 
 # redirect to HTTPS
 redirect-https: true

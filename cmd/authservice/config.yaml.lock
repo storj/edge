@@ -11,6 +11,21 @@
 # server certificate file
 cert-file: ""
 
+# bucket to use for certificate storage
+cert-magic.bucket: ""
+
+# email address to use when creating an ACME account
+cert-magic.email: ""
+
+# use CertMagic to handle TLS certificates
+cert-magic.enabled: false
+
+# path to the service account key file
+cert-magic.key-file: ""
+
+# use staging CA endpoints
+cert-magic.staging: false
+
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: 30m0s
 
@@ -26,21 +41,6 @@ cert-file: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the interval specified in AS OF SYSTEM in unused records deletion chore query as negative interval
-# delete-unused.as-of-system-interval: 5s
-
-# batch size of records to delete from selected records at a time
-# delete-unused.delete-size: 1000
-
-# interval unused records deletion chore waits to start next iteration
-# delete-unused.interval: 24h0m0s
-
-# whether to run unused records deletion chore
-# delete-unused.run: false
-
-# batch size of records selected for deletion at a time
-# delete-unused.select-size: 10000
-
 # public DRPC address to listen on
 drpc-listen-addr: :20002
 
@@ -55,9 +55,6 @@ key-file: ""
 
 # key/value store backend url
 # kv-backend: ""
-
-# use lets-encrypt to handle TLS certificates
-lets-encrypt: false
 
 # public HTTP address to listen on
 listen-addr: :20000
@@ -103,12 +100,6 @@ listen-addr-tls: :20001
 
 # create or update the database schema, and then continue service startup
 # migration: false
-
-# page size while performing migration
-node-migration.migration-select-size: 1000
-
-# source key/value store backend (must be sqlauth) url
-node-migration.source-sql-auth-kv-backend: ""
 
 # address that the node listens on
 node.address: :20004
@@ -167,8 +158,8 @@ node.replication-limit: 1000
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB
 
-# public url for the server, for the TLS certificate
-public-url: ""
+# comma separated list of public urls for the server TLS certificates (e.g. auth.example.com,auth.us1.example.com)
+public-url: []
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

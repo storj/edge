@@ -71,7 +71,7 @@ type certMagic struct {
 	TierServiceIdentityPath string        `user:"true" help:"path to tier querying service identity credentials"`
 	TierCacheExpiration     time.Duration `user:"true" help:"expiration time for tier querying service cache" devDefault:"10s" releaseDefault:"5m"`
 	TierCacheCapacity       int           `user:"true" help:"tier querying service cache capacity" default:"10000"`
-	SkipPaidTierAllowlist   string        `user:"true" help:"comma separated list of domain names which bypass paid tier queries"`
+	SkipPaidTierAllowlist   []string      `user:"true" help:"comma separated list of domain names which bypass paid tier queries. Set to * to disable tier check entirely"`
 }
 
 var (
@@ -118,7 +118,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
-	tierAllowlist := strings.Split(runCfg.CertMagic.SkipPaidTierAllowlist, ",")
 
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
@@ -131,7 +130,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			TierServiceIdentityPath: runCfg.CertMagic.TierServiceIdentityPath,
 			TierCacheExpiration:     runCfg.CertMagic.TierCacheExpiration,
 			TierCacheCapacity:       runCfg.CertMagic.TierCacheCapacity,
-			SkipPaidTierAllowlist:   tierAllowlist,
+			SkipPaidTierAllowlist:   runCfg.CertMagic.SkipPaidTierAllowlist,
 			CertFile:                runCfg.CertFile,
 			KeyFile:                 runCfg.KeyFile,
 			PublicURLs:              publicURLs,

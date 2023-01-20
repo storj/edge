@@ -5,6 +5,7 @@ package linksharing
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -73,12 +74,69 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	handleWithTracing := http.TraceHandler(handle, mon)
 	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
 
-	peer.Server, err = httpserver.New(log, instrumentedHandle, txtRecords, config.Server)
+	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
+	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
+		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords)
+		if err != nil {
+			return nil, errs.New("unable to get decision func for Custom Domains@TLS feature: %w", err)
+		}
+	}
+
+	peer.Server, err = httpserver.New(log, instrumentedHandle, decisionFunc, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}
 
 	return peer, nil
+}
+
+func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords) (httpserver.CertMagicOnDemandDecisionFunc, error) {
+	bases := make([]*url.URL, 0, len(tlsConfig.PublicURLs))
+	for _, base := range tlsConfig.PublicURLs {
+		parsed, err := url.Parse(base)
+		if err != nil {
+			return nil, errs.New("invalid public URL %q: %v", base, err)
+		}
+		bases = append(bases, parsed)
+	}
+
+	tqs, err := sharing.NewTierQueryingService(tlsConfig.TierServiceIdentityPath, tlsConfig.TierCacheExpiration, tlsConfig.TierCacheCapacity)
+	if err != nil {
+		return nil, errs.New("unable to create tier querying service: %w", err)
+	}
+
+	return func(name string) error {
+		// allow configured urls
+		for _, url := range bases {
+			if name == url.Host {
+				return nil
+			}
+		}
+		// validate dns txt records for everyone else
+		result, err := txtRecords.FetchAccessForHostNoAccessGrant(tlsConfig.Ctx, name, "")
+		if err != nil {
+			return err
+		}
+		if !result.TLS {
+			return errs.New("tls not enabled")
+		}
+		// validate requester is a paying customer
+		for _, allowed := range tlsConfig.SkipPaidTierAllowlist {
+			if allowed == "*" || name == allowed {
+				// skip paid tier query
+				return nil
+			}
+		}
+		paidTier, err := tqs.Do(tlsConfig.Ctx, result.Access, name)
+		if err != nil {
+			return err
+		}
+		if !paidTier {
+			return errs.New("not paid tier")
+		}
+		// request cert
+		return nil
+	}, nil
 }
 
 // Run starts the server.

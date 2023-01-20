@@ -28,27 +28,30 @@ type location struct {
 func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (locs []location, pieceCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// we explicitly don't want locations to be nil, so it doesn't render as
+	// null when we plop it into the output javascript.
+	locations := make([]location, 0)
+
+	if handler.mapper == nil { // fast path
+		return locations, 0, nil
+	}
+
 	ipSummary, err := object.GetObjectIPSummary(ctx, *handler.uplink, pr.access, pr.bucket, pr.realKey)
 	if err != nil {
 		return nil, 0, errdata.WithAction(err, "get locations")
 	}
 
-	// we explicitly don't want locations to be nil, so it doesn't
-	// render as null when we plop it into the output javascript.
-	locations := make([]location, 0, len(ipSummary.IPPorts))
-	if handler.mapper != nil {
-		for _, ip := range ipSummary.IPPorts {
-			info, err := handler.mapper.GetIPInfos(ctx, string(ip))
-			if err != nil {
-				handler.log.Error("failed to get IP info", zap.Error(err))
-				continue
-			}
-
-			locations = append(locations, location{
-				Latitude:  info.Location.Latitude,
-				Longitude: info.Location.Longitude,
-			})
+	for _, ip := range ipSummary.IPPorts {
+		info, err := handler.mapper.GetIPInfos(ctx, string(ip))
+		if err != nil {
+			handler.log.Error("failed to get IP info", zap.Error(err))
+			continue
 		}
+
+		locations = append(locations, location{
+			Latitude:  info.Location.Latitude,
+			Longitude: info.Location.Longitude,
+		})
 	}
 
 	return locations, ipSummary.PieceCount, nil

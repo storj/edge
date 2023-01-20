@@ -8,22 +8,25 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/gateway-mt/pkg/internal/gcstest"
 )
 
 func TestClient_BasicCycle(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	c, bucket := newClient(ctx, t), findBucket(ctx, t)
+	jsonKey, bucket := fincCredentials(t)
+
+	c := newClient(ctx, t, jsonKey)
 
 	headers := make(http.Header)
 	headers.Set("x-goog-if-generation-match", "0")
@@ -91,30 +94,18 @@ func TestClient_BasicCycle(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func newClient(ctx *testcontext.Context, t *testing.T) *Client {
-	pathToJSONKey := os.Getenv("STORJ_TEST_GCSOPS_PATH_TO_JSON_KEY")
-
-	if pathToJSONKey == "" {
-		t.Skipf("Skipping %s without credentials provided", t.Name())
+func fincCredentials(t *testing.T) (jsonKey []byte, bucket string) {
+	jsonKey, bucket, err := gcstest.FindCredentials()
+	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
-
-	jsonKey, err := os.ReadFile(pathToJSONKey)
-	require.NoError(t, err)
-
-	c, err := NewClient(ctx, jsonKey)
-	require.NoError(t, err)
-
-	return c
+	return jsonKey, bucket
 }
 
-func findBucket(ctx *testcontext.Context, t *testing.T) string {
-	bucket := os.Getenv("STORJ_TEST_GCSOPS_BUCKET")
-
-	if bucket == "" {
-		t.Skipf("Skipping %s without bucket provided", t.Name())
-	}
-
-	return bucket
+func newClient(ctx *testcontext.Context, t *testing.T, jsonKey []byte) *Client {
+	c, err := NewClient(ctx, jsonKey)
+	require.NoError(t, err)
+	return c
 }
 
 func TestCombineLists(t *testing.T) {

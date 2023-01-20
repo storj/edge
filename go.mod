@@ -6,8 +6,6 @@ require (
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
-	github.com/jackc/pgconn v1.11.0
-	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
 	github.com/mholt/acmez v1.0.4
 	github.com/miekg/dns v1.1.50
@@ -22,16 +20,15 @@ require (
 	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20221205215717-35ed6c701cb6
+	storj.io/common v0.0.0-20221215155610-3715c7f7ce66
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
-	storj.io/gateway v1.8.3-0.20221020152109-1c6075e292f7
-	storj.io/minio v0.0.0-20221201234724-d0af19bf6813
+	storj.io/gateway v1.8.4-0.20230118210906-ad9333efd516
+	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3
 	storj.io/private v0.0.0-20221108123115-3a27297f0b78
 	storj.io/uplink v1.10.0
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
@@ -57,10 +54,6 @@ require (
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
-	github.com/coredns/coredns v1.6.6 // indirect
-	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
-	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
@@ -72,7 +65,6 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.3.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.1 // indirect
@@ -92,12 +84,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgio v1.0.0 // indirect
-	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.10.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
@@ -110,7 +96,6 @@ require (
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
-	github.com/magefile/mage v1.11.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
@@ -178,10 +163,10 @@ require (
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220805013720-a33c5aa5df48 // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
@@ -190,8 +175,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
-	google.golang.org/grpc v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect

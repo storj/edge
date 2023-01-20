@@ -9,7 +9,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,7 +23,6 @@ import (
 
 	"storj.io/gateway-mt/pkg/certstorage"
 	"storj.io/gateway-mt/pkg/gpublicca"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/gateway-mt/pkg/middleware"
 )
 
@@ -88,7 +86,8 @@ type TLSConfig struct {
 	// TierCacheCapacity is the tier querying service cache size
 	TierCacheCapacity int
 
-	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries
+	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries.
+	// If any one value is set to "*" then the paid tier checking is disabled entirely.
 	SkipPaidTierAllowlist []string
 
 	// PublicURLs is a list of URLs to issue on a Let's Encrypt cert if enabled.
@@ -129,8 +128,12 @@ type Server struct {
 	shutdownTimeout time.Duration
 }
 
+// CertMagicOnDemandDecisionFunc is a concrete type for
+// OnDemandConfig.DecisionFunc in the certmagic package.
+type CertMagicOnDemandDecisionFunc func(name string) error
+
 // New creates a new URL Service Server.
-func New(log *zap.Logger, handler http.Handler, txtRecords *sharing.TXTRecords, config Config) (*Server, error) {
+func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*Server, error) {
 	switch {
 	case config.Address == "":
 		return nil, errs.New("server address is required")
@@ -138,7 +141,7 @@ func New(log *zap.Logger, handler http.Handler, txtRecords *sharing.TXTRecords, 
 		return nil, errs.New("server handler is required")
 	}
 
-	tlsConfig, httpHandler, err := configureTLS(config, log, txtRecords, handler)
+	tlsConfig, httpHandler, err := configureTLS(log, handler, decisionFunc, config)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +272,7 @@ func BaseTLSConfig() *tls.Config {
 	}
 }
 
-func configureTLS(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords, handler http.Handler) (*tls.Config, http.Handler, error) {
+func configureTLS(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, http.Handler, error) {
 	if config.TLSConfig == nil {
 		return nil, handler, nil
 	}
@@ -278,7 +281,7 @@ func configureTLS(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords
 		if config.TLSConfig.CertMagicEmail == "" {
 			return nil, nil, errs.New("cert-magic.email must be provided when cert-magic is enabled")
 		}
-		return configureCertMagic(config, log, txtRecords, handler)
+		return configureCertMagic(log, handler, decisionFunc, config)
 	}
 
 	tlsConfig := BaseTLSConfig()
@@ -334,37 +337,7 @@ func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
 	return certificates, nil
 }
 
-func testCertMagicBucketAccess(cs *certstorage.GCS) error {
-	// Try to store/load/delete a test object to check if the bucket is accessible
-	err := cs.Store(context.Background(), "test", []byte("test"))
-	if err != nil {
-		return err
-	}
-
-	_, err = cs.Load(context.Background(), "test")
-	if err != nil {
-		return err
-	}
-
-	err = cs.Delete(context.Background(), "test")
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTRecords, handler http.Handler) (*tls.Config, http.Handler, error) {
-	// make a list of our public-urls
-	bases := make([]*url.URL, 0, len(config.TLSConfig.PublicURLs))
-	for _, base := range config.TLSConfig.PublicURLs {
-		parsed, err := url.Parse(base)
-		if err != nil {
-			continue
-		}
-		bases = append(bases, parsed)
-	}
-
+func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, http.Handler, error) {
 	// We can't set the logger with the default cache so make our own
 	var magic *certmagic.Config
 	cache := certmagic.NewCache(certmagic.CacheOptions{
@@ -385,55 +358,7 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 		return nil, nil, errs.New("initializing certstorage: %v", err)
 	}
 
-	err = testCertMagicBucketAccess(cs)
-	if err != nil {
-		return nil, nil, errs.New("unable to access cert-magic bucket: %v", err)
-	}
-
-	tqs, err := sharing.NewTierQueryingService(config.TLSConfig.TierServiceIdentityPath, config.TLSConfig.TierCacheExpiration, config.TLSConfig.TierCacheCapacity)
-	if err != nil {
-		return nil, nil, errs.New("unable to create tier querying service: %w", err)
-	}
-
 	magic = certmagic.New(cache, certmagic.Config{
-		OnDemand: &certmagic.OnDemandConfig{
-			// if the decision function returns an error a certificate may not
-			// be obtained for that name
-			DecisionFunc: func(name string) error {
-				// allow configured urls
-				for _, url := range bases {
-					if name == url.Host {
-						return nil
-					}
-				}
-				// validate dns txt records for everyone else
-				result, err := txtRecords.FetchAccessForHostNoAccessGrant(config.TLSConfig.Ctx, name, "")
-				if err != nil {
-					return err
-				}
-				if !result.TLS {
-					return errs.New("tls not enabled")
-				}
-
-				// validate requester is a paying customer
-				for _, allowed := range config.TLSConfig.SkipPaidTierAllowlist {
-					if name == allowed {
-						// Skip paid tier query
-						return nil
-					}
-				}
-				paidTier, err := tqs.Do(config.TLSConfig.Ctx, result.Access, name)
-				if err != nil {
-					return err
-				}
-				if !paidTier {
-					return errs.New("not paid tier")
-				}
-
-				// request cert
-				return nil
-			},
-		},
 		OnEvent: func(ctx context.Context, event string, data map[string]any) error {
 			switch event {
 			case "cert_obtaining", "cert_obtained", "cert_failed":
@@ -447,8 +372,9 @@ func configureCertMagic(config Config, log *zap.Logger, txtRecords *sharing.TXTR
 			}
 			return nil
 		},
-		Storage: cs,
-		Logger:  log,
+		OnDemand: &certmagic.OnDemandConfig{DecisionFunc: decisionFunc},
+		Storage:  cs,
+		Logger:   log,
 	})
 
 	// Set the AltTLSALPNPort so the solver won't start another listener
