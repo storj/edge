@@ -26,6 +26,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/testcontext"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 )
 
 // TestPeer_Close ensures that closing bare Peer with minimal config it needs to
@@ -37,7 +38,11 @@ func TestPeer_Close(t *testing.T) {
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
-		KVBackend:         "memory://",
+		KVBackend:         "badger://",
+		Node: badgerauth.Config{
+			FirstStart:          true,
+			ReplicationInterval: 5 * time.Second,
+		},
 	}, "")
 	require.NoError(t, err)
 
@@ -53,9 +58,13 @@ func TestPeer_BadListenerError(t *testing.T) {
 	config := Config{
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
-		KVBackend:         "memory://",
+		KVBackend:         "badger://",
 		ListenAddr:        "127.0.0.1:0",
 		DRPCListenAddr:    "127.0.0.1:0",
+		Node: badgerauth.Config{
+			FirstStart:          true,
+			ReplicationInterval: 5 * time.Second,
+		},
 	}
 
 	p, err := New(ctx, zaptest.NewLogger(t), config, "")
@@ -108,7 +117,11 @@ func TestPeer_PlainDRPC(t *testing.T) {
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
-		KVBackend:         "memory://",
+		KVBackend:         "badger://",
+		Node: badgerauth.Config{
+			FirstStart:          true,
+			ReplicationInterval: 5 * time.Second,
+		},
 	}, "")
 	require.NoError(t, err)
 
@@ -177,7 +190,11 @@ func TestPeer_TLSDRPC(t *testing.T) {
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
-		KVBackend:         "memory://",
+		KVBackend:         "badger://",
+		Node: badgerauth.Config{
+			FirstStart:          true,
+			ReplicationInterval: 5 * time.Second,
+		},
 	}, "")
 	require.NoError(t, err)
 

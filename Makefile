@@ -429,7 +429,7 @@ integration-services-start:
 		--allowed-satellites $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env SATELLITE_0_URL) \
 		--auth-token super-secret \
 		--endpoint http://gateway:20010 \
-		--kv-backend memory://
+		--kv-backend badger://
 
 	mkdir -p volumes/gateway
 	openssl req \

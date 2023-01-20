@@ -15,14 +15,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/memauth"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
 
@@ -83,6 +85,18 @@ func TestResources_URLs(t *testing.T) {
 }
 
 func TestResources_CRUD(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	kv := newKV(t, logger)
+	defer ctx.Check(kv.Close)
+
+	endpoint, err := url.Parse("http://endpoint.invalid/")
+	require.NoError(t, err)
+
 	exec := func(res http.Handler, method, path, body string) (map[string]interface{}, bool) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -99,12 +113,9 @@ func TestResources_CRUD(t *testing.T) {
 		return nil, true
 	}
 
-	endpoint, err := url.Parse("http://endpoint.invalid/")
-	require.NoError(t, err)
-
 	t.Run("Availability after startup", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 		const path = "/v1/health/startup"
 
@@ -115,13 +126,15 @@ func TestResources_CRUD(t *testing.T) {
 
 		res.SetStartupDone()
 
+		_, ok = exec(res, "GET", "/v1/health/live", "")
+		require.True(t, ok)
 		_, ok = exec(res, "GET", path, "")
 		require.True(t, ok)
 	})
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -141,7 +154,7 @@ func TestResources_CRUD(t *testing.T) {
 		var unknownSatelliteID storj.NodeURL
 		unknownSatelliteID.ID[4] = 7
 		allowed := map[storj.NodeURL]struct{}{unknownSatelliteID: {}}
-		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -149,7 +162,7 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 
 		allowed = map[storj.NodeURL]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -158,7 +171,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowed, _, err := satellitelist.LoadSatelliteURLs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -178,7 +191,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Public", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -196,11 +209,20 @@ func TestResources_CRUD(t *testing.T) {
 }
 
 func TestResources_Authorization(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	kv := newKV(t, logger)
+	defer ctx.Check(kv.Close)
+
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
 	allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-	res := newResource(t, authdb.NewDatabase(memauth.New(), allowed), endpoint)
+	res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -223,6 +245,12 @@ func TestResources_Authorization(t *testing.T) {
 }
 
 func TestResources_CORS(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
@@ -233,7 +261,7 @@ func TestResources_CORS(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer authToken")
 		req.Header.Add("Origin", "http://example.com")
 
-		res := newResource(t, nil, endpoint)
+		res := newResource(t, logger, nil, endpoint)
 		res.ServeHTTP(rec, req)
 
 		result := rec.Result()
@@ -301,8 +329,17 @@ func TestResources_EntityTooLarge(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, r.StatusCode)
 }
 
-func newResource(t *testing.T, db *authdb.Database, endpoint *url.URL) *Resources {
+func newResource(t *testing.T, logger *zap.Logger, db *authdb.Database, endpoint *url.URL) *Resources {
 	t.Helper()
 
-	return New(zaptest.NewLogger(t), db, endpoint, "authToken", 4*memory.KiB)
+	return New(logger, db, endpoint, "authToken", 4*memory.KiB)
+}
+
+func newKV(t *testing.T, logger *zap.Logger) (_ authdb.KV) {
+	t.Helper()
+
+	kv, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
+	require.NoError(t, err)
+
+	return kv
 }

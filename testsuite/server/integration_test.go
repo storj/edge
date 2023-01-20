@@ -23,6 +23,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -30,6 +31,7 @@ import (
 	"storj.io/gateway-mt/internal/minioclient"
 	"storj.io/gateway-mt/internal/register"
 	"storj.io/gateway-mt/pkg/auth"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -71,9 +73,13 @@ func TestUploadDownload(t *testing.T) {
 			AuthToken:         "super-secret",
 			POSTSizeLimit:     4 * memory.KiB,
 			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
-			KVBackend:         "memory://",
+			KVBackend:         "badger://",
 			ListenAddr:        authSvcAddr,
 			ListenAddrTLS:     authSvcAddrTLS,
+			Node: badgerauth.Config{
+				FirstStart:          true,
+				ReplicationInterval: 5 * time.Second,
+			},
 		}
 
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
@@ -85,7 +91,7 @@ func TestUploadDownload(t *testing.T) {
 
 		ctx.Go(func() error {
 			defer ctx.Check(auth.Close)
-			return auth.Run(cancelCtx)
+			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
 		})
 
 		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))

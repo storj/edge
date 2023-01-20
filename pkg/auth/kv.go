@@ -11,7 +11,6 @@ import (
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/memauth"
 	"storj.io/private/dbutil"
 )
 
@@ -25,8 +24,6 @@ func OpenKV(ctx context.Context, log *zap.Logger, config Config) (_ authdb.KV, e
 	}
 
 	switch driver {
-	case "memory":
-		return memauth.New(), nil
 	case "badger":
 		return badgerauth.New(log, config.Node)
 	default:

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
@@ -16,7 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/memauth"
+	"storj.io/gateway-mt/pkg/auth/badgerauth"
 )
 
 const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
@@ -33,21 +34,28 @@ var minimalAccessSatelliteID = func() storj.NodeURL {
 	return url
 }()
 
-func createBackend(t *testing.T, sizeLimit memory.Size) (*Server, *authdb.Database) {
+func createBackend(t *testing.T, sizeLimit memory.Size) (_ *Server, _ *authdb.Database, close func() error) {
+	logger := zaptest.NewLogger(t)
+
+	kv, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
+	require.NoError(t, err)
+
+	db := authdb.NewDatabase(kv, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}})
+
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
-	allowedSatelliteIDs := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 
-	db := authdb.NewDatabase(memauth.New(), allowedSatelliteIDs)
-
-	return NewServer(zaptest.NewLogger(t), db, endpoint, sizeLimit), db
+	return NewServer(logger, db, endpoint, sizeLimit), db, func() error {
+		return errs.Combine(kv.Close(), logger.Sync())
+	}
 }
 
 func TestRegisterAccess(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	server, db := createBackend(t, 4*memory.KiB)
+	server, db, close := createBackend(t, 4*memory.KiB)
+	defer ctx.Check(close)
 
 	response, err := server.RegisterAccess(
 		ctx,
@@ -81,7 +89,8 @@ func TestRegisterAccessTooLarge(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	server, _ := createBackend(t, memory.Size(len(minimalAccess)))
+	server, _, close := createBackend(t, memory.Size(len(minimalAccess)))
+	defer ctx.Check(close)
 
 	_, err := server.RegisterAccess(
 		ctx,
