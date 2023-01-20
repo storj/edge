@@ -298,19 +298,6 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	return nil, Error.Wrap(errGroup.Err())
 }
 
-// DeleteUnused proxies DB's DeleteUnused.
-func (node *Node) DeleteUnused(
-	ctx context.Context,
-	asOfSystemInterval time.Duration,
-	selectSize, deleteSize int,
-) (
-	count, rounds int64,
-	deletesPerHead map[string]int64,
-	err error,
-) {
-	return node.db.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
-}
-
 // PingDB proxies DB's PingDB.
 func (node *Node) PingDB(ctx context.Context) error {
 	return node.db.PingDB(ctx)

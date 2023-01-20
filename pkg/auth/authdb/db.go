@@ -233,16 +233,6 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessG
 	return string(ag), record.Public, secretKey, nil
 }
 
-// DeleteUnused deletes expired and invalid records from the key/value store and
-// returns any error encountered.
-func (db *Database) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	count, rounds, deletesPerHead, err = db.kv.DeleteUnused(ctx, asOfSystemInterval, selectSize, deleteSize)
-
-	return count, rounds, deletesPerHead, errs.Wrap(err)
-}
-
 // PingDB attempts to do a DB roundtrip. If it can't it will return an error.
 func (db *Database) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -77,13 +77,6 @@ type KV interface {
 	// If the record is invalid, the error contains why.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
 
-	// DeleteUnused deletes expired and invalid records from the key/value store
-	// and returns any error encountered.
-	//
-	// Batch deletion and usage of asOfSystemInterval, selectSize and deleteSize
-	// parameters depends on the implementation.
-	DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error)
-
 	// PingDB attempts to do a DB roundtrip. If it can't it will return an
 	// error.
 	PingDB(ctx context.Context) error

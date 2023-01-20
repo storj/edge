@@ -163,12 +163,7 @@ func TestPutSatelliteValidation(t *testing.T) {
 type mockKV struct{}
 
 func (mockKV) Put(ctx context.Context, keyHash KeyHash, record *Record) (err error) { return nil }
-func (mockKV) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) {
-	return nil, nil
-}
-func (mockKV) DeleteUnused(ctx context.Context, asOfSystemInterval time.Duration, selectSize, deleteSize int) (count, rounds int64, deletesPerHead map[string]int64, err error) {
-	return 0, 0, nil, nil
-}
-func (mockKV) PingDB(ctx context.Context) error { return nil }
-func (mockKV) Run(ctx context.Context) error    { return nil }
-func (mockKV) Close() error                     { return nil }
+func (mockKV) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) { return nil, nil }
+func (mockKV) PingDB(ctx context.Context) error                                     { return nil }
+func (mockKV) Run(ctx context.Context) error                                        { return nil }
+func (mockKV) Close() error                                                         { return nil }

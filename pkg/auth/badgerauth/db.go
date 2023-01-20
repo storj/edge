@@ -229,12 +229,6 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	}))
 }
 
-// DeleteUnused always returns an error because expiring records are deleted by
-// default.
-func (db *DB) DeleteUnused(context.Context, time.Duration, int, int) (int64, int64, map[string]int64, error) {
-	return 0, 0, nil, Error.New("expiring records are deleted by default")
-}
-
 // PingDB attempts to do a database roundtrip and returns an error if it can't.
 func (db *DB) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

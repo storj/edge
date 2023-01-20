@@ -233,29 +233,6 @@ func randTime(d time.Duration) time.Time {
 	return time.Now().Add(time.Duration(testrand.Int63n(int64(d))))
 }
 
-func TestDeleteUnusedAlwaysReturnsError(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	var err error
-
-	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, _ *zap.Logger, node *badgerauth.Node) {
-		db := node.UnderlyingDB()
-
-		_, _, _, err = db.DeleteUnused(ctx, 0, 0, 0)
-		assert.Error(t, err)
-		_, _, _, err = db.DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
-		assert.Error(t, err)
-	})
-
-	//nolint: dogsled
-	_, _, _, err = (&badgerauth.DB{}).DeleteUnused(ctx, 0, 0, 0)
-	assert.Error(t, err)
-	//nolint: dogsled
-	_, _, _, err = (&badgerauth.DB{}).DeleteUnused(ctx, 24*time.Hour, 10000, 1000)
-	assert.Error(t, err)
-}
-
 // TestBasicCycle sequentially tests the basic create → retrieve lifecycle of a
 // single record, verifying fundamental KV interface guarantees.
 func TestBasicCycle(t *testing.T) {
