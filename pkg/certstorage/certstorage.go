@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,16 +35,24 @@ type GCS struct {
 	client *gcsops.Client
 
 	bucket string
+	prefix string
 
 	locks map[string]*gcslock.Mutex
 	mu    sync.Mutex
 }
 
 // NewGCS returns initialized GCS.
-func NewGCS(ctx context.Context, logger *zap.Logger, jsonKey []byte, bucket string) (_ *GCS, err error) {
+func NewGCS(ctx context.Context, logger *zap.Logger, jsonKey []byte, path string) (_ *GCS, err error) {
+	bucket, prefix, found := strings.Cut(path, "/")
+	if found {
+		// Make sure prefix has trailing slash
+		prefix = strings.TrimSuffix(prefix, "/") + "/"
+	}
+
 	gcs := &GCS{
 		logger: logger,
 		bucket: bucket,
+		prefix: prefix,
 		locks:  make(map[string]*gcslock.Mutex),
 	}
 
@@ -69,7 +78,7 @@ func (gcs *GCS) Lock(ctx context.Context, name string) (err error) {
 	lock, ok := gcs.locks[name]
 	if !ok {
 		m, err := gcslock.NewMutex(ctx, gcslock.Options{
-			Name:   name,
+			Name:   gcs.prefix + name,
 			Bucket: gcs.bucket,
 			Logger: gcs.logger.Named("distributed lock/" + name).Sugar(),
 			Client: gcs.client,
@@ -102,18 +111,20 @@ func (gcs *GCS) Unlock(ctx context.Context, name string) (err error) {
 
 // Store implements certmagics's Storage interface.
 func (gcs *GCS) Store(ctx context.Context, key string, value []byte) error {
-	gcs.logger.Debug("store", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	k := gcs.prefix + key
+	gcs.logger.Debug("store", zap.String("bucket", gcs.bucket), zap.String("key", k))
 
-	return Error.Wrap(gcs.client.Upload(ctx, nil, gcs.bucket, key, bytes.NewReader(value)))
+	return Error.Wrap(gcs.client.Upload(ctx, nil, gcs.bucket, k, bytes.NewReader(value)))
 }
 
 // Load implements certmagics's Storage interface.
 func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
+	k := gcs.prefix + key
 
-	gcs.logger.Debug("load", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("load", zap.String("bucket", gcs.bucket), zap.String("key", k))
 
-	rc, err := gcs.client.Download(ctx, gcs.bucket, key)
+	rc, err := gcs.client.Download(ctx, gcs.bucket, k)
 	if err != nil {
 		if errs.Is(err, gcsops.ErrNotFound) {
 			return nil, Error.Wrap(fs.ErrNotExist)
@@ -128,10 +139,11 @@ func (gcs *GCS) Load(ctx context.Context, key string) (_ []byte, err error) {
 // Delete implements certmagics's Storage interface.
 func (gcs *GCS) Delete(ctx context.Context, key string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	k := gcs.prefix + key
 
-	gcs.logger.Debug("delete", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("delete", zap.String("bucket", gcs.bucket), zap.String("key", k))
 
-	err = gcs.client.Delete(ctx, nil, gcs.bucket, key)
+	err = gcs.client.Delete(ctx, nil, gcs.bucket, k)
 	if errs.Is(err, gcsops.ErrNotFound) {
 		return Error.Wrap(fs.ErrNotExist)
 	}
@@ -141,32 +153,35 @@ func (gcs *GCS) Delete(ctx context.Context, key string) (err error) {
 // Exists implements certmagics's Storage interface.
 func (gcs *GCS) Exists(ctx context.Context, key string) bool {
 	var err error
+	k := gcs.prefix + key
 
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = gcs.client.Stat(ctx, gcs.bucket, key)
+	_, err = gcs.client.Stat(ctx, gcs.bucket, k)
 	return err == nil
 }
 
 // List implements certmagics's Storage interface.
 func (gcs *GCS) List(ctx context.Context, prefix string, recursive bool) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
+	p := gcs.prefix + prefix
 
-	gcs.logger.Debug("list", zap.String("bucket", gcs.bucket), zap.String("prefix", prefix), zap.Bool("recursive", recursive))
+	gcs.logger.Debug("list", zap.String("bucket", gcs.bucket), zap.String("prefix", p), zap.Bool("recursive", recursive))
 
-	r, err := gcs.client.List(ctx, gcs.bucket, prefix, recursive)
+	r, err := gcs.client.List(ctx, gcs.bucket, p, recursive)
 	return r, Error.Wrap(err)
 }
 
 // Stat implements certmagics's Storage interface.
 func (gcs *GCS) Stat(ctx context.Context, key string) (_ certmagic.KeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	k := gcs.prefix + key
 
 	var keyInfo certmagic.KeyInfo
 
-	gcs.logger.Debug("stat", zap.String("bucket", gcs.bucket), zap.String("key", key))
+	gcs.logger.Debug("stat", zap.String("bucket", gcs.bucket), zap.String("key", k))
 
-	headers, err := gcs.client.Stat(ctx, gcs.bucket, key)
+	headers, err := gcs.client.Stat(ctx, gcs.bucket, k)
 	if err != nil {
 		if errs.Is(err, gcsops.ErrNotFound) {
 			return keyInfo, Error.Wrap(fs.ErrNotExist)
@@ -174,7 +189,7 @@ func (gcs *GCS) Stat(ctx context.Context, key string) (_ certmagic.KeyInfo, err 
 		return keyInfo, Error.Wrap(err)
 	}
 
-	keyInfo.Key = key
+	keyInfo.Key = k
 	keyInfo.IsTerminal = true // GCS returns 404 if querying prefix
 
 	keyInfo.Modified, err = time.Parse(time.RFC1123, headers.Get("last-modified"))

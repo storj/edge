@@ -67,7 +67,7 @@ type certMagic struct {
 	KeyFile                 string        `user:"true" help:"path to the service account key file"`
 	Email                   string        `user:"true" help:"email address to use when creating an ACME account"`
 	Staging                 bool          `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
-	Bucket                  string        `user:"true" help:"bucket to use for certificate storage"`
+	Bucket                  string        `user:"true" help:"bucket to use for certificate storage with optional prefix (bucket/prefix)"`
 	TierServiceIdentityPath string        `user:"true" help:"path to tier querying service identity credentials"`
 	TierCacheExpiration     time.Duration `user:"true" help:"expiration time for tier querying service cache" devDefault:"10s" releaseDefault:"5m"`
 	TierCacheCapacity       int           `user:"true" help:"tier querying service cache capacity" default:"10000"`

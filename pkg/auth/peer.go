@@ -68,7 +68,7 @@ type certMagic struct {
 	KeyFile string `user:"true" help:"path to the service account key file"`
 	Email   string `user:"true" help:"email address to use when creating an ACME account"`
 	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
-	Bucket  string `user:"true" help:"bucket to use for certificate storage"`
+	Bucket  string `user:"true" help:"bucket to use for certificate storage with optional prefix (bucket/prefix)"`
 }
 
 // Peer is the representation of authservice.

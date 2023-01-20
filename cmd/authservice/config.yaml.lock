@@ -11,7 +11,7 @@
 # server certificate file
 cert-file: ""
 
-# bucket to use for certificate storage
+# bucket to use for certificate storage with optional prefix (bucket/prefix)
 cert-magic.bucket: ""
 
 # email address to use when creating an ACME account
