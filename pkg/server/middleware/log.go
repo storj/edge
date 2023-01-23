@@ -21,24 +21,26 @@ import (
 	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/gateway-mt/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
+	"storj.io/private/process/gcloudlogging"
 )
-
-const requestURILogField = "request-uri"
 
 // LogRequests logs requests.
 func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
-		fields := []zapcore.Field{
-			zap.String("protocol", r.Proto),
-			zap.String("method", r.Method),
-			zap.String("host", r.Host),
-			zap.String("user-agent", r.UserAgent()),
-			zap.String("remote-ip", getRemoteIP(r)),
-			zap.Int64("request-content-length", r.ContentLength),
+		httpRequestLog := &gcloudlogging.HTTPRequest{
+			Protocol:      r.Proto,
+			RequestMethod: r.Method,
+			RequestSize:   r.ContentLength,
+			UserAgent:     r.UserAgent(),
+			RemoteIP:      getRemoteIP(r),
+		}
+		if insecureLogPaths {
+			httpRequestLog.RequestURL = r.RequestURI
 		}
 
-		if insecureLogPaths {
-			fields = append(fields, zap.String(requestURILogField, r.RequestURI))
+		fields := []zapcore.Field{
+			gcloudlogging.LogHTTPRequest(httpRequestLog),
+			zap.String("host", r.Host),
 		}
 
 		log.Debug("access", fields...)
@@ -149,28 +151,34 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		rspHeaders = append(rspHeaders, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
 	}
 
+	httpRequestLog := &gcloudlogging.HTTPRequest{
+		Protocol:      r.Proto,
+		RequestMethod: r.Method,
+		RequestSize:   r.ContentLength,
+		ResponseSize:  rw.Written(),
+		Status:        rw.StatusCode(),
+		UserAgent:     r.UserAgent(),
+		RemoteIP:      getRemoteIP(r),
+		Latency:       d,
+	}
+	if insecureLogAll {
+		httpRequestLog.RequestURL = r.RequestURI
+	}
+
 	fields := []zapcore.Field{
-		zap.String("protocol", r.Proto),
-		zap.String("method", r.Method),
+		gcloudlogging.LogHTTPRequest(httpRequestLog),
+		gcloudlogging.LogOperation(&gcloudlogging.Operation{
+			ID:       gl.API,
+			Producer: "storj.io/gateway-mt",
+		}),
 		zap.String("host", r.Host),
-		zap.Int("code", rw.StatusCode()),
-		zap.String("user-agent", r.UserAgent()),
-		zap.String("remote-ip", getRemoteIP(r)),
-		zap.String("api", gl.API),
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", gl.RequestID),
 		zap.String("encryption-key-hash", getEncryptionKeyHash(r)),
 		zap.String("macaroon-head", getMacaroonHead(r)),
-		zap.Int64("content-length", r.ContentLength),
-		zap.Int64("written", rw.Written()),
-		zap.Duration("duration", d),
 		zap.Strings("query", query),
 		zap.Strings("req-headers", reqHeaders),
 		zap.Strings("rsp-headers", rspHeaders),
-	}
-
-	if insecureLogAll {
-		fields = append(fields, zap.String(requestURILogField, r.RequestURI))
 	}
 
 	level("response", fields...)
@@ -216,19 +224,23 @@ func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d ti
 		level = log.Error
 	}
 
-	fields := []zapcore.Field{
-		zap.String("method", r.Method),
-		zap.String("host", r.Host),
-		zap.Int("code", rw.StatusCode()),
-		zap.String("user-agent", r.UserAgent()),
-		zap.String("remote-ip", getRemoteIP(r)),
-		zap.Int64("content-length", r.ContentLength),
-		zap.Int64("written", rw.Written()),
-		zap.Duration("duration", d),
+	httpRequestLog := &gcloudlogging.HTTPRequest{
+		Protocol:      r.Proto,
+		RequestMethod: r.Method,
+		RequestSize:   r.ContentLength,
+		ResponseSize:  rw.Written(),
+		Status:        rw.StatusCode(),
+		UserAgent:     r.UserAgent(),
+		RemoteIP:      getRemoteIP(r),
+		Latency:       d,
+	}
+	if insecureLogAll {
+		httpRequestLog.RequestURL = r.RequestURI
 	}
 
-	if insecureLogAll {
-		fields = append(fields, zap.String(requestURILogField, r.RequestURI))
+	fields := []zapcore.Field{
+		gcloudlogging.LogHTTPRequest(httpRequestLog),
+		zap.String("host", r.Host),
 	}
 
 	level("response", fields...)

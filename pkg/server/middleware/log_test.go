@@ -41,11 +41,12 @@ func TestResponseNoPaths(t *testing.T) {
 
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
-	require.Len(t, filteredLogs.All(), 0)
+	require.Len(t, observedLogs.All(), 1)
+	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	require.True(t, ok)
 
-	filteredLogs = observedLogs.FilterField(zap.Int("code", http.StatusOK))
-	require.Len(t, filteredLogs.All(), 1)
+	require.Nil(t, fields["requestUrl"])
+	require.Equal(t, http.StatusOK, fields["status"])
 }
 
 func TestResponsePathsIncluded(t *testing.T) {
@@ -66,8 +67,11 @@ func TestResponsePathsIncluded(t *testing.T) {
 
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
-	require.Len(t, filteredLogs.All(), 1)
+	require.Len(t, observedLogs.All(), 1)
+	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	require.True(t, ok)
+
+	require.Equal(t, "/", fields["requestUrl"])
 }
 
 func TestGatewayResponseNoPaths(t *testing.T) {
@@ -93,10 +97,13 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/"))
-	require.Len(t, filteredLogs.All(), 0)
+	require.Len(t, observedLogs.All(), 1)
+	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	require.True(t, ok)
 
-	filteredLogs = observedLogs.FilterField(zap.String("error", "error!"))
+	require.Nil(t, fields["requestUrl"])
+
+	filteredLogs := observedLogs.FilterField(zap.String("error", "error!"))
 	require.Len(t, filteredLogs.All(), 1)
 }
 
@@ -161,8 +168,11 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String(requestURILogField, "/test?q=123"))
-	require.Len(t, filteredLogs.All(), 1)
+	require.Len(t, observedLogs.All(), 1)
+	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	require.True(t, ok)
+
+	require.Equal(t, "/test?q=123", fields["requestUrl"])
 }
 
 func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
@@ -300,8 +310,11 @@ func TestRemoteIP(t *testing.T) {
 
 			LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
-			filteredLogs := observedLogs.FilterField(zap.String("remote-ip", tc.expectedIP))
-			require.Len(t, filteredLogs.All(), 1)
+			require.Len(t, observedLogs.All(), 1)
+			fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+			require.True(t, ok)
+
+			require.Equal(t, tc.expectedIP, fields["remoteIp"])
 		})
 	}
 }

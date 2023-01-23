@@ -29,6 +29,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/private/process/gcloudlogging"
 )
 
 var mon = monkit.Package()
@@ -203,11 +204,14 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
 		log.Info("request",
-			zap.String("protocol", r.Proto),
-			zap.String("method", r.Method),
+			gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
+				Protocol:      r.Proto,
+				RequestMethod: r.Method,
+				RequestSize:   r.ContentLength,
+				UserAgent:     r.UserAgent(),
+				RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+			}),
 			zap.String("host", r.Host),
-			zap.String("user-agent", r.UserAgent()),
-			zap.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
 		)
 		h.ServeHTTP(w, r)
 	})
@@ -231,15 +235,18 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 			}
 
 			fields := []zapcore.Field{
-				zap.String("method", r.Method),
+				gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
+					Protocol:      r.Proto,
+					RequestMethod: r.Method,
+					RequestSize:   r.ContentLength,
+					ResponseSize:  rw.Written(),
+					UserAgent:     r.UserAgent(),
+					RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+					Latency:       time.Since(start),
+					Status:        rw.StatusCode(),
+				}),
 				zap.String("host", r.Host),
-				zap.Int("code", rw.StatusCode()),
 				zap.String("request-id", middleware.GetRequestID(r.Context())),
-				zap.String("user-agent", r.UserAgent()),
-				zap.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
-				zap.Int64("content-length", r.ContentLength),
-				zap.Int64("written", rw.Written()),
-				zap.Duration("duration", time.Since(start)),
 			}
 			logAtLevel("response", fields...)
 		}))
