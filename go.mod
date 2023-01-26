@@ -4,8 +4,10 @@ go 1.18
 
 require (
 	github.com/caddyserver/certmagic v0.17.2
+	github.com/fatih/color v1.10.0
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
+	github.com/grantae/certinfo v0.0.0-20170412194111-59d56a35515b
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
 	github.com/libdns/googleclouddns v1.1.0
 	github.com/mholt/acmez v1.0.4
@@ -65,7 +67,6 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.3.0 // indirect
-	github.com/fatih/color v1.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
