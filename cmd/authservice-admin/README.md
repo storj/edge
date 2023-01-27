@@ -49,7 +49,7 @@ Example command:
 $ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb --certs-dir ~/.authservice-admin/certs --node-addresses node1:20004,node2:20004
 ```
 
-If running a command to modify a record, all nodes should be listed in the `--node-addresses` flag so the record is updated simultaneously on all the nodes. For `record show` commands, all node addresses will be consulted, but only one response will be used.
+If running a command to modify a record, all nodes should be listed in the `--node-addresses` flag so the record is updated simultaneously on all the nodes. For `record show` commands, only the first node address will be consulted.
 
 ### Commands
 
