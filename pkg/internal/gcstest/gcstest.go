@@ -12,6 +12,10 @@ import (
 	"storj.io/common/testrand"
 )
 
+// PathLengthLimit is the maximum path length that GCS supports (in bytes when
+// UTF-8-formatted).
+const PathLengthLimit = 1024
+
 var (
 	// Error is the error class for this package.
 	Error = errs.Class("gcstest")
@@ -34,12 +38,15 @@ func FindCredentials() (jsonKey []byte, bucket string, err error) {
 	return jsonKey, bucket, Error.Wrap(err)
 }
 
-// RandPathUTF8 returns a random path that, when UTF-8-formatted, does not
-// exceed maxLen bytes.
+// RandPathUTF8 returns a random path that does not exceed maxLen bytes and is a
+// valid UTF-8 string.
 func RandPathUTF8(maxLen int) string {
-	p := strings.ToValidUTF8(testrand.Path(), "\ufffd")
-	for len(p) > maxLen {
-		p = p[:len(p)-1]
+	var b strings.Builder
+	for _, r := range strings.ToValidUTF8(testrand.Path(), "\ufffd") {
+		if b.Len()+4 >= maxLen { // calculate conservatively
+			break
+		}
+		b.WriteRune(r)
 	}
-	return p
+	return b.String()
 }

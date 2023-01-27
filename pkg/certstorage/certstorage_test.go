@@ -30,7 +30,7 @@ func TestGCS(t *testing.T) {
 }
 
 func testLocker(ctx *testcontext.Context, t *testing.T, locker certmagic.Locker) {
-	a, b := gcstest.RandPathUTF8(1024), gcstest.RandPathUTF8(1024)
+	a, b := gcstest.RandPathUTF8(gcstest.PathLengthLimit), gcstest.RandPathUTF8(gcstest.PathLengthLimit)
 	require.NoError(t, locker.Lock(ctx, a))
 	require.NoError(t, locker.Lock(ctx, b))
 	defer ctx.Check(func() error { return locker.Unlock(ctx, b) })
@@ -50,7 +50,7 @@ func testLocker(ctx *testcontext.Context, t *testing.T, locker certmagic.Locker)
 }
 
 func testStorage(ctx *testcontext.Context, t *testing.T, storage certmagic.Storage) {
-	prefix := gcstest.RandPathUTF8(1019)
+	prefix := gcstest.RandPathUTF8(gcstest.PathLengthLimit - 5)
 	name := prefix + "/test"
 	lock := prefix + "/lock"
 
@@ -84,7 +84,7 @@ func testStorage(ctx *testcontext.Context, t *testing.T, storage certmagic.Stora
 
 	require.NoError(t, storage.Delete(ctx, name))
 
-	require.False(t, storage.Exists(ctx, gcstest.RandPathUTF8(1024)))
+	require.False(t, storage.Exists(ctx, gcstest.RandPathUTF8(gcstest.PathLengthLimit)))
 	_, err = storage.Stat(ctx, name)
 	require.ErrorIs(t, err, fs.ErrNotExist)
 	_, err = storage.Load(ctx, name)
