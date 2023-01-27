@@ -115,6 +115,126 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 	}
 }
 
+func TestContentDisposition(t *testing.T) {
+	testCases := []struct {
+		desc                   string
+		contentType            string
+		hosting                bool
+		standardRendersContent bool
+		key                    string
+		disposition            []string
+	}{
+		{
+			desc:        "unknown file, type set, disposition set to attachment",
+			key:         "something.dat",
+			contentType: "unknown/thing",
+			disposition: []string{"attachment; filename=something.dat"},
+		},
+		{
+			desc:        "bin file, type set, disposition set to attachment",
+			key:         "something.bin",
+			contentType: "application/octet-stream",
+			disposition: []string{"attachment; filename=something.bin"},
+		},
+		{
+			desc: "png file, type detected, no disposition",
+			key:  "test.png",
+		},
+		{
+			desc:        "html file, type detected, disposition set to attachment",
+			key:         "test.html",
+			disposition: []string{"attachment; filename=test.html"},
+		},
+		{
+			desc:                   "html file, standard renders enabled, type detected, no disposition",
+			key:                    "test.html",
+			standardRendersContent: true,
+		},
+		{
+			desc: "gif file, type detected, no disposition",
+			key:  "test.gif",
+		},
+		{
+			desc:                   "gif file, type detected, standard renders enabled, no disposition",
+			key:                    "test.gif",
+			standardRendersContent: true,
+		},
+		{
+			desc:        "png file, type set, no disposition",
+			key:         "something.else",
+			contentType: "image/png",
+		},
+		{
+			desc:        "hosting unknown file, type set, no disposition",
+			key:         "something.dat",
+			contentType: "unknown/thing",
+			hosting:     true,
+		},
+		{
+			desc:        "hosting bin file, type set, no disposition",
+			key:         "test.bin",
+			contentType: "application/binary-stream",
+			hosting:     true,
+		},
+		{
+			desc:    "hosting html file, type detected, no disposition",
+			key:     "test.html",
+			hosting: true,
+		},
+		{
+			desc:        "hosting html file, type set, no disposition",
+			key:         "test.html",
+			contentType: "text/html",
+			hosting:     true,
+		},
+		{
+			desc:        "hosting png file, type set, no disposition",
+			hosting:     true,
+			key:         "test.png",
+			contentType: "image/png",
+		},
+		{
+			desc:                   "hosting png file, standard renders enabled, type set, no disposition",
+			hosting:                true,
+			standardRendersContent: true,
+			key:                    "test.png",
+			contentType:            "image/png",
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := Config{
+				URLBases:               []string{"http://test.test"},
+				Templates:              "../../../pkg/linksharing/web/",
+				StandardRendersContent: tc.standardRendersContent,
+			}
+
+			handler, err := NewHandler(&zap.Logger{}, nil, nil, nil, nil, cfg)
+			require.NoError(t, err)
+
+			ctx := testcontext.New(t)
+			w := httptest.NewRecorder()
+			r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test", nil)
+			require.NoError(t, err)
+
+			pr := &parsedRequest{hosting: tc.hosting}
+			project := &uplink.Project{}
+
+			var metadata uplink.CustomMetadata
+			if tc.contentType != "" {
+				metadata = uplink.CustomMetadata{"Content-Type": tc.contentType}
+			}
+
+			object := &uplink.Object{Key: tc.key, Custom: metadata}
+			err = handler.showObject(ctx, w, r, pr, project, object)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.disposition, w.Header()["Content-Disposition"])
+		})
+	}
+}
+
 func TestMetadataHeaderValue(t *testing.T) {
 	assert.Equal(t, "", metadataHeaderValue(nil, "something"))
 	assert.Equal(t, "", metadataHeaderValue(map[string]string{}, "something"))

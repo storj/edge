@@ -261,7 +261,7 @@ func (handler *Handler) setHeaders(w http.ResponseWriter, r *http.Request, metad
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 
-	if !handler.standardRendersContent && !hosting {
+	if !handler.standardRendersContent && !allowedInlineType(contentType) && !hosting {
 		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	}
 
@@ -335,6 +335,21 @@ func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogI
 	}
 
 	return twitterImage, ogImage
+}
+
+// allowedInlineType allows certain MIME types that are considered safe to be used
+// for "inline" disposition with Linksharing serving requests on public domains.
+func allowedInlineType(contentType string) bool {
+	switch contentType {
+	case "image/bmp":
+	case "image/jpeg":
+	case "image/x-png":
+	case "image/png":
+	case "image/gif":
+	default:
+		return false
+	}
+	return true
 }
 
 func metadataHeaderValue(metadata map[string]string, header string) string {
