@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -66,7 +67,10 @@ func (c *Client) TestPermissions(ctx context.Context, bucket string) (err error)
 	q.Add("permissions", "storage.objects.list")
 	q.Add("permissions", "storage.objects.create")
 
-	u := fmt.Sprintf(Endpoint+"/storage/v1/b/%s/iam/testPermissions", bucket) + "?" + q.Encode()
+	// Remove any prefix from bucket
+	b, _, _ := strings.Cut(bucket, "/")
+
+	u := fmt.Sprintf(Endpoint+"/storage/v1/b/%s/iam/testPermissions", b) + "?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
