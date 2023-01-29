@@ -14,7 +14,7 @@ retrieve those files!
 
 # Documentation
 
-* [Using the S3 Gateway](https://docs.storj.io/api-reference/s3-gateway)
+* [Using the S3 Gateway](https://docs.storj.io/dcs/api-reference/s3-gateway)
 * [S3 Compatibility](https://github.com/storj/gateway-st/blob/main/docs/s3-compatibility.md)
 
 # How to run gateway-mt with auth service
