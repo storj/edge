@@ -137,6 +137,15 @@ func TestContentDisposition(t *testing.T) {
 			disposition: []string{"attachment; filename=something.bin"},
 		},
 		{
+			desc: "pdf file, type detected, no disposition",
+			key:  "test.pdf",
+		},
+		{
+			desc:        "pdf file, type set, no disposition",
+			key:         "test.pdf",
+			contentType: "application/pdf",
+		},
+		{
 			desc: "png file, type detected, no disposition",
 			key:  "test.png",
 		},

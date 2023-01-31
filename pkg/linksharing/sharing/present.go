@@ -341,6 +341,7 @@ func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogI
 // for "inline" disposition with Linksharing serving requests on public domains.
 func allowedInlineType(contentType string) bool {
 	switch contentType {
+	case "application/pdf":
 	case "image/bmp":
 	case "image/jpeg":
 	case "image/x-png":
