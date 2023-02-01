@@ -18,7 +18,6 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
@@ -253,7 +252,7 @@ func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
 	var expiration *time.Time
 	for _, cavbuf := range mac.Caveats() {
 		var cav macaroon.Caveat
-		err := pb.Unmarshal(cavbuf, &cav)
+		err := cav.UnmarshalBinary(cavbuf)
 		if err != nil {
 			return nil, err
 		}

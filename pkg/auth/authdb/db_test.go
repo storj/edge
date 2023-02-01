@@ -110,9 +110,12 @@ func TestApiKeyExpiration(t *testing.T) {
 }
 
 func TestApiKeyExpiration_Invalid(t *testing.T) {
-	k, err := macaroon.NewAPIKey([]byte("test"))
+	mac, err := macaroon.NewUnrestricted([]byte("test"))
 	require.NoError(t, err)
-	k, err = k.Restrict(macaroon.Caveat{XXX_unrecognized: []byte("trash")})
+	mac, err = mac.AddFirstPartyCaveat([]byte("\xff\xfftrash\xff\xff"))
+	require.NoError(t, err)
+
+	k, err := macaroon.ParseRawAPIKey(mac.Serialize())
 	require.NoError(t, err)
 
 	_, err = apiKeyExpiration(k) // first caveat is invalid
