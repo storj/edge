@@ -22,7 +22,7 @@
 
       <div class="row justify-content-center">
         <div class="col-12 pb-4">
-          <embed class="embed-responsive embed-responsive-4by3" id="pdfTag">
+          <object class="embed-responsive embed-responsive-4by3" id="pdfTag"></object>
           <img class="embed-responsive embed-responsive-4by3" id="imgTag" alt="preview image">
           <video class="embed-responsive embed-responsive-4by3" id="videoTag" controls></video>
           <audio class="embed-responsive embed-responsive-4by3" id="audioTag" controls></audio>
@@ -117,8 +117,13 @@
   function setupPreviewTag(id) {
       const previewURL = `${window.location.origin}${window.location.pathname}?wrap=0` + "{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}"
 
-      document.getElementById(id).style.display = 'block'
-      document.getElementById(id).src = previewURL
+      const el = document.getElementById(id)
+      el.style.display = 'block'
+      if (el.tagName === 'OBJECT') {
+        el.data = previewURL
+      } else {
+        el.src = previewURL
+      }
   }
 
   let modal = document.getElementById('shareModal');
