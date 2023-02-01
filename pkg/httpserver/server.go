@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/identity"
 	"storj.io/gateway-mt/pkg/certstorage"
 	"storj.io/gateway-mt/pkg/gpublicca"
 	"storj.io/gateway-mt/pkg/middleware"
@@ -87,8 +88,8 @@ type TLSConfig struct {
 	// CertMagicBucket bucket to use for certstorage
 	CertMagicBucket string
 
-	// TierServiceIdentityPath is the path to tier querying service identity credentials
-	TierServiceIdentityPath string
+	// TierServiceIdentity is the tier querying service identity config
+	TierServiceIdentity identity.Config
 
 	// TierCacheExpiration is the expiration time for the tier querying service cache
 	TierCacheExpiration time.Duration

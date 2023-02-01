@@ -55,8 +55,11 @@ cert-magic.tier-cache-capacity: 10000
 # expiration time for tier querying service cache
 cert-magic.tier-cache-expiration: 5m0s
 
-# path to tier querying service identity credentials
-cert-magic.tier-service-identity-path: ""
+# path to the certificate chain for this identity
+cert-magic.tier-service-identity.cert-path: /identity.cert
+
+# path to the private key for this identity
+cert-magic.tier-service-identity.key-path: /identity.key
 
 # list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
 client-trusted-ips-list: []

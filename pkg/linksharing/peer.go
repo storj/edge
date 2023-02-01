@@ -112,7 +112,7 @@ func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecord
 		bases = append(bases, parsed)
 	}
 
-	tqs, err := sharing.NewTierQueryingService(tlsConfig.TierServiceIdentityPath, tlsConfig.TierCacheExpiration, tlsConfig.TierCacheCapacity)
+	tqs, err := sharing.NewTierQueryingService(tlsConfig.TierServiceIdentity, tlsConfig.TierCacheExpiration, tlsConfig.TierCacheCapacity)
 	if err != nil {
 		return nil, errs.New("unable to create tier querying service: %w", err)
 	}

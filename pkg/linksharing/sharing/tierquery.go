@@ -6,7 +6,6 @@ package sharing
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -34,11 +33,7 @@ type tierQueryResponse struct {
 }
 
 // NewTierQueryingService constructs a TierQueryingService.
-func NewTierQueryingService(identityPath string, expiration time.Duration, capacity int) (*TierQueryingService, error) {
-	identConfig := identity.Config{
-		CertPath: filepath.Join(identityPath, "identity.cert"),
-		KeyPath:  filepath.Join(identityPath, "identity.key"),
-	}
+func NewTierQueryingService(identConfig identity.Config, expiration time.Duration, capacity int) (*TierQueryingService, error) {
 	identity, err := identConfig.Load()
 	if err != nil {
 		return nil, errs.Wrap(err)
