@@ -64,13 +64,7 @@ node('node') {
 
     slackSend color: 'danger', channel: '#team-integrations-edge', message: "@edge gateway-mt branch ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
-    mail from: 'builds@storj.io',
-      replyTo: 'builds@storj.io',
-      to: 'builds@storj.io',
-      subject: "storj/gateway-mt branch ${env.BRANCH_NAME} build failed",
-      body: "Project build log: ${env.BUILD_URL}"
-
-      throw err
+    throw err
 
   }
   finally {
