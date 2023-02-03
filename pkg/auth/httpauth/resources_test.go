@@ -50,7 +50,7 @@ func TestResources_URLs(t *testing.T) {
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
 
-		res := New(zaptest.NewLogger(t), nil, endpoint, "authToken", 4*memory.KiB)
+		res := New(zaptest.NewLogger(t), nil, endpoint, []string{"authToken"}, 4*memory.KiB)
 		res.ServeHTTP(rec, req)
 		return rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed
 	}
@@ -242,6 +242,42 @@ func TestResources_Authorization(t *testing.T) {
 
 	// check that these requests are unauthorized
 	check("GET", baseURL)
+
+	// Test multiple auth tokens
+	checkAuth := func(method, path, authToken string, resultCase bool) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer "+authToken)
+		res.ServeHTTP(rec, req)
+		if resultCase {
+			require.Equal(t, http.StatusOK, rec.Code)
+		} else {
+			require.Equal(t, http.StatusUnauthorized, rec.Code)
+		}
+	}
+
+	// Correct token should work, new one should not
+	checkAuth("GET", baseURL, "authToken", true)
+	checkAuth("GET", baseURL, "newAuthToken", false)
+
+	// Setting both token to be valid
+	res.authToken = []string{"authToken", "newAuthToken"}
+	// Both token should work now
+	checkAuth("GET", baseURL, "authToken", true)
+	checkAuth("GET", baseURL, "newAuthToken", true)
+
+	// Removing old token
+	res.authToken = []string{"newAuthToken"}
+	// Only new token should continue to work
+	checkAuth("GET", baseURL, "authToken", false)
+	checkAuth("GET", baseURL, "newAuthToken", true)
+
+	// Unsetting the token list, should allow all requests
+	res.authToken = []string{}
+	// Only new token should continue to work
+	checkAuth("GET", baseURL, "authToken", true)
+	checkAuth("GET", baseURL, "newAuthToken", true)
+	checkAuth("GET", baseURL, "hacktheplanet", true)
 }
 
 func TestResources_CORS(t *testing.T) {
@@ -324,7 +360,7 @@ func TestResources_Shutdown(t *testing.T) {
 func TestResources_EntityTooLarge(t *testing.T) {
 	const path = "/v1/access"
 
-	res := New(zaptest.NewLogger(t), nil, nil, "", 1)
+	res := New(zaptest.NewLogger(t), nil, nil, []string{""}, 1)
 
 	body := strings.NewReader("{}")
 
@@ -367,7 +403,7 @@ func TestResources_EntityTooLarge(t *testing.T) {
 func newResource(t *testing.T, logger *zap.Logger, db *authdb.Database, endpoint *url.URL) *Resources {
 	t.Helper()
 
-	return New(logger, db, endpoint, "authToken", 4*memory.KiB)
+	return New(logger, db, endpoint, []string{"authToken"}, 4*memory.KiB)
 }
 
 func newKV(t *testing.T, logger *zap.Logger) (_ authdb.KV) {

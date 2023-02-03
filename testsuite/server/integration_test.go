@@ -70,7 +70,7 @@ func TestUploadDownload(t *testing.T) {
 
 		authConfig := auth.Config{
 			Endpoint:          "http://" + gateway.Address(),
-			AuthToken:         "super-secret",
+			AuthToken:         []string{"super-secret"},
 			POSTSizeLimit:     4 * memory.KiB,
 			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
 			KVBackend:         "badger://",

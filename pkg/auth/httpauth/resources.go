@@ -21,7 +21,7 @@ import (
 type Resources struct {
 	db        *authdb.Database
 	endpoint  *url.URL
-	authToken string
+	authToken []string
 
 	handler       http.Handler
 	id            *Arg
@@ -39,7 +39,7 @@ func New(
 	log *zap.Logger,
 	db *authdb.Database,
 	endpoint *url.URL,
-	authToken string,
+	authToken []string,
 	postSizeLimit memory.Size,
 ) *Resources {
 	res := &Resources{
@@ -209,7 +209,15 @@ func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {
 
 func (res *Resources) requestAuthorized(req *http.Request) bool {
 	auth := req.Header.Get("Authorization")
-	return subtle.ConstantTimeCompare([]byte(auth), []byte("Bearer "+res.authToken)) == 1
+	if len(res.authToken) == 0 {
+		return true
+	}
+	for _, token := range res.authToken {
+		if subtle.ConstantTimeCompare([]byte(auth), []byte("Bearer "+token)) == 1 {
+			return true
+		}
+	}
+	return false
 }
 
 func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {

@@ -2,8 +2,8 @@
 # allowed-satellites:
 # - https://www.storj.io/dcs-satellites
 
-# auth security token to validate requests
-# auth-token: ""
+# auth security token(s) to validate requests
+# auth-token: []
 
 # length of time satellite addresses are cached for
 # cache-expiration: 10m0s
