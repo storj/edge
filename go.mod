@@ -28,7 +28,7 @@ require (
 	storj.io/common v0.0.0-20230201101354-04e35e465ace
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.32
-	storj.io/gateway v1.8.4-0.20230207110951-dc69596a6a6c
+	storj.io/gateway v1.8.4-0.20230207235740-4b4e51ec8ad5
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3
 	storj.io/private v0.0.0-20230123202745-d3e63b336444
 	storj.io/uplink v1.10.0
