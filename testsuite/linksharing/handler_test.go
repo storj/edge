@@ -13,11 +13,14 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
@@ -122,6 +125,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
 	require.NoError(t, err)
 
+	bandwidthLimit, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID)
+	require.NoError(t, err)
+
 	access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 	serializedAccess, err := access.Serialize()
 	require.NoError(t, err)
@@ -135,82 +141,104 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	serializedListOnlyAccess, err := listOnlyAccess.Serialize()
 	require.NoError(t, err)
 
+	downloadOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: false, AllowDownload: true},
+		uplink.SharePrefix{Bucket: "testbucket"},
+	)
+	require.NoError(t, err)
+
+	serializedDownloadOnlyAccess, err := downloadOnlyAccess.Serialize()
+	require.NoError(t, err)
+
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
 	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
-		"GOODACCESS":     {serializedAccess, true},
-		"PRIVATEACCESS":  {serializedAccess, false},
-		"LISTONLYACCESS": {serializedListOnlyAccess, true},
+		"GOODACCESS":         {serializedAccess, true},
+		"PRIVATEACCESS":      {serializedAccess, false},
+		"LISTONLYACCESS":     {serializedListOnlyAccess, true},
+		"DOWNLOADONLYACCESS": {serializedDownloadOnlyAccess, true},
 	}, authToken))
 	defer validAuthServer.Close()
 
 	testCases := []struct {
 		name             string
+		host             string
 		method           string
 		path             string
+		txtRecords       map[string][]string
+		redirectLocation string
 		status           int
 		body             string
 		authserver       string
 		expectedRPCCalls []string
 		prepFunc         func() error
+		cleanupFunc      func() error
 	}{
 		{
-			name:   "invalid method",
-			method: "PUT",
-			status: http.StatusMethodNotAllowed,
-			body:   "Malformed request.",
+			name:             "invalid method",
+			method:           "PUT",
+			status:           http.StatusMethodNotAllowed,
+			body:             "Malformed request.",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "GET missing access",
-			method: "GET",
-			path:   "s/",
-			status: http.StatusBadRequest,
-			body:   "Malformed request.",
+			name:             "GET missing access",
+			method:           "GET",
+			path:             "s/",
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "GET misconfigured auth server",
-			method:     "GET",
-			path:       path.Join("s", "ACCESS", "testbucket", "test/foo"),
-			status:     http.StatusInternalServerError,
-			body:       "Internal server error.",
-			authserver: "invalid://",
+			name:             "GET misconfigured auth server",
+			method:           "GET",
+			path:             path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			status:           http.StatusInternalServerError,
+			body:             "Internal server error.",
+			authserver:       "invalid://",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "GET missing access key",
-			method:     "GET",
-			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
-			status:     http.StatusUnauthorized,
-			body:       "Access denied.",
-			authserver: validAuthServer.URL,
+			name:             "GET missing access key",
+			method:           "GET",
+			path:             path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			status:           http.StatusUnauthorized,
+			body:             "Access denied.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "GET private access key",
-			method:     "GET",
-			path:       path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
-			status:     http.StatusForbidden,
-			body:       "Access denied.",
-			authserver: validAuthServer.URL,
+			name:             "GET private access key",
+			method:           "GET",
+			path:             path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			status:           http.StatusForbidden,
+			body:             "Access denied.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "GET found access key",
-			method:     "GET",
-			path:       path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
-			status:     http.StatusOK,
-			body:       "foo",
-			authserver: validAuthServer.URL,
+			name:             "GET found access key",
+			method:           "GET",
+			path:             path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			body:             "foo",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
-			name:   "GET missing bucket",
-			method: "GET",
-			path:   path.Join("s", serializedAccess),
-			status: http.StatusBadRequest,
-			body:   "Malformed request.",
+			name:             "GET missing bucket",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess),
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "GET object not found",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "test/bar"),
-			status: http.StatusNotFound,
-			body:   "Object not found",
+			name:             "GET object not found",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
+			status:           http.StatusNotFound,
+			body:             "Object not found",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET success",
@@ -226,6 +254,21 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:             "GET download with trailing slash",
+			method:           "GET",
+			path:             path.Join("raw", "GOODACCESS", "testbucket", "test/foo1") + "/",
+			status:           http.StatusOK,
+			body:             "FOO",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo1/", []byte("FOO"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/foo1/")
+			},
 		},
 		{
 			name:             "GET bucket listing success",
@@ -255,6 +298,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test"),
 			status:           http.StatusSeeOther,
+			redirectLocation: "/" + path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
@@ -265,7 +309,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
-			name:             "GET download with list-only access grant",
+			name:             "GET download list-only access grant",
 			method:           "GET",
 			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
@@ -281,36 +325,40 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "HEAD misconfigured auth server",
-			method:     "HEAD",
-			path:       path.Join("s", "ACCESS", "testbucket", "test/foo"),
-			status:     http.StatusInternalServerError,
-			body:       "Internal server error.",
-			authserver: "invalid://",
+			name:             "HEAD misconfigured auth server",
+			method:           "HEAD",
+			path:             path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			status:           http.StatusInternalServerError,
+			body:             "Internal server error.",
+			authserver:       "invalid://",
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "HEAD missing access key",
-			method:     "HEAD",
-			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
-			status:     http.StatusUnauthorized,
-			body:       "Access denied.",
-			authserver: validAuthServer.URL,
+			name:             "HEAD missing access key",
+			method:           "HEAD",
+			path:             path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			status:           http.StatusUnauthorized,
+			body:             "Access denied.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "HEAD private access key",
-			method:     "GET",
-			path:       path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
-			status:     http.StatusForbidden,
-			body:       "Access denied",
-			authserver: validAuthServer.URL,
+			name:             "HEAD private access key",
+			method:           "GET",
+			path:             path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			status:           http.StatusForbidden,
+			body:             "Access denied",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
 		},
 		{
-			name:       "HEAD found access key",
-			method:     "GET",
-			path:       path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
-			status:     http.StatusOK,
-			body:       "",
-			authserver: validAuthServer.URL,
+			name:             "HEAD found access key",
+			method:           "GET",
+			path:             path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			status:           http.StatusOK,
+			body:             "",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "HEAD missing bucket",
@@ -347,6 +395,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
 			},
+			cleanupFunc: func() error {
+				// set bandwidth limit back to initial value
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, memory.Size(*bandwidthLimit))
+			},
+		},
+		{
+			name:             "GET prefix download-only access",
+			method:           "GET",
+			path:             path.Join("s", "DOWNLOADONLYACCESS", "testbucket", "test/bar") + "/",
+			status:           http.StatusForbidden,
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET prefix containing index.html",
@@ -356,6 +416,219 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html", []byte("HELLO!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html")
+			},
+		},
+		{
+			name:             "GET prefix containing index.html download-only access",
+			method:           "GET",
+			path:             path.Join("s", "DOWNLOADONLYACCESS", "testbucket", "test/bar") + "/",
+			status:           http.StatusOK,
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html", []byte("HELLO!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html")
+			},
+		},
+		{
+			name:             "hosting GET missing all TXT records",
+			host:             "mydomain.com",
+			method:           "GET",
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
+		},
+		{
+			name:   "hosting GET empty access TXT record",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusBadRequest,
+			body:             "Malformed request.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
+		},
+		{
+			name:   "hosting GET empty root TXT record",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:GOODACCESS",
+				},
+			},
+			status:           http.StatusBadRequest,
+			body:             "Invalid bucket name.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
+		},
+		{
+			name:   "hosting GET private access key",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:PRIVATEACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusForbidden,
+			body:             "Access denied.",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{},
+		},
+		{
+			name:   "hosting GET download list-only access",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:" + serializedListOnlyAccess,
+					"storj-root:testbucket/test/foo",
+				},
+			},
+			status:           http.StatusForbidden,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "hosting GET prefix download-only access",
+			host:   "mydomain.com",
+			method: "GET",
+			path:   "test/foo/",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:DOWNLOADONLYACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusForbidden,
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:   "hosting GET root index.html download-only access",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:DOWNLOADONLYACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusOK,
+			body:             "HELLO!",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "index.html")
+			},
+		},
+		{
+			name:   "hosting GET root index.html",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:GOODACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusOK,
+			body:             "HELLO!",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "index.html")
+			},
+		},
+		{
+			name:   "hosting GET prefix index.html",
+			host:   "mydomain.com",
+			method: "GET",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:" + serializedAccess,
+					"storj-root:testbucket/prefix",
+				},
+			},
+			status:           http.StatusOK,
+			body:             "HELLO!",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix/index.html", []byte("HELLO!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "prefix/index.html")
+			},
+		},
+		{
+			name:   "hosting GET success",
+			host:   "mydomain.com",
+			method: "GET",
+			path:   "foo",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:GOODACCESS",
+					"storj-root:testbucket/test",
+				},
+			},
+			status:           http.StatusOK,
+			body:             "FOO",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "hosting GET root 404 default page",
+			host:   "mydomain.com",
+			method: "GET",
+			path:   "/doesnotexist",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:GOODACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusNotFound,
+			body:             "Object not found",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "hosting GET root 404.html",
+			host:   "mydomain.com",
+			method: "GET",
+			path:   "/doesnotexist",
+			txtRecords: map[string][]string{
+				"txt-mydomain.com.": {
+					"storj-access:GOODACCESS",
+					"storj-root:testbucket",
+				},
+			},
+			status:           http.StatusNotFound,
+			body:             "NOT FOUND!",
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "404.html", []byte("NOT FOUND!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "404.html")
 			},
 		},
 	}
@@ -379,26 +652,40 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			callRecorder.Reset()
 
 			if testCase.prepFunc != nil {
-				err := testCase.prepFunc()
-				require.NoError(t, err)
+				ctx.Check(testCase.prepFunc)
+			}
+			if testCase.cleanupFunc != nil {
+				defer ctx.Check(testCase.cleanupFunc)
 			}
 
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, sharing.Config{
-				URLBases:  []string{"http://localhost"},
-				Templates: "./../../pkg/linksharing/web/",
-				AuthServiceConfig: authclient.Config{
-					BaseURL: testCase.authserver,
-					Token:   authToken,
-				},
+			host := testCase.host
+			if host == "" {
+				host = "localhost"
+			}
+
+			authConfig := authclient.Config{
+				BaseURL: testCase.authserver,
+				Token:   authToken,
+			}
+
+			txtRecords := sharing.NewTXTRecords(time.Second, &mockDNS{
+				txtRecords: testCase.txtRecords,
+			}, authclient.New(authConfig))
+
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, txtRecords, nil, nil, sharing.Config{
+				URLBases:          []string{"http://localhost"},
+				Templates:         "./../../pkg/linksharing/web/",
+				AuthServiceConfig: authConfig,
 			})
 			require.NoError(t, err)
 
-			url := "http://localhost/" + testCase.path
+			url := "http://" + host + "/" + testCase.path
 			w := httptest.NewRecorder()
 			r, err := http.NewRequestWithContext(contextWithRecording, testCase.method, url, nil)
 			require.NoError(t, err)
 			handler.ServeHTTP(w, r)
 
+			assert.Equal(t, testCase.redirectLocation, w.Header().Get("Location"), "redirect location does not match")
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
 			assert.Contains(t, w.Body.String(), testCase.body, "body does not match")
 			if testCase.expectedRPCCalls != nil {
@@ -425,4 +712,27 @@ func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 	})
+}
+
+type mockDNS struct {
+	txtRecords map[string][]string
+}
+
+func (d *mockDNS) Lookup(ctx context.Context, host string, recordType uint16) (_ *dns.Msg, err error) {
+	var r []dns.RR
+	for name, records := range d.txtRecords {
+		r = append(r, &dns.TXT{
+			Hdr: dns.RR_Header{
+				Name:     name,
+				Rrtype:   0x10,
+				Class:    0x1,
+				Ttl:      0x111,
+				Rdlength: 0x1c,
+			},
+			Txt: records,
+		})
+	}
+	return &dns.Msg{
+		Answer: r,
+	}, nil
 }

@@ -16,10 +16,15 @@ import (
 	"storj.io/uplink"
 )
 
+// DNSLookuper is an interface for a DNS server lookup implementation.
+type DNSLookuper interface {
+	Lookup(ctx context.Context, host string, recordType uint16) (_ *dns.Msg, err error)
+}
+
 // TXTRecords fetches and caches linksharing DNS txt records.
 type TXTRecords struct {
 	maxTTL time.Duration
-	dns    *DNSClient
+	dns    DNSLookuper
 	auth   *authclient.AuthClient
 
 	cache       sync.Map
@@ -48,7 +53,7 @@ type txtRecord struct {
 }
 
 // NewTXTRecords constructs a TXTRecords.
-func NewTXTRecords(maxTTL time.Duration, dns *DNSClient, auth *authclient.AuthClient) *TXTRecords {
+func NewTXTRecords(maxTTL time.Duration, dns DNSLookuper, auth *authclient.AuthClient) *TXTRecords {
 	return &TXTRecords{
 		maxTTL: maxTTL,
 		dns:    dns,
