@@ -25,7 +25,7 @@ type location struct {
 	Longitude float64
 }
 
-func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (locs []location, pieceCount int64, err error) {
+func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access, bucket, key string) (locs []location, pieceCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// we explicitly don't want locations to be nil, so it doesn't render as
@@ -36,7 +36,7 @@ func (handler *Handler) getLocations(ctx context.Context, pr *parsedRequest) (lo
 		return locations, 0, nil
 	}
 
-	ipSummary, err := object.GetObjectIPSummary(ctx, *handler.uplink, pr.access, pr.bucket, pr.realKey)
+	ipSummary, err := object.GetObjectIPSummary(ctx, *handler.uplink, access, bucket, key)
 	if err != nil {
 		return nil, 0, errdata.WithAction(err, "get locations")
 	}

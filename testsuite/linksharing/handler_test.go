@@ -348,6 +348,16 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
 			},
 		},
+		{
+			name:             "GET prefix containing index.html",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/bar") + "/",
+			status:           http.StatusOK,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html", []byte("HELLO!"))
+			},
+		},
 	}
 
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})

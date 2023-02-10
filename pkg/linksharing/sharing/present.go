@@ -197,7 +197,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		return handler.servePrefix(ctx, w, project, pr, archivePath)
 	}
 
-	locations, pieces, err := handler.getLocations(ctx, pr)
+	locations, pieces, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
 	if err != nil {
 		return errdata.WithAction(err, "get locations")
 	}
