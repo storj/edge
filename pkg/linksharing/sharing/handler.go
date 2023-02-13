@@ -239,6 +239,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	message := "Internal server error. Please try again later."
 	action := errdata.GetAction(handlerErr, "unknown")
 	skipLog := false
+	skipRendering := false
 	switch {
 	case errors.Is(handlerErr, uplink.ErrBucketNotFound):
 		status = http.StatusNotFound
@@ -272,6 +273,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
 		skipLog = true
+		// skip rendering to avoid "http2: stream closed" errors
+		skipRendering = true
 	case httpranger.ErrInvalidRange.Has(handlerErr):
 		status = http.StatusRequestedRangeNotSatisfiable
 		message = "Range header isn't compatible with path query."
@@ -312,7 +315,9 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	delete(w.Header(), "Content-Disposition")
 	w.WriteHeader(status)
-	handler.renderTemplate(w, "error.html", pageData{Data: message, Title: "Error"})
+	if !skipRendering {
+		handler.renderTemplate(w, "error.html", pageData{Data: message, Title: "Error"})
+	}
 }
 
 func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, data pageData) {
