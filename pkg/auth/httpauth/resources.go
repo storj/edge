@@ -236,7 +236,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 
 	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
 	if err != nil {
-		if authdb.NotFound.Has(err) {
+		if authdb.NotFound.Has(err) || authdb.Invalid.Has(err) {
 			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
 			return
 		}
