@@ -80,7 +80,11 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 		return w.CloseWithError(err)
 	})
 
-	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{})
+	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{
+		UserMetadata: map[string]string{
+			"Object-Expires": "+2160h", // 3 months
+		},
+	})
 	if err != nil {
 		b.log.Error("upload object", zap.Error(err))
 	}
