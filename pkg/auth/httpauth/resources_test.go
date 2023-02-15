@@ -25,6 +25,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
 
@@ -205,6 +206,30 @@ func TestResources_CRUD(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, minimalAccess, fetchResult["access_grant"])
 		require.True(t, fetchResult["public"].(bool))
+	})
+
+	t.Run("Invalidated", func(t *testing.T) {
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+
+		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
+		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
+		require.True(t, ok)
+
+		var key authdb.EncryptionKey
+		require.NoError(t, key.FromBase32(createResult["access_key_id"].(string)))
+
+		admin := badgerauth.NewAdmin(kv.(*badgerauth.Node).UnderlyingDB())
+		_, err := admin.InvalidateRecord(ctx, &pb.InvalidateRecordRequest{Key: key.Hash().Bytes(), Reason: "takedown"})
+		require.NoError(t, err)
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/access/%s", createResult["access_key_id"]), nil)
+		req.Header.Set("Authorization", "Bearer authToken")
+		res.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		require.Contains(t, rec.Body.String(), "takedown")
 	})
 }
 
