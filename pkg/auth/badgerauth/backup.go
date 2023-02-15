@@ -12,15 +12,11 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
 )
-
-// BackupError is a class of backup errors.
-var BackupError = errs.Class("backup")
 
 // Client is the interface for the object store.
 type Client interface {
@@ -84,16 +80,17 @@ func (b *Backup) RunOnce(ctx context.Context) (err error) {
 		return w.CloseWithError(err)
 	})
 
-	ok := true
 	_, err = b.Client.PutObject(ctx, b.db.config.Backup.Bucket, key, r, -1, minio.PutObjectOptions{})
 	if err != nil {
-		ok = false
 		b.log.Error("upload object", zap.Error(err))
 	}
+	_ = r.CloseWithError(err) // in case of an error or not, inform the writer to stop
+	_ = group.Wait()          // the writer's error will be relayed to the reader
 
-	mon.Event("as_badgerauth_backup", monkit.NewSeriesTag("successful", strconv.FormatBool(ok)))
+	mon.Event("as_badgerauth_backup", monkit.NewSeriesTag("successful", strconv.FormatBool(err == nil)))
+	b.log.Info("finished", zap.Error(err))
 
-	return BackupError.Wrap(group.Wait())
+	return nil
 }
 
 func (b *Backup) eventTags() []monkit.SeriesTag {

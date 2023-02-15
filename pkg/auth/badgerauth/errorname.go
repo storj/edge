@@ -23,8 +23,6 @@ func errorName(err error) (name string, ok bool) {
 		name = "KeyHash"
 	case authdb.Invalid.Has(err):
 		name = "InvalidRecord"
-	case BackupError.Has(err):
-		name = "Backup"
 	case ProtoError.Has(err):
 		name = "Proto"
 	case ReplicationLogError.Has(err):
