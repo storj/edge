@@ -25,19 +25,19 @@ import (
 )
 
 func TestParseV4Credentials(t *testing.T) {
-	cred, err := ParseV4Credential("AccessKey/20000101/us-west-2/s3/aws4_request")
+	cred, err := ParseV4Credential("jwaohtj3dhixxfpzhwj522x7z3pb/20000101/us-west-2/s3/aws4_request")
 	require.NoError(t, err)
 	require.Equal(t, &V4Credential{
-		AccessKeyID: "AccessKey",
+		AccessKeyID: "jwaohtj3dhixxfpzhwj522x7z3pb",
 		Date:        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 		Region:      "us-west-2",
 		Service:     "s3",
 	}, cred)
 
-	cred, err = ParseV4Credential("AccessKey/20000101//s3/aws4_request")
+	cred, err = ParseV4Credential("jwaohtj3dhixxfpzhwj522x7z3pb/20000101//s3/aws4_request")
 	require.NoError(t, err)
 	require.Equal(t, &V4Credential{
-		AccessKeyID: "AccessKey",
+		AccessKeyID: "jwaohtj3dhixxfpzhwj522x7z3pb",
 		Date:        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 		Region:      "",
 		Service:     "s3",
@@ -46,10 +46,10 @@ func TestParseV4Credentials(t *testing.T) {
 	_, err = ParseV4Credential("/20000101/us-west-2/s3/aws4_request")
 	require.Error(t, err)
 
-	_, err = ParseV4Credential("AccessKey//us-west-2/s3/aws4_request")
+	_, err = ParseV4Credential("jwaohtj3dhixxfpzhwj522x7z3pb//us-west-2/s3/aws4_request")
 	require.Error(t, err)
 
-	_, err = ParseV4Credential("AccessKey/20000101/us-west-2//aws4_request")
+	_, err = ParseV4Credential("jwaohtj3dhixxfpzhwj522x7z3pb/20000101/us-west-2//aws4_request")
 	require.Error(t, err)
 
 	_, err = ParseV4Credential("")
@@ -58,7 +58,7 @@ func TestParseV4Credentials(t *testing.T) {
 	_, err = ParseV4Credential("////")
 	require.Error(t, err)
 
-	_, err = ParseV4Credential("AccessKey/abcd124/us-west-2/s3/aws4_request")
+	_, err = ParseV4Credential("jwaohtj3dhixxfpzhwj522x7z3pb/abcd124/us-west-2/s3/aws4_request")
 	require.Error(t, err)
 }
 
@@ -77,7 +77,7 @@ Content-Disposition: form-data; name="X-Amz-Date"
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="X-Amz-Credential"
 
-AccessKey/20000101/region/s3/aws4_request
+jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3/aws4_request
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="file1"; filename="plain.txt"
 Content-Type: text/plain
@@ -91,7 +91,7 @@ This is some plain text.
 
 	// mock the auth service
 	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/access/AccessKey", r.URL.Path)
+		require.Equal(t, "/v1/access/jwaohtj3dhixxfpzhwj522x7z3pb", r.URL.Path)
 		_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
 		require.NoError(t, err)
 	}))
@@ -101,14 +101,14 @@ This is some plain text.
 	verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		access := GetAccess(r.Context())
 		require.NotNil(t, access)
-		require.Equal(t, "AccessKey", access.AccessKey)
+		require.Equal(t, "jwaohtj3dhixxfpzhwj522x7z3pb", access.AccessKey)
 		require.Equal(t, "SecretKey", access.SecretKey)
 		require.Equal(t, "AccessGrant", access.AccessGrant)
 		require.Nil(t, r.MultipartForm)
 		err = r.ParseMultipartForm(4096)
 		require.NoError(t, err)
 		require.Equal(t, "20060102T150405Z", r.MultipartForm.Value["X-Amz-Date"][0])
-		require.Equal(t, "AccessKey/20000101/region/s3/aws4_request", r.MultipartForm.Value["X-Amz-Credential"][0])
+		require.Equal(t, "jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3/aws4_request", r.MultipartForm.Value["X-Amz-Credential"][0])
 		require.Equal(t, "X-Amz-Signature", r.MultipartForm.Value["X-Amz-Signature"][0])
 	})
 
@@ -127,7 +127,7 @@ Signature
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="AWSAccessKeyId"
 
-AccessKey
+jwaohtj3dhixxfpzhwj522x7z3pb
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="file1"; filename="plain.txt"
 Content-Type: text/plain
@@ -141,7 +141,7 @@ This is some plain text.
 
 	// mock the auth service
 	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/access/AccessKey", r.URL.Path)
+		require.Equal(t, "/v1/access/jwaohtj3dhixxfpzhwj522x7z3pb", r.URL.Path)
 		_, err := w.Write([]byte(`{"public":true, "secret_key":"SecretKey", "access_grant":"AccessGrant"}`))
 		require.NoError(t, err)
 	}))
@@ -151,13 +151,13 @@ This is some plain text.
 	verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		access := GetAccess(r.Context())
 		require.NotNil(t, access)
-		require.Equal(t, "AccessKey", access.AccessKey)
+		require.Equal(t, "jwaohtj3dhixxfpzhwj522x7z3pb", access.AccessKey)
 		require.Equal(t, "SecretKey", access.SecretKey)
 		require.Equal(t, "AccessGrant", access.AccessGrant)
 		require.Nil(t, r.MultipartForm)
 		err = r.ParseMultipartForm(4096)
 		require.NoError(t, err)
-		require.Equal(t, "AccessKey", r.MultipartForm.Value["AWSAccessKeyId"][0])
+		require.Equal(t, "jwaohtj3dhixxfpzhwj522x7z3pb", r.MultipartForm.Value["AWSAccessKeyId"][0])
 		require.Equal(t, "Signature", r.MultipartForm.Value["Signature"][0])
 	})
 
@@ -198,7 +198,7 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 
 			req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
 			require.NoError(t, err)
-			req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=test/20211026/us-east-1/s3/aws4_request, Signature=test")
+			req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20211026/us-east-1/s3/aws4_request, Signature=test")
 			req.Header.Set("X-Amz-Date", "20211026T233405Z")
 
 			authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -243,23 +243,23 @@ func TestAuthParseResponse(t *testing.T) {
 	}{
 		{
 			desc:        "not a v2 query request",
-			url:         "?something=123",
+			url:         "?something=jwaohtj3dhixxfpzhwj522x7z3pb",
 			authVersion: "2",
 			authType:    "query",
 		},
 		{
 			desc:              "not a v2 header request",
-			url:               "?AWSAccessKeyId=123&Signature=123",
+			url:               "?AWSAccessKeyId=jwaohtj3dhixxfpzhwj522x7z3pb&Signature=123",
 			authVersion:       "2",
 			authType:          "header",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 		},
 		{
 			desc:              "v2 query request",
-			url:               "?AWSAccessKeyId=123&Signature=123",
+			url:               "?AWSAccessKeyId=jwaohtj3dhixxfpzhwj522x7z3pb&Signature=123",
 			authVersion:       "2",
 			authType:          "query",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
@@ -272,7 +272,7 @@ func TestAuthParseResponse(t *testing.T) {
 		},
 		{
 			desc:                "missing fields v2 query request",
-			url:                 "?AWSAccessKeyId=123",
+			url:                 "?AWSAccessKeyId=jwaohtj3dhixxfpzhwj522x7z3pb",
 			authVersion:         "2",
 			authType:            "query",
 			expectedErrorCode:   "AuthorizationQueryParametersError",
@@ -281,17 +281,17 @@ func TestAuthParseResponse(t *testing.T) {
 		{
 			desc: "v2 header request",
 			header: http.Header{
-				"Authorization": {"AWS test:123"},
+				"Authorization": {"AWS jwaohtj3dhixxfpzhwj522x7z3pb:test"},
 			},
 			authVersion:       "2",
 			authType:          "header",
-			expectedAccessKey: "test",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
 			desc: "invalid v2 header request",
 			header: http.Header{
-				"Authorization": {"AWS test"},
+				"Authorization": {"AWS jwaohtj3dhixxfpzhwj522x7z3pb"},
 			},
 			authVersion:         "2",
 			authType:            "header",
@@ -309,13 +309,13 @@ Content-Disposition: form-data; name="Signature"
 
 Signature
 -----------------------------9051914041544843365972754266
-Content-Disposition: form-data; name="AWSAccessKeyId"
+Content-Disposition: form-data; name="AWSAccessKeyID"
 
-AccessKey
+jwaohtj3dhixxfpzhwj522x7z3pb
 -----------------------------9051914041544843365972754266--`,
 			authVersion:       "2",
 			authType:          "multipart",
-			expectedAccessKey: "AccessKey",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
@@ -327,7 +327,7 @@ AccessKey
 			body: `-----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="AWSAccessKeyId"
 
-AccessKey
+jwaohtj3dhixxfpzhwj522x7z3pb
 -----------------------------9051914041544843365972754266--`,
 			authVersion:         "2",
 			authType:            "multipart",
@@ -336,18 +336,18 @@ AccessKey
 		},
 		{
 			desc:              "v4 query request",
-			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
 			authVersion:       "4",
 			authType:          "query",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
 			desc:              "no region v4 query request",
-			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524//s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			url:               "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524//s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
 			authVersion:       "4",
 			authType:          "query",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
@@ -360,7 +360,7 @@ AccessKey
 		},
 		{
 			desc:                "invalid credential v4 query request",
-			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/abc123/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/abc123/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
 			authVersion:         "4",
 			authType:            "query",
 			expectedErrorCode:   "AuthorizationQueryParametersError",
@@ -368,7 +368,7 @@ AccessKey
 		},
 		{
 			desc:                "missing credential fields v4 query request",
-			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/abc123/us-east-1&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/abc123/us-east-1&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
 			authVersion:         "4",
 			authType:            "query",
 			expectedErrorCode:   "AuthorizationQueryParametersError",
@@ -376,7 +376,7 @@ AccessKey
 		},
 		{
 			desc:                "invalid date v4 query request",
-			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=abc123",
+			url:                 "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=abc123",
 			authVersion:         "4",
 			authType:            "query",
 			expectedErrorCode:   "AuthorizationQueryParametersError",
@@ -384,7 +384,7 @@ AccessKey
 		},
 		{
 			desc:                "invalid algorithm v4 query request",
-			url:                 "?X-Amz-Algorithm=abc123&X-Amz-Credential=123/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
+			url:                 "?X-Amz-Algorithm=abc123&X-Amz-Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524/us-east-1/s3/aws4_request&X-Amz-Signature=123&X-Amz-Content-SHA256=123&X-Amz-Date=20060102T150405Z",
 			authVersion:         "4",
 			authType:            "query",
 			expectedErrorCode:   "AuthorizationQueryParametersError",
@@ -393,23 +393,23 @@ AccessKey
 		{
 			desc: "v4 header request",
 			header: http.Header{
-				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
 				"X-Amz-Date":    {"20060102T150405Z"},
 			},
 			authVersion:       "4",
 			authType:          "header",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
 			desc: "no region v4 header request",
 			header: http.Header{
-				"Authorization": {"AWS4-HMAC-SHA256 Credential=123/20130524//s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
+				"Authorization": {"AWS4-HMAC-SHA256 Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20130524//s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123"},
 				"X-Amz-Date":    {"20060102T150405Z"},
 			},
 			authVersion:       "4",
 			authType:          "header",
-			expectedAccessKey: "123",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
@@ -472,11 +472,11 @@ Content-Disposition: form-data; name="X-Amz-Date"
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="X-Amz-Credential"
 
-AccessKey/20000101/region/s3/aws4_request
+jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3/aws4_request
 -----------------------------9051914041544843365972754266--`,
 			authVersion:       "4",
 			authType:          "multipart",
-			expectedAccessKey: "AccessKey",
+			expectedAccessKey: "jwaohtj3dhixxfpzhwj522x7z3pb",
 			expectedCount:     1.0,
 		},
 		{
@@ -492,7 +492,7 @@ X-Amz-Signature
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="X-Amz-Credential"
 
-AccessKey/20000101/region/s3/aws4_request
+jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3/aws4_request
 -----------------------------9051914041544843365972754266--`,
 			authVersion:         "4",
 			authType:            "multipart",
@@ -516,7 +516,7 @@ Content-Disposition: form-data; name="X-Amz-Date"
 -----------------------------9051914041544843365972754266
 Content-Disposition: form-data; name="X-Amz-Credential"
 
-AccessKey/20000101/region/s3
+jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3
 -----------------------------9051914041544843365972754266--`,
 			authVersion:         "4",
 			authType:            "multipart",

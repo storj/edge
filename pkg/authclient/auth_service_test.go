@@ -23,7 +23,7 @@ import (
 func TestAuthClient_Resolve(t *testing.T) {
 	var (
 		token       = "the-authentication-token-" + strconv.Itoa(testrand.Intn(1e6))
-		accessKeyID = "key-id-" + strconv.Itoa(testrand.Intn(1e6))
+		accessKeyID = "jwaohtj3dhixxfpzhwj522x7z3pb"
 		clientIP    = "192.168.50." + strconv.Itoa(testrand.Intn(256))
 		accessGrant = "thisIsTheAccessGrant" + strconv.Itoa(testrand.Intn(1e6))
 	)
@@ -62,7 +62,7 @@ func TestAuthClient_Resolve(t *testing.T) {
 
 func TestAuthClient_ResolveWithCache(t *testing.T) {
 	const (
-		accessKeyID = "access-key-id"
+		accessKeyID = "jwaohtj3dhixxfpzhwj522x7z3pb"
 		token       = "token"
 		clientIP    = "192.168.50.1"
 		accessGrant = "access-grant"

@@ -150,12 +150,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	serializedDownloadOnlyAccess, err := downloadOnlyAccess.Serialize()
 	require.NoError(t, err)
 
+	missingAccessName := "jwaohtj3dhixxfpzhwj522x7z3pm"
+	goodAccessName := "jwaohtj3dhixxfpzhwj522x7z3pg"
+	privateAccessName := "jwaohtj3dhixxfpzhwj522x7z3pp"
+	listOnlyAccessName := "jwaohtj3dhixxfpzhwj522x7z3pl"
+	downloadOnlyAccessName := "jwaohtj3dhixxfpzhwj522x7z3pd"
+
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
 	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
-		"GOODACCESS":         {serializedAccess, true},
-		"PRIVATEACCESS":      {serializedAccess, false},
-		"LISTONLYACCESS":     {serializedListOnlyAccess, true},
-		"DOWNLOADONLYACCESS": {serializedDownloadOnlyAccess, true},
+		goodAccessName:         {serializedAccess, true},
+		privateAccessName:      {serializedAccess, false},
+		listOnlyAccessName:     {serializedListOnlyAccess, true},
+		downloadOnlyAccessName: {serializedDownloadOnlyAccess, true},
 	}, authToken))
 	defer validAuthServer.Close()
 
@@ -191,7 +197,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET misconfigured auth server",
 			method:           "GET",
-			path:             path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
 			body:             "Internal server error.",
 			authserver:       "invalid://",
@@ -200,7 +206,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET missing access key",
 			method:           "GET",
-			path:             path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
 			body:             "Access denied.",
 			authserver:       validAuthServer.URL,
@@ -209,7 +215,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET private access key",
 			method:           "GET",
-			path:             path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             "Access denied.",
 			authserver:       validAuthServer.URL,
@@ -218,7 +224,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET found access key",
 			method:           "GET",
-			path:             path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             "foo",
 			authserver:       validAuthServer.URL,
@@ -258,7 +264,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET download with trailing slash",
 			method:           "GET",
-			path:             path.Join("raw", "GOODACCESS", "testbucket", "test/foo1") + "/",
+			path:             path.Join("raw", goodAccessName, "testbucket", "test/foo1") + "/",
 			status:           http.StatusOK,
 			body:             "FOO",
 			authserver:       validAuthServer.URL,
@@ -327,7 +333,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "HEAD misconfigured auth server",
 			method:           "HEAD",
-			path:             path.Join("s", "ACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
 			body:             "Internal server error.",
 			authserver:       "invalid://",
@@ -336,7 +342,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "HEAD missing access key",
 			method:           "HEAD",
-			path:             path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
 			body:             "Access denied.",
 			authserver:       validAuthServer.URL,
@@ -345,7 +351,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "HEAD private access key",
 			method:           "GET",
-			path:             path.Join("s", "PRIVATEACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             "Access denied",
 			authserver:       validAuthServer.URL,
@@ -354,7 +360,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "HEAD found access key",
 			method:           "GET",
-			path:             path.Join("s", "GOODACCESS", "testbucket", "test/foo"),
+			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             "",
 			authserver:       validAuthServer.URL,
@@ -403,7 +409,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET prefix download-only access",
 			method:           "GET",
-			path:             path.Join("s", "DOWNLOADONLYACCESS", "testbucket", "test/bar") + "/",
+			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
@@ -424,7 +430,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET prefix containing index.html download-only access",
 			method:           "GET",
-			path:             path.Join("s", "DOWNLOADONLYACCESS", "testbucket", "test/bar") + "/",
+			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusOK,
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
@@ -464,7 +470,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method: "GET",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:GOODACCESS",
+					"storj-access:" + goodAccessName,
 				},
 			},
 			status:           http.StatusBadRequest,
@@ -478,7 +484,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method: "GET",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:PRIVATEACCESS",
+					"storj-access:" + privateAccessName,
 					"storj-root:testbucket",
 				},
 			},
@@ -507,7 +513,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:   "test/foo/",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:DOWNLOADONLYACCESS",
+					"storj-access:" + downloadOnlyAccessName,
 					"storj-root:testbucket",
 				},
 			},
@@ -521,7 +527,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method: "GET",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:DOWNLOADONLYACCESS",
+					"storj-access:" + downloadOnlyAccessName,
 					"storj-root:testbucket",
 				},
 			},
@@ -542,7 +548,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method: "GET",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:GOODACCESS",
+					"storj-access:" + goodAccessName,
 					"storj-root:testbucket",
 				},
 			},
@@ -584,7 +590,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:   "foo",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:GOODACCESS",
+					"storj-access:" + goodAccessName,
 					"storj-root:testbucket/test",
 				},
 			},
@@ -600,7 +606,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:   "/doesnotexist",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:GOODACCESS",
+					"storj-access:" + goodAccessName,
 					"storj-root:testbucket",
 				},
 			},
@@ -616,7 +622,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:   "/doesnotexist",
 			txtRecords: map[string][]string{
 				"txt-mydomain.com.": {
-					"storj-access:GOODACCESS",
+					"storj-access:" + goodAccessName,
 					"storj-root:testbucket",
 				},
 			},

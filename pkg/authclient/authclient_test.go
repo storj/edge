@@ -17,15 +17,25 @@ import (
 	"storj.io/gateway-mt/pkg/errdata"
 )
 
+const testKey = "jwaohtj3dhixxfpzhwj522x7z3pb"
+
 func TestLoadUserBadURL(t *testing.T) {
 	for _, badURL := range []string{"", "test.url.invalid", "http://test.url.invalid"} {
 		client, err := GetTestAuthClient(t, badURL, "token", 100*time.Millisecond)
 		if err == nil {
 			client.BackOff.Max = 100 * time.Millisecond
-			_, err = client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
+			_, err = client.Resolve(context.Background(), testKey, "127.0.0.1")
 		}
 		require.Error(t, err, badURL)
 	}
+}
+
+func TestInvalidKey(t *testing.T) {
+	client, err := GetTestAuthClient(t, "test.url", "token", 100*time.Millisecond)
+	require.NoError(t, err)
+
+	_, err = client.Resolve(context.Background(), "notvalid", "127.0.0.1")
+	require.Error(t, err)
 }
 
 func TestLoadUserTimeout(t *testing.T) {
@@ -41,7 +51,7 @@ func TestLoadUserTimeout(t *testing.T) {
 
 	authErr := make(chan error, 1)
 	go func() {
-		_, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
+		_, err := client.Resolve(context.Background(), testKey, "127.0.0.1")
 		authErr <- err
 	}()
 
@@ -68,7 +78,7 @@ func TestLoadUserRetry(t *testing.T) {
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 	require.NoError(t, err)
-	asr, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
+	asr, err := client.Resolve(context.Background(), testKey, "127.0.0.1")
 	require.NoError(t, err)
 	require.False(t, firstAttempt)
 	require.Equal(t, "ag", asr.AccessGrant)
@@ -83,7 +93,7 @@ func TestLoadUserResponse(t *testing.T) {
 
 	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 	require.NoError(t, err)
-	access, err := client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
+	access, err := client.Resolve(context.Background(), testKey, "127.0.0.1")
 	require.NoError(t, err)
 
 	require.Equal(t, true, access.Public)
@@ -109,7 +119,7 @@ func TestBadStatusPassedThrough(t *testing.T) {
 
 			client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
 			require.NoError(t, err)
-			_, err = client.ResolveWithCache(context.Background(), "fakeUser", "127.0.0.1")
+			_, err = client.ResolveWithCache(context.Background(), testKey, "127.0.0.1")
 			require.Error(t, err)
 			require.Equal(t, tc.status, errdata.GetStatus(err, http.StatusOK))
 		})

@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/lrucache"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/middleware"
 )
@@ -46,6 +47,9 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 
 	if len(accessKeyID) == 0 {
 		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.New("Access Key ID is empty"), http.StatusBadRequest)
+	}
+	if err = (&authdb.EncryptionKey{}).FromBase32(accessKeyID); err != nil {
+		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.New("Access Key ID is invalid: %w", err), http.StatusBadRequest)
 	}
 
 	reqURL, err := url.Parse(a.BaseURL)
