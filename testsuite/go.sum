@@ -1961,7 +1961,7 @@ storj.io/private v0.0.0-20230123202745-d3e63b336444/go.mod h1:hc63X333SVJ3UrOxXp
 storj.io/storj v0.12.1-0.20230210151034-491fa788407d h1:MYoFoQsyZwRPAXYHqVV4X4akiU0MRHqSkMFLY/IJ2jA=
 storj.io/storj v0.12.1-0.20230210151034-491fa788407d/go.mod h1:cpZ+MVG3OMDZ0xdrtpYEO4GFQpBe4w6GM7M2/XcIFAU=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.10.1-0.20230217135900-fd2f124f0dbb h1:zK3GWFmpvebm988ygK/fZou+seW9NWs/NPx4GPP1sIA=
-storj.io/uplink v1.10.1-0.20230217135900-fd2f124f0dbb/go.mod h1:UYxu38roneCMzD29oojB7EyUazDB4Z22eV+/7iGA2sE=
+storj.io/uplink v1.10.1-0.20230217232046-0618502c1396 h1:AwhWN+j27f/eca9Whp9pxbkkIjCZypAoPHHB4MvARZE=
+storj.io/uplink v1.10.1-0.20230217232046-0618502c1396/go.mod h1:UYxu38roneCMzD29oojB7EyUazDB4Z22eV+/7iGA2sE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=

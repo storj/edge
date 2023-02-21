@@ -16,7 +16,7 @@ require (
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
 	storj.io/private v0.0.0-20230123202745-d3e63b336444
 	storj.io/storj v0.12.1-0.20230210151034-491fa788407d
-	storj.io/uplink v1.10.1-0.20230217135900-fd2f124f0dbb
+	storj.io/uplink v1.10.1-0.20230217232046-0618502c1396
 )
 
 require (
