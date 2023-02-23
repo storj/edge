@@ -159,6 +159,12 @@ func TestResources_CRUD(t *testing.T) {
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(createRequest))
+		req.Header.Set("Authorization", "Bearer authToken")
+		res.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
@@ -230,6 +236,26 @@ func TestResources_CRUD(t *testing.T) {
 
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Contains(t, rec.Body.String(), "takedown")
+	})
+
+	t.Run("Invalid request", func(t *testing.T) {
+		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
+		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+
+		check := func(body string, expectedCode int) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(body))
+			req.Header.Set("Authorization", "Bearer authToken")
+			res.ServeHTTP(rec, req)
+
+			require.Equal(t, expectedCode, rec.Code, fmt.Sprintf("body: %s", body))
+		}
+
+		check("", http.StatusUnprocessableEntity)
+		check("lol", http.StatusUnprocessableEntity)
+		check("{}", http.StatusBadRequest)
+		check(`{"public": true}`, http.StatusBadRequest)
+		check(`{"access_grant": "ABC123", "public": true}`, http.StatusBadRequest)
 	})
 }
 

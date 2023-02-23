@@ -169,10 +169,12 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO: we need to differentiate between validation and genuine database
-	// errors because we return 500s for, e.g. empty requests right now.
 	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
+		if authdb.ErrAccessGrant.Has(err) {
+			res.writeError(w, "newAccess", err.Error(), http.StatusBadRequest)
+			return
+		}
 		res.writeError(w, "newAccess", fmt.Sprintf("error storing request in database: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}

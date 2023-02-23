@@ -22,11 +22,17 @@ import (
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
 
-// NotFound is returned when a record is not found.
-var NotFound = errs.Class("not found")
-var base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+	// NotFound is returned when a record is not found.
+	NotFound = errs.Class("not found")
+
+	// ErrAccessGrant occurs when an invalid access grant is given.
+	ErrAccessGrant = errs.Class("access grant")
+
+	base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+)
 
 // EncKeySizeEncoded is size in base32 bytes + magic byte.
 const EncKeySizeEncoded = 28
@@ -143,7 +149,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 
 	access, err := grant.ParseAccess(accessGrant)
 	if err != nil {
-		return secretKey, err
+		return secretKey, ErrAccessGrant.Wrap(err)
 	}
 
 	// Check that the satellite address embedded in the access grant is on the
@@ -151,7 +157,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	satelliteAddr := access.SatelliteAddress
 	nodeURL, err := satellitelist.ParseSatelliteURL(satelliteAddr)
 	if err != nil {
-		return secretKey, err
+		return secretKey, ErrAccessGrant.Wrap(err)
 	}
 	mon.Event("as_region_use_put", monkit.NewSeriesTag("satellite", satelliteAddr))
 
@@ -159,7 +165,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	_, ok := db.allowedSatelliteURLs[nodeURL]
 	db.mu.Unlock()
 	if !ok {
-		return secretKey, errs.New("access grant contains disallowed satellite %q", satelliteAddr)
+		return secretKey, ErrAccessGrant.New("disallowed satellite %q", satelliteAddr)
 	}
 
 	if _, err := rand.Read(secretKey[:]); err != nil {
