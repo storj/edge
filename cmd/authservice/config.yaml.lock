@@ -158,7 +158,7 @@ node.replication-limit: 1000
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB
 
-# comma separated list of public urls for the server TLS certificates (e.g. auth.example.com,auth.us1.example.com)
+# comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)
 public-url: []
 
 # time to delay server shutdown while returning 503s on the health endpoint

@@ -56,7 +56,7 @@ type Config struct {
 
 	CertFile  string   `user:"true" help:"server certificate file" default:""`
 	KeyFile   string   `user:"true" help:"server key file" default:""`
-	PublicURL []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. auth.example.com,auth.us1.example.com)"`
+	PublicURL []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
 
 	CertMagic certMagic
 
@@ -126,6 +126,18 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
+	var publicURLs []string
+	for _, publicURL := range config.PublicURL {
+		u, err := url.Parse(publicURL)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		if u.Hostname() == "" {
+			return nil, errs.New("unable to parse host from %s", publicURL)
+		}
+		publicURLs = append(publicURLs, u.Hostname())
+	}
+
 	kv, err := OpenKV(ctx, log.Named("db"), config)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -137,7 +149,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	tlsInfo := &TLSInfo{
 		CertFile:         config.CertFile,
 		KeyFile:          config.KeyFile,
-		PublicURL:        config.PublicURL,
+		PublicURL:        publicURLs,
 		ConfigDir:        configDir,
 		ListenAddr:       config.ListenAddrTLS,
 		CertMagic:        config.CertMagic.Enabled,
