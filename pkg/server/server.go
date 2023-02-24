@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,7 +58,7 @@ type Peer struct {
 
 // New returns new instance of an S3 compatible http server.
 func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedOrigins []string,
-	authClient *authclient.AuthClient, domainNames []string, concurrentAllowed uint) (*Peer, error) {
+	authClient *authclient.AuthClient, concurrentAllowed uint) (*Peer, error) {
 	r := mux.NewRouter()
 	r.SkipClean(true)
 	r.UseEncodedPath()
@@ -77,7 +79,26 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	if err != nil {
 		return nil, err
 	}
-	minio.RegisterAPIRouter(r, layer, domainNames, concurrentAllowed, corsAllowedOrigins)
+
+	if config.DomainName == "" {
+		return nil, errs.New("DomainName required but not given")
+	}
+
+	dedupedDomains := deduplicateDomains(config.DomainName)
+
+	set := func(value, envName string) {
+		err = errs.Combine(err, os.Setenv(envName, value))
+	}
+	// TODO(sean): can we set globalDomainNames instead?
+	set(strings.Join(dedupedDomains, ","), "MINIO_DOMAIN") // MINIO_DOMAIN supports comma-separated domains.
+	set("off", "MINIO_BROWSER")
+	set("dummy-key-to-satisfy-minio", "MINIO_ACCESS_KEY")
+	set("dummy-key-to-satisfy-minio", "MINIO_SECRET_KEY")
+	if err != nil {
+		return nil, err
+	}
+
+	minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
 
 	r.Use(func(handler http.Handler) http.Handler {
 		return mhttp.TraceHandler(handler, mon)
@@ -108,7 +129,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 			CertMagicEmail:      config.CertMagic.Email,
 			CertMagicStaging:    config.CertMagic.Staging,
 			CertMagicBucket:     config.CertMagic.Bucket,
-			CertMagicPublicURLs: domainNames,
+			CertMagicPublicURLs: strings.Split(config.DomainName, ","),
 		}
 	}
 
@@ -130,6 +151,33 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	}
 	publicServices.HandleFunc("/health", peer.healthCheck)
 	return &peer, nil
+}
+
+// deduplicateDomains removes duplicate domains, as well as naively strips any
+// wildcard prefix and checks if there's an overlap. e.g. "gateway.local,*.gateway.local"
+// would return just "gateway.local".
+func deduplicateDomains(s string) (result []string) {
+	dedupedDomains := make(map[string]struct{})
+	domains := strings.Split(s, ",")
+	for _, domain := range domains {
+		filteredDomain := strings.TrimPrefix(domain, "*.")
+		var found bool
+		for _, domain := range domains {
+			if domain == filteredDomain {
+				found = true
+				break
+			}
+		}
+		if found {
+			dedupedDomains[filteredDomain] = struct{}{}
+		} else {
+			dedupedDomains[domain] = struct{}{}
+		}
+	}
+	for domain := range dedupedDomains {
+		result = append(result, domain)
+	}
+	return result
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.

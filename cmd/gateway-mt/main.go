@@ -91,24 +91,6 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		return errs.New("Failed to initialize telemetry batcher: %w", err)
 	}
 
-	// setup environment variables for Minio
-	validate := func(value, configName string) {
-		if value == "" {
-			err = errs.Combine(err, Error.New("required parameter --%s not set", configName))
-		}
-	}
-	set := func(value, envName string) {
-		err = errs.Combine(err, Error.Wrap(os.Setenv(envName, value)))
-	}
-	validate(runCfg.DomainName, "domain-name")
-	set(runCfg.DomainName, "MINIO_DOMAIN") // MINIO_DOMAIN supports comma-separated domains.
-	set("off", "MINIO_BROWSER")
-	set("dummy-key-to-satisfy-minio", "MINIO_ACCESS_KEY")
-	set("dummy-key-to-satisfy-minio", "MINIO_SECRET_KEY")
-	if err != nil {
-		return err
-	}
-
 	log.Info("Starting Storj DCS S3 Gateway")
 
 	if runCfg.InsecureLogAll {
@@ -133,7 +115,7 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		return err
 	}
 	peer, err := server.New(runCfg, log, trustedClientIPs, corsAllowedOrigins,
-		authclient.New(runCfg.Auth), strings.Split(runCfg.DomainName, ","), runCfg.ConcurrentAllowed)
+		authclient.New(runCfg.Auth), runCfg.ConcurrentAllowed)
 	if err != nil {
 		return err
 	}
