@@ -14,8 +14,8 @@ require (
 	storj.io/common v0.0.0-20230224050842-81c8060f089b
 	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20230123202745-d3e63b336444
-	storj.io/storj v0.12.1-0.20230210151034-491fa788407d
+	storj.io/private v0.0.0-20230217131736-be584dbddd08
+	storj.io/storj v0.12.1-0.20230217130554-0cdef95d5550
 	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4
 )
 
@@ -168,7 +168,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cobra v1.1.3 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
-	github.com/stripe/stripe-go/v72 v72.51.0 // indirect
+	github.com/stripe/stripe-go/v72 v72.90.0 // indirect
 	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -217,7 +217,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
-	storj.io/gateway v1.8.4-0.20230207235740-4b4e51ec8ad5 // indirect
+	storj.io/gateway v1.8.4-0.20230221125543-d002bf96f9df // indirect
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
