@@ -178,8 +178,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:       "GET missing access key",
 			method:     "GET",
 			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
-			status:     http.StatusNotFound,
-			body:       "Not found.",
+			status:     http.StatusUnauthorized,
+			body:       "Access denied.",
 			authserver: validAuthServer.URL,
 		},
 		{
@@ -292,8 +292,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:       "HEAD missing access key",
 			method:     "HEAD",
 			path:       path.Join("s", "MISSINGACCESS", "testbucket", "test/foo"),
-			status:     http.StatusNotFound,
-			body:       "Not found.",
+			status:     http.StatusUnauthorized,
+			body:       "Access denied.",
 			authserver: validAuthServer.URL,
 		},
 		{
@@ -422,7 +422,7 @@ func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token
 				Public:      grant.public,
 			}))
 		} else {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusUnauthorized)
 		}
 	})
 }

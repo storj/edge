@@ -282,7 +282,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		status = errdata.GetStatus(handlerErr, status)
 		switch status {
-		case http.StatusForbidden:
+		case http.StatusUnauthorized, http.StatusForbidden:
 			message = "Access denied."
 			skipLog = true
 		case http.StatusNotFound:
