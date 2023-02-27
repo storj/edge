@@ -5,6 +5,7 @@ package authclient
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -90,17 +91,29 @@ func TestLoadUserResponse(t *testing.T) {
 	require.Equal(t, "mysecretkey", access.SecretKey)
 }
 
-func TestLoadUserNotFound(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer ts.Close()
+func TestBadStatusPassedThrough(t *testing.T) {
+	tests := []struct {
+		status int
+	}{
+		{status: http.StatusNotFound},
+		{status: http.StatusBadRequest},
+		{status: http.StatusUnauthorized},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(fmt.Sprintf("HTTP %d", tc.status), func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+			}))
+			defer ts.Close()
 
-	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
-	require.NoError(t, err)
-	_, err = client.Resolve(context.Background(), "fakeUser", "127.0.0.1")
-	require.Error(t, err)
-	require.Equal(t, http.StatusUnauthorized, errdata.GetStatus(err, http.StatusOK))
+			client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
+			require.NoError(t, err)
+			_, err = client.ResolveWithCache(context.Background(), "fakeUser", "127.0.0.1")
+			require.Error(t, err)
+			require.Equal(t, tc.status, errdata.GetStatus(err, http.StatusOK))
+		})
+	}
 }
 
 func GetTestAuthClient(t *testing.T, baseURL, token string, timeout time.Duration) (*AuthClient, error) {
