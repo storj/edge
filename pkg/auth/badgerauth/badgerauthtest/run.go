@@ -66,7 +66,8 @@ type ClusterConfig struct {
 	NodeCount int
 	Defaults  badgerauth.Config
 
-	ReconfigureNode func(index int, config *badgerauth.Config)
+	ReconfigureNode        func(index int, config *badgerauth.Config)
+	ReconfigurePeerAddress func(index int) string
 }
 
 // RunCluster tests against a multinode cluster of badgerauth.
@@ -107,11 +108,15 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 
 	for _, node := range nodes {
 		addresses := []string{}
-		for _, peer := range nodes {
+		for i, peer := range nodes {
 			if peer == node {
 				continue
 			}
-			addresses = append(addresses, peer.Address())
+			address := peer.Address()
+			if c.ReconfigurePeerAddress != nil {
+				address = c.ReconfigurePeerAddress(i)
+			}
+			addresses = append(addresses, address)
 		}
 		node.TestingSetJoin(addresses)
 	}

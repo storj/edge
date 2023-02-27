@@ -242,7 +242,10 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	// The idea behind this is that the first result cancels the rest, and if
 	// multiple succeed at once, subsequent results will be discarded by default
 	// case. When the group is finished, we do a non-blocking read which is
-	// guaranteed to succeed if the channel has value inside.
+	// guaranteed to succeed if the channel has value inside. If we got to the end
+	// without finding any record, such as the case of not being able to contact
+	// other nodes, then we don't return an error so authclient doesn't block
+	// requests indefinitely through backoff/retry.
 
 	result := make(chan *authdb.Record, 1)
 
@@ -286,7 +289,6 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	default:
 	}
 
-	// TODO(artur): should we even care about errors from other nodes?
 	var errGroup errs.Group
 	for _, e := range allErrs {
 		if !(errs2.IsRPC(e, rpcstatus.NotFound) || errs2.IsCanceled(e)) {
@@ -294,11 +296,11 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 		}
 	}
 
-	if errGroup.Err() == nil {
-		node.log.Debug("broadcasted Get finishes with NotFound/Canceled errors only", zap.Errors("allErrs", allErrs))
+	if errGroup.Err() != nil {
+		node.log.Warn("broadcasted Get unexpected error", zap.Error(errGroup.Err()))
 	}
 
-	return nil, Error.Wrap(errGroup.Err())
+	return nil, nil
 }
 
 // PingDB proxies DB's PingDB.

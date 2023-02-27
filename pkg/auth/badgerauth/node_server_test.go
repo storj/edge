@@ -353,3 +353,24 @@ func TestBroadcastedGet(t *testing.T) {
 		}
 	})
 }
+
+func TestBroadcastedGetErrorsIgnored(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+		ReconfigurePeerAddress: func(_ int) string {
+			// simulate a network issue by setting wrong peer addresses.
+			return "4.5.6.7"
+		},
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		for _, n := range cluster.Nodes {
+			n.SyncCycle.Pause() // ensure records won't replicate during the test
+		}
+
+		// create the records on the first two nodes, but not the last
+		_, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 2)
+
+		// try to get the record from the last node where it doesn't exist
+		_, err := cluster.Nodes[2].Get(ctx, keys[0])
+		require.NoError(t, err)
+	})
+}
