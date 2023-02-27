@@ -154,25 +154,12 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 }
 
 // deduplicateDomains removes duplicate domains, as well as naively strips any
-// wildcard prefix and checks if there's an overlap. e.g. "gateway.local,*.gateway.local"
-// would return just "gateway.local".
-func deduplicateDomains(s string) (result []string) {
+// wildcard prefix. e.g. "gateway.local,*.gateway.local" would return just
+// "gateway.local". These are used by minio.RegisterAPIRouter().
+func deduplicateDomains(domains string) (result []string) {
 	dedupedDomains := make(map[string]struct{})
-	domains := strings.Split(s, ",")
-	for _, domain := range domains {
-		filteredDomain := strings.TrimPrefix(domain, "*.")
-		var found bool
-		for _, domain := range domains {
-			if domain == filteredDomain {
-				found = true
-				break
-			}
-		}
-		if found {
-			dedupedDomains[filteredDomain] = struct{}{}
-		} else {
-			dedupedDomains[domain] = struct{}{}
-		}
+	for _, domain := range strings.Split(domains, ",") {
+		dedupedDomains[strings.TrimPrefix(domain, "*.")] = struct{}{}
 	}
 	for domain := range dedupedDomains {
 		result = append(result, domain)
