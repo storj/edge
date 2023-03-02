@@ -942,8 +942,8 @@ github.com/spacemonkeygo/monkit/v3 v3.0.4/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drX
 github.com/spacemonkeygo/monkit/v3 v3.0.12/go.mod h1:kj1ViJhlyADa7DiA4xVnTuPA46lFKbM7mxQTrXCuJP4=
 github.com/spacemonkeygo/monkit/v3 v3.0.17/go.mod h1:kj1ViJhlyADa7DiA4xVnTuPA46lFKbM7mxQTrXCuJP4=
 github.com/spacemonkeygo/monkit/v3 v3.0.18/go.mod h1:kj1ViJhlyADa7DiA4xVnTuPA46lFKbM7mxQTrXCuJP4=
-github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221026154455-f053d3fae32c h1:QaUPfV2qfZxtku9uj2kbrk/qIqE6Plkyx3U6j4Qh9HI=
-github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221026154455-f053d3fae32c/go.mod h1:kj1ViJhlyADa7DiA4xVnTuPA46lFKbM7mxQTrXCuJP4=
+github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191 h1:QVUfVxilbPp8fBJ7701LL/WEUjBSiSxbs9LUaCIe5qM=
+github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191/go.mod h1:kj1ViJhlyADa7DiA4xVnTuPA46lFKbM7mxQTrXCuJP4=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
