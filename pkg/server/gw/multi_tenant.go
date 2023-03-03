@@ -41,7 +41,7 @@ var (
 
 	// ErrAccessKeyEmpty occurs when no access key could be found in the request.
 	ErrAccessKeyEmpty = miniogo.ErrorResponse{
-		Code:       "XStorjAccessKeyEmpty",
+		Code:       "AccessKeyEmpty",
 		StatusCode: http.StatusUnauthorized,
 		Message:    "Access key is empty.",
 	}
