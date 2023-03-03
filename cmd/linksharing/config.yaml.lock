@@ -186,6 +186,3 @@ txt-record-ttl: 1h0m0s
 
 # use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used
 use-client-ip-headers: true
-
-# use congestion control and QOS settings
-use-qos-and-cc: true

@@ -64,6 +64,5 @@ type ConnectionPoolConfig struct {
 // struggling with memory consumption problems should decrease the default.
 type ClientConfig struct {
 	DialTimeout       time.Duration `help:"timeout for dials" default:"10s"`
-	UseQosAndCC       bool          `help:"use congestion control and QOS settings" default:"true"`
 	MaximumBufferSize memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
 }

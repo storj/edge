@@ -94,9 +94,6 @@ type Config struct {
 	// ConnectionPool is configuration for RPC connection pool options.
 	ConnectionPool ConnectionPoolConfig
 
-	// UseQOSAndCC indicates if congestion control and QOS settings from BackgroundDialer should be used.
-	UseQosAndCC bool
-
 	// ClientTrustedIPsList is the list of client IPs which are trusted. These IPs
 	// are usually from gateways, load balancers, etc., which expose the service
 	// to the public internet. Trusting them implies that the service may use
@@ -171,10 +168,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	uplinkConfig := config.Uplink
 	if uplinkConfig == nil {
 		uplinkConfig = &uplink.Config{}
-	}
-	if !config.UseQosAndCC {
-		// an unset DialContext defaults to BackgroundDialer's CC and QOS settings
-		uplinkConfig.DialContext = (&net.Dialer{}).DialContext
 	}
 
 	err = transport.SetConnectionPool(context.TODO(), uplinkConfig,

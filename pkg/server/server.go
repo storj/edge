@@ -6,7 +6,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -171,12 +170,6 @@ func deduplicateDomains(domains string) (result []string) {
 func configureUplinkConfig(clientConfig ClientConfig) uplink.Config {
 	ret := uplink.Config{
 		DialTimeout: clientConfig.DialTimeout,
-	}
-
-	if !clientConfig.UseQosAndCC {
-		// An unset DialContext defaults to BackgroundDialer's CC and QOS
-		// settings.
-		ret.DialContext = (&net.Dialer{}).DialContext
 	}
 
 	transport.SetMaximumBufferSize(&ret, clientConfig.MaximumBufferSize.Int())

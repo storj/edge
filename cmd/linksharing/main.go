@@ -46,7 +46,6 @@ type LinkSharing struct {
 	LandingRedirectTarget  string        `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
 	RedirectHTTPS          bool          `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
 	DialTimeout            time.Duration `help:"timeout for dials" default:"10s"`
-	UseQosAndCC            bool          `user:"true" help:"use congestion control and QOS settings" default:"true"`
 	ClientTrustedIPSList   []string      `user:"true" help:"list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders     bool          `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
@@ -160,7 +159,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			AuthServiceConfig:      runCfg.AuthService,
 			DNSServer:              runCfg.DNSServer,
 			ConnectionPool:         sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
-			UseQosAndCC:            runCfg.UseQosAndCC,
 			ClientTrustedIPsList:   runCfg.ClientTrustedIPSList,
 			UseClientIPHeaders:     runCfg.UseClientIPHeaders,
 			StandardViewsHTML:      runCfg.StandardViewsHTML,

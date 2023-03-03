@@ -55,9 +55,6 @@ cert-magic.staging: false
 # maximum buffer size for DRPC streams
 # client.maximum-buffer-size: 304.00 KB
 
-# use congestion control and QOS settings
-# client.use-qos-and-cc: true
-
 # number of allowed concurrent uploads or downloads per macaroon head
 # concurrent-allowed: "500"
 
