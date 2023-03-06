@@ -101,11 +101,13 @@ pipeline {
 
                         stage('Testsuite') {
                             environment {
-                                JSON                 = true
-                                SHORT                = false
-                                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26257/postgres?sslmode=disable'
-                                STORJ_TEST_POSTGRES  = 'postgres://postgres@localhost/postgres?sslmode=disable'
-                                STORJ_TEST_LOG_LEVEL = 'info'
+                                JSON                                = true
+                                SHORT                               = false
+                                STORJ_TEST_COCKROACH                = 'cockroach://root@localhost:26257/postgres?sslmode=disable'
+                                STORJ_TEST_POSTGRES                 = 'postgres://postgres@localhost/postgres?sslmode=disable'
+                                STORJ_TEST_LOG_LEVEL                = 'info'
+                                STORJ_TEST_GCSTEST_BUCKET           = 'gcstest-ci'
+                                STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY = credentials('gcstest-ci')
                             }
                             steps {
                                 // exhaust ports from 1024 to 10000 to ensure we don't

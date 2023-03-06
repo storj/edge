@@ -6,6 +6,7 @@ package httpserver
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"net"
 	"net/http"
@@ -60,6 +61,20 @@ type Config struct {
 	ShutdownTimeout time.Duration
 }
 
+// TestIssuerConfig is configuration to a test ACME server, which if defined will
+// issue certs from that instead of any other issuers.
+type TestIssuerConfig struct {
+	// CA is the address to the test ACME issuer.
+	CA string
+
+	// CertificatePath is a filesystem path to the CA issuer certificate.
+	CertificatePath string
+
+	// Resolver is an address to a preferred DNS resolver. If not given, it
+	// defaults to the system resolver.
+	Resolver string
+}
+
 // TLSConfig is a struct to handle the preferred/configured TLS options.
 type TLSConfig struct {
 	// CertMagic obtains and renews TLS certificates and staples OCSP responses
@@ -85,6 +100,10 @@ type TLSConfig struct {
 
 	// CertMagicEmail is the email address to use when creating an ACME account
 	CertMagicEmail string
+
+	// CertMagicTestIssuer is optional configuration to set a testing ACME issuer.
+	// If configured, this will be the only issuer used.
+	CertMagicTestIssuer *TestIssuerConfig
 
 	// CertMagicStaging use staging CA endpoints
 	CertMagicStaging bool
@@ -454,6 +473,26 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 	//  1. Google Certificate Manager Public CA
 	//  2. Let's Encrypt
 	magic.Issuers = []certmagic.Issuer{googleCA, letsEncryptCA}
+
+	if config.TLSConfig.CertMagicTestIssuer != nil {
+		caCert, err := os.ReadFile(config.TLSConfig.CertMagicTestIssuer.CertificatePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		trustedRoots := x509.NewCertPool()
+		trustedRoots.AppendCertsFromPEM(caCert)
+
+		magic.Issuers = []certmagic.Issuer{certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
+			CA:                   config.TLSConfig.CertMagicTestIssuer.CA,
+			Resolver:             config.TLSConfig.CertMagicTestIssuer.Resolver,
+			TrustedRoots:         trustedRoots,
+			DisableHTTPChallenge: true,
+			AltTLSALPNPort:       tlsALPNPort,
+			Logger:               log,
+			Email:                config.TLSConfig.CertMagicEmail,
+			Agreed:               true,
+		})}
+	}
 
 	// TODO(artur): figure out if we want to ManageSync here or somewhere else
 	// to use the process's context. certmagic.TLS uses context.Background...

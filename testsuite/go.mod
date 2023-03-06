@@ -6,7 +6,9 @@ replace storj.io/gateway-mt => ../
 
 require (
 	github.com/aws/aws-sdk-go v1.36.15
+	github.com/caddyserver/certmagic v0.17.2
 	github.com/foxcpp/go-mockdns v1.0.0
+	github.com/letsencrypt/pebble/v2 v2.4.0
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
@@ -40,7 +42,6 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/caddyserver/certmagic v0.17.2 // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
@@ -109,6 +110,7 @@ require (
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/klauspost/readahead v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
+	github.com/letsencrypt/challtestsrv v1.2.1 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/googleclouddns v1.1.0 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
@@ -214,6 +216,7 @@ require (
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

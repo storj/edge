@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -27,6 +28,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/drpc"
+	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
@@ -151,11 +153,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	serializedDownloadOnlyAccess, err := downloadOnlyAccess.Serialize()
 	require.NoError(t, err)
 
-	missingAccessName := "jwaohtj3dhixxfpzhwj522x7z3pm"
-	goodAccessName := "jwaohtj3dhixxfpzhwj522x7z3pg"
-	privateAccessName := "jwaohtj3dhixxfpzhwj522x7z3pp"
-	listOnlyAccessName := "jwaohtj3dhixxfpzhwj522x7z3pl"
-	downloadOnlyAccessName := "jwaohtj3dhixxfpzhwj522x7z3pd"
+	missingAccessName := randomAccessKey(t)
+	goodAccessName := randomAccessKey(t)
+	privateAccessName := randomAccessKey(t)
+	listOnlyAccessName := randomAccessKey(t)
+	downloadOnlyAccessName := randomAccessKey(t)
 
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
 	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
@@ -703,10 +705,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				Token:   authToken,
 			}
 
-			dnsLogger, err := zap.NewStdLogAt(zaptest.NewLogger(t).Named("mockdns"), zapcore.DebugLevel)
-			require.NoError(t, err)
-
-			dnsSrv, err := mockdns.NewServerWithLogger(testCase.dnsRecords, dnsLogger, false)
+			dnsSrv, err := mockdns.NewServerWithLogger(testCase.dnsRecords, namedDebugStdLogger(t, zaptest.NewLogger(t), "mockdns"), false)
 			require.NoError(t, err)
 			defer ctx.Check(dnsSrv.Close)
 
@@ -751,4 +750,17 @@ func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 	})
+}
+
+func namedDebugStdLogger(t *testing.T, logger *zap.Logger, name string) *log.Logger {
+	stdLogger, err := zap.NewStdLogAt(logger.Named(name), zapcore.DebugLevel)
+	require.NoError(t, err)
+	return stdLogger
+}
+
+func randomAccessKey(t *testing.T) string {
+	key, err := authdb.NewEncryptionKey()
+	require.NoError(t, err)
+
+	return key.ToBase32()
 }
