@@ -27,6 +27,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/auth/satellitelist"
+	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
@@ -216,7 +217,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 // LogRequests logs requests.
 func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
-		log.Info("request",
+		log.Debug("request",
 			gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
 				Protocol:      r.Proto,
 				RequestMethod: r.Method,
@@ -242,11 +243,6 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			logAtLevel := log.Info
-			if rw.StatusCode() >= 500 {
-				logAtLevel = log.Error
-			}
-
 			fields := []zapcore.Field{
 				gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
 					Protocol:      r.Proto,
@@ -261,7 +257,10 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				zap.String("host", r.Host),
 				zap.String("request-id", middleware.GetRequestID(r.Context())),
 			}
-			logAtLevel("response", fields...)
+
+			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
+				ce.Write(fields...)
+			}
 		}))
 }
 

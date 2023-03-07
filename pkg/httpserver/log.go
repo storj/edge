@@ -11,6 +11,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
@@ -18,7 +19,7 @@ import (
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
-		log.Info("access",
+		log.Debug("access",
 			gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
 				Protocol:      r.Proto,
 				RequestMethod: r.Method,
@@ -54,15 +55,8 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			code := rw.StatusCode()
-
-			level := log.Info
-			if code >= 500 {
-				level = log.Error
-			}
-
-			level("response",
-				gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
+			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
+				ce.Write(gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
 					Protocol:      r.Proto,
 					RequestMethod: method,
 					RequestSize:   r.ContentLength,
@@ -70,13 +64,14 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 					UserAgent:     r.UserAgent(),
 					RemoteIP:      remoteIP(r),
 					Latency:       time.Since(start),
-					Status:        code,
+					Status:        rw.StatusCode(),
 				}),
-				zap.String("host", host),
-				zap.String("request-id", middleware.GetRequestID(r.Context())),
-				// we are deliberately not logging the request URI as it has
-				// sensitive information in it.
-			)
+					zap.String("host", host),
+					zap.String("request-id", middleware.GetRequestID(r.Context())),
+					// we are deliberately not logging the request URI as it has
+					// sensitive information in it.
+				)
+			}
 		}))
 }
 

@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/grant"
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/server/gwlog"
 	"storj.io/gateway-mt/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
@@ -101,13 +102,6 @@ func NewLogResponses(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc 
 }
 
 func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
-	level := log.Debug
-	if rw.StatusCode() >= 300 {
-		level = log.Info
-	} else if rw.StatusCode() >= 500 {
-		level = log.Error
-	}
-
 	var query []string
 	for k, v := range r.URL.Query() {
 		if insecureLogAll {
@@ -181,7 +175,9 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.Strings("rsp-headers", rspHeaders),
 	}
 
-	level("response", fields...)
+	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
+		ce.Write(fields...)
+	}
 }
 
 // getMacaroonHead gets the macaroon head corresponding to the current request.
@@ -217,13 +213,6 @@ func getRemoteIP(r *http.Request) string {
 }
 
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
-	level := log.Debug
-	if rw.StatusCode() >= 300 {
-		level = log.Info
-	} else if rw.StatusCode() >= 500 {
-		level = log.Error
-	}
-
 	httpRequestLog := &gcloudlogging.HTTPRequest{
 		Protocol:      r.Proto,
 		RequestMethod: r.Method,
@@ -243,5 +232,7 @@ func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d ti
 		zap.String("host", r.Host),
 	}
 
-	level("response", fields...)
+	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
+		ce.Write(fields...)
+	}
 }
