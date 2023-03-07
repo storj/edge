@@ -70,11 +70,14 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	}
 
 	// Create object API handler
+
+	satelliteConnectionPool := rpcpool.New(rpcpool.Options(config.SatelliteConnectionpool))
+
 	connectionPool := rpcpool.New(rpcpool.Options(config.ConnectionPool))
 
 	uplinkConfig := configureUplinkConfig(config.Client)
 
-	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), connectionPool, uplinkConfig, config.InsecureLogAll)
+	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), satelliteConnectionPool, connectionPool, uplinkConfig, config.InsecureLogAll)
 	if err != nil {
 		return nil, err
 	}

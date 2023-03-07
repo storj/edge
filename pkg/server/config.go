@@ -31,11 +31,12 @@ type Config struct {
 	ConcurrentAllowed    uint          `help:"number of allowed concurrent uploads or downloads per macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 	ShutdownDelay        time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 
-	Auth            authclient.Config
-	S3Compatibility miniogw.S3CompatibilityConfig
-	Client          ClientConfig
-	ConnectionPool  ConnectionPoolConfig
-	CertMagic       certMagic
+	Auth                    authclient.Config
+	S3Compatibility         miniogw.S3CompatibilityConfig
+	Client                  ClientConfig
+	SatelliteConnectionpool SatelliteConnectionPoolConfig
+	ConnectionPool          ConnectionPoolConfig
+	CertMagic               certMagic
 }
 
 type certMagic struct {
@@ -50,9 +51,16 @@ type certMagic struct {
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool
 // options.
 type ConnectionPoolConfig struct {
-	Capacity       int           `help:"RPC connection pool capacity" default:"100"`
-	KeyCapacity    int           `help:"RPC connection pool key capacity" default:"5"`
-	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
+	Capacity       int           `help:"RPC connection pool capacity (non-satellite connections)" default:"100"`
+	KeyCapacity    int           `help:"RPC connection pool limit per key (non-satellite connections)" default:"5"`
+	IdleExpiration time.Duration `help:"RPC connection pool idle expiration (non-satellite connections)" default:"2m0s"`
+}
+
+// SatelliteConnectionPoolConfig is a config struct for configuring RPC connection pool of Satellite connections.
+type SatelliteConnectionPoolConfig struct {
+	Capacity       int           `help:"RPC connection pool capacity (satellite connections)" default:"200"`
+	KeyCapacity    int           `help:"RPC connection pool limit per key (satellite connections)" default:"0"`
+	IdleExpiration time.Duration `help:"RPC connection pool idle expiration (satellite connections)" default:"10m0s"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how to

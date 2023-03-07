@@ -58,13 +58,13 @@ cert-magic.staging: false
 # number of allowed concurrent uploads or downloads per macaroon head
 # concurrent-allowed: "500"
 
-# RPC connection pool capacity
+# RPC connection pool capacity (non-satellite connections)
 # connection-pool.capacity: 100
 
-# RPC connection pool idle expiration
+# RPC connection pool idle expiration (non-satellite connections)
 # connection-pool.idle-expiration: 2m0s
 
-# RPC connection pool key capacity
+# RPC connection pool limit per key (non-satellite connections)
 # connection-pool.key-capacity: 5
 
 # list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway
@@ -147,6 +147,15 @@ cert-magic.staging: false
 
 # minimum part size for multipart uploads
 # s3compatibility.min-part-size: 5242880
+
+# RPC connection pool capacity (satellite connections)
+# satellite-connectionpool.capacity: 200
+
+# RPC connection pool idle expiration (satellite connections)
+# satellite-connectionpool.idle-expiration: 10m0s
+
+# RPC connection pool limit per key (satellite connections)
+# satellite-connectionpool.key-capacity: 0
 
 # Address to serve gateway on
 # server.address: 127.0.0.1:20010

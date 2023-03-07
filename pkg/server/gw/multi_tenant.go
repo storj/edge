@@ -49,14 +49,15 @@ var (
 
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
-func NewMultiTenantLayer(gateway minio.Gateway, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) (*MultiTenancyLayer, error) {
+func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) (*MultiTenancyLayer, error) {
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
 	return &MultiTenancyLayer{
-		layer:          layer,
-		connectionPool: connectionPool,
-		config:         config,
-		insecureLogAll: insecureLogAll,
+		layer:                   layer,
+		satelliteConnectionPool: satelliteConnectionPool,
+		connectionPool:          connectionPool,
+		config:                  config,
+		insecureLogAll:          insecureLogAll,
 	}, err
 }
 
@@ -65,8 +66,9 @@ func NewMultiTenantLayer(gateway minio.Gateway, connectionPool *rpcpool.Pool, co
 type MultiTenancyLayer struct {
 	minio.GatewayUnsupported
 
-	layer          minio.ObjectLayer
-	connectionPool *rpcpool.Pool
+	layer                   minio.ObjectLayer
+	satelliteConnectionPool *rpcpool.Pool
+	connectionPool          *rpcpool.Pool
 
 	config         uplink.Config
 	insecureLogAll bool
@@ -130,7 +132,7 @@ func copyReqInfo(dst *gwlog.Log, src *logger.ReqInfo) {
 
 // Shutdown is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).Shutdown.
 func (l *MultiTenancyLayer) Shutdown(ctx context.Context) error {
-	return l.log(ctx, l.connectionPool.Close())
+	return l.log(ctx, errs.Combine(l.connectionPool.Close(), l.satelliteConnectionPool.Close()))
 }
 
 // StorageInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).StorageInfo.
