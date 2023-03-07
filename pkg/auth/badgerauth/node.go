@@ -402,7 +402,7 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node.log.Debug("received replication request with the following clocks", fieldsFromRequestEntries(req.Entries)...)
+	node.log.Info("received replication request with the following clocks", fieldsFromRequestEntries(req.Entries)...)
 
 	var (
 		fields   []zap.Field
@@ -436,7 +436,7 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ 
 		response.Entries = append(response.Entries, entries...)
 	}
 
-	node.log.Debug("responded to the replication request from another node", fields...)
+	node.log.Info("responded to the replication request from another node", fields...)
 
 	return &response, nil
 }
@@ -574,7 +574,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
-	peer.log.Debug("requesting records from this peer with the following clocks", fieldsFromRequestEntries(requestEntries)...)
+	peer.log.Info("requesting records from this peer with the following clocks", fieldsFromRequestEntries(requestEntries)...)
 
 	// No need to make this call in a transaction since this replication process
 	// doesn't run concurrently as of now.
@@ -591,7 +591,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
-	peer.log.Debug("inserted new records from this peer", zap.Int("count", len(response.Entries)))
+	peer.log.Info("inserted new records from this peer", zap.Int("count", len(response.Entries)))
 
 	return nil
 }

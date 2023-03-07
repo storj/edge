@@ -445,7 +445,7 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 		nodeIDField := zap.Stringer("nodeID", nodeID)
 		keyHashField := zap.Binary("keyHash", keyHash.Bytes())
 		if !recordsEqual(record, &loaded) {
-			log.Warn("encountered duplicate key, but values aren't equal", nodeIDField, keyHashField)
+			log.Error("encountered duplicate key, but values aren't equal", nodeIDField, keyHashField)
 			mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "false"))
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
