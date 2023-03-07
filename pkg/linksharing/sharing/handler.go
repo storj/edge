@@ -287,6 +287,9 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case http.StatusRequestedRangeNotSatisfiable:
 			message = "Range header isn't compatible with path query."
 			skipLog = true
+		case http.StatusUnsupportedMediaType:
+			message = "The zip archive is invalid or uses the wrong compression format."
+			skipLog = true
 		}
 	}
 
