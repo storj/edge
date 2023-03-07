@@ -16,7 +16,7 @@ require (
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
 	storj.io/private v0.0.0-20230217131736-be584dbddd08
 	storj.io/storj v0.12.1-0.20230217130554-0cdef95d5550
-	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4
+	storj.io/uplink v1.10.1-0.20230306200956-ee06bd2adaad
 )
 
 require (
@@ -217,7 +217,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
-	storj.io/gateway v1.8.4-0.20230221125543-d002bf96f9df // indirect
+	storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0 // indirect
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
