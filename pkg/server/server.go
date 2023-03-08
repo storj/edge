@@ -71,9 +71,19 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	// Create object API handler
 
-	satelliteConnectionPool := rpcpool.New(rpcpool.Options(config.SatelliteConnectionpool))
+	satelliteConnectionPool := rpcpool.New(rpcpool.Options{
+		Name:           "satellite",
+		Capacity:       config.SatelliteConnectionpool.Capacity,
+		KeyCapacity:    config.SatelliteConnectionpool.KeyCapacity,
+		IdleExpiration: config.SatelliteConnectionpool.IdleExpiration,
+	})
 
-	connectionPool := rpcpool.New(rpcpool.Options(config.ConnectionPool))
+	connectionPool := rpcpool.New(rpcpool.Options{
+		Name:           "default",
+		Capacity:       config.ConnectionPool.Capacity,
+		KeyCapacity:    config.ConnectionPool.KeyCapacity,
+		IdleExpiration: config.ConnectionPool.IdleExpiration,
+	})
 
 	uplinkConfig := configureUplinkConfig(config.Client)
 

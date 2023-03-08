@@ -527,6 +527,11 @@ func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Acc
 		return nil, err
 	}
 
+	err = transport.SetSatelliteConnectionPool(ctx, &config, l.satelliteConnectionPool)
+	if err != nil {
+		return nil, err
+	}
+
 	return config.OpenProject(ctx, access)
 }
 

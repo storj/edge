@@ -171,7 +171,12 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	}
 
 	err = transport.SetConnectionPool(context.TODO(), uplinkConfig,
-		rpcpool.New(rpcpool.Options(config.ConnectionPool)))
+		rpcpool.New(rpcpool.Options{
+			Name:           "default",
+			Capacity:       config.ConnectionPool.Capacity,
+			KeyCapacity:    config.ConnectionPool.KeyCapacity,
+			IdleExpiration: config.ConnectionPool.IdleExpiration,
+		}))
 	if err != nil {
 		return nil, err
 	}
