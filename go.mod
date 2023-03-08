@@ -27,11 +27,11 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20230224050842-81c8060f089b
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8
+	storj.io/drpc v0.0.33-0.20230308160651-22d73cc285eb
 	storj.io/gateway v1.8.4-0.20230221125543-d002bf96f9df
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3
 	storj.io/private v0.0.0-20230217131736-be584dbddd08
-	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4
+	storj.io/uplink v1.10.1-0.20230308160740-83d91ea75a90
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
