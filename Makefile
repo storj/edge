@@ -54,6 +54,8 @@ else
 	$(error Can't install shellcheck without a supported package manager)
 endif
 
+	go install github.com/google/go-licenses@v1.6.0
+
 .PHONY: badgerauth-install-dependencies
 badgerauth-install-dependencies:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -107,6 +109,8 @@ lint: ## Lint
 	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG}
 	check-downgrades
 
+	go-licenses check --ignore "storj.io/dotworld,storj.io/gateway-mt" ./...
+
 	# A bit of an explanation around this shellcheck command:
 	# * Find all scripts recursively that have the .sh extension, except for "testsuite@tmp" which Jenkins creates temporarily
 	# * Use + instead of \ so find returns a non-zero exit if any invocation of shellcheck returns a non-zero exit
@@ -124,6 +128,8 @@ lint-testsuite: ## Lint testsuite
 	check-deferloop ./...
 	staticcheck ./...
 	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG_TESTSUITE}
+
+	go-licenses check --ignore "storj.io/dotworld,storj.io/gateway-mt" ./...
 
 ##@ Local development/Public Jenkins/Cross-Vet
 
