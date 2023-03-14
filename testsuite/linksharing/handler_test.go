@@ -13,11 +13,12 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/miekg/dns"
+	"github.com/foxcpp/go-mockdns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
@@ -170,7 +171,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		host             string
 		method           string
 		path             string
-		txtRecords       map[string][]string
+		dnsRecords       map[string]mockdns.Zone
 		redirectLocation string
 		status           int
 		body             string
@@ -458,9 +459,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET empty access TXT record",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusBadRequest,
@@ -472,9 +475,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET empty root TXT record",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + goodAccessName,
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+					},
 				},
 			},
 			status:           http.StatusBadRequest,
@@ -486,10 +491,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET private access key",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + privateAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + privateAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusForbidden,
@@ -501,13 +508,16 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET download list-only access",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + serializedListOnlyAccess,
-					"storj-root:testbucket/test/foo",
+					TXT: []string{
+						"storj-access:" + listOnlyAccessName,
+						"storj-root:testbucket/test/foo",
+					},
 				},
 			},
 			status:           http.StatusForbidden,
+			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -515,10 +525,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			host:   "mydomain.com",
 			method: "GET",
 			path:   "test/foo/",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + downloadOnlyAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + downloadOnlyAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusForbidden,
@@ -529,10 +541,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET root index.html download-only access",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + downloadOnlyAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + downloadOnlyAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusOK,
@@ -550,10 +564,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET root index.html",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + goodAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusOK,
@@ -571,14 +587,17 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:   "hosting GET prefix index.html",
 			host:   "mydomain.com",
 			method: "GET",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + serializedAccess,
-					"storj-root:testbucket/prefix",
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket/prefix",
+					},
 				},
 			},
 			status:           http.StatusOK,
 			body:             "HELLO!",
+			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix/index.html", []byte("HELLO!"))
@@ -592,10 +611,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			host:   "mydomain.com",
 			method: "GET",
 			path:   "foo",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + goodAccessName,
-					"storj-root:testbucket/test",
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket/test",
+					},
 				},
 			},
 			status:           http.StatusOK,
@@ -608,10 +629,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			host:   "mydomain.com",
 			method: "GET",
 			path:   "/doesnotexist",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + goodAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusNotFound,
@@ -624,10 +647,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			host:   "mydomain.com",
 			method: "GET",
 			path:   "/doesnotexist",
-			txtRecords: map[string][]string{
+			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
-					"storj-access:" + goodAccessName,
-					"storj-root:testbucket",
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket",
+					},
 				},
 			},
 			status:           http.StatusNotFound,
@@ -678,14 +703,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				Token:   authToken,
 			}
 
-			txtRecords := sharing.NewTXTRecords(time.Second, &mockDNS{
-				txtRecords: testCase.txtRecords,
-			}, authclient.New(authConfig))
+			dnsLogger, err := zap.NewStdLogAt(zaptest.NewLogger(t).Named("mockdns"), zapcore.DebugLevel)
+			require.NoError(t, err)
 
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, txtRecords, nil, nil, sharing.Config{
+			dnsSrv, err := mockdns.NewServerWithLogger(testCase.dnsRecords, dnsLogger, false)
+			require.NoError(t, err)
+			defer ctx.Check(dnsSrv.Close)
+
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, sharing.Config{
 				URLBases:          []string{"http://localhost"},
 				Templates:         "./../../pkg/linksharing/web/",
 				AuthServiceConfig: authConfig,
+				DNSServer:         dnsSrv.LocalAddr().String(),
 			})
 			require.NoError(t, err)
 
@@ -722,27 +751,4 @@ func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 	})
-}
-
-type mockDNS struct {
-	txtRecords map[string][]string
-}
-
-func (d *mockDNS) Lookup(ctx context.Context, host string, recordType uint16) (_ *dns.Msg, err error) {
-	var r []dns.RR
-	for name, records := range d.txtRecords {
-		r = append(r, &dns.TXT{
-			Hdr: dns.RR_Header{
-				Name:     name,
-				Rrtype:   0x10,
-				Class:    0x1,
-				Ttl:      0x111,
-				Rdlength: 0x1c,
-			},
-			Txt: records,
-		})
-	}
-	return &dns.Msg{
-		Answer: r,
-	}, nil
 }
