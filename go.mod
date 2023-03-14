@@ -27,7 +27,7 @@ require (
 	golang.org/x/sync v0.1.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20230301105927-7f966760c100
+	storj.io/common v0.0.0-20230314130215-2124d89b1f6d
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8
 	storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0
