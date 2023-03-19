@@ -79,6 +79,10 @@ type TLSConfig struct {
 	// Cloud DNS zone exists.
 	CertMagicDNSChallengeWithGCloudDNSProject string
 
+	// Domain to set the TXT record on, to delegate the challenge to a different
+	// domain.
+	CertMagicDNSChallengeOverrideDomain string
+
 	// CertMagicEmail is the email address to use when creating an ACME account
 	CertMagicEmail string
 
@@ -433,6 +437,7 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 				Project:            config.TLSConfig.CertMagicDNSChallengeWithGCloudDNSProject,
 				ServiceAccountJSON: config.TLSConfig.CertMagicKeyFile,
 			},
+			OverrideDomain: config.TLSConfig.CertMagicDNSChallengeOverrideDomain,
 		}
 		googleCA.DNS01Solver, letsEncryptCA.DNS01Solver = s, s
 	} else {

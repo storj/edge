@@ -138,10 +138,11 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 			CertMagicKeyFile:                   config.CertMagic.KeyFile,
 			CertMagicDNSChallengeWithGCloudDNS: true,
 			CertMagicDNSChallengeWithGCloudDNSProject: config.CertMagic.Project,
-			CertMagicEmail:      config.CertMagic.Email,
-			CertMagicStaging:    config.CertMagic.Staging,
-			CertMagicBucket:     config.CertMagic.Bucket,
-			CertMagicPublicURLs: strings.Split(config.DomainName, ","),
+			CertMagicDNSChallengeOverrideDomain:       config.CertMagic.ChallengeOverrideDomain,
+			CertMagicEmail:                            config.CertMagic.Email,
+			CertMagicStaging:                          config.CertMagic.Staging,
+			CertMagicBucket:                           config.CertMagic.Bucket,
+			CertMagicPublicURLs:                       strings.Split(config.DomainName, ","),
 		}
 	}
 

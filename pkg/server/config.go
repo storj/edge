@@ -40,12 +40,13 @@ type Config struct {
 }
 
 type certMagic struct {
-	Enabled bool   `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
-	KeyFile string `user:"true" help:"path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)"`
-	Project string `user:"true" help:"a project where the Google Cloud DNS zone exists"`
-	Email   string `user:"true" help:"email address to use while creating an ACME account"`
-	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
-	Bucket  string `user:"true" help:"bucket to use for certificate storage"`
+	Enabled                 bool   `user:"true" help:"use CertMagic to handle TLS certificates" default:"false"`
+	KeyFile                 string `user:"true" help:"path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)"`
+	Project                 string `user:"true" help:"a project where the Google Cloud DNS zone exists"`
+	ChallengeOverrideDomain string `user:"true" help:"domain to set the TXT record on, to delegate the challenge to a different domain"`
+	Email                   string `user:"true" help:"email address to use while creating an ACME account"`
+	Staging                 bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
+	Bucket                  string `user:"true" help:"bucket to use for certificate storage"`
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool

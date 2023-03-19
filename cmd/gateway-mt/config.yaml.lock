@@ -31,6 +31,9 @@ auth.token: ""
 # bucket to use for certificate storage
 cert-magic.bucket: ""
 
+# domain to set the TXT record on, to delegate the challenge to a different domain
+cert-magic.challenge-override-domain: ""
+
 # email address to use while creating an ACME account
 cert-magic.email: ""
 
