@@ -32,6 +32,10 @@ type certmagicConfig struct {
 	// GCloudDNSProject is the project where the Google Cloud DNS zone exists.
 	GCloudDNSProject string
 
+	// Domain to set the TXT record on, to delegate the challenge to a different
+	// domain.
+	ChallengeOverrideDomain string
+
 	// Email is the email address to use when creating an ACME account
 	Email string
 
@@ -233,6 +237,7 @@ func setupGlobalCertmagicConfig(f clingy.Flags, config *certmagicConfig) {
 
 func setupCommonFlags(f clingy.Flags, config *certmagicConfig) {
 	config.GCloudDNSProject = f.Flag("dnsproject", "a project where the Google Cloud DNS zone exists", "").(string)
+	config.ChallengeOverrideDomain = f.Flag("challengeoverridedomain", "domain to set the TXT record on, to delegate the challenge to a different domain", "").(string)
 	config.Email = f.Flag("email", "email address to use when creating an ACME account", "").(string)
 	config.Staging = f.Flag("staging", "Use staging CA endpoints", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
@@ -258,6 +263,7 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 			Project:            config.GCloudDNSProject,
 			ServiceAccountJSON: config.KeyFile,
 		},
+		OverrideDomain: config.ChallengeOverrideDomain,
 	}
 
 	googleCA := gpublicca.New(certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
