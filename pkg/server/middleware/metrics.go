@@ -48,8 +48,10 @@ type flusherDelegator struct {
 	// atTimeToFirstByteFunc is called when bytes are first written.
 	atTimeToFirstByteFunc measureFunc
 
+	// afterWrite is called every time after Write is called.
+	afterWrite func(int, int64)
+
 	status                  int
-	written                 int64
 	wroteHeader             bool
 	observedTimeToFirstByte bool
 }
@@ -72,7 +74,9 @@ func (f *flusherDelegator) Write(b []byte) (int, error) {
 		f.atTimeToFirstByteFunc(f.status)
 		f.observedTimeToFirstByte = true
 	}
-	f.written += int64(n)
+	if f.afterWrite != nil {
+		f.afterWrite(f.status, int64(n))
+	}
 	return n, err
 }
 
@@ -130,14 +134,14 @@ func sanitizeMethod(m string) string {
 // TODO(artur): calculate approximate request size.
 func Metrics(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
 		ctx := r.Context()
 		log, ok := gwlog.FromContext(ctx)
 		if !ok {
 			log = gwlog.New()
 			r = r.WithContext(log.WithContext(ctx))
 		}
-
-		start := time.Now()
 
 		mf := func(name string) measureFunc {
 			return func(code int) {
@@ -154,6 +158,14 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 			ResponseWriter:        w,
 			atWriteHeaderFunc:     mf("time_to_header"),
 			atTimeToFirstByteFunc: mf("time_to_first_byte"),
+			afterWrite: func(code int, n int64) {
+				mon.IntVal(
+					makeMetricName(prefix, "bytes_written"),
+					monkit.NewSeriesTag("api", log.API),
+					monkit.NewSeriesTag("method", sanitizeMethod(r.Method)),
+					monkit.NewSeriesTag("status_code", strconv.Itoa(code)),
+				).Observe(n)
+			},
 		}
 
 		next.ServeHTTP(d, r)
@@ -166,8 +178,6 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 		}
 
 		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(took)
-		mon.IntVal(makeMetricName(prefix, "bytes_written"), tags...).Observe(d.written)
-		mon.FloatVal(makeMetricName(prefix, "bps_written"), tags...).Observe(float64(d.written) / took.Seconds())
 
 		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
 			ekMetrics.Event(makeMetricName(prefix, "unmapped_error"), eventkit.String("error", err))
