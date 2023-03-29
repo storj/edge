@@ -55,12 +55,15 @@ type Mutex struct {
 func (m *Mutex) Lock(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// copy backoff so that we don't use the same one for every Lock.
+	backoff := m.backoff
+
 	for i := 1; ; i++ {
 		// Step 1: create the object at the given URL
 		if err = m.put(ctx); err != nil {
 			if !errs.Is(err, gcsops.ErrPreconditionFailed) {
 				m.logger.Infof("waiting (attempt=%d,%s)", i, err)
-				if err = m.backoff.Wait(ctx); err != nil {
+				if err = backoff.Wait(ctx); err != nil {
 					return Error.Wrap(err)
 				}
 				continue
@@ -69,7 +72,7 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 			// the object already exists), then...
 			if m.shouldWait(ctx) {
 				m.logger.Infof("waiting (attempt=%d,lock already exists)", i)
-				if err = m.backoff.Wait(ctx); err != nil {
+				if err = backoff.Wait(ctx); err != nil {
 					return Error.Wrap(err)
 				}
 			}
@@ -77,6 +80,7 @@ func (m *Mutex) Lock(ctx context.Context) (err error) {
 		}
 		// Step 2: if creation is successful, then it means we've taken the lock
 		// Step 2.1: start refreshing the lock in the background
+		m.lastKnownMetageneration = "1"
 		m.refreshCycle = sync2.NewCycle(m.refreshInterval)
 		m.refreshCycle.SetDelayStart()
 		m.refreshCycle.Start(ctx, m.refreshGroup, m.refresh)
