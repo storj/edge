@@ -5,8 +5,8 @@ package middleware
 
 import (
 	"encoding/hex"
-	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -101,11 +101,15 @@ func NewLogResponses(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc 
 	}
 }
 
-func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
-	var query []string
-	for k, v := range r.URL.Query() {
-		if insecureLogAll {
-			query = append(query, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
+type requestQueryLogObject struct {
+	query  url.Values
+	logAll bool
+}
+
+func (o *requestQueryLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	for k, v := range o.query {
+		if o.logAll {
+			enc.AddString(k, strings.Join(v, ","))
 			continue
 		}
 
@@ -119,13 +123,20 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		default:
 			val = strings.Join(v, ",")
 		}
-		query = append(query, fmt.Sprintf("%s=%s", k, val))
+		enc.AddString(k, val)
 	}
+	return nil
+}
 
-	var reqHeaders []string
-	for k, v := range r.Header {
-		if insecureLogAll {
-			reqHeaders = append(reqHeaders, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
+type headersLogObject struct {
+	headers http.Header
+	logAll  bool
+}
+
+func (o *headersLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	for k, v := range o.headers {
+		if o.logAll {
+			enc.AddString(k, strings.Join(v, ","))
 			continue
 		}
 
@@ -137,14 +148,12 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		default:
 			val = strings.Join(v, ",")
 		}
-		reqHeaders = append(reqHeaders, fmt.Sprintf("%s=%s", k, val))
+		enc.AddString(k, val)
 	}
+	return nil
+}
 
-	var rspHeaders []string
-	for k, v := range rw.Header() {
-		rspHeaders = append(rspHeaders, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
-	}
-
+func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
 	httpRequestLog := &gcloudlogging.HTTPRequest{
 		Protocol:      r.Proto,
 		RequestMethod: r.Method,
@@ -170,9 +179,18 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("request-id", gl.RequestID),
 		zap.String("encryption-key-hash", getEncryptionKeyHash(r)),
 		zap.String("macaroon-head", getMacaroonHead(r)),
-		zap.Strings("query", query),
-		zap.Strings("req-headers", reqHeaders),
-		zap.Strings("rsp-headers", rspHeaders),
+		zap.Object("query", &requestQueryLogObject{
+			query:  r.URL.Query(),
+			logAll: insecureLogAll,
+		}),
+		zap.Object("request-headers", &headersLogObject{
+			headers: r.Header,
+			logAll:  insecureLogAll,
+		}),
+		zap.Object("response-headers", &headersLogObject{
+			headers: rw.Header(),
+			logAll:  true, // we don't need to hide any known response header values.
+		}),
 	}
 
 	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {

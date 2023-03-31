@@ -219,20 +219,18 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 
 		LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
-		var filteredLogs *observer.ObservedLogs
-
 		if test.header != "" {
-			filteredLogs = observedLogs.FilterField(zap.Strings("req-headers", []string{
-				fmt.Sprintf("%s=[...]", test.header),
-			}))
-			require.Len(t, filteredLogs.All(), 1, i)
+			require.Len(t, observedLogs.All(), 1, i)
+			fields, ok := observedLogs.All()[0].ContextMap()["request-headers"].(map[string]interface{})
+			require.True(t, ok, i)
+			require.Equal(t, "[...]", fields[test.header], i)
 		}
 
 		if test.query != "" {
-			filteredLogs = observedLogs.FilterField(zap.Strings("query", []string{
-				fmt.Sprintf("%s=[...]", test.query),
-			}))
-			require.Len(t, filteredLogs.All(), 1, i)
+			require.Len(t, observedLogs.All(), 1, i)
+			fields, ok := observedLogs.All()[0].ContextMap()["query"].(map[string]interface{})
+			require.True(t, ok, i)
+			require.Equal(t, "[...]", fields[test.query], i)
 		}
 	}
 }
