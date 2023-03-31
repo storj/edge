@@ -48,17 +48,18 @@ SHARE_URL=$(uplink share --access "$ACCESS_GRANT" \
     "sj://$BUCKET" | grep -e "^URL\\s*:" | awk '{print $3}')
 
 
+cleanup_curl_pids() {
+    for PID in "$@"; do
+        kill "$PID" || true
+    done
+}
+
 # fallback for older curl versions that don't have the parallel downloads feature.
 CURL_VERSION=$(curl --version | head -n1 | awk '{print $2}')
 CURL_VERSION=${CURL_VERSION%.*} # strip the last bit of the version so we can compare, e.g. 7.68.0 -> 7.68
 if [ "$(bc -l <<< "$CURL_VERSION < 7.68")" -eq 1 ]; then
     CURL_PIDS=()
-    cleanup_curl_pids() {
-        for PID in "${CURL_PIDS[@]}"; do
-            kill "$PID" || true
-        done
-    }
-    trap cleanup_curl_pids SIGINT SIGTERM
+    trap 'cleanup_curl_pids "${CURL_PIDS[@]}"' SIGINT SIGTERM
     i=0
     for FILE in $FILES; do
         if [ "$i" -ge "$CONCURRENCY_LIMIT" ]; then
