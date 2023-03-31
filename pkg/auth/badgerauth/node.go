@@ -17,6 +17,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -402,7 +403,7 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node.log.Info("received replication request with the following clocks", fieldsFromRequestEntries(req.Entries)...)
+	node.log.Info("received application request", zap.Object("clocks", &clocksLogObject{entries: req.Entries}))
 
 	var (
 		fields   []zap.Field
@@ -574,7 +575,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
-	peer.log.Info("requesting records from this peer with the following clocks", fieldsFromRequestEntries(requestEntries)...)
+	peer.log.Info("requesting records from this peer", zap.Object("clocks", &clocksLogObject{entries: requestEntries}))
 
 	// No need to make this call in a transaction since this replication process
 	// doesn't run concurrently as of now.
@@ -664,18 +665,21 @@ func IgnoreDialFailures(err error) error {
 	return err
 }
 
-func fieldsFromRequestEntries(entries []*pb.ReplicationRequestEntry) []zap.Field {
-	var fields []zap.Field
-	for _, e := range entries {
+type clocksLogObject struct {
+	entries []*pb.ReplicationRequestEntry
+}
+
+func (o *clocksLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	for _, e := range o.entries {
 		var id NodeID
 
 		if err := id.SetBytes(e.NodeId); err != nil {
-			fields = append(fields, zap.Uint64(hex.EncodeToString(e.NodeId), e.Clock))
+			enc.AddUint64(hex.EncodeToString(e.NodeId), e.Clock)
 		} else {
-			fields = append(fields, zap.Uint64(id.String(), e.Clock))
+			enc.AddUint64(id.String(), e.Clock)
 		}
 	}
-	return fields
+	return nil
 }
 
 func errToRPCStatusErr(err error) error {
