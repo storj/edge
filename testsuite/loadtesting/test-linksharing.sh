@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! uplink &> /dev/null; then
+if ! uplink version &> /dev/null; then
     echo "uplink command not found"
     exit 1
 fi
