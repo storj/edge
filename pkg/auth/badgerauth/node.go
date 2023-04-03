@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -403,12 +404,9 @@ func (node *Node) Peek(ctx context.Context, req *pb.PeekRequest) (_ *pb.PeekResp
 func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ *pb.ReplicationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node.log.Info("received application request", zap.Object("clocks", &clocksLogObject{entries: req.Entries}))
+	node.log.Info("incoming replication request", zap.Object("clocks", fromRequestEntries(req.Entries)))
 
-	var (
-		fields   []zap.Field
-		response pb.ReplicationResponse
-	)
+	var response pb.ReplicationResponse
 
 	for _, reqEntry := range req.Entries {
 		select {
@@ -433,11 +431,10 @@ func (node *Node) Replicate(ctx context.Context, req *pb.ReplicationRequest) (_ 
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
-		fields = append(fields, zap.Int(id.String(), len(entries)))
 		response.Entries = append(response.Entries, entries...)
 	}
 
-	node.log.Info("responded to the replication request from another node", fields...)
+	node.log.Info("incoming replication response", zap.Object("delta", fromResponseEntries(response.Entries)))
 
 	return &response, nil
 }
@@ -575,7 +572,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
-	peer.log.Info("requesting records from this peer", zap.Object("clocks", &clocksLogObject{entries: requestEntries}))
+	peer.log.Info("outgoing replication: requesting records from this peer", zap.Object("clocks", fromRequestEntries(requestEntries)))
 
 	// No need to make this call in a transaction since this replication process
 	// doesn't run concurrently as of now.
@@ -592,7 +589,7 @@ func (peer *Peer) syncRecords(ctx context.Context, client pb.DRPCReplicationServ
 		return nil
 	}
 
-	peer.log.Info("inserted new records from this peer", zap.Int("count", len(response.Entries)))
+	peer.log.Info("outgoing replication: inserted new records from this peer", zap.Object("delta", fromResponseEntries(response.Entries)))
 
 	return nil
 }
@@ -665,21 +662,49 @@ func IgnoreDialFailures(err error) error {
 	return err
 }
 
-type clocksLogObject struct {
-	entries []*pb.ReplicationRequestEntry
-}
+type clocksLogObject map[string]uint64
 
-func (o *clocksLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	for _, e := range o.entries {
-		var id NodeID
-
-		if err := id.SetBytes(e.NodeId); err != nil {
-			enc.AddUint64(hex.EncodeToString(e.NodeId), e.Clock)
-		} else {
-			enc.AddUint64(id.String(), e.Clock)
-		}
+func (o clocksLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	var (
+		ids  []string
+		vals []uint64
+	)
+	for id, val := range o {
+		ids, vals = append(ids, id), append(vals, val)
+	}
+	f := func(i, j int) bool { return ids[i] < ids[j] }
+	sort.Slice(ids, f)
+	sort.Slice(vals, f)
+	for i, id := range ids {
+		enc.AddUint64(id, vals[i])
 	}
 	return nil
+}
+
+func fromRequestEntries(entries []*pb.ReplicationRequestEntry) clocksLogObject {
+	clocks := make(clocksLogObject)
+	for _, e := range entries {
+		var id NodeID
+		if err := id.SetBytes(e.NodeId); err != nil {
+			clocks[hex.EncodeToString(e.NodeId)] = e.Clock
+		} else {
+			clocks[id.String()] = e.Clock
+		}
+	}
+	return clocks
+}
+
+func fromResponseEntries(entries []*pb.ReplicationResponseEntry) clocksLogObject {
+	clocks := make(clocksLogObject)
+	for _, e := range entries {
+		var id NodeID
+		if err := id.SetBytes(e.NodeId); err != nil {
+			clocks[hex.EncodeToString(e.NodeId)]++
+		} else {
+			clocks[id.String()]++
+		}
+	}
+	return clocks
 }
 
 func errToRPCStatusErr(err error) error {
