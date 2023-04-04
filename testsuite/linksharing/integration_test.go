@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,116 +56,180 @@ import (
 	"storj.io/uplink"
 )
 
-func TestCertificateCreation(t *testing.T) {
-	gcsKeyPath := os.Getenv("STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY")
-	if gcsKeyPath == "" {
-		t.Skipf("Skipping %s without credentials provided", t.Name())
-	}
-	gcsBucketName := os.Getenv("STORJ_TEST_GCSTEST_BUCKET")
-	if gcsBucketName == "" {
-		t.Skipf("Skipping %s without GCS bucket provided", t.Name())
+func TestIntegration(t *testing.T) {
+	t.Parallel()
+
+	gcsKeyPath, gcsBucketName, err := findCredentials()
+	if err != nil {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
 
-	t.Setenv("PEBBLE_VA_NOSLEEP", "1")
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	ident, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				url, err := storj.ParseNodeURL(ident.ID.String() + "@")
-				require.NoError(t, err)
-
-				config.Userinfo.Enabled = true
-				config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+	tests := []struct {
+		name      string
+		tlsRecord bool
+		access    func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
+		url       func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		wantErr   bool
+	}{
+		{
+			name: "Public domain insecure",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucketName := testrand.BucketName()
-		access := newUserWithPaidTier(ctx, t, planet.Satellites[0])
-
-		planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = access
-
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "index.html", []byte("HELLO!"))
-		require.NoError(t, err)
-
-		serializedAccess, err := access.Serialize()
-		require.NoError(t, err)
-
-		// note that the host should be no more than 63 characters to be valid for DNS.
-		publicDomain := randomNameLowercase(40) + ".link.local"
-		customDomain := randomNameLowercase(40) + ".example.com"
-		accessName := randomAccessKey(t)
-
-		dnsRecords := map[string]mockdns.Zone{
-			"localhost.": {
-				A: []string{"127.0.0.1"},
+		{
+			name: "Custom domain insecure",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
-			publicDomain + ".": {
-				A: []string{"127.0.0.1"},
+		},
+		{
+			name: "Public domain TLS",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
 			},
-			customDomain + ".": {
-				CNAME: publicDomain + ".",
+		},
+		{
+			name:      "Custom domain TLS TXT record disabled",
+			tlsRecord: false,
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
-			"txt-" + customDomain + ".": {
-				TXT: []string{
-					"storj-access:" + accessName,
-					"storj-root:" + bucketName,
-					"storj-tls:true",
-				},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
 			},
-		}
+			wantErr: true,
+		},
+		{
+			name:      "Custom domain TLS not paid tier",
+			tlsRecord: true,
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+			},
+			wantErr: true,
+		},
+		{
+			name:      "Custom domain TLS paid tier",
+			tlsRecord: true,
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-		authRecords := map[string]authHandlerEntry{
-			accessName: {serializedAccess, true},
-		}
-
-		runTest(t, ctx, testConfig{
-			gcsKeyPath:    gcsKeyPath,
-			gcsBucketName: gcsBucketName,
-			publicDomain:  publicDomain,
-			ident:         ident,
-			dnsRecords:    dnsRecords,
-			authRecords:   authRecords,
-		}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, certPool *x509.CertPool) {
-			client := http.Client{Transport: &http.Transport{
-				DialContext: (&mockdns.Resolver{
-					Zones: dnsRecords,
-				}).DialContext,
-				TLSClientConfig: &tls.Config{
-					RootCAs: certPool,
-				},
-			}}
-
-			test := func(url string) {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-				require.NoError(t, err)
-
-				resp, err := client.Do(req) //nolint:bodyclose
-				require.NoError(t, err)
-				defer ctx.Check(resp.Body.Close)
-
-				body, err := io.ReadAll(resp.Body)
-				require.NoError(t, err)
-				require.Equal(t, string(body), "HELLO!")
+			if tc.url == nil {
+				t.Error("test misconfigured: url not defined", t.Name())
+				return
 			}
 
-			port := lookupPort(t, peer.Server.AddrTLS())
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
 
-			test(fmt.Sprintf("https://%s:%d/raw/%s/%s/index.html", publicDomain, port, accessName, bucketName))
-			test(fmt.Sprintf("https://%s:%d", customDomain, port))
+			ident, err := testidentity.NewTestIdentity(ctx)
+			require.NoError(t, err)
+
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount:   1,
+				StorageNodeCount: 0,
+				UplinkCount:      1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						url, err := storj.ParseNodeURL(ident.ID.String() + "@")
+						require.NoError(t, err)
+
+						config.Userinfo.Enabled = true
+						config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+					},
+				},
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				access := planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID]
+				if tc.access != nil {
+					access = tc.access(t, ctx, planet)
+					planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = access
+				}
+
+				serializedAccess, err := access.Serialize()
+				require.NoError(t, err)
+
+				// note that the host should be no more than 63 characters to be valid for DNS.
+				root := testrand.BucketName()
+				publicDomain := randomNameLowercase(40) + ".link.local"
+				customDomain := randomNameLowercase(40) + ".example.com"
+				accessKey := randomAccessKey(t)
+
+				dnsRecords := map[string]mockdns.Zone{
+					"localhost.": {
+						A: []string{"127.0.0.1"},
+					},
+					publicDomain + ".": {
+						A: []string{"127.0.0.1"},
+					},
+					customDomain + ".": {
+						CNAME: publicDomain + ".",
+					},
+					"txt-" + customDomain + ".": {
+						TXT: []string{
+							"storj-access:" + accessKey,
+							"storj-root:" + root,
+							"storj-tls:" + strconv.FormatBool(tc.tlsRecord),
+						},
+					},
+				}
+
+				authRecords := map[string]authHandlerEntry{
+					accessKey: {serializedAccess, true},
+				}
+
+				runEnvironment(t, ctx, environmentConfig{
+					gcsKeyPath:    gcsKeyPath,
+					gcsBucketName: gcsBucketName,
+					publicDomain:  publicDomain,
+					ident:         ident,
+					dnsRecords:    dnsRecords,
+					authRecords:   authRecords,
+				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
+					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
+					require.NoError(t, err)
+
+					url := tc.url(t, peer, accessKey, root, publicDomain, customDomain)
+
+					client := http.Client{Transport: &http.Transport{
+						DialContext: (&mockdns.Resolver{
+							Zones: dnsRecords,
+						}).DialContext,
+						TLSClientConfig: &tls.Config{
+							RootCAs: caCertPool,
+						},
+					}}
+
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+					require.NoError(t, err, url)
+
+					resp, err := client.Do(req) //nolint:bodyclose
+					if tc.wantErr {
+						require.Error(t, err, url)
+					} else {
+						require.NoError(t, err, url)
+						defer ctx.Check(resp.Body.Close)
+
+						body, err := io.ReadAll(resp.Body)
+						require.NoError(t, err, url)
+						require.Equal(t, string(body), "HELLO!", url)
+					}
+				})
+			})
 		})
-	})
+	}
 }
 
-type testConfig struct {
+type environmentConfig struct {
 	gcsKeyPath    string
 	gcsBucketName string
 	publicDomain  string
@@ -173,7 +238,7 @@ type testConfig struct {
 	authRecords   map[string]authHandlerEntry
 }
 
-func runTest(t *testing.T, ctx *testcontext.Context, config testConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, certPool *x509.CertPool)) {
+func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
 	logger := zaptest.NewLogger(t)
 
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
@@ -192,11 +257,7 @@ func runTest(t *testing.T, ctx *testcontext.Context, config testConfig, fn func(
 	require.NoError(t, err)
 	defer ctx.Check(dnsSrv.Close)
 
-	certTempPath, err := os.MkdirTemp("", "testcert")
-	require.NoError(t, err)
-	defer ctx.Check(func() error {
-		return os.RemoveAll(certTempPath)
-	})
+	certTempPath := t.TempDir()
 
 	identityCertPath := certTempPath + "/identity.crt"
 	writeCertificate(t, identityCertPath, config.ident.Chain()...)
@@ -313,10 +374,23 @@ func runTest(t *testing.T, ctx *testcontext.Context, config testConfig, fn func(
 	intermediateCert := ca.GetIntermediateCert(0)
 	require.NotNil(t, intermediateCert)
 
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(intermediateCert.Chain(0))
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(intermediateCert.Chain(0))
 
-	fn(t, ctx, peer, certPool)
+	fn(t, ctx, peer, caCertPool)
+}
+
+func findCredentials() (string, string, error) {
+	gcsKeyPath := os.Getenv("STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY")
+	if gcsKeyPath == "" {
+		return "", "", errs.New("STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY is empty")
+	}
+	gcsBucketName := os.Getenv("STORJ_TEST_GCSTEST_BUCKET")
+	if gcsBucketName == "" {
+		return "", "", errs.New("STORJ_TEST_GCSTEST_BUCKET is empty")
+	}
+
+	return gcsKeyPath, gcsBucketName, nil
 }
 
 func randomNameLowercase(length int) string {
@@ -333,7 +407,7 @@ func lookupPort(t *testing.T, addr string) int {
 	return lookupPort
 }
 
-func newUserWithPaidTier(ctx context.Context, t *testing.T, sat *testplanet.Satellite) *uplink.Access {
+func newPaidAccess(ctx context.Context, t *testing.T, sat *testplanet.Satellite) *uplink.Access {
 	user, err := sat.AddUser(ctx, console.CreateUser{
 		FullName: "testuser123",
 		Email:    "test@email.com",
