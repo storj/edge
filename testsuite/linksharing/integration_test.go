@@ -359,7 +359,8 @@ func newUserWithPaidTier(ctx context.Context, t *testing.T, sat *testplanet.Sate
 	userCtx, err := sat.UserContext(ctx, user.ID)
 	require.NoError(t, err)
 
-	require.NoError(t, sat.API.Console.Service.Payments().AddCreditCard(userCtx, "test"))
+	_, err = sat.API.Console.Service.Payments().AddCreditCard(userCtx, "test")
+	require.NoError(t, err)
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
 	grantAccess := grant.Access{
