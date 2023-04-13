@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/ranger"
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/testcontext"
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
@@ -68,7 +69,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 			object := &uplink.Object{
 				Key: "test.jpg",
 			}
-			err = handler.showObject(ctx, w, r, pr, project, object)
+			err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 			require.NoError(t, err)
 
 			ctypes, haveType := w.Header()["Content-Type"]
@@ -82,7 +83,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 				tc.cacheControlMetadataKey:    "max-age=0, must-revalidate",
 				tc.contentEncodingMetadataKey: "gzip",
 			}
-			err = handler.showObject(ctx, w, r, pr, project, object)
+			err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 			require.NoError(t, err)
 
 			ctypes, haveType = w.Header()["Content-Type"]
@@ -95,7 +96,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 			object.Custom = uplink.CustomMetadata{
 				tc.contentTypeMetadataKey: "image/somethingelse",
 			}
-			err = handler.showObject(ctx, w, r, pr, project, object)
+			err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 			require.NoError(t, err)
 
 			ctypes, haveType = w.Header()["Content-Type"]
@@ -105,7 +106,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 			object.Custom = uplink.CustomMetadata{
 				tc.contentTypeMetadataKey: "text/html",
 			}
-			err = handler.showObject(ctx, w, r, pr, project, object)
+			err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 			require.NoError(t, err)
 
 			ctypes, haveType = w.Header()["Content-Type"]
@@ -236,7 +237,7 @@ func TestContentDisposition(t *testing.T) {
 			}
 
 			object := &uplink.Object{Key: tc.key, Custom: metadata}
-			err = handler.showObject(ctx, w, r, pr, project, object)
+			err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 			require.NoError(t, err)
 
 			require.Equal(t, tc.disposition, w.Header()["Content-Disposition"])
@@ -411,7 +412,7 @@ func testZipItemContentType(ctx context.Context, t *testing.T, handler *Handler,
 	}
 	w := httptest.NewRecorder()
 
-	err = handler.showObject(ctx, w, r, pr, project, object)
+	err = handler.showObject(ctx, w, r, pr, project, object, nil, httpranger.HTTPRange{})
 
 	if expectedStatus == http.StatusOK {
 		require.NoError(t, err)

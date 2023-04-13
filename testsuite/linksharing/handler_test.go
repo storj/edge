@@ -124,7 +124,7 @@ type authHandlerEntry struct {
 }
 
 func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
+	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOOBAR"))
 	require.NoError(t, err)
 
 	bandwidthLimit, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID)
@@ -175,6 +175,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		dnsRecords       map[string]mockdns.Zone
 		redirectLocation string
 		status           int
+		reqHeader        map[string]string
 		body             string
 		authserver       string
 		expectedRPCCalls []string
@@ -257,11 +258,142 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
+			name:             "GET download",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?download=1"),
+			status:           http.StatusOK,
+			body:             "FOOBAR",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:             "GET map only",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?map=1"),
+			status:           http.StatusOK,
+			body:             "circle",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "GET map only raw",
+			method:           "GET",
+			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?map=1"),
+			status:           http.StatusOK,
+			body:             "circle",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "GET view",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?view=1"),
+			status:           http.StatusOK,
+			body:             "FOOBAR",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:             "GET wrap",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=1"),
+			status:           http.StatusOK,
+			body:             "You’re getting this file from all over the world",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "GET wrap raw",
+			method:           "GET",
+			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
+			status:           http.StatusOK,
+			body:             "You’re getting this file from all over the world",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "GET no wrap",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=no"),
+			status:           http.StatusOK,
+			body:             "FOOBAR",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
 			name:             "GET download success",
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download with range",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range": "bytes=0-",
+			},
+			status:           http.StatusPartialContent,
+			body:             "FOOBAR",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download with range partial content",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range": "bytes=0-1",
+			},
+			status:           http.StatusPartialContent,
+			body:             "FO",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download with suffix-byte-range",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range": "bytes=-3",
+			},
+			status:           http.StatusPartialContent,
+			body:             "BAR",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download with too large range",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range": "bytes=0-10",
+			},
+			status:           http.StatusPartialContent,
+			body:             "FOO",
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download not modified modtime",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"If-Modified-Since": "Wed, 25 Jun 2100 17:12:18 GMT",
+			},
+			status:           http.StatusNotModified,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download with range no overlap",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range": "bytes=10-20",
+			},
+			status:           http.StatusRequestedRangeNotSatisfiable,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+		},
+		{
+			name:   "GET download range with modtime mismatch",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			reqHeader: map[string]string{
+				"Range":    "bytes=0-4",
+				"If-Range": "Wed, 25 Jun 2014 17:12:18 GMT",
+			},
+			status:           http.StatusOK,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:       "GET download with trailing slash",
@@ -326,7 +458,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             "Access denied",
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:             "HEAD missing access",
@@ -402,7 +534,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusTooManyRequests,
 			body:             "Bandwidth limit exceeded",
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
@@ -519,7 +651,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:   "hosting GET prefix download-only access",
@@ -553,7 +685,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             "HELLO!",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
 			},
@@ -576,7 +708,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             "HELLO!",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
 			},
@@ -599,7 +731,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             "HELLO!",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix/index.html", []byte("HELLO!"))
 			},
@@ -623,7 +755,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             "FOO",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:   "hosting GET root 404 default page",
@@ -641,7 +773,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusNotFound,
 			body:             "Object not found",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:   "hosting GET root 404.html",
@@ -659,7 +791,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusNotFound,
 			body:             "NOT FOUND!",
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "404.html", []byte("NOT FOUND!"))
 			},
@@ -720,6 +852,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			w := httptest.NewRecorder()
 			r, err := http.NewRequestWithContext(contextWithRecording, testCase.method, url, nil)
 			require.NoError(t, err)
+
+			for k, v := range testCase.reqHeader {
+				r.Header.Set(k, v)
+			}
+
 			handler.ServeHTTP(w, r)
 
 			assert.Equal(t, testCase.redirectLocation, w.Header().Get("Location"), "redirect location does not match")
