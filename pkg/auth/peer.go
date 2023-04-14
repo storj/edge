@@ -26,9 +26,9 @@ import (
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
-	"storj.io/gateway-mt/pkg/auth/satellitelist"
 	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/middleware"
+	"storj.io/gateway-mt/pkg/satellitelist"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
 )

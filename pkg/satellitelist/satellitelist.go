@@ -21,11 +21,11 @@ import (
 
 var mon = monkit.Package()
 
-// ErrAllowedSatelliteList is an error class for allowed satellite list errors.
-var ErrAllowedSatelliteList = errs.Class("allowed satellite list")
+// Error is an error class of satellite list errors.
+var Error = errs.Class("satellite list")
 
 // LoadSatelliteURLs takes a list of configuration paths and returns a list of
-// satellites URLs suitable for calling ("*Database).SetAllowedSatellites().
+// satellites URLs.
 // ConfigValues may be satellite address URLs with a node id.  Alternatively,
 // ConfigValues may be local or HTTP(S) files which contain one satellite address per line,
 // the same format as https://www.storj.io/dcs-satellites.  HasNodeList indicates
@@ -44,22 +44,22 @@ func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[s
 			}
 			err = readSatelliteList(fileContent, satMap)
 			if err != nil {
-				return satMap, hasNodeList, ErrAllowedSatelliteList.Wrap(err)
+				return satMap, hasNodeList, Error.Wrap(err)
 			}
 		} else if _, err := os.Stat(c); err == nil {
 			hasNodeList = true
 			bodyBytes, err := os.ReadFile(c)
 			if err != nil {
-				return satMap, hasNodeList, ErrAllowedSatelliteList.Wrap(err)
+				return satMap, hasNodeList, Error.Wrap(err)
 			}
 			err = readSatelliteList(bodyBytes, satMap)
 			if err != nil {
-				return satMap, hasNodeList, ErrAllowedSatelliteList.Wrap(err)
+				return satMap, hasNodeList, Error.Wrap(err)
 			}
 		} else if nodeURL, err := ParseSatelliteURL(c); err == nil {
 			satMap[nodeURL] = struct{}{}
 		} else {
-			return satMap, hasNodeList, ErrAllowedSatelliteList.New("unknown config value '%s'", c)
+			return satMap, hasNodeList, Error.New("unknown config value '%s'", c)
 		}
 	}
 	return satMap, hasNodeList, nil
@@ -89,20 +89,20 @@ func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, ErrAllowedSatelliteList.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	res, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
-		return nil, ErrAllowedSatelliteList.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, ErrAllowedSatelliteList.Wrap(res.Body.Close())) }()
+	defer func() { err = errs.Combine(err, Error.Wrap(res.Body.Close())) }()
 
 	if res.StatusCode != 200 {
-		return nil, ErrAllowedSatelliteList.New("HTTP failed with HTTP status %d", res.StatusCode)
+		return nil, Error.New("HTTP failed with HTTP status %d", res.StatusCode)
 	}
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, ErrAllowedSatelliteList.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	return bodyBytes, nil
 }
@@ -111,13 +111,13 @@ func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 func ParseSatelliteURL(s string) (id storj.NodeURL, err error) {
 	url, err := storj.ParseNodeURL(s)
 	if err != nil {
-		return storj.NodeURL{}, ErrAllowedSatelliteList.Wrap(err)
+		return storj.NodeURL{}, Error.Wrap(err)
 	}
 
 	if url.ID.IsZero() {
 		nodeID, found := rpc.KnownNodeID(url.Address)
 		if !found {
-			return storj.NodeURL{}, ErrAllowedSatelliteList.New("unknown satellite %q", s)
+			return storj.NodeURL{}, Error.New("unknown satellite %q", s)
 		}
 		url.ID = nodeID
 	}
