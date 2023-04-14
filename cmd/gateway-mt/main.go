@@ -120,7 +120,9 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		return err
 	}
 
-	var g errgroup.Group
+	// if peer.Run() fails, we want to ensure the context is canceled so we
+	// don't hang on ctx.Done before closing the peer.
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		<-ctx.Done()

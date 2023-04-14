@@ -175,6 +175,16 @@ cert-magic.staging: false
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 
+# whether to check for satellite connectivity before starting
+startup-check.enabled: true
+
+# list of satellite NodeURLs
+startup-check.satellites:
+- https://www.storj.io/dcs-satellites
+
+# maximum time to spend on checks
+startup-check.timeout: 30s
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

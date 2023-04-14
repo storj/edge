@@ -151,6 +151,16 @@ standard-renders-content: false
 # serve HTML as text/html instead of text/plain for standard (non-hosting) requests
 standard-views-html: false
 
+# whether to check for satellite connectivity before starting
+startup-check.enabled: true
+
+# list of satellite NodeURLs
+startup-check.satellites:
+- https://www.storj.io/dcs-satellites
+
+# maximum time to spend on checks
+startup-check.timeout: 30s
+
 # the path to where web assets are located
 static-sources-path: ./pkg/linksharing/web/static
 

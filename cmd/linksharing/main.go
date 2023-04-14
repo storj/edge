@@ -53,6 +53,7 @@ type LinkSharing struct {
 	ConnectionPool         connectionPoolConfig
 	CertMagic              certMagic
 	ShutdownDelay          time.Duration `user:"true" help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
+	StartupCheck           startupCheck
 }
 
 // connectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -73,6 +74,12 @@ type certMagic struct {
 	TierCacheExpiration   time.Duration `user:"true" help:"expiration time for tier querying service cache" devDefault:"10s" releaseDefault:"5m"`
 	TierCacheCapacity     int           `user:"true" help:"tier querying service cache capacity" default:"10000"`
 	SkipPaidTierAllowlist []string      `user:"true" help:"comma separated list of domain names which bypass paid tier queries. Set to * to disable tier check entirely"`
+}
+
+type startupCheck struct {
+	Enabled    bool          `user:"true" help:"whether to check for satellite connectivity before starting" default:"true"`
+	Satellites []string      `user:"true" help:"list of satellite NodeURLs" default:"https://www.storj.io/dcs-satellites"`
+	Timeout    time.Duration `user:"true" help:"maximum time to spend on checks" default:"30s"`
 }
 
 var (
@@ -142,12 +149,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	peer, err := linksharing.New(log, linksharing.Config{
 		Server: httpserver.Config{
-			Name:            "Link Sharing",
-			Address:         runCfg.Address,
-			AddressTLS:      runCfg.AddressTLS,
-			TrafficLogging:  true,
-			TLSConfig:       tlsConfig,
-			ShutdownTimeout: -1,
+			Name:               "Link Sharing",
+			Address:            runCfg.Address,
+			AddressTLS:         runCfg.AddressTLS,
+			TrafficLogging:     true,
+			TLSConfig:          tlsConfig,
+			ShutdownTimeout:    -1,
+			StartupCheckConfig: httpserver.StartupCheckConfig(runCfg.StartupCheck),
 		},
 		Handler: sharing.Config{
 			URLBases:               publicURLs,
@@ -175,7 +183,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var g errgroup.Group
+	// if peer.Run() fails, we want to ensure the context is canceled so we
+	// don't hang on ctx.Done before closing the peer.
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		<-ctx.Done()

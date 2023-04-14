@@ -147,10 +147,11 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	}
 
 	server, err := httpserver.New(log, handler, nil, httpserver.Config{
-		Address:        config.Server.Address,
-		AddressTLS:     config.Server.AddressTLS,
-		TLSConfig:      tlsConfig,
-		TrafficLogging: false, // gateway-mt has its own logging middleware for this
+		Address:            config.Server.Address,
+		AddressTLS:         config.Server.AddressTLS,
+		TLSConfig:          tlsConfig,
+		TrafficLogging:     false, // gateway-mt has its own logging middleware for this
+		StartupCheckConfig: httpserver.StartupCheckConfig(config.StartupCheck),
 	})
 	if err != nil {
 		return nil, err

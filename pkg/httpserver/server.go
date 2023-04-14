@@ -27,6 +27,7 @@ import (
 	"storj.io/gateway-mt/pkg/certstorage"
 	"storj.io/gateway-mt/pkg/gpublicca"
 	"storj.io/gateway-mt/pkg/middleware"
+	"storj.io/gateway-mt/pkg/startupcheck"
 )
 
 var mon = monkit.Package()
@@ -59,6 +60,10 @@ type Config struct {
 	// 10 seconds if unset. If set to a negative value, the server will be
 	// closed immediately.
 	ShutdownTimeout time.Duration
+
+	// StartupCheckConfig configures a startup check that must pass in order for
+	// servers to start listening.
+	StartupCheckConfig StartupCheckConfig
 }
 
 // TestIssuerConfig is configuration to a test ACME server, which if defined will
@@ -150,6 +155,13 @@ type TLSConfig struct {
 	Ctx context.Context
 }
 
+// StartupCheckConfig provides startup check configuration.
+type StartupCheckConfig struct {
+	Enabled    bool
+	Satellites []string
+	Timeout    time.Duration
+}
+
 // Server is the HTTP server.
 //
 // architecture: Endpoint
@@ -163,6 +175,7 @@ type Server struct {
 	server          *http.Server
 	serverTLS       *http.Server
 	shutdownTimeout time.Duration
+	startupCheck    *startupcheck.NodeURLCheck
 }
 
 // CertMagicOnDemandDecisionFunc is a concrete type for
@@ -217,6 +230,18 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		config.ShutdownTimeout = DefaultShutdownTimeout
 	}
 
+	var startupCheck *startupcheck.NodeURLCheck
+	if config.StartupCheckConfig.Enabled {
+		startupCheck, err = startupcheck.NewNodeURLCheck(startupcheck.NodeURLCheckConfig{
+			NodeURLs: config.StartupCheckConfig.Satellites,
+			Logger:   log.Sugar(),
+			Timeout:  config.StartupCheckConfig.Timeout,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if config.Name != "" {
 		log = log.With(zap.String("server", config.Name))
 	}
@@ -229,6 +254,7 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		server:          server,
 		serverTLS:       serverTLS,
 		shutdownTimeout: config.ShutdownTimeout,
+		startupCheck:    startupCheck,
 		handler:         handler,
 	}, nil
 }
@@ -236,6 +262,12 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 // Run runs the server.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if server.startupCheck != nil {
+		if err = server.startupCheck.Check(ctx); err != nil {
+			return err
+		}
+	}
 
 	var group errgroup.Group
 

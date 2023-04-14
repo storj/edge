@@ -37,6 +37,7 @@ type Config struct {
 	SatelliteConnectionpool SatelliteConnectionPoolConfig
 	ConnectionPool          ConnectionPoolConfig
 	CertMagic               certMagic
+	StartupCheck            startupCheck
 }
 
 type certMagic struct {
@@ -47,6 +48,12 @@ type certMagic struct {
 	Email                   string `user:"true" help:"email address to use while creating an ACME account"`
 	Staging                 bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
 	Bucket                  string `user:"true" help:"bucket to use for certificate storage"`
+}
+
+type startupCheck struct {
+	Enabled    bool          `user:"true" help:"whether to check for satellite connectivity before starting" default:"true"`
+	Satellites []string      `user:"true" help:"list of satellite NodeURLs" default:"https://www.storj.io/dcs-satellites"`
+	Timeout    time.Duration `user:"true" help:"maximum time to spend on checks" default:"30s"`
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool
