@@ -188,6 +188,7 @@ func configureUplinkConfig(clientConfig ClientConfig) gw.UplinkConfig {
 		},
 		Uploads: gw.UploadConfig{
 			PieceHashAlgorithmBlake3: clientConfig.Upload.PieceHashAlgorithmBlake3,
+			RefactoredCodePath:       clientConfig.Upload.RefactoredCodePath,
 		},
 	}
 

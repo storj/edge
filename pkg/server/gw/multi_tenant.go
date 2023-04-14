@@ -29,6 +29,7 @@ import (
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/piecestore"
+	"storj.io/uplink/private/testuplink"
 	"storj.io/uplink/private/transport"
 )
 
@@ -52,6 +53,7 @@ var (
 // UploadConfig holds the configuration for libuplink specific to uploads.
 type UploadConfig struct {
 	PieceHashAlgorithmBlake3 bool
+	RefactoredCodePath       bool
 }
 
 // UplinkConfig holds a configuration for libuplink that controls how to talk to
@@ -548,6 +550,9 @@ func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Acc
 
 	if uploadsConfig.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
 		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
+	}
+	if uploadsConfig.RefactoredCodePath {
+		ctx = testuplink.WithConcurrentSegmentUploadsDefaultConfig(ctx)
 	}
 
 	return baseConfig.OpenProject(ctx, access)
