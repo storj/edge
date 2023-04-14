@@ -74,4 +74,10 @@ type SatelliteConnectionPoolConfig struct {
 type ClientConfig struct {
 	DialTimeout       time.Duration `help:"timeout for dials" default:"10s"`
 	MaximumBufferSize memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
+
+	Upload uploadConfig
+}
+
+type uploadConfig struct {
+	PieceHashAlgorithmBlake3 bool `help:"use Blake3 as the piece hash algorithm" default:"false"`
 }

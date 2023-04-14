@@ -181,12 +181,17 @@ func deduplicateDomains(domains string) (result []string) {
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.
-func configureUplinkConfig(clientConfig ClientConfig) uplink.Config {
-	ret := uplink.Config{
-		DialTimeout: clientConfig.DialTimeout,
+func configureUplinkConfig(clientConfig ClientConfig) gw.UplinkConfig {
+	ret := gw.UplinkConfig{
+		Base: uplink.Config{
+			DialTimeout: clientConfig.DialTimeout,
+		},
+		Uploads: gw.UploadConfig{
+			PieceHashAlgorithmBlake3: clientConfig.Upload.PieceHashAlgorithmBlake3,
+		},
 	}
 
-	transport.SetMaximumBufferSize(&ret, clientConfig.MaximumBufferSize.Int())
+	transport.SetMaximumBufferSize(&ret.Base, clientConfig.MaximumBufferSize.Int())
 
 	return ret
 }

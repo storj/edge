@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
+	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
 	"storj.io/gateway-mt/pkg/server/gwlog"
@@ -27,6 +28,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
+	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/transport"
 )
 
@@ -47,9 +49,21 @@ var (
 	}
 )
 
+// UploadConfig holds the configuration for libuplink specific to uploads.
+type UploadConfig struct {
+	PieceHashAlgorithmBlake3 bool
+}
+
+// UplinkConfig holds a configuration for libuplink that controls how to talk to
+// the rest of the network and adjacent settings.
+type UplinkConfig struct {
+	Base    uplink.Config
+	Uploads UploadConfig
+}
+
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
-func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config uplink.Config, insecureLogAll bool) (*MultiTenancyLayer, error) {
+func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig, insecureLogAll bool) (*MultiTenancyLayer, error) {
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
 	return &MultiTenancyLayer{
@@ -70,7 +84,7 @@ type MultiTenancyLayer struct {
 	satelliteConnectionPool *rpcpool.Pool
 	connectionPool          *rpcpool.Pool
 
-	config         uplink.Config
+	config         UplinkConfig
 	insecureLogAll bool
 }
 
@@ -519,20 +533,24 @@ func (l *MultiTenancyLayer) openProject(ctx context.Context, accessKey string) (
 func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	config := l.config
-	config.UserAgent = getUserAgent(ctx)
+	baseConfig, uploadsConfig := l.config.Base, l.config.Uploads
+	baseConfig.UserAgent = getUserAgent(ctx)
 
-	err = transport.SetConnectionPool(ctx, &config, l.connectionPool)
+	err = transport.SetConnectionPool(ctx, &baseConfig, l.connectionPool)
 	if err != nil {
 		return nil, err
 	}
 
-	err = transport.SetSatelliteConnectionPool(ctx, &config, l.satelliteConnectionPool)
+	err = transport.SetSatelliteConnectionPool(ctx, &baseConfig, l.satelliteConnectionPool)
 	if err != nil {
 		return nil, err
 	}
 
-	return config.OpenProject(ctx, access)
+	if uploadsConfig.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
+		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
+	}
+
+	return baseConfig.OpenProject(ctx, access)
 }
 
 func getUserAgent(ctx context.Context) string {

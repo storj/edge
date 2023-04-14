@@ -58,6 +58,9 @@ cert-magic.staging: false
 # maximum buffer size for DRPC streams
 # client.maximum-buffer-size: 304.00 KB
 
+# use Blake3 as the piece hash algorithm
+# client.upload.piece-hash-algorithm-blake3: false
+
 # number of allowed concurrent uploads or downloads per macaroon head
 # concurrent-allowed: "500"
 
