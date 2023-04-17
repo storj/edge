@@ -27,7 +27,6 @@ import (
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/drpc"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
@@ -674,7 +673,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 
 	callRecorder := rpctest.NewCallRecorder()
 	contextWithRecording := rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, dialer rpcpool.Dialer) rpcpool.Dialer {
-		return func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+		return func(ctx context.Context) (rpcpool.RawConn, *tls.ConnectionState, error) {
 			conn, state, err := dialer(ctx)
 			if err != nil {
 				return conn, state, err

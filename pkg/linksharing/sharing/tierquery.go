@@ -61,7 +61,7 @@ func NewTierQueryingService(identConfig identity.Config, expiration time.Duratio
 
 // Do fetches and caches the paid status of an account.
 func (t *TierQueryingService) Do(ctx context.Context, uplinkAccess *uplink.Access, hostname string) (paidTier bool, err error) {
-	v, err := t.cache.Get(access.APIKey(uplinkAccess).Serialize(), func() (interface{}, error) {
+	v, err := t.cache.Get(ctx, access.APIKey(uplinkAccess).Serialize(), func() (interface{}, error) {
 		paidTier, err := t.queryTier(ctx, uplinkAccess, hostname)
 		return tierQueryResponse{paidTier}, err
 	})

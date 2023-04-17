@@ -22,7 +22,6 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
-	"storj.io/drpc"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
@@ -179,7 +178,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 	callRecorder := rpctest.NewCallRecorder()
 	contextWithRecording := rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, dialer rpcpool.Dialer) rpcpool.Dialer {
-		return func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+		return func(ctx context.Context) (rpcpool.RawConn, *tls.ConnectionState, error) {
 			conn, state, err := dialer(ctx)
 			if err != nil {
 				return conn, state, err

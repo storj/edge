@@ -128,7 +128,7 @@ func (a *AuthClient) ResolveWithCache(ctx context.Context, accessKeyID string, c
 		return a.Resolve(ctx, accessKeyID, clientIP)
 	}
 
-	v, err := a.Cache.Get(accessKeyID, func() (interface{}, error) {
+	v, err := a.Cache.Get(ctx, accessKeyID, func() (interface{}, error) {
 		response, err := a.Resolve(ctx, accessKeyID, clientIP)
 
 		switch errdata.GetStatus(err, http.StatusOK) {
