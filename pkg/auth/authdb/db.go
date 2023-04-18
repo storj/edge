@@ -19,7 +19,7 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/pkg/satellitelist"
+	"storj.io/gateway-mt/pkg/nodelist"
 )
 
 var (
@@ -155,7 +155,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
 	satelliteAddr := access.SatelliteAddress
-	nodeURL, err := satellitelist.ParseSatelliteURL(satelliteAddr)
+	nodeURL, err := nodelist.ParseNodeURL(satelliteAddr)
 	if err != nil {
 		return secretKey, ErrAccessGrant.Wrap(err)
 	}

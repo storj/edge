@@ -1,7 +1,7 @@
-// Copyright (C) 2021 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitelist
+package nodelist
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testcontext"
 )
 
-func TestLoadSatelliteAddresses(t *testing.T) {
+func TestLoadNodeAddresses(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -37,7 +37,7 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	testFile := ctx.File("tempSatFile")
+	testFile := ctx.File("tempNodeFile")
 	require.NoError(t, os.WriteFile(testFile, []byte(strings.Join(withIds, "\r\n")), 0644))
 
 	tests := []struct {
@@ -58,14 +58,14 @@ func TestLoadSatelliteAddresses(t *testing.T) {
 	}
 
 	for i, tc := range tests {
-		satList, isDynamic, err := LoadSatelliteURLs(ctx, tc.input)
+		satList, isDynamic, err := Resolve(ctx, tc.input)
 		require.NoError(t, err, i)
 		require.Equal(t, expected, satList, i)
 		require.Equal(t, tc.isDynamic, isDynamic, i)
 	}
 }
 
-func TestLoadSatelliteAddresses_Invalid(t *testing.T) {
+func TestResolve_Invalid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -73,12 +73,12 @@ func TestLoadSatelliteAddresses_Invalid(t *testing.T) {
 		"nonsense",
 		"garbage:input",
 	} {
-		_, _, err := LoadSatelliteURLs(ctx, []string{v})
+		_, _, err := Resolve(ctx, []string{v})
 		require.Error(t, err, i)
 	}
 }
 
-func TestReadSatelliteList(t *testing.T) {
+func TestReadNodeList(t *testing.T) {
 	validNodeURLs, err := storj.ParseNodeURLs("118UWpMCHzs6CvSgWd9BfFVjw5K9pZ" +
 		"bJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,12EayRS2V1kEsWE" +
 		"SU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777,12L9ZFwhzVpuE" +
@@ -91,30 +91,30 @@ func TestReadSatelliteList(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name               string
-		input              []byte
-		satellites         map[storj.NodeURL]struct{}
-		expectedSatellites map[storj.NodeURL]struct{}
+		name          string
+		input         []byte
+		satellites    map[storj.NodeURL]struct{}
+		expectedNodes map[storj.NodeURL]struct{}
 	}{
 		{
-			name:               "empty",
-			satellites:         make(map[storj.NodeURL]struct{}),
-			expectedSatellites: make(map[storj.NodeURL]struct{}),
+			name:          "empty",
+			satellites:    make(map[storj.NodeURL]struct{}),
+			expectedNodes: make(map[storj.NodeURL]struct{}),
 		},
 		{
 			name: "comments only",
 			input: []byte("# 118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvv" +
 				"AW@satellite.stefan-benten.de:7777\n#12L9ZFwhzVpuEKMUNUqkaTL" +
 				"GzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777"),
-			satellites:         make(map[storj.NodeURL]struct{}),
-			expectedSatellites: make(map[storj.NodeURL]struct{}),
+			satellites:    make(map[storj.NodeURL]struct{}),
+			expectedNodes: make(map[storj.NodeURL]struct{}),
 		},
 		{
 			name: "one satellite",
 			input: []byte("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW" +
 				"@satellite.stefan-benten.de:7777"),
 			satellites: make(map[storj.NodeURL]struct{}),
-			expectedSatellites: map[storj.NodeURL]struct{}{
+			expectedNodes: map[storj.NodeURL]struct{}{
 				validNodeURLs[0]: {},
 			},
 		},
@@ -129,7 +129,7 @@ func TestReadSatelliteList(t *testing.T) {
 				"e-north-1.tardigrade.io:7777\n12tRQrMTWUWwzwGh18i7Fqs67kmdhH" +
 				"9t6aToeiwbo5mfS2rUmo@us2.storj.io:7777"),
 			satellites: make(map[storj.NodeURL]struct{}),
-			expectedSatellites: map[storj.NodeURL]struct{}{
+			expectedNodes: map[storj.NodeURL]struct{}{
 				validNodeURLs[1]: {},
 				validNodeURLs[2]: {},
 				validNodeURLs[3]: {},
@@ -147,7 +147,7 @@ func TestReadSatelliteList(t *testing.T) {
 				":7777\n12rfG3sh9NCWiX3ivPjq2HtdLmbqCrvHVEzJubnzFzosMuawymB@e" +
 				"urope-north-1.tardigrade.io:7777"),
 			satellites: make(map[storj.NodeURL]struct{}),
-			expectedSatellites: map[storj.NodeURL]struct{}{
+			expectedNodes: map[storj.NodeURL]struct{}{
 				validNodeURLs[3]: {},
 				validNodeURLs[4]: {},
 				validNodeURLs[5]: {},
@@ -165,7 +165,7 @@ func TestReadSatelliteList(t *testing.T) {
 				"tRQrMTWUWwzwGh18i7Fqs67kmdhH9t6aToeiwbo5mfS2rUmo@us2.storj.i" +
 				"o:7777                                                      "),
 			satellites: make(map[storj.NodeURL]struct{}),
-			expectedSatellites: map[storj.NodeURL]struct{}{
+			expectedNodes: map[storj.NodeURL]struct{}{
 				validNodeURLs[3]: {},
 				validNodeURLs[5]: {},
 				validNodeURLs[6]: {},
@@ -175,13 +175,13 @@ func TestReadSatelliteList(t *testing.T) {
 
 	for i, tc := range tests {
 		satellites := make(map[storj.NodeURL]struct{})
-		err = readSatelliteList(tc.input, satellites)
+		err = readNodeList(tc.input, satellites)
 		require.NoError(t, err, tc.name)
-		require.Equal(t, tc.expectedSatellites, satellites, i, tc.name)
+		require.Equal(t, tc.expectedNodes, satellites, i, tc.name)
 	}
 }
 
-func TestReadSatelliteList_Invalid(t *testing.T) {
+func TestReadNodeList_Invalid(t *testing.T) {
 	for i, input := range []string{
 		"121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:777" +
 			"7\n# 1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake" +
@@ -190,7 +190,7 @@ func TestReadSatelliteList_Invalid(t *testing.T) {
 			"71wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake.tar" +
 			"digrade.io:7777\n",
 	} {
-		require.Error(t, readSatelliteList([]byte(input), make(map[storj.NodeURL]struct{})), i)
+		require.Error(t, readNodeList([]byte(input), make(map[storj.NodeURL]struct{})), i)
 	}
 }
 
@@ -229,7 +229,7 @@ func TestGetHTTPList_Invalid(t *testing.T) {
 	}
 }
 
-func TestParseSatelliteURL(t *testing.T) {
+func TestParseNodeURL(t *testing.T) {
 	for i, tc := range []struct {
 		s               string
 		expectedID      string
@@ -253,19 +253,19 @@ func TestParseSatelliteURL(t *testing.T) {
 	} {
 		expectedID, err := storj.NodeIDFromString(tc.expectedID)
 		require.NoError(t, err, i)
-		url, err := ParseSatelliteURL(tc.s)
+		url, err := ParseNodeURL(tc.s)
 		require.NoError(t, err, i)
 		require.Equal(t, expectedID, url.ID, i)
 		require.Equal(t, tc.expectedAddress, url.Address, i)
 	}
 }
 
-func TestParseSatelliteURL_Invalid(t *testing.T) {
+func TestParseNodeURL_Invalid(t *testing.T) {
 	for i, s := range []string{
 		"10.0.0.1:7777",
 		"\x8c\x8d\x6a\x4f\x05\x02\x23\xa4\x07\x56",
 	} {
-		_, err := ParseSatelliteURL(s)
+		_, err := ParseNodeURL(s)
 		require.Error(t, err, i)
 	}
 }

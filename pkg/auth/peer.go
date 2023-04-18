@@ -28,7 +28,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/middleware"
-	"storj.io/gateway-mt/pkg/satellitelist"
+	"storj.io/gateway-mt/pkg/nodelist"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
 )
@@ -104,7 +104,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	if len(config.AllowedSatellites) == 0 {
 		return nil, errs.New("allowed satellites parameter '--allowed-satellites' is required")
 	}
-	allowedSats, areSatsDynamic, err := satellitelist.LoadSatelliteURLs(ctx, config.AllowedSatellites)
+	allowedSats, areSatsDynamic, err := nodelist.Resolve(ctx, config.AllowedSatellites)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -393,7 +393,7 @@ func (p *Peer) DRPCTLSAddress() string {
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {
 	log.Debug("Reloading allowed satellite list")
-	allowedSatelliteURLs, _, err := satellitelist.LoadSatelliteURLs(ctx, allowedSatellites)
+	allowedSatelliteURLs, _, err := nodelist.Resolve(ctx, allowedSatellites)
 	if err != nil {
 		log.Warn("Error reloading allowed satellite list", zap.Error(err))
 	} else {

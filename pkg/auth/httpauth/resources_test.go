@@ -26,7 +26,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
-	"storj.io/gateway-mt/pkg/satellitelist"
+	"storj.io/gateway-mt/pkg/nodelist"
 )
 
 const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
@@ -176,7 +176,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowed, _, err := satellitelist.LoadSatelliteURLs(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
+		allowed, _, err := nodelist.Resolve(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
 		res = newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
 		mac, err := macaroon.NewAPIKey(nil)

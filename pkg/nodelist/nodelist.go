@@ -1,7 +1,7 @@
-// Copyright (C) 2021 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitelist
+package nodelist
 
 import (
 	"bytes"
@@ -21,16 +21,23 @@ import (
 
 var mon = monkit.Package()
 
-// Error is an error class of satellite list errors.
-var Error = errs.Class("satellite list")
+// Error is an error class of node list errors.
+var Error = errs.Class("node list")
 
-// LoadSatelliteURLs takes a list of configuration paths and returns a list of
-// satellites URLs.
-// ConfigValues may be satellite address URLs with a node id.  Alternatively,
-// ConfigValues may be local or HTTP(S) files which contain one satellite address per line,
-// the same format as https://www.storj.io/dcs-satellites.  HasNodeList indicates
-// if any configValue is a node address list, indicating it should be polled for updates.
-func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[storj.NodeURL]struct{}, hasNodeList bool, err error) {
+// Resolve takes a list of configuration paths and returns a list of deduplicated
+// NodeURLs.
+//
+// configValues can be one or more of the following:
+//   - A URL that responds with node IDs newline separated.
+//     e.g. https://www.storj.io/dcs-satellites
+//   - A local file path containing node IDs newline separated.
+//     e.g. /path/to/my/satellites.txt
+//   - Individual satellite node URLs.
+//     e.g. 12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777
+//
+// HasNodeList indicates if any configValue is a node address list, indicating
+// it should be polled for updates.
+func Resolve(ctx context.Context, configValues []string) (satMap map[storj.NodeURL]struct{}, hasNodeList bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satMap = make(map[storj.NodeURL]struct{})
@@ -42,7 +49,7 @@ func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[s
 			if err != nil {
 				return satMap, hasNodeList, err
 			}
-			err = readSatelliteList(fileContent, satMap)
+			err = readNodeList(fileContent, satMap)
 			if err != nil {
 				return satMap, hasNodeList, Error.Wrap(err)
 			}
@@ -52,11 +59,11 @@ func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[s
 			if err != nil {
 				return satMap, hasNodeList, Error.Wrap(err)
 			}
-			err = readSatelliteList(bodyBytes, satMap)
+			err = readNodeList(bodyBytes, satMap)
 			if err != nil {
 				return satMap, hasNodeList, Error.Wrap(err)
 			}
-		} else if nodeURL, err := ParseSatelliteURL(c); err == nil {
+		} else if nodeURL, err := ParseNodeURL(c); err == nil {
 			satMap[nodeURL] = struct{}{}
 		} else {
 			return satMap, hasNodeList, Error.New("unknown config value '%s'", c)
@@ -65,15 +72,15 @@ func LoadSatelliteURLs(ctx context.Context, configValues []string) (satMap map[s
 	return satMap, hasNodeList, nil
 }
 
-// readSatelliteList populates a map from a newline separated list of Satellite
-// addresses.  Empty lines or lines starting with '#' (comments) are ignored.
-func readSatelliteList(input []byte, satellites map[storj.NodeURL]struct{}) (err error) {
+// readList populates a map from a newline separated list of node addresses.
+// Empty lines or lines starting with '#' (comments) are ignored.
+func readNodeList(input []byte, satellites map[storj.NodeURL]struct{}) (err error) {
 	for _, line := range bytes.Split(input, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		nodeURL, err := ParseSatelliteURL(string(line))
+		nodeURL, err := ParseNodeURL(string(line))
 		if err != nil {
 			return err // already wrapped
 		}
@@ -107,8 +114,8 @@ func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 	return bodyBytes, nil
 }
 
-// ParseSatelliteURL parses a Satellite address and returns the URL.
-func ParseSatelliteURL(s string) (id storj.NodeURL, err error) {
+// ParseNodeURL parses a node address and returns the URL.
+func ParseNodeURL(s string) (id storj.NodeURL, err error) {
 	url, err := storj.ParseNodeURL(s)
 	if err != nil {
 		return storj.NodeURL{}, Error.Wrap(err)
@@ -117,7 +124,7 @@ func ParseSatelliteURL(s string) (id storj.NodeURL, err error) {
 	if url.ID.IsZero() {
 		nodeID, found := rpc.KnownNodeID(url.Address)
 		if !found {
-			return storj.NodeURL{}, Error.New("unknown satellite %q", s)
+			return storj.NodeURL{}, Error.New("unknown node %q", s)
 		}
 		url.ID = nodeID
 	}
