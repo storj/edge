@@ -73,19 +73,19 @@ func TestIntegration(t *testing.T) {
 	}{
 		{
 			name: "Public domain insecure",
-			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
 			name: "Custom domain insecure",
-			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
 		},
 		{
 			name: "Public domain TLS",
-			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string {
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
 			},
 		},
@@ -259,11 +259,11 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 
 	certTempPath := t.TempDir()
 
-	identityCertPath := certTempPath + "/identity.crt"
-	writeCertificate(t, identityCertPath, config.ident.Chain()...)
-
-	identityKeyPath := certTempPath + "/identity.key"
-	writePrivateKey(t, identityKeyPath, config.ident.Key)
+	identityConfig := identity.Config{
+		CertPath: certTempPath + "/identity.crt",
+		KeyPath:  certTempPath + "/identity.key",
+	}
+	require.NoError(t, identityConfig.Save(config.ident))
 
 	issuer := createIssuer(t)
 	pebbleCert := issuer.issue(t, []string{pebbleDomain})
@@ -308,12 +308,9 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 					CertificatePath: caCertPath,
 					Resolver:        dnsSrv.LocalAddr().String(),
 				},
-				CertMagicKeyFile: config.gcsKeyPath,
-				CertMagicBucket:  config.gcsBucketName,
-				TierServiceIdentity: identity.Config{
-					CertPath: identityCertPath,
-					KeyPath:  identityKeyPath,
-				},
+				CertMagicKeyFile:    config.gcsKeyPath,
+				CertMagicBucket:     config.gcsBucketName,
+				TierServiceIdentity: identityConfig,
 				TierCacheExpiration: 10 * time.Second,
 				TierCacheCapacity:   10000,
 				CertMagicPublicURLs: publicURLs,
