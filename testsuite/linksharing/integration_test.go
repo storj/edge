@@ -65,11 +65,13 @@ func TestIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		tlsRecord bool
-		access    func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
-		url       func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		wantErr   bool
+		name        string
+		tlsRecord   bool
+		cnameRecord string
+		dialContext func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
+		access      func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
+		url         func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		wantErr     bool
 	}{
 		{
 			name: "Public domain insecure",
@@ -103,6 +105,23 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain TLS not paid tier",
 			tlsRecord: true,
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+			},
+			wantErr: true,
+		},
+		{
+			name:        "Custom domain invalid CNAME",
+			tlsRecord:   true,
+			cnameRecord: "somethingelse.com.",
+			dialContext: func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return net.Dial(network, peer.Server.AddrTLS())
+				}
+			},
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
 			},
@@ -164,6 +183,11 @@ func TestIntegration(t *testing.T) {
 				customDomain := randomNameLowercase(40) + ".example.com"
 				accessKey := randomAccessKey(t)
 
+				cnameRecord := publicDomain + "."
+				if tc.cnameRecord != "" {
+					cnameRecord = tc.cnameRecord
+				}
+
 				dnsRecords := map[string]mockdns.Zone{
 					"localhost.": {
 						A: []string{"127.0.0.1"},
@@ -172,7 +196,7 @@ func TestIntegration(t *testing.T) {
 						A: []string{"127.0.0.1"},
 					},
 					customDomain + ".": {
-						CNAME: publicDomain + ".",
+						CNAME: cnameRecord,
 					},
 					"txt-" + customDomain + ".": {
 						TXT: []string{
@@ -200,10 +224,13 @@ func TestIntegration(t *testing.T) {
 
 					url := tc.url(t, peer, accessKey, root, publicDomain, customDomain)
 
+					dialContext := (&mockdns.Resolver{Zones: dnsRecords}).DialContext
+					if tc.dialContext != nil {
+						dialContext = tc.dialContext(peer)
+					}
+
 					client := http.Client{Transport: &http.Transport{
-						DialContext: (&mockdns.Resolver{
-							Zones: dnsRecords,
-						}).DialContext,
+						DialContext: dialContext,
 						TLSClientConfig: &tls.Config{
 							RootCAs: caCertPool,
 						},
