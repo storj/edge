@@ -29,7 +29,7 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
 	storj.io/common v0.0.0-20230417173225-d1152ea3099a
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v0.0.33-0.20230417171205-2ca712ef4ab5
+	storj.io/drpc v0.0.33
 	storj.io/gateway v1.8.4-0.20230411184137-387420cf640f
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3
 	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
