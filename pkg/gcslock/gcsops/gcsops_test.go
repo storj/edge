@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,5 +144,197 @@ func TestCombineLists(t *testing.T) {
 		},
 	} {
 		assert.Equal(t, tt.want, combineLists(tt.prefixes, tt.items), i)
+	}
+}
+
+func TestBadRequest(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	jsonKey, bucket := fincCredentials(t)
+
+	c := newClient(ctx, t, jsonKey)
+
+	invalidKey := string(testrand.RandAlphaNumeric(1025))
+
+	require.ErrorIs(t, c.TestPermissions(ctx, invalidKey), APIError{
+		Status:  "400 Bad Request",
+		Message: "The specified bucket is not valid."})
+
+	require.ErrorIs(t, c.Delete(ctx, http.Header{}, bucket, invalidKey), APIError{
+		Status:  "400 Bad Request",
+		Message: "The specified object name is not valid."})
+
+	_, err := c.Download(ctx, bucket, invalidKey)
+	require.ErrorIs(t, err, APIError{
+		Status:  "400 Bad Request",
+		Message: "The specified object name is not valid."})
+
+	_, err = c.Stat(ctx, bucket, invalidKey)
+	require.ErrorIs(t, err, APIError{Status: "400 Bad Request"})
+
+	require.ErrorIs(t, c.Upload(ctx, http.Header{}, bucket, invalidKey, nil), APIError{
+		Status:  "400 Bad Request",
+		Message: "The specified object name is not valid."})
+}
+
+func TestResponseError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		body     string
+		header   http.Header
+		status   int
+		expected error
+	}{
+		{
+			name:     "GET missing body no content type",
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "JSON invalid response",
+			body: "{asdasddf:235dfdf\\\\\\t\bnns\asdc/cv}",
+			header: http.Header{
+				"Content-Type": {"application/json; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "JSON missing fields",
+			body: `{"error":{}}`,
+			header: http.Header{
+				"Content-Type": {"application/json; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "JSON missing body",
+			header: http.Header{
+				"Content-Type": {"application/json; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "JSON valid response",
+			body: `{"error":{"message":"There was a problem"}}`,
+			header: http.Header{
+				"Content-Type": {"application/json; charset=UTF-8"},
+			},
+			status: http.StatusBadGateway,
+			expected: APIError{
+				Status:  "502 Bad Gateway",
+				Message: "There was a problem",
+			},
+		},
+		{
+			name: "XML invalid response",
+			body: `<?xml version="1.0" encoding="UTF-8"?>asdasddf:235dfdf\\\\\\t\bnns\asdc/cv`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "XML missing fields",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error></Error>`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "XML missing body",
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "XML valid response",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error><Message>There was a problem</Message></Error>`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status: http.StatusBadGateway,
+			expected: APIError{
+				Status:  "502 Bad Gateway",
+				Message: "There was a problem",
+			},
+		},
+		{
+			name: "generic error unknown content type",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error><Message>There was a problem</Message></Error>`,
+			header: http.Header{
+				"Content-Type": {"text/plain"},
+			},
+			status:   http.StatusBadGateway,
+			expected: APIError{Status: "502 Bad Gateway"},
+		},
+		{
+			name: "generic error 2xx status code",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error><Message>There was a problem</Message></Error>`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status:   http.StatusOK,
+			expected: APIError{Status: "200 OK"},
+		},
+		{
+			name: "generic error 3xx status code",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error><Message>There was a problem</Message></Error>`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status:   http.StatusSeeOther,
+			expected: APIError{Status: "303 See Other"},
+		},
+		{
+			name: "parsed error 4xx status code",
+			body: `<?xml version="1.0" encoding="UTF-8"?><Error><Message>There was a problem</Message></Error>`,
+			header: http.Header{
+				"Content-Type": {"application/xml; charset=UTF-8"},
+			},
+			status: http.StatusBadRequest,
+			expected: APIError{
+				Status:  "400 Bad Request",
+				Message: "There was a problem",
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				for k, v := range tc.header {
+					w.Header().Set(k, strings.Join(v, ", "))
+				}
+				w.WriteHeader(tc.status)
+				_, err := w.Write([]byte(tc.body))
+				require.NoError(t, err)
+			}))
+			defer ts.Close()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL, nil)
+			require.NoError(t, err)
+
+			resp, err := http.DefaultClient.Do(req) //nolint:bodyclose
+			require.NoError(t, err)
+			defer ctx.Check(resp.Body.Close)
+
+			require.ErrorIs(t, responseError(resp), tc.expected)
+		})
 	}
 }

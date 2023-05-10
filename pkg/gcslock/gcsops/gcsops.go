@@ -8,8 +8,10 @@ package gcsops
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -86,7 +88,7 @@ func (c *Client) TestPermissions(ctx context.Context, bucket string) (err error)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return Error.New("unexpected status: %s", resp.Status)
+		return Error.Wrap(responseError(resp))
 	}
 
 	return nil
@@ -118,7 +120,7 @@ func (c *Client) Delete(ctx context.Context, headers http.Header, bucket, name s
 	case http.StatusPreconditionFailed:
 		return ErrPreconditionFailed
 	default:
-		return Error.New("unexpected status: %s", resp.Status)
+		return Error.Wrap(responseError(resp))
 	}
 }
 
@@ -146,8 +148,9 @@ func (c *Client) Download(ctx context.Context, bucket, name string) (_ io.ReadCl
 		_ = resp.Body.Close()
 		return nil, ErrNotFound
 	default:
+		err = responseError(resp)
 		_ = resp.Body.Close()
-		return nil, Error.New("unexpected status: %s", resp.Status)
+		return nil, Error.Wrap(err)
 	}
 
 }
@@ -185,8 +188,9 @@ func (c *Client) List(ctx context.Context, bucket, prefix string, recursive bool
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			err = responseError(resp)
 			_ = resp.Body.Close()
-			return nil, Error.New("unexpected status: %s", resp.Status)
+			return nil, Error.Wrap(err)
 		}
 
 		var rawList listing
@@ -234,7 +238,7 @@ func (c *Client) Stat(ctx context.Context, bucket, name string) (_ http.Header, 
 	case http.StatusNotFound:
 		return nil, ErrNotFound
 	default:
-		return nil, Error.New("unexpected status: %s", resp.Status)
+		return nil, Error.Wrap(responseError(resp))
 	}
 }
 
@@ -262,7 +266,7 @@ func (c *Client) Upload(ctx context.Context, headers http.Header, bucket, name s
 	case http.StatusPreconditionFailed:
 		return ErrPreconditionFailed
 	default:
-		return Error.New("unexpected status: %s", resp.Status)
+		return Error.Wrap(responseError(resp))
 	}
 }
 
@@ -305,4 +309,68 @@ func combineLists(prefixes []string, items []item) []string {
 	}
 
 	return result
+}
+
+// APIError is an API response error from Google Cloud Storage.
+//
+// See the following docs for more details:
+//   - https://cloud.google.com/storage/docs/json_api/v1/status-codes
+//   - https://cloud.google.com/storage/docs/xml-api/reference-status
+type APIError struct {
+	// Status is the HTTP status (e.g. 502 Gateway Timeout) from the response.
+	Status string
+
+	// Message contains details of the error.
+	Message string `json:"message" xml:"Message"`
+}
+
+// Error implements the error interface.
+func (e APIError) Error() string {
+	msg := fmt.Sprintf("unexpected status: %s", e.Status)
+	if e.Message != "" {
+		msg += fmt.Sprintf(": %q", e.Message)
+	}
+	return msg
+}
+
+// responseError parses the error document body and returns an error.
+// For a list of the responses, see the following docs:
+//   - https://cloud.google.com/storage/docs/json_api/v1/status-codes
+//   - https://cloud.google.com/storage/docs/xml-api/reference-status
+//
+// If we encounter an unknown status code or Content-Type header value
+// then an error with just the status is returned.
+//
+// Some responses don't have a body, even if they respond with a content
+// type header like "application/xml". This speculatively parses and ignores
+// any errors. If parsing errors were encountered then an error with just the
+// status is returned.
+func responseError(resp *http.Response) error {
+	apiErr := APIError{
+		Status: resp.Status,
+	}
+
+	contentType := func(value string) bool {
+		for _, v := range resp.Header.Values("Content-Type") {
+			mediatype, _, _ := mime.ParseMediaType(v)
+			if strings.EqualFold(mediatype, value) {
+				return true
+			}
+		}
+		return false
+	}
+
+	switch {
+	case resp.StatusCode >= 400 && contentType("application/json"):
+		apiResp := struct {
+			Error *APIError `json:"error"`
+		}{
+			Error: &apiErr,
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&apiResp)
+	case resp.StatusCode >= 400 && contentType("application/xml"):
+		_ = xml.NewDecoder(resp.Body).Decode(&apiErr)
+	}
+
+	return apiErr
 }
