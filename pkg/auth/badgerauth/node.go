@@ -153,9 +153,7 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 		}
 	}
 
-	//lint:ignore SA1019 calling SetSendDRPCMuxHeader on HybridConnector doesn't work yet
-	//nolint:staticcheck
-	c := rpc.NewDefaultTCPConnector(nil)
+	c := rpc.NewHybridConnector()
 	c.SetSendDRPCMuxHeader(false)
 
 	node.pooledDialer = rpc.Dialer{

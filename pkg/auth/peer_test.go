@@ -132,9 +132,7 @@ func TestPeer_PlainDRPC(t *testing.T) {
 	})
 
 	dialer := rpc.NewDefaultDialer(nil)
-	//lint:ignore SA1019 deprecated okay,
-	//nolint:staticcheck // deprecated okay.
-	connector := rpc.NewDefaultTCPConnector(nil)
+	connector := rpc.NewHybridConnector()
 	connector.SetSendDRPCMuxHeader(false)
 	dialer.Connector = connector
 
@@ -207,16 +205,13 @@ func TestPeer_TLSDRPC(t *testing.T) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(certificatePEM)
 
-	//lint:ignore SA1019 deprecated okay,
-	//nolint:staticcheck // deprecated okay.
-	connector := rpc.NewDefaultTCPConnector(nil)
-	connector.SetSendDRPCMuxHeader(false)
-
 	dialer := rpc.NewDefaultDialer(nil)
-	dialer.Connector = connector
 	dialer.HostnameTLSConfig = &tls.Config{
 		RootCAs: certPool,
 	}
+	connector := rpc.NewHybridConnector()
+	connector.SetSendDRPCMuxHeader(false)
+	dialer.Connector = connector
 
 	connection, err := dialer.DialAddressHostnameVerification(ctx, address)
 	require.NoError(t, err)

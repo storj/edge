@@ -53,10 +53,8 @@ func Access(ctx context.Context, authAddr, access string, public bool) (Credenti
 
 func registerDRPC(ctx context.Context, addr string, secure bool, access string, public bool) (Credentials, error) {
 	d := rpc.NewDefaultDialer(nil)
-	//lint:ignore SA1019 deprecated okay,
-	//nolint:staticcheck // deprecated okay.
-	c := rpc.NewDefaultTCPConnector(nil)
-	c.SetSendDRPCMuxHeader(false) // TODO(artur): this is frustrating. There has to be a way to avoid this.
+	c := rpc.NewHybridConnector()
+	c.SetSendDRPCMuxHeader(false)
 	d.Connector = c
 
 	var (
