@@ -27,13 +27,13 @@ require (
 	golang.org/x/sync v0.1.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20230417173225-d1152ea3099a
+	storj.io/common v0.0.0-20230509194752-f0e992003ae2
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
-	storj.io/gateway v1.8.4-0.20230509204329-2ca3950901d3
+	storj.io/gateway v1.8.4-0.20230511081948-366e491d2f47
 	storj.io/minio v0.0.0-20230509071714-0cbc90f649b1
-	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
-	storj.io/uplink v1.10.1-0.20230413192940-d37f89e8219e
+	storj.io/private v0.0.0-20230504144224-245360dc8212
+	storj.io/uplink v1.10.1-0.20230505231818-081bed2b8f07
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 

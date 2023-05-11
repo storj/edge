@@ -14,11 +14,11 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230417173225-d1152ea3099a
+	storj.io/common v0.0.0-20230509194752-f0e992003ae2
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
-	storj.io/storj v0.12.1-0.20230417195930-df9cc4d10fc4
-	storj.io/uplink v1.10.1-0.20230413192940-d37f89e8219e
+	storj.io/private v0.0.0-20230504144224-245360dc8212
+	storj.io/storj v1.79.0-rc
+	storj.io/uplink v1.10.1-0.20230505231818-081bed2b8f07
 )
 
 require (
@@ -166,7 +166,7 @@ require (
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.1 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230419135619-fb89f20752cb // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -203,7 +203,7 @@ require (
 	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
 	golang.org/x/tools v0.2.0 // indirect
@@ -224,7 +224,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.33 // indirect
-	storj.io/gateway v1.8.4-0.20230509204329-2ca3950901d3 // indirect
+	storj.io/gateway v1.8.4-0.20230511081948-366e491d2f47 // indirect
 	storj.io/minio v0.0.0-20230509071714-0cbc90f649b1 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect

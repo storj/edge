@@ -136,6 +136,9 @@ cert-magic.staging: false
 # The default number of iterations for each check
 # quickchecks: 100
 
+# how many objects to delete in parallel with DeleteObjects
+# s3compatibility.delete-objects-concurrency: 100
+
 # return 501 (Not Implemented) for CopyObject calls
 # s3compatibility.disable-copy-object: false
 
