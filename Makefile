@@ -162,7 +162,7 @@ SKIP_TESTSUITE ?= false
 
 .PHONY: test
 test: test-testsuite ## Test
-	go test -json=${JSON} -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
+	go test -json=${JSON} -cover -coverprofile=.build/coverprofile -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
 
 .PHONY: test-testsuite
 test-testsuite: ## Test testsuite
@@ -174,7 +174,7 @@ endif
 .PHONY: test-testsuite-do
 test-testsuite-do:
 	go vet ./...
-	go test -json=${JSON} -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
+	go test -json=${JSON} -cover -coverprofile=.build/coverprofile -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
 
 ##@ Local development/Public Jenkins/Verification
 
