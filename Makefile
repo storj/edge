@@ -332,8 +332,10 @@ integration-env-clean:
 	-docker rmi postgres:latest
 	-docker rmi storjlabs/gateway-mint:latest
 	-docker rmi storjlabs/splunk-s3-tests:latest
+	-docker compose down
 	-rm -r volumes
-	-rm -rf gateway-st
+	-rm -rf gateway-st storj
+	-rm -rf edge.Dockerfile storj.Dockerfile docker-compose.yaml
 
 .PHONY: integration-env-purge
 integration-env-purge: integration-env-stop integration-env-clean integration-network-remove ## Purge the integration environment
@@ -350,7 +352,7 @@ integration-all-tests: integration-gateway-st-tests integration-mint-tests integ
 # note: umask 0000 is needed for rclone tests so files can be cleaned up.
 .PHONY: integration-gateway-st-tests
 integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to be started first)
-	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	 $$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
 	docker run \
 	--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined \
 	--network integration-network-${BUILD_NUMBER} \
@@ -364,7 +366,7 @@ integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to
 
 .PHONY: integration-mint-tests
 integration-mint-tests: ## Run mint test suite (environment needs to be started first)
-	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
 	docker run \
 	--network integration-network-${BUILD_NUMBER} \
 	-e SERVER_ENDPOINT=gateway:20010 -e "ACCESS_KEY=$$AWS_ACCESS_KEY_ID" -e "SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" -e ENABLE_HTTPS=0 \
@@ -373,7 +375,7 @@ integration-mint-tests: ## Run mint test suite (environment needs to be started 
 
 .PHONY: integration-splunk-tests
 integration-splunk-tests: ## Run splunk test suite (environment needs to be started first)
-	export $$(docker exec integration-authservice-${BUILD_NUMBER} ./authservice register --address drpc://authservice:20002 --format-env $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS)) && \
+	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
 	docker run \
 	--network integration-network-${BUILD_NUMBER} \
 	-e ENDPOINT=gateway:20010 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" -e SECURE=0 \
@@ -394,6 +396,11 @@ integration-image-build:
 		./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
+	git clone --filter blob:none --no-checkout https://github.com/storj/storj
+	storj-up init minimal,db && \
+		storj-up build remote github minimal -c $$(git -C storj rev-list --exclude='*rc*' --tags --max-count=1) -s && \
+		docker compose -p storj-up-integration build
+
 .PHONY: integration-network-create
 integration-network-create:
 	docker network create integration-network-${BUILD_NUMBER}
@@ -404,27 +411,11 @@ integration-network-remove:
 
 .PHONY: integration-services-start
 integration-services-start:
-	docker run \
-	--network integration-network-${BUILD_NUMBER} --network-alias postgres \
-	-e POSTGRES_DB=sim -e POSTGRES_HOST_AUTH_METHOD=trust \
-	--name integration-postgres-${BUILD_NUMBER} \
-	--rm -d postgres:latest
-
-	docker run \
-	--network integration-network-${BUILD_NUMBER} --network-alias redis \
-	--name integration-redis-${BUILD_NUMBER} \
-	--rm -d redis:latest
-
-	docker run \
-	--network integration-network-${BUILD_NUMBER} --network-alias sim \
-	-e STORJ_SIM_POSTGRES='postgres://postgres@postgres/sim?sslmode=disable' -e STORJ_SIM_REDIS=redis:6379 \
-	-v $$PWD/scripts:/scripts:ro \
-	--name integration-sim-${BUILD_NUMBER} \
-	--rm -d storjlabs/golang:${GO_VERSION} /scripts/start_storj-sim.sh
-
-	until docker exec integration-sim-${BUILD_NUMBER} storj-sim network env SATELLITE_0_URL > /dev/null; do \
-		echo "*** storj-sim is not yet available; waiting for 3s..." && sleep 3; \
-	done
+	storj-up network set minimal,db integration-network-${BUILD_NUMBER} && \
+        storj-up network unset minimal,db default && \
+        storj-up env set storagenode STORJUP_AUTHSERVICE=http://authservice:20000 && \
+        docker compose up -d && \
+        storj-up health
 
 	docker run \
 	--network integration-network-${BUILD_NUMBER} --network-alias authservice \
@@ -432,7 +423,7 @@ integration-services-start:
 	--rm -d storjlabs/authservice:${BUILD_NUMBER} run \
 		--listen-addr 0.0.0.0:20000 \
 		--drpc-listen-addr 0.0.0.0:20002 \
-		--allowed-satellites $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env SATELLITE_0_URL) \
+		--allowed-satellites $$(docker compose exec -T satellite-api storj-up util node-id /var/lib/storj/.local/share/storj/identity/satellite-api/identity.cert)@satellite-api:7777 \
 		--auth-token super-secret \
 		--endpoint http://gateway:20010 \
 		--kv-backend badger://
@@ -462,7 +453,3 @@ integration-services-start:
 		--insecure-disable-tls=false \
 		--s3compatibility.fully-compatible-listing \
 		--s3compatibility.disable-copy-object=false
-
-	until [ ! -z $$(docker exec integration-sim-${BUILD_NUMBER} storj-sim network env GATEWAY_0_ACCESS) ]; do \
-		echo "*** main access grant is not yet available; waiting for 3s..." && sleep 3; \
-	done

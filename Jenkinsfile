@@ -137,7 +137,7 @@ pipeline {
         stage('Integration') {
             agent {
                 node {
-                    label 'main'
+                    label 'ondemand'
                 }
             }
 
@@ -157,6 +157,8 @@ pipeline {
                         sh 'bash -O extglob -c "rm -rf !(.git)"'
 
                         checkout scm
+                        // install storj-up dependency
+                        sh 'go install storj.io/storj-up@latest'
                     }
                 }
 
