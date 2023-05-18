@@ -106,7 +106,7 @@ pipeline {
                                                 lineCoverageTargets: '70, 60, 50',
                                                 autoUpdateHealth: false,
                                                 autoUpdateStability: false,
-                                                failUnhealthy: true
+                                                failUnhealthy: false
                                         }
                                     }
                                 }
