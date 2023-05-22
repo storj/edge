@@ -134,6 +134,19 @@ pipeline {
                                     sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/testsuite.json'
                                     junit '.build/testsuite.xml'
+
+                                    script {
+                                        if(fileExists(".build/coverprofile")){
+                                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                                lineCoverageTargets: '70, 60, 50',
+                                                autoUpdateHealth: false,
+                                                autoUpdateStability: false,
+                                                failUnhealthy: false
+                                        }
+                                    }
                                 }
                             }
                         }
