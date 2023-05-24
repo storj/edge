@@ -6,6 +6,7 @@ package httpauth
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -154,7 +155,8 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	if err := json.NewDecoder(reader).Decode(&request); err != nil {
 		status := http.StatusUnprocessableEntity
 
-		if checkRequestBodyTooLargeError(err) {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
 			status = http.StatusRequestEntityTooLarge
 		}
 
@@ -191,12 +193,6 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
-}
-
-func checkRequestBodyTooLargeError(err error) bool {
-	// TODO(artur): proper check after https://github.com/golang/go/issues/30715
-	// is finally closed.
-	return err.Error() == "http: request body too large"
 }
 
 func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {
