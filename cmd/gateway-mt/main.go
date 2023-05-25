@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,6 +88,16 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 	defer cancel()
 
 	log := zap.L()
+
+	shutdownTracing := process.InitTracingWithHostname(ctx, log, func(agentAddr string) trace.SpanExporter {
+		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(agentAddr)))
+		if err != nil {
+			zap.L().Error("unable to create jaeger tracing exporter", zap.Error(err))
+			return nil
+		}
+		return exp
+	}, "")
+	defer shutdownTracing()
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		return errs.New("Failed to initialize telemetry batcher: %w", err)

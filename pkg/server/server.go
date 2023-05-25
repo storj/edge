@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/spacemonkeygo/monkit/v3"
 	"net/http"
 	"os"
 	"strings"
@@ -14,9 +15,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/spacemonkeygo/monkit/v3"
-	mhttp "github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcpool"
@@ -112,9 +112,10 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
 
-	r.Use(func(handler http.Handler) http.Handler {
-		return mhttp.TraceHandler(handler, mon)
-	})
+	r.Use(otelmux.Middleware("service-name"))
+	//r.Use(func(handler http.Handler) http.Handler {
+	//	return mhttp.TraceHandler(handler, mon)
+	//})
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(middleware.CollectEvent)
