@@ -127,6 +127,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	// so we can use encrypted credentials while logging requests/responses.
 	r.Use(middleware.NewLogRequests(log, config.InsecureLogAll))
 	r.Use(middleware.NewLogResponses(log, config.InsecureLogAll))
+	r.Use(middleware.NewSubs())
 
 	var handler http.Handler = minio.CriticalErrorHandler{Handler: minio.CorsHandler(corsAllowedOrigins)(r)}
 

@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/hex"
 	"net/http"
 	"net/url"
@@ -90,6 +91,21 @@ func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Han
 func NewLogRequests(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc {
 	return func(h http.Handler) http.Handler {
 		return LogRequests(log, h, insecureLogPaths)
+	}
+}
+
+func NewSubs() mux.MiddlewareFunc {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			vars := mux.Vars(r)
+			bucket := vars["bucket"]
+			vars["bucket"] = "username"
+			vars["object"] = bucket
+			ctx = context.WithValue(ctx, 0, vars)
+			req, _ := http.NewRequestWithContext(ctx, r.Method, r.URL.String(), r.Body)
+			h.ServeHTTP(w, req)
+		})
 	}
 }
 
