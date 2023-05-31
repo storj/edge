@@ -14,19 +14,19 @@ import (
 // RequestIDKey is the key that holds the unique request ID in a request context.
 type requestIDKey struct{}
 
-// XStorjRequestID is the header key for the request ID.
-const XStorjRequestID = "X-Storj-Request-Id"
+// XRequestID is the header key for the request ID.
+const XRequestID = "X-Request-Id"
 
-// AddRequestID uses XStorjRequestID to set a unique request ID in response
+// AddRequestID uses XRequestID to set a unique request ID in response
 // headers for each request if it doesn't already exist.
 func AddRequestID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Header.Get(XStorjRequestID)
+		requestID := r.Header.Get(XRequestID)
 		if requestID == "" {
 			requestID = fmt.Sprintf("%x", monkit.NewId())
 		}
 
-		w.Header().Set(XStorjRequestID, requestID)
+		w.Header().Set(XRequestID, requestID)
 		ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -51,5 +51,5 @@ func AddRequestIDToHeaders(req *http.Request) {
 	}
 
 	// Ideally, the context should always have request ID, since it is being set in the middleware.
-	req.Header.Set(XStorjRequestID, GetRequestID(req.Context()))
+	req.Header.Set(XRequestID, GetRequestID(req.Context()))
 }

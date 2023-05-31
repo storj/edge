@@ -32,7 +32,7 @@ func TestAddRequestID(t *testing.T) {
 	newHandler := AddRequestID(handler)
 	newHandler.ServeHTTP(rw, request)
 
-	require.NotEqual(t, "", rw.Header().Get(XStorjRequestID), "RequestId is not set in response header")
+	require.NotEqual(t, "", rw.Header().Get(XRequestID), "RequestId is not set in response header")
 }
 
 func TestAddRequestIDHeader(t *testing.T) {
@@ -47,5 +47,5 @@ func TestAddRequestIDHeader(t *testing.T) {
 
 	AddRequestIDToHeaders(request)
 
-	require.Equal(t, requestID, request.Header.Get(XStorjRequestID), "RequestID value is not set")
+	require.Equal(t, requestID, request.Header.Get(XRequestID), "RequestID value is not set")
 }
