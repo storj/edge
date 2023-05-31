@@ -63,12 +63,13 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 	ek.Event("present",
 		eventkit.String("host", r.Host),
-		eventkit.String("uri", r.RequestURI),
 		eventkit.String("method", r.Method),
 		eventkit.Bool("hosting", pr.hosting),
 		eventkit.Bool("hosting-tls", pr.hostingTLS),
+		eventkit.String("bucket", pr.bucket),
 		eventkit.String("remote-ip", trustedip.GetClientIP(handler.trustedClientIPsList, r)),
-		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())))
+		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())),
+		eventkit.String("satellite-address", pr.access.SatelliteAddress()))
 
 	q := r.URL.Query()
 	download := queryFlagLookup(q, "download", pr.downloadDefault)
