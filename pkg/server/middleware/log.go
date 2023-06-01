@@ -100,7 +100,7 @@ func NewSubs() mux.MiddlewareFunc {
 			ctx := r.Context()
 			vars := mux.Vars(r)
 			bucket := vars["bucket"]
-			vars["bucket"] = "username"
+			vars["bucket"] = "very-unique-username-bucket-1"
 			vars["object"] = bucket
 			ctx = context.WithValue(ctx, 0, vars)
 			req, _ := http.NewRequestWithContext(ctx, r.Method, r.URL.String(), r.Body)
