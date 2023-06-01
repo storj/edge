@@ -1,7 +1,7 @@
 name: publish
 on: [push]
 jobs:
-publish-hello-docker-image:
+publish-gateway-mt-image:
 runs-on: ubuntu-latest
 steps:
   - uses: actions/checkout@v2
@@ -12,8 +12,8 @@ with:
 registry: ghcr.io
 username: ${{ github.actor }}
 password: ${{ secrets.GITHUB_TOKEN }}
-  - name: Build the hello-docker Docker image
+  - name: Build the gateway-mt Docker image
 run: |
-  docker build cmd/gateway-mt --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
+  docker build cmd/gateway-mt/Dockerfile --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
   docker run ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
   docker push ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
