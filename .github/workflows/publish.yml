@@ -8,7 +8,6 @@ steps:
   - name: Login to GitHub Container Registry
 uses: docker/login-action@v1
 with:
-  arch: aarch64
 registry: ghcr.io
 username: ${{ github.actor }}
 password: ${{ secrets.GITHUB_TOKEN }}
