@@ -15,6 +15,8 @@ COPY cmd/gateway-mt/etc/nsswitch.conf /etc/nsswitch.conf
 COPY release/${TAG}/gateway-mt_linux_${GOARCH:-amd64} /app/gateway-mt
 COPY cmd/gateway-mt/entrypoint /entrypoint
 
+RUN chmod +x /app/gateway-mt
+
 ENTRYPOINT ["/entrypoint"]
 
 ENV STORJ_CONFIG_DIR=/root/.local/share/storj/gateway-mt
