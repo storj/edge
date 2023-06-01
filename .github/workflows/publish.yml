@@ -2,6 +2,7 @@ name: publish
 on: push
 jobs:
   publish-gateway-mt-image:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
