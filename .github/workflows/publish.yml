@@ -4,12 +4,14 @@ jobs:
   publish-gateway-mt-image:
     steps:
       - uses: actions/checkout@v2
+
       - name: Login to GitHub Container Registry
-    uses: docker/login-action@v1
-    registry: ghcr.io
-    username: ${{ github.actor }}
-    password: ${{ secrets.GITHUB_TOKEN }}
-    run: |
-      docker build cmd/gateway-mt/Dockerfile --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
-      docker run ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
-      docker push ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111  
+        uses: docker/login-action@v1
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          docker build cmd/gateway-mt/Dockerfile --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
+          docker run ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
+          docker push ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111  
