@@ -11,8 +11,9 @@ with:
 registry: ghcr.io
 username: ${{ github.actor }}
 password: ${{ secrets.GITHUB_TOKEN }}
-  - name: Build the gateway-mt Docker image
 run: |
   docker build cmd/gateway-mt/Dockerfile --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
   docker run ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
   docker push ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
+  
+  
