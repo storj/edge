@@ -14,6 +14,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: build image
         run: |
-          docker build cmd/gateway-mt/Dockerfile --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
+          docker build ./cmd/gateway-mt --tag ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
           docker run ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111
           docker push ghcr.io/deweb-services/gateway-mt/feat/add-bucket-substitution/gateway-mt:111  
