@@ -144,6 +144,9 @@ func TestAccessDetailsLogged(t *testing.T) {
 
 	filteredLogs = observedLogs.FilterField(zap.String("macaroon-head", "4dff5d8e6b3506be68cf76b480ab1261ac391fe5a2f7db66d1293d68109f3665"))
 	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.String("satellite-address", "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"))
+	require.Len(t, filteredLogs.All(), 1)
 }
 
 func TestGatewayResponsePathsIncluded(t *testing.T) {
