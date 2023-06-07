@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
 	github.com/grantae/certinfo v0.0.0-20170412194111-59d56a35515b
-	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
+	github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d
 	github.com/libdns/googleclouddns v1.1.0
 	github.com/mholt/acmez v1.0.4
 	github.com/miekg/dns v1.1.50
