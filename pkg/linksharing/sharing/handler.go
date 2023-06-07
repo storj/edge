@@ -91,6 +91,9 @@ type Config struct {
 	// uplink Config settings
 	Uplink *uplink.Config
 
+	// SatelliteConnectionPool is configuration for satellite RPC connection pool options.
+	SatelliteConnectionPool ConnectionPoolConfig
+
 	// ConnectionPool is configuration for RPC connection pool options.
 	ConnectionPool ConnectionPoolConfig
 
@@ -179,6 +182,19 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		}))
 	if err != nil {
 		return nil, err
+	}
+
+	if config.SatelliteConnectionPool != (ConnectionPoolConfig{}) {
+		err = transport.SetSatelliteConnectionPool(context.TODO(), uplinkConfig,
+			rpcpool.New(rpcpool.Options{
+				Name:           "satellite",
+				Capacity:       config.SatelliteConnectionPool.Capacity,
+				KeyCapacity:    config.SatelliteConnectionPool.KeyCapacity,
+				IdleExpiration: config.SatelliteConnectionPool.IdleExpiration,
+			}))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var trustedClientIPs trustedip.List
