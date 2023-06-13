@@ -273,6 +273,7 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 
 	// S3 browser with signature v4 adds '//' for ListBuckets request, so rather
 	// than failing with UnknownAPIRequest we simply handle it for now.
+
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator + cmd.SlashSeparator).HandlerFunc(
 		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(api.ListBucketsHandler))))
 

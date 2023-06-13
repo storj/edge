@@ -9,6 +9,9 @@ ENV GOARCH ${GOARCH}
 EXPOSE 20010
 WORKDIR /app
 
+RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache gcompat
+
 VOLUME /root/.local/share/storj/gateway-mt
 
 COPY cmd/gateway-mt/etc/nsswitch.conf /etc/nsswitch.conf
