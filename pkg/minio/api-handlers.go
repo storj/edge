@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"storj.io/gateway-mt/vendored/minio/cmd"
+	"storj.io/minio/cmd"
 	xhttp "storj.io/minio/cmd/http"
 )
 
