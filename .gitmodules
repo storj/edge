@@ -1,3 +1,0 @@
-[submodule "vendored/minio"]
-	path = vendored/minio
-	url = ./vendored/minio
