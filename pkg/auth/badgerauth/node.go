@@ -497,6 +497,11 @@ func NewPeer(node *Node, address string) *Peer {
 func (peer *Peer) Sync(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Set timeout for the whole sync operation. See storj/storj-private#284.
+	// Note: timeout for dial will be min(this timeout, rpc.Dialer.DialTimeout).
+	ctx, cancel := context.WithTimeout(ctx, peer.node.config.ReplicationInterval)
+	defer cancel()
+
 	return peer.withClient(ctx,
 		func(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {
 			defer mon.Task()(&ctx)(&err)
