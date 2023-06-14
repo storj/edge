@@ -31,7 +31,6 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/gateway v1.8.4-0.20230511081948-366e491d2f47
-	storj.io/minio v0.0.0-20230509071714-0cbc90f649b1
 	storj.io/private v0.0.0-20230504144224-245360dc8212
 	storj.io/uplink v1.10.1-0.20230505231818-081bed2b8f07
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
@@ -194,6 +193,3 @@ require (
 	storj.io/picobuf v0.0.1 // indirect
 )
 
-replace (
-	storj.io/minio v0.0.0-20230509071714-0cbc90f649b1 => ./vendored/minio
-)
