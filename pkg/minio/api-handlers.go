@@ -515,5 +515,5 @@ func (h objectAPIHandlersWrapper) ListBucketsHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	h.core.ListBucketDWSHandler(w, r)
+	h.core.ListBucketsHandler(w, r)
 }

@@ -5,7 +5,6 @@ package middleware
 
 import (
 	"encoding/hex"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -91,15 +90,6 @@ func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Han
 func NewLogRequests(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc {
 	return func(h http.Handler) http.Handler {
 		return LogRequests(log, h, insecureLogPaths)
-	}
-}
-
-func NewSubs() mux.MiddlewareFunc {
-	return func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Println("REQUEST:", r.RequestURI)
-			log.Println("HOST:", r.Host)
-		})
 	}
 }
 
