@@ -73,9 +73,9 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	satelliteConnectionPool := rpcpool.New(rpcpool.Options{
 		Name:           "satellite",
-		Capacity:       config.SatelliteConnectionpool.Capacity,
-		KeyCapacity:    config.SatelliteConnectionpool.KeyCapacity,
-		IdleExpiration: config.SatelliteConnectionpool.IdleExpiration,
+		Capacity:       config.SatelliteConnectionPool.Capacity,
+		KeyCapacity:    config.SatelliteConnectionPool.KeyCapacity,
+		IdleExpiration: config.SatelliteConnectionPool.IdleExpiration,
 	})
 
 	connectionPool := rpcpool.New(rpcpool.Options{

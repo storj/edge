@@ -161,13 +161,13 @@ cert-magic.staging: false
 # s3compatibility.min-part-size: 5242880
 
 # RPC connection pool capacity (satellite connections)
-# satellite-connectionpool.capacity: 200
+# satellite-connection-pool.capacity: 200
 
 # RPC connection pool idle expiration (satellite connections)
-# satellite-connectionpool.idle-expiration: 10m0s
+# satellite-connection-pool.idle-expiration: 10m0s
 
 # RPC connection pool limit per key (satellite connections)
-# satellite-connectionpool.key-capacity: 0
+# satellite-connection-pool.key-capacity: 0
 
 # Address to serve gateway on
 # server.address: 127.0.0.1:20010

@@ -51,7 +51,7 @@ type LinkSharing struct {
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 
-	SatelliteConnectionpool satelliteConnectionPoolConfig // Note: using `Connectionpool` with lowercase to make flag consistent with gateway-mt
+	SatelliteConnectionPool satelliteConnectionPoolConfig
 	ConnectionPool          connectionPoolConfig
 
 	CertMagic     certMagic
@@ -176,7 +176,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			TXTRecordTTL:            runCfg.TXTRecordTTL,
 			AuthServiceConfig:       runCfg.AuthService,
 			DNSServer:               runCfg.DNSServer,
-			SatelliteConnectionPool: sharing.ConnectionPoolConfig(runCfg.SatelliteConnectionpool),
+			SatelliteConnectionPool: sharing.ConnectionPoolConfig(runCfg.SatelliteConnectionPool),
 			ConnectionPool:          sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
 			ClientTrustedIPsList:    runCfg.ClientTrustedIPSList,
 			UseClientIPHeaders:      runCfg.UseClientIPHeaders,
