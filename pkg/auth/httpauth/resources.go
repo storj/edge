@@ -97,6 +97,9 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
 	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
+	if status >= http.StatusInternalServerError {
+		msg = "" // message can contain sensitive details we don't want to expose
+	}
 	http.Error(w, msg, status)
 }
 
