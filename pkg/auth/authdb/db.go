@@ -69,11 +69,7 @@ func (k *EncryptionKey) FromBase32(encoded string) error {
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	err = k.FromBinary(data)
-	if err != nil {
-		return err
-	}
-	return nil
+	return k.FromBinary(data)
 }
 
 // FromBinary reads the key from binary which must include the version byte.
@@ -165,28 +161,28 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	_, ok := db.allowedSatelliteURLs[nodeURL]
 	db.mu.Unlock()
 	if !ok {
-		return secretKey, ErrAccessGrant.New("disallowed satellite %q", satelliteAddr)
+		return secretKey, ErrAccessGrant.New("disallowed satellite: %q", satelliteAddr)
 	}
 
 	if _, err := rand.Read(secretKey[:]); err != nil {
-		return secretKey, err
+		return secretKey, errs.Wrap(err)
 	}
 
 	storjKey := key.ToStorjKey()
 	// note that we currently always use the same nonce here - all zero's for secret keys
 	encryptedSecretKey, err := encryption.Encrypt(secretKey[:], storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
-		return secretKey, err
+		return secretKey, errs.Wrap(err)
 	}
 	// note that we currently always use the same nonce here - one then all zero's for access grants
 	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
 	if err != nil {
-		return secretKey, err
+		return secretKey, errs.Wrap(err)
 	}
 
 	expiration, err := apiKeyExpiration(access.APIKey)
 	if err != nil {
-		return secretKey, err
+		return secretKey, ErrAccessGrant.Wrap(err)
 	}
 
 	record := &Record{
@@ -198,11 +194,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		ExpiresAt:            expiration,
 	}
 
-	if err := db.kv.Put(ctx, key.Hash(), record); err != nil {
-		return secretKey, errs.Wrap(err)
-	}
-
-	return secretKey, err
+	return secretKey, errs.Wrap(db.kv.Put(ctx, key.Hash(), record))
 }
 
 // Get retrieves an access grant and secret key from the key/value store, looked up by the
