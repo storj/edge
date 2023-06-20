@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/base58"
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
@@ -152,6 +153,45 @@ func (c *AuthAdminClient) Delete(ctx context.Context, encodedKey string) error {
 	}))
 }
 
+// Resolve resolves an encryption key or access grant to a record. This is
+// useful if input key could be either an encryption key for an authservice
+// record, a hash of the encryption key, or an access grant.
+//
+// Linksharing links support both access keys and access grants, so this is
+// useful to look up details for either case.
+//
+// Note that various fields on pb.Record are not set if resolving an access
+// grant, such as EncryptedAccessGrant, and ExpiresAtUnix.
+func (c *AuthAdminClient) Resolve(ctx context.Context, encodedKey string) (*Record, error) {
+	switch {
+	case len(encodedKey) == authdb.EncKeySizeEncoded || len(encodedKey) == authdb.KeyHashSizeEncoded:
+		record, err := c.Get(ctx, encodedKey)
+		if err != nil {
+			return nil, err
+		}
+		return record, nil
+	case isAccessGrant(encodedKey):
+		accessGrant, err := grant.ParseAccess(encodedKey)
+		if err != nil {
+			return nil, err
+		}
+		// linksharing links can contain the access grant directly. While it's
+		// not commonly done this way, we handle that case by building an auth
+		// record directly.
+		return &Record{
+			Record: &pb.Record{
+				SatelliteAddress: accessGrant.SatelliteAddress,
+				MacaroonHead:     accessGrant.APIKey.Head(),
+			},
+			DecryptedAccessGrant: encodedKey,
+			MacaroonHeadHex:      hex.EncodeToString(accessGrant.APIKey.Head()),
+			APIKey:               accessGrant.APIKey.Serialize(),
+		}, nil
+	default:
+		return nil, errs.New("unknown key value %q", encodedKey)
+	}
+}
+
 // withAdminClient runs fn concurrently on given node addresses.
 func (c *AuthAdminClient) withAdminClient(ctx context.Context, addresses []string, fn func(ctx context.Context, client pb.DRPCAdminServiceClient) error) error {
 	if len(addresses) == 0 {
@@ -195,6 +235,11 @@ func (c *AuthAdminClient) withReplicationClient(ctx context.Context, addresses [
 		c.log.Println("received successful response from", address, "(time taken:", time.Since(start), ")")
 	}
 	return nil
+}
+
+func isAccessGrant(key string) bool {
+	_, version, err := base58.CheckDecode(key)
+	return err == nil && version == 0
 }
 
 func dialAddress(ctx context.Context, address, certsDir string, insecureDisableTLS bool, log *log.Logger) (net.Conn, error) {
