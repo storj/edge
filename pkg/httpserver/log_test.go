@@ -89,7 +89,7 @@ func TestRemoteIP(t *testing.T) {
 			logResponses(observedLogger, handler()).ServeHTTP(rr, req)
 
 			require.Len(t, observedLogs.All(), 1)
-			fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])
