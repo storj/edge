@@ -1,10 +1,17 @@
 package minio
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"storj.io/minio/pkg/bucket/policy"
+
+	"storj.io/minio/cmd"
 
 	"github.com/gorilla/mux"
 
@@ -23,8 +30,31 @@ func (h objectAPIHandlersWrapper) checkBucketExistence(r *http.Request) bool {
 	return w.GetStatusCode() == http.StatusOK
 }
 
-func (h objectAPIHandlersWrapper) getUserID(r *http.Request) (string, error) {
-	return "very-unique-username-bucket-1", nil
+func (h objectAPIHandlersWrapper) getUserID(r *http.Request, w http.ResponseWriter) (string, error) {
+	ctx := cmd.NewContext(r, w, "")
+	cred, _, _ := cmd.CheckRequestAuthTypeCredential(ctx, r, policy.HeadBucketAction, "", "")
+	m := map[string]any{
+		"accessKey": cred.AccessKey,
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "", fmt.Errorf("json marshall error: %w", err)
+	}
+	resp, err := h.httpClient.Post(h.uuidResolverHost, "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return "", fmt.Errorf("http client post error: %w", err)
+	}
+	defer resp.Body.Close()
+	ba, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("could not read http response, error: %w", err)
+	}
+	var res map[string]string
+	if err := json.Unmarshal(ba, &res); err != nil {
+		return "", fmt.Errorf("could not unmarshal http response, error: %w", err)
+	}
+
+	return res["uuid"], nil
 }
 
 func (h objectAPIHandlersWrapper) bucketNameIsAvailable(r *http.Request) (bool, error) {
@@ -38,7 +68,7 @@ func (h objectAPIHandlersWrapper) bucketNameIsAvailable(r *http.Request) (bool, 
 
 func (h objectAPIHandlersWrapper) bucketPrefixSubstitutionWithoutObject(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	userID, err := h.getUserID(r)
+	userID, err := h.getUserID(r, w)
 	if err != nil {
 		writeErrorResponse(w, "user not found", http.StatusBadRequest)
 		return fmt.Errorf("user not found")
@@ -47,10 +77,10 @@ func (h objectAPIHandlersWrapper) bucketPrefixSubstitutionWithoutObject(w http.R
 	return nil
 }
 
-func (h objectAPIHandlersWrapper) bucketPrefixSubstitutionWithObject(w http.ResponseWriter, r *http.Request) error {
+func (h objectAPIHandlersWrapper) bucketPrefixSubstitution(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	bucket := vars[VarKeyBucket]
-	userID, err := h.getUserID(r)
+	userID, err := h.getUserID(r, w)
 	if err != nil {
 		writeErrorResponse(w, "user not found", http.StatusBadRequest)
 		return fmt.Errorf("user not found")
@@ -64,7 +94,7 @@ func (h objectAPIHandlersWrapper) objectPrefixSubstitution(w http.ResponseWriter
 	vars := mux.Vars(r)
 	bucket := vars[VarKeyBucket]
 	object := vars[VarKeyObject]
-	userID, err := h.getUserID(r)
+	userID, err := h.getUserID(r, w)
 	if err != nil {
 		writeErrorResponse(w, "user not found", http.StatusBadRequest)
 		return fmt.Errorf("user not found")

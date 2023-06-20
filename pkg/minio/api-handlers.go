@@ -18,6 +18,8 @@ import (
 type objectAPIHandlersWrapper struct {
 	core               cmd.ObjectAPIHandlers
 	corsAllowedOrigins []string
+	httpClient         *http.Client
+	uuidResolverHost   string
 }
 
 // HeadObjectHandler stands for HeadObject
@@ -334,7 +336,7 @@ func (h objectAPIHandlersWrapper) DeleteBucketTaggingHandler(w http.ResponseWrit
 func (h objectAPIHandlersWrapper) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.ListMultipartUploadsHandler(w, r)
@@ -350,7 +352,7 @@ func (h objectAPIHandlersWrapper) ListObjectsV2MHandler(w http.ResponseWriter, r
 func (h objectAPIHandlersWrapper) ListObjectsV2Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.ListObjectsV2Handler(w, r)
@@ -366,7 +368,7 @@ func (h objectAPIHandlersWrapper) ListObjectVersionsHandler(w http.ResponseWrite
 func (h objectAPIHandlersWrapper) ListObjectsV1Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.ListObjectsV1Handler(w, r)
@@ -433,7 +435,7 @@ func (h objectAPIHandlersWrapper) PutBucketHandler(w http.ResponseWriter, r *htt
 		writeErrorResponse(w, "bucket name is already in use", http.StatusBadRequest)
 		return
 	}
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	if !h.checkBucketExistence(r) {
@@ -446,7 +448,7 @@ func (h objectAPIHandlersWrapper) PutBucketHandler(w http.ResponseWriter, r *htt
 func (h objectAPIHandlersWrapper) HeadBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.HeadObjectHandler(w, r)
@@ -458,10 +460,11 @@ func (h objectAPIHandlersWrapper) PostPolicyBucketHandler(w http.ResponseWriter,
 	h.core.PostPolicyBucketHandler(w, r)
 }
 
+// DeleteMultipleObjectsHandler stands for DeleteObjects
 func (h objectAPIHandlersWrapper) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.DeleteMultipleObjectsHandler(w, r)
@@ -495,7 +498,7 @@ func (h objectAPIHandlersWrapper) DeleteBucketEncryptionHandler(w http.ResponseW
 func (h objectAPIHandlersWrapper) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	if err := h.bucketPrefixSubstitutionWithObject(w, r); err != nil {
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
 		return
 	}
 	h.core.DeleteObjectHandler(w, r)
