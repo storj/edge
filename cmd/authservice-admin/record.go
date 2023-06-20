@@ -20,12 +20,12 @@ import (
 )
 
 type record struct {
-	AuthRecord *authadminclient.Record              `json:"auth_record"`
-	SatRecord  *satelliteadminclient.APIKeyResponse `json:"satellite_record,omitempty"`
+	AuthRecord authadminclient.Record              `json:"auth_record"`
+	SatRecord  satelliteadminclient.APIKeyResponse `json:"satellite_record,omitempty"`
 }
 
 type cmdRecordShow struct {
-	authClient      *authadminclient.AuthAdminClient
+	authClient      *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 	key             string
 	output          string
@@ -79,7 +79,7 @@ func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
 }
 
 type cmdRecordInvalidate struct {
-	authClient      *authadminclient.AuthAdminClient
+	authClient      *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 	key             string
 	reason          string
@@ -97,7 +97,7 @@ func (cmd *cmdRecordInvalidate) Execute(ctx context.Context) error {
 }
 
 type cmdRecordUnpublish struct {
-	authClient      *authadminclient.AuthAdminClient
+	authClient      *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 	key             string
 }
@@ -113,7 +113,7 @@ func (cmd *cmdRecordUnpublish) Execute(ctx context.Context) error {
 }
 
 type cmdRecordDelete struct {
-	authClient      *authadminclient.AuthAdminClient
+	authClient      *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 	key             string
 }
@@ -152,7 +152,7 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 }
 
 func printRecord(r record) {
-	if r.AuthRecord != nil {
+	if r.AuthRecord != (authadminclient.Record{}) {
 		if r.AuthRecord.CreatedAtUnix != 0 {
 			printFixed("Created:", time.Unix(r.AuthRecord.CreatedAtUnix, 0).UTC().Format(time.RFC3339))
 		}
@@ -179,7 +179,7 @@ func printRecord(r record) {
 			printFixed("Access grant:", r.AuthRecord.DecryptedAccessGrant)
 		}
 	}
-	if r.SatRecord != nil {
+	if r.SatRecord != (satelliteadminclient.APIKeyResponse{}) {
 		if r.SatRecord.Owner.Email != "" {
 			printFixed("Owner email:", r.SatRecord.Owner.Email)
 		}

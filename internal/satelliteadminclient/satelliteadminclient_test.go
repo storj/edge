@@ -29,7 +29,7 @@ func TestResponse(t *testing.T) {
 		name             string
 		method           string
 		response         func(w http.ResponseWriter, r *http.Request)
-		expectedResponse *APIKeyResponse
+		expectedResponse APIKeyResponse
 		expectedErr      error
 	}{
 		{
@@ -38,7 +38,7 @@ func TestResponse(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				require.NoError(t, json.NewEncoder(w).Encode(&testResp))
 			},
-			expectedResponse: &testResp,
+			expectedResponse: testResp,
 		},
 		{
 			name: "bad response",

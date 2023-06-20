@@ -34,7 +34,7 @@ type result struct {
 type cmdLinksInspect struct {
 	output          string
 	inputFilePath   string
-	authAdminClient *authadminclient.AuthAdminClient
+	authAdminClient *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 }
 
@@ -174,7 +174,7 @@ func printResults(results []result) {
 
 type cmdLinksRevoke struct {
 	inputFilePath   string
-	authAdminClient *authadminclient.AuthAdminClient
+	authAdminClient *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 }
 

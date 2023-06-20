@@ -52,7 +52,7 @@ func main() {
 	}
 }
 
-func newAuthAdminClient(params clingy.Parameters) *authadminclient.AuthAdminClient {
+func newAuthAdminClient(params clingy.Parameters) *authadminclient.Client {
 	return authadminclient.New(authadminclient.Config{
 		NodeAddresses: params.Flag("node-addresses", "comma delimited list of authservice node addresses", []string{},
 			clingy.Transform(func(s string) ([]string, error) {
