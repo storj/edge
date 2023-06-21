@@ -25,3 +25,5 @@ gateway-st/
 
 # avoid pushing maxmind databases
 *.mmdb
+
+create.sh

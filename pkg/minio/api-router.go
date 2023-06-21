@@ -6,9 +6,10 @@ package minio
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/gorilla/mux"
-
 	"storj.io/gateway-mt/pkg/server/gw"
 	"storj.io/gateway-mt/pkg/server/middleware"
 	"storj.io/minio/cmd"
@@ -17,10 +18,17 @@ import (
 
 // RegisterAPIRouter - registers S3 compatible APIs.
 func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
-	api := objectAPIHandlersWrapper{cmd.ObjectAPIHandlers{
-		ObjectAPI: func() cmd.ObjectLayer { return layer },
-		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
-	}, corsAllowedOrigins}
+	api := objectAPIHandlersWrapper{
+		core: cmd.ObjectAPIHandlers{
+			ObjectAPI: func() cmd.ObjectLayer { return layer },
+			CacheAPI:  func() cmd.CacheObjectLayer { return nil },
+		},
+		corsAllowedOrigins: corsAllowedOrigins,
+		uuidResolverHost:   os.Getenv("UUID_RESOLVER_HOST"),
+		httpClient: &http.Client{
+			Timeout: time.Second * 15,
+		},
+	}
 
 	// limit the conccurrency of uploads and downloads per macaroon head
 	limit := middleware.NewMacaroonLimiter(concurrentAllowed,
@@ -273,6 +281,7 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 
 	// S3 browser with signature v4 adds '//' for ListBuckets request, so rather
 	// than failing with UnknownAPIRequest we simply handle it for now.
+
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator + cmd.SlashSeparator).HandlerFunc(
 		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(api.ListBucketsHandler))))
 

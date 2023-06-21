@@ -34,13 +34,14 @@ case $GOARCH in
 	*)     DOCKER_ARCH=amd64   ;;
 esac
 
+PKG_CACHE_PATH=/tmp
 docker run \
 	-u "$(id -u)":"$(id -g)" \
 	-v "$PWD":/go/build \
 	-v "$PKG_CACHE_PATH":/go/pkg \
-	-e GOARM=6 -e GOOS=linux -e GOARCH="$GOARCH" -e GOPROXY \
+	-e GOARM=6 -e GOOS=linux -e GOARCH="$GOARCH" -e GOCACHE=/tmp -e GOPROXY \
 	-w /go/build \
-	--rm storjlabs/golang:"$GO_VERSION" \
+	--rm golang:"$GO_VERSION" \
 	go build -o release/"$BUILD_NUMBER"/"$COMPONENT"_linux_"$GOARCH" \
 		storj.io/gateway-mt/cmd/"$COMPONENT"
 
@@ -51,5 +52,5 @@ docker build \
 	--build-arg GOARCH="$GOARCH" \
 	--build-arg DOCKER_ARCH="$DOCKER_ARCH" \
 	--label build="$BUILD_NUMBER" \
-	-t storjlabs/"$COMPONENT":"$BUILD_NUMBER" \
+	-t ghcr.io/deweb-services/gateway-mt/prefixes/"$COMPONENT":"$BUILD_NUMBER" \
 	-f cmd/"$COMPONENT"/Dockerfile .

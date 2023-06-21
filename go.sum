@@ -326,6 +326,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dchest/siphash v1.2.3 h1:QXwFc8cFOR2dSa/gE6o/HokBMWtLUaNDVd+22aKHeEA=
 github.com/dchest/siphash v1.2.3/go.mod h1:0NvQU092bT0ipiFN++/rXm69QG9tVxLAlQHIXMPAkHc=
+github.com/deweb-services/minio-sub v0.0.0-20230614111129-ba28a486f87a h1:qfF/rmEHQFrGAZkcoBQArBiMKI7d+efaP53O/Q9jFBs=
+github.com/deweb-services/minio-sub v0.0.0-20230614111129-ba28a486f87a/go.mod h1:tNaALPgx7e3WNMauIXVKw2ygXk4+o11XIR672akiI7I=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 h1:tdlZCpZ/P9DhczCTSixgIKmwPv6+wP5DGjqLYw5SUiA=
@@ -1794,8 +1796,6 @@ storj.io/drpc v0.0.33 h1:yCGZ26r66ZdMP0IcTYsj7WDAUIIjzXk6DJhbhvt9FHI=
 storj.io/drpc v0.0.33/go.mod h1:vR804UNzhBa49NOJ6HeLjd2H3MakC1j5Gv8bsOQT6N4=
 storj.io/gateway v1.8.4-0.20230511081948-366e491d2f47 h1:kfEq7bfL3eRYtY9N+NMNekx8YEMYl5L9Cl09kRbPmWY=
 storj.io/gateway v1.8.4-0.20230511081948-366e491d2f47/go.mod h1:8hxkRGBl3S/9EIYHwB8iAZHr0IowT4mKwlsogZp8HJM=
-storj.io/minio v0.0.0-20230509071714-0cbc90f649b1 h1:bwaEpAEKX0p30ZnTZOdfb5KLY4CgVCTJekKXpKZSydo=
-storj.io/minio v0.0.0-20230509071714-0cbc90f649b1/go.mod h1:tNaALPgx7e3WNMauIXVKw2ygXk4+o11XIR672akiI7I=
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 h1:SVuEocEhZfFc13J1AmlVLitdGXTVrvmbzN4Z9C9Ms40=
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41/go.mod h1:iK+dmHZZXQlW7ahKdNSOo+raMk5BDL2wbD62FIeXLWs=
 storj.io/picobuf v0.0.1 h1:ekEvxSQCbEjTVIi/qxj2za13SJyfRE37yE30IBkZeT0=

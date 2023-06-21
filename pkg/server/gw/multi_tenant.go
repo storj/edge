@@ -14,7 +14,6 @@ import (
 	"github.com/minio/minio-go/v7/pkg/tags"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpool"

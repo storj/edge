@@ -18,7 +18,6 @@ import (
 	mhttp "github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/httpserver"

@@ -6,20 +6,29 @@ package minio
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"storj.io/minio/cmd"
+	xhttp "storj.io/minio/cmd/http"
 )
 
 // objectAPIHandlersWrapper should be used to extend cmd.ObjectAPIHandlers.
 type objectAPIHandlersWrapper struct {
 	core               cmd.ObjectAPIHandlers
 	corsAllowedOrigins []string
+	httpClient         *http.Client
+	uuidResolverHost   string
 }
 
+// HeadObjectHandler stands for HeadObject
 func (h objectAPIHandlersWrapper) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.HeadObjectHandler(w, r)
 }
 
@@ -29,33 +38,53 @@ func (h objectAPIHandlersWrapper) CopyObjectPartHandler(w http.ResponseWriter, r
 	h.core.CopyObjectPartHandler(w, r)
 }
 
+// PutObjectPartHandler stands for UploadPart
 func (h objectAPIHandlersWrapper) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.PutObjectPartHandler(w, r)
 }
 
+// ListObjectPartsHandler stands for ListParts
 func (h objectAPIHandlersWrapper) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.ListObjectPartsHandler(w, r)
 }
 
+// CompleteMultipartUploadHandler stands for CompleteMultipartUpload
 func (h objectAPIHandlersWrapper) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.CompleteMultipartUploadHandler(w, r)
 }
 
+// NewMultipartUploadHandler stands for CreateMultipartUpload
 func (h objectAPIHandlersWrapper) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.NewMultipartUploadHandler(w, r)
 }
 
+// AbortMultipartUploadHandler stands for AbortMultipartUpload
 func (h objectAPIHandlersWrapper) AbortMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.AbortMultipartUploadHandler(w, r)
 }
 
@@ -107,15 +136,25 @@ func (h objectAPIHandlersWrapper) GetObjectLegalHoldHandler(w http.ResponseWrite
 	h.core.GetObjectLegalHoldHandler(w, r)
 }
 
+// GetObjectHandler stands for GetObject
 func (h objectAPIHandlersWrapper) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.GetObjectHandler(w, r)
 }
 
+// CopyObjectHandler stands for CopyObject
 func (h objectAPIHandlersWrapper) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
+	r.Header.Set(xhttp.AmzCopySource, path.Join(mux.Vars(r)[VarKeyBucket], r.Header.Get(xhttp.AmzCopySource)))
+
 	h.core.CopyObjectHandler(w, r)
 }
 
@@ -131,15 +170,26 @@ func (h objectAPIHandlersWrapper) PutObjectLegalHoldHandler(w http.ResponseWrite
 	h.core.PutObjectLegalHoldHandler(w, r)
 }
 
+// PutObjectHandler stands for PutObject
 func (h objectAPIHandlersWrapper) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
+	if !h.checkBucketExistence(r) {
+		h.core.PutBucketHandler(w, r)
+	}
 	h.core.PutObjectHandler(w, r)
 }
 
+// DeleteObjectHandler stands for DeleteObject
 func (h objectAPIHandlersWrapper) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.objectPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.DeleteObjectHandler(w, r)
 }
 
@@ -282,9 +332,13 @@ func (h objectAPIHandlersWrapper) DeleteBucketTaggingHandler(w http.ResponseWrit
 	h.core.DeleteBucketTaggingHandler(w, r)
 }
 
+// ListMultipartUploadsHandler stands for ListMultipartUploads
 func (h objectAPIHandlersWrapper) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.ListMultipartUploadsHandler(w, r)
 }
 
@@ -294,9 +348,13 @@ func (h objectAPIHandlersWrapper) ListObjectsV2MHandler(w http.ResponseWriter, r
 	h.core.ListObjectsV2MHandler(w, r)
 }
 
+// ListObjectsV2Handler stands for ListObjectsV2
 func (h objectAPIHandlersWrapper) ListObjectsV2Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.ListObjectsV2Handler(w, r)
 }
 
@@ -306,9 +364,13 @@ func (h objectAPIHandlersWrapper) ListObjectVersionsHandler(w http.ResponseWrite
 	h.core.ListObjectVersionsHandler(w, r)
 }
 
+// ListObjectsV1Handler stands for ListObjects
 func (h objectAPIHandlersWrapper) ListObjectsV1Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.ListObjectsV1Handler(w, r)
 }
 
@@ -360,16 +422,36 @@ func (h objectAPIHandlersWrapper) PutBucketNotificationHandler(w http.ResponseWr
 	h.core.PutBucketNotificationHandler(w, r)
 }
 
+// PutBucketHandler stands for CreateBucket
 func (h objectAPIHandlersWrapper) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	h.core.PutBucketHandler(w, r)
+	ok, err := h.bucketNameIsAvailable(r)
+	if err != nil {
+		writeErrorResponse(w, "could not check bucket name", http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		writeErrorResponse(w, "bucket name is already in use", http.StatusBadRequest)
+		return
+	}
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
+	if !h.checkBucketExistence(r) {
+		h.core.PutBucketHandler(w, r)
+	}
+	h.core.PutObjectHandler(w, r)
 }
 
+// HeadBucketHandler stands for HeadBucket
 func (h objectAPIHandlersWrapper) HeadBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	h.core.HeadBucketHandler(w, r)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
+	h.core.HeadObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
@@ -378,9 +460,13 @@ func (h objectAPIHandlersWrapper) PostPolicyBucketHandler(w http.ResponseWriter,
 	h.core.PostPolicyBucketHandler(w, r)
 }
 
+// DeleteMultipleObjectsHandler stands for DeleteObjects
 func (h objectAPIHandlersWrapper) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
 	h.core.DeleteMultipleObjectsHandler(w, r)
 }
 
@@ -408,10 +494,14 @@ func (h objectAPIHandlersWrapper) DeleteBucketEncryptionHandler(w http.ResponseW
 	h.core.DeleteBucketEncryptionHandler(w, r)
 }
 
+// DeleteBucketHandler stands for DeleteBucket
 func (h objectAPIHandlersWrapper) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	h.core.DeleteBucketHandler(w, r)
+	if err := h.bucketPrefixSubstitution(w, r); err != nil {
+		return
+	}
+	h.core.DeleteObjectHandler(w, r)
 }
 
 func (h objectAPIHandlersWrapper) PostRestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
@@ -420,8 +510,13 @@ func (h objectAPIHandlersWrapper) PostRestoreObjectHandler(w http.ResponseWriter
 	h.core.PostRestoreObjectHandler(w, r)
 }
 
+// ListBucketsHandler stands for ListBuckets
 func (h objectAPIHandlersWrapper) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	if err := h.bucketPrefixSubstitutionWithoutObject(w, r); err != nil {
+		return
+	}
+
 	h.core.ListBucketsHandler(w, r)
 }
