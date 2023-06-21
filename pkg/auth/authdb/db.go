@@ -272,3 +272,21 @@ func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
 
 	return expiration, nil
 }
+
+func (db *Database) GetBucket(ctx context.Context, hash KeyHash) (t bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	record, err := db.kv.Get(ctx, hash)
+	if err != nil {
+		return false, errs.Wrap(err)
+	}
+	return record != nil, nil
+}
+
+func (db *Database) PutBucket(ctx context.Context, hash KeyHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = db.kv.Put(ctx, hash, &Record{})
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	return nil
+}

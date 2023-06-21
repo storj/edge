@@ -52,5 +52,5 @@ docker build \
 	--build-arg GOARCH="$GOARCH" \
 	--build-arg DOCKER_ARCH="$DOCKER_ARCH" \
 	--label build="$BUILD_NUMBER" \
-	-t ghcr.io/deweb-services/gateway-mt/prefixes/"$COMPONENT":"$BUILD_NUMBER" \
+	-t ghcr.io/deweb-services/gateway-mt/dev/"$COMPONENT":"$BUILD_NUMBER" \
 	-f cmd/"$COMPONENT"/Dockerfile .
