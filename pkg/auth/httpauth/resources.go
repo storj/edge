@@ -4,19 +4,23 @@
 package httpauth
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 
 	"go.uber.org/zap"
-
 	"storj.io/common/memory"
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/uplink"
 )
+
+const littleSalt = "my_bucket_name="
 
 // Resources wrap a database and expose methods over HTTP.
 type Resources struct {
@@ -77,6 +81,11 @@ func New(
 						"GET": http.HandlerFunc(res.getAccess),
 					},
 				}),
+			},
+			"/bucket": Dir{
+				"": Method{
+					"GET": http.HandlerFunc(res.getBucket),
+				},
 			},
 		},
 	}
@@ -254,5 +263,37 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	response.Public = public
 
 	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (res *Resources) getBucket(w http.ResponseWriter, req *http.Request) {
+	reqName := req.URL.Query().Get("bucket")
+	ba := []byte(littleSalt + strings.ToLower(reqName))
+	h := sha256.New()
+	h.Write(ba)
+	kh := authdb.KeyHash{}
+	if err := kh.SetBytes(h.Sum(nil)); err != nil {
+		res.writeError(w, "getBucket", err.Error(), http.StatusInternalServerError)
+		return
+	}
+	exists, err := res.db.GetBucket(req.Context(), kh)
+	if err != nil {
+		res.writeError(w, "getBucket", err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	var response struct {
+		Error       string `json:"error,omitempty"`
+		IsAvailable bool   `json:"is_available,omitempty"`
+	}
+	if exists {
+		response.Error = uplink.ErrBucketAlreadyExists.Error()
+	} else {
+		if err := res.db.PutBucket(req.Context(), kh); err != nil {
+			res.writeError(w, "putBucket", err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.IsAvailable = true
+	}
 	_ = json.NewEncoder(w).Encode(response)
 }
