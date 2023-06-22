@@ -39,7 +39,7 @@ docker run \
 	-u "$(id -u)":"$(id -g)" \
 	-v "$PWD":/go/build \
 	-v "$PKG_CACHE_PATH":/go/pkg \
-	-e GOARM=6 -e GOOS=linux -e GOARCH="$GOARCH" -e GOCACHE=/tmp -e GOPROXY \
+	-e GOOS=linux -e GOARCH="$GOARCH" -e GOCACHE=/tmp -e GOPROXY \
 	-w /go/build \
 	--rm golang:"$GO_VERSION" \
 	go build -o release/"$BUILD_NUMBER"/"$COMPONENT"_linux_"$GOARCH" \

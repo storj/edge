@@ -1,18 +1,24 @@
 ARG DOCKER_ARCH
-FROM ${DOCKER_ARCH:-amd64}/alpine
+ARG GO_VERSION
+FROM ${DOCKER_ARCH:-amd64}/golang:${GO_VERSION}-alpine:3.16 as builder
 
-ARG TAG
-ARG GOARCH
+ADD . /authservice
+WORKDIR /authservice
+
+RUN apk update
+RUN apk add --no-cache git gcc musl-dev
+RUN go build -v -o /tmp/authservice ./cmd/authservice
+
+FROM ${DOCKER_ARCH:-amd64}/alpine
 
 ENV GOARCH ${GOARCH}
 
 EXPOSE 20000
 WORKDIR /app
 
-VOLUME /root/.local/share/storj/authservice
+COPY --from=builder /tmp/authservice /app/authservice
 
 COPY cmd/authservice/etc/nsswitch.conf /etc/nsswitch.conf
-COPY release/${TAG}/authservice_linux_${GOARCH:-amd64} /app/authservice
 COPY cmd/authservice/entrypoint /entrypoint
 
 ENTRYPOINT ["/entrypoint"]

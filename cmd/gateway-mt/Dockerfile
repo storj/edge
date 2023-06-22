@@ -1,21 +1,24 @@
-ARG DOCKER_ARCH
-FROM ${DOCKER_ARCH:-amd64}/alpine
+ARG GO_VERSION
+FROM golang:${GO_VERSION}-alpine3.16 as builder
 
-ARG TAG
-ARG GOARCH
+ADD . /gateway-mt
+WORKDIR /gateway-mt
 
-ENV GOARCH ${GOARCH}
+RUN apk update
+RUN apk add --no-cache git gcc musl-dev
+RUN go build -v -o /tmp/gateway-mt ./cmd/gateway-mt
+
+FROM alpine:3.16
 
 EXPOSE 20010
 WORKDIR /app
 
+COPY --from=builder /tmp/gateway-mt /app/gateway-mt
+
 RUN apk add --no-cache libc6-compat
 RUN apk add --no-cache gcompat
 
-VOLUME /root/.local/share/storj/gateway-mt
-
 COPY cmd/gateway-mt/etc/nsswitch.conf /etc/nsswitch.conf
-COPY release/${TAG}/gateway-mt_linux_${GOARCH:-amd64} /app/gateway-mt
 COPY cmd/gateway-mt/entrypoint /entrypoint
 
 RUN chmod +x /app/gateway-mt

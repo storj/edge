@@ -1,5 +1,6 @@
 # Ignore release directory
 release/
+vendor/
 
 # Jetbrains
 .idea/
