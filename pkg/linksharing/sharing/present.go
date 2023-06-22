@@ -126,6 +126,11 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		if (download || !wrap) && !mapOnly && len(archivePath) == 0 && rangeErr == nil {
 			d, err := project.DownloadObject(ctx, pr.bucket, pr.realKey, options)
 			if err == nil {
+				defer func() {
+					if err := d.Close(); err != nil {
+						handler.log.Debug("couldn't close the download", zap.Error(err))
+					}
+				}()
 				// set the actual offset and length
 				httpRange := optionsToRange(d.Info().System.ContentLength, options)
 				return handler.showObject(ctx, w, r, pr, project, d.Info(), d, httpRange)
