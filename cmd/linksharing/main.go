@@ -50,10 +50,13 @@ type LinkSharing struct {
 	UseClientIPHeaders     bool          `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
-	ConnectionPool         connectionPoolConfig
-	CertMagic              certMagic
-	ShutdownDelay          time.Duration `user:"true" help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
-	StartupCheck           startupCheck
+
+	SatelliteConnectionPool satelliteConnectionPoolConfig
+	ConnectionPool          connectionPoolConfig
+
+	CertMagic     certMagic
+	ShutdownDelay time.Duration `user:"true" help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
+	StartupCheck  startupCheck
 }
 
 // connectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -61,6 +64,13 @@ type connectionPoolConfig struct {
 	Capacity       int           `user:"true" help:"RPC connection pool capacity" default:"100"`
 	KeyCapacity    int           `user:"true" help:"RPC connection pool key capacity" default:"5"`
 	IdleExpiration time.Duration `user:"true" help:"RPC connection pool idle expiration" default:"2m0s"`
+}
+
+// satelliteConnectionPoolConfig is a config struct for configuring RPC connection pool of Satellite connections.
+type satelliteConnectionPoolConfig struct {
+	Capacity       int           `help:"RPC connection pool capacity (satellite connections)" default:"200"`
+	KeyCapacity    int           `help:"RPC connection pool limit per key (satellite connections)" default:"0"`
+	IdleExpiration time.Duration `help:"RPC connection pool idle expiration (satellite connections)" default:"10m0s"`
 }
 
 // certMagic is a config struct for configuring CertMagic options.
@@ -158,19 +168,20 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			StartupCheckConfig: httpserver.StartupCheckConfig(runCfg.StartupCheck),
 		},
 		Handler: sharing.Config{
-			URLBases:               publicURLs,
-			Templates:              runCfg.Templates,
-			StaticSourcesPath:      runCfg.StaticSourcesPath,
-			RedirectHTTPS:          runCfg.RedirectHTTPS,
-			LandingRedirectTarget:  runCfg.LandingRedirectTarget,
-			TXTRecordTTL:           runCfg.TXTRecordTTL,
-			AuthServiceConfig:      runCfg.AuthService,
-			DNSServer:              runCfg.DNSServer,
-			ConnectionPool:         sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
-			ClientTrustedIPsList:   runCfg.ClientTrustedIPSList,
-			UseClientIPHeaders:     runCfg.UseClientIPHeaders,
-			StandardViewsHTML:      runCfg.StandardViewsHTML,
-			StandardRendersContent: runCfg.StandardRendersContent,
+			URLBases:                publicURLs,
+			Templates:               runCfg.Templates,
+			StaticSourcesPath:       runCfg.StaticSourcesPath,
+			RedirectHTTPS:           runCfg.RedirectHTTPS,
+			LandingRedirectTarget:   runCfg.LandingRedirectTarget,
+			TXTRecordTTL:            runCfg.TXTRecordTTL,
+			AuthServiceConfig:       runCfg.AuthService,
+			DNSServer:               runCfg.DNSServer,
+			SatelliteConnectionPool: sharing.ConnectionPoolConfig(runCfg.SatelliteConnectionPool),
+			ConnectionPool:          sharing.ConnectionPoolConfig(runCfg.ConnectionPool),
+			ClientTrustedIPsList:    runCfg.ClientTrustedIPSList,
+			UseClientIPHeaders:      runCfg.UseClientIPHeaders,
+			StandardViewsHTML:       runCfg.StandardViewsHTML,
+			StandardRendersContent:  runCfg.StandardRendersContent,
 			Uplink: &uplink.Config{
 				UserAgent:   "linksharing",
 				DialTimeout: runCfg.DialTimeout,

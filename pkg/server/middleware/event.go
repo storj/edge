@@ -36,13 +36,14 @@ func CollectEvent(h http.Handler) http.Handler {
 				}
 			}
 
-			var macHead, encKeyHash string
+			var macHead, encKeyHash, satelliteAddress string
 			credentials := GetAccess(r.Context())
 			if credentials != nil {
 				if credentials.AccessGrant != "" {
 					access, err := grant.ParseAccess(credentials.AccessGrant)
 					if err == nil {
 						macHead = hex.EncodeToString(access.APIKey.Head())
+						satelliteAddress = access.SatelliteAddress
 					}
 				}
 				if credentials.AccessKey != "" {
@@ -69,6 +70,7 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.Duration("duration", time.Since(start)),
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
+				eventkit.String("satellite-address", satelliteAddress),
 				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)))
 		}))
 }

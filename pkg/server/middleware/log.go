@@ -168,6 +168,23 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		httpRequestLog.RequestURL = r.RequestURI
 	}
 
+	var accessKeyHash, macaroonHead, satelliteAddress string
+
+	credentials := GetAccess(r.Context())
+	if credentials != nil && credentials.AccessKey != "" {
+		var key authdb.EncryptionKey
+		if err := key.FromBase32(credentials.AccessKey); err == nil {
+			accessKeyHash = key.Hash().ToHex()
+		}
+	}
+	if credentials != nil && credentials.AccessGrant != "" {
+		access, err := grant.ParseAccess(credentials.AccessGrant)
+		if err == nil {
+			macaroonHead = hex.EncodeToString(access.APIKey.Head())
+			satelliteAddress = access.SatelliteAddress
+		}
+	}
+
 	fields := []zapcore.Field{
 		gcloudlogging.LogHTTPRequest(httpRequestLog),
 		gcloudlogging.LogOperation(&gcloudlogging.Operation{
@@ -177,8 +194,9 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("host", r.Host),
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", gl.RequestID),
-		zap.String("encryption-key-hash", getEncryptionKeyHash(r)),
-		zap.String("macaroon-head", getMacaroonHead(r)),
+		zap.String("encryption-key-hash", accessKeyHash),
+		zap.String("macaroon-head", macaroonHead),
+		zap.String("satellite-address", satelliteAddress),
 		zap.Object("query", &requestQueryLogObject{
 			query:  r.URL.Query(),
 			logAll: insecureLogAll,
@@ -196,34 +214,6 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
 		ce.Write(fields...)
 	}
-}
-
-// getMacaroonHead gets the macaroon head corresponding to the current request.
-// Macaroon head is the best available criteria for associating a request to a user.
-func getMacaroonHead(r *http.Request) string {
-	credentials := GetAccess(r.Context())
-	if credentials == nil || credentials.AccessGrant == "" {
-		return ""
-	}
-	access, err := grant.ParseAccess(credentials.AccessGrant)
-	if err != nil {
-		return ""
-	}
-	return hex.EncodeToString(access.APIKey.Head())
-}
-
-// getEncryptionKeyHash gets the encrypted Access Key ID corresponding to the current request.
-func getEncryptionKeyHash(r *http.Request) string {
-	credentials := GetAccess(r.Context())
-	if credentials == nil || credentials.AccessKey == "" {
-		return ""
-	}
-
-	var key authdb.EncryptionKey
-	if err := key.FromBase32(credentials.AccessKey); err != nil {
-		return ""
-	}
-	return key.Hash().ToHex()
 }
 
 func getRemoteIP(r *http.Request) string {

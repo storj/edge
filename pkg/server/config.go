@@ -34,7 +34,7 @@ type Config struct {
 	Auth                    authclient.Config
 	S3Compatibility         miniogw.S3CompatibilityConfig
 	Client                  ClientConfig
-	SatelliteConnectionpool SatelliteConnectionPoolConfig
+	SatelliteConnectionPool SatelliteConnectionPoolConfig
 	ConnectionPool          ConnectionPoolConfig
 	CertMagic               certMagic
 	StartupCheck            startupCheck

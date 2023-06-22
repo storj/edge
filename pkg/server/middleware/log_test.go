@@ -42,7 +42,7 @@ func TestResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -68,7 +68,7 @@ func TestResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Equal(t, "/", fields["requestUrl"])
@@ -98,7 +98,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -144,6 +144,9 @@ func TestAccessDetailsLogged(t *testing.T) {
 
 	filteredLogs = observedLogs.FilterField(zap.String("macaroon-head", "4dff5d8e6b3506be68cf76b480ab1261ac391fe5a2f7db66d1293d68109f3665"))
 	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.String("satellite-address", "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"))
+	require.Len(t, filteredLogs.All(), 1)
 }
 
 func TestGatewayResponsePathsIncluded(t *testing.T) {
@@ -169,7 +172,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Equal(t, "/test?q=123", fields["requestUrl"])
@@ -309,7 +312,7 @@ func TestRemoteIP(t *testing.T) {
 			LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 			require.Len(t, observedLogs.All(), 1)
-			fields, ok := observedLogs.All()[0].ContextMap()["logging.googleapis.com/httpRequest"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])

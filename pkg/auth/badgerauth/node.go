@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
@@ -156,12 +157,18 @@ func New(log *zap.Logger, config Config) (_ *Node, err error) {
 	c := rpc.NewHybridConnector()
 	c.SetSendDRPCMuxHeader(false)
 
+	manager := rpc.NewDefaultManagerOptions()
+	// TODO(artur): ideally, this is calculated using a formula like this one:
+	//  peers * replicationLimit * accessGrantLimit + padding
+	// Example:
+	//  peers=5, replicationLimit=1000, accessGrantLimit=4KiB, padding=4MiB ~ 27.44 MiB
+	manager.Reader.MaximumBufferSize = 40 * memory.MiB.Int()
 	node.pooledDialer = rpc.Dialer{
 		HostnameTLSConfig: node.tls,
 		DialTimeout:       10 * time.Second,
 		Pool:              rpc.NewDefaultConnectionPool(),
 		ConnectionOptions: drpcconn.Options{
-			Manager: rpc.NewDefaultManagerOptions(),
+			Manager: manager,
 		},
 		Connector: c,
 	}
@@ -242,10 +249,10 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	// The idea behind this is that the first result cancels the rest, and if
 	// multiple succeed at once, subsequent results will be discarded by default
 	// case. When the group is finished, we do a non-blocking read which is
-	// guaranteed to succeed if the channel has value inside. If we got to the end
-	// without finding any record, such as the case of not being able to contact
-	// other nodes, then we don't return an error so authclient doesn't block
-	// requests indefinitely through backoff/retry.
+	// guaranteed to succeed if the channel has value inside. If we got to the
+	// end without finding any record, such as the case of not being able to
+	// contact other nodes, then we don't return an error so authclient doesn't
+	// block requests indefinitely through backoff/retry.
 
 	result := make(chan *authdb.Record, 1)
 
@@ -489,6 +496,11 @@ func NewPeer(node *Node, address string) *Peer {
 // Sync runs the synchronization step once.
 func (peer *Peer) Sync(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// Set timeout for the whole sync operation. See storj/storj-private#284.
+	// Note: timeout for dial will be min(this timeout, rpc.Dialer.DialTimeout).
+	ctx, cancel := context.WithTimeout(ctx, peer.node.config.ReplicationInterval)
+	defer cancel()
 
 	return peer.withClient(ctx,
 		func(ctx context.Context, client pb.DRPCReplicationServiceClient) (err error) {

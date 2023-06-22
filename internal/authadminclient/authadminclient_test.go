@@ -166,6 +166,73 @@ func TestDeleteRecord(t *testing.T) {
 	})
 }
 
+func TestResolveRecord(t *testing.T) {
+	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
+		NodeCount: 3,
+	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
+		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
+		client := client.New(client.Config{
+			NodeAddresses:      cluster.Addresses(),
+			InsecureDisableTLS: true,
+		}, log.New(io.Discard, "", 0))
+
+		encKey, err := authdb.NewEncryptionKey()
+		require.NoError(t, err)
+		sk := encKey.ToStorjKey()
+		encAccessGrant, err := encryption.Encrypt([]byte(testAccessGrant), storj.EncAESGCM, &sk, &storj.Nonce{1})
+		require.NoError(t, err)
+		require.NotEqual(t, testAccessGrant, encAccessGrant)
+
+		parsed, err := grant.ParseAccess(testAccessGrant)
+		require.NoError(t, err)
+
+		expiresAt := time.Unix(time.Now().Unix(), 0).Add(time.Hour)
+		badgerauthtest.Put{
+			KeyHash: encKey.Hash(),
+			Record: &authdb.Record{
+				Public:               true,
+				SatelliteAddress:     testSatelliteURL,
+				MacaroonHead:         parsed.APIKey.Head(),
+				EncryptedAccessGrant: encAccessGrant,
+				ExpiresAt:            &expiresAt,
+			},
+		}.Check(ctx, t, cluster.Nodes[0])
+		for _, node := range cluster.Nodes {
+			node.SyncCycle.TriggerWait()
+		}
+
+		record, err := client.Resolve(ctx, encKey.Hash().ToHex())
+		require.NoError(t, err)
+		require.Equal(t, testSatelliteURL, record.SatelliteAddress)
+		require.Equal(t, encAccessGrant, record.EncryptedAccessGrant)
+		require.Equal(t, "", record.DecryptedAccessGrant)
+		require.Equal(t, "", record.APIKey)
+		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
+		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
+
+		record, err = client.Resolve(ctx, encKey.ToBase32())
+		require.NoError(t, err)
+		require.Equal(t, testSatelliteURL, record.SatelliteAddress)
+		require.Equal(t, encAccessGrant, record.EncryptedAccessGrant)
+		require.Equal(t, testAccessGrant, record.DecryptedAccessGrant)
+		require.Equal(t, testAPIKey, record.APIKey)
+		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
+		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
+
+		record, err = noAddrClient.Resolve(ctx, testAccessGrant)
+		require.NoError(t, err)
+		require.Equal(t, testSatelliteURL, record.SatelliteAddress)
+		require.Equal(t, []byte(nil), record.EncryptedAccessGrant)
+		require.Equal(t, testAccessGrant, record.DecryptedAccessGrant)
+		require.Equal(t, testAPIKey, record.APIKey)
+		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
+		require.Zero(t, record.ExpiresAtUnix)
+	})
+}
+
 func verifyClusterRecords(
 	ctx *testcontext.Context,
 	t *testing.T,
