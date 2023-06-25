@@ -170,10 +170,10 @@ cert-magic.staging: false
 # satellite-connection-pool.key-capacity: 0
 
 # Address to serve gateway on
-# server.address: 127.0.0.1:20010
+# server.address: :20010
 
 # Address to securely serve (TLS) gateway on
-# server.address-tls: 127.0.0.1:20011
+# server.address-tls: :20011
 
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
