@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -248,10 +249,26 @@ func dialAddress(ctx context.Context, address, certsDir string, insecureDisableT
 		tlsConfig = tlsCfg
 	}
 
+	var host string
+
+	// allow specifying host mapping, e.g. "1.2.3.4:20004=authnode-dc1-app1"
+	// but fallback to a single address if a single address given.
+	parts := strings.Split(address, "=")
+	switch len(parts) {
+	case 1:
+		address = parts[0]
+	case 2:
+		address = parts[0]
+		host = parts[1]
+	default:
+		return nil, errs.New("invalid address format: %q", address)
+	}
+
 	var dialer interface {
 		DialContext(context.Context, string, string) (net.Conn, error)
 	}
 	if tlsConfig != nil {
+		tlsConfig.ServerName = host
 		dialer = &tls.Dialer{Config: tlsConfig}
 	} else {
 		dialer = &net.Dialer{}
