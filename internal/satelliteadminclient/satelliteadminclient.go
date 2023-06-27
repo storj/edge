@@ -24,8 +24,8 @@ var (
 	// Error is a class of satellite admin client errors.
 	Error = errs.Class("satellite admin client")
 
-	// ErrAPIKeyNotFound is an error for when the satellite couldn't find the key.
-	ErrAPIKeyNotFound = Error.New("api key not found")
+	// ErrNotFound is an error returned when the resource did not exist.
+	ErrNotFound = Error.New("not found")
 )
 
 // Client is a satellite admin client.
@@ -71,7 +71,14 @@ type APIKeyResponse struct {
 	Owner   User    `json:"owner,omitempty"`
 }
 
+// UserResponse is a response when looking up a user information from the satellite.
+type UserResponse struct {
+	User     User      `json:"user,omitempty"`
+	Projects []Project `json:"projects,omitempty"`
+}
+
 // GetAPIKey gets information on the given API key from the satellite.
+// See https://github.com/storj/storj/tree/main/satellite/admin#get-apiapikeysapikey
 func (c *Client) GetAPIKey(ctx context.Context, apiKey string) (APIKeyResponse, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/apikeys/"+apiKey, nil)
 	if err != nil {
@@ -93,8 +100,46 @@ func (c *Client) GetAPIKey(ctx context.Context, apiKey string) (APIKeyResponse, 
 }
 
 // DeleteAPIKey deletes the given API key from the satellite.
+// See https://github.com/storj/storj/tree/main/satellite/admin#delete-apiapikeysapikey
 func (c *Client) DeleteAPIKey(ctx context.Context, apiKey string) error {
 	req, err := c.newRequest(ctx, http.MethodDelete, "/api/apikeys/"+apiKey, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
+// GetUser gets given user information from the satellite.
+// See https://github.com/storj/storj/tree/main/satellite/admin#get-apiusersuser-email
+func (c *Client) GetUser(ctx context.Context, email string) (UserResponse, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/users/"+email, nil)
+	if err != nil {
+		return UserResponse{}, Error.Wrap(err)
+	}
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return UserResponse{}, Error.Wrap(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var r UserResponse
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return r, Error.Wrap(err)
+	}
+	return r, nil
+}
+
+// SetProjectLimits sets the project limits.
+// See https://github.com/storj/storj/tree/main/satellite/admin#update-limits
+func (c *Client) SetProjectLimits(ctx context.Context, projectID string, limits url.Values) error {
+	req, err := c.newRequest(ctx, http.MethodPut, "/api/projects/"+projectID+"/limit?"+limits.Encode(), nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -133,7 +178,7 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusNotFound {
-			return nil, ErrAPIKeyNotFound
+			return nil, ErrNotFound
 		}
 		return nil, apiError(resp)
 	}

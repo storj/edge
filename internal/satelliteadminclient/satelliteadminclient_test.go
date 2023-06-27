@@ -19,7 +19,78 @@ import (
 	"storj.io/common/uuid"
 )
 
-func TestResponse(t *testing.T) {
+func TestErrorResponse(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		response    func(w http.ResponseWriter, r *http.Request)
+		expectedErr error
+	}{
+		{
+			name: "good response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+			},
+		},
+		{
+			name: "bad response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+			},
+			expectedErr: APIError{
+				Status: "403 Forbidden",
+			},
+		},
+		{
+			name: "bad response error body",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				require.NoError(t, json.NewEncoder(w).Encode(&APIError{
+					Status:  "403 Forbidden",
+					Message: "there was a problem",
+					Detail:  "some details here",
+				}))
+			},
+			expectedErr: APIError{
+				Status:  "403 Forbidden",
+				Message: "there was a problem",
+				Detail:  "some details here",
+			},
+		},
+		{
+			name: "not found response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+			},
+			expectedErr: ErrNotFound,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			srv := httptest.NewServer(http.HandlerFunc(tc.response))
+			defer srv.Close()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+			require.NoError(t, err)
+
+			client := New(srv.URL, "", newLogger(t))
+			resp, err := client.doRequest(req) //nolint:bodyclose
+			if tc.expectedErr != nil {
+				require.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
+				ctx.Check(resp.Body.Close)
+			}
+		})
+	}
+}
+
+func TestAPIKeyResponse(t *testing.T) {
 	id, err := uuid.New()
 	require.NoError(t, err)
 
@@ -54,28 +125,11 @@ func TestResponse(t *testing.T) {
 			},
 		},
 		{
-			name: "bad response error body",
-			response: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusForbidden)
-				require.NoError(t, json.NewEncoder(w).Encode(&APIError{
-					Status:  "403 Forbidden",
-					Message: "there was a problem",
-					Detail:  "some details here",
-				}))
-			},
-			expectedErr: APIError{
-				Status:  "403 Forbidden",
-				Message: "there was a problem",
-				Detail:  "some details here",
-			},
-		},
-		{
 			name: "not found response",
 			response: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
-			expectedErr: ErrAPIKeyNotFound,
+			expectedErr: ErrNotFound,
 		},
 	}
 	for _, tc := range tests {
@@ -95,13 +149,68 @@ func TestResponse(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.Equal(t, tc.expectedResponse, apiResp)
+		})
+	}
+}
 
-			err = client.DeleteAPIKey(ctx, "")
+func TestUserResponse(t *testing.T) {
+	id, err := uuid.New()
+	require.NoError(t, err)
+
+	testResp := UserResponse{
+		User:     User{ID: id, Email: "test@user.com"},
+		Projects: []Project{{ID: id, Name: "test project"}},
+	}
+
+	tests := []struct {
+		name             string
+		method           string
+		response         func(w http.ResponseWriter, r *http.Request)
+		expectedResponse UserResponse
+		expectedErr      error
+	}{
+		{
+			name: "good response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				require.NoError(t, json.NewEncoder(w).Encode(&testResp))
+			},
+			expectedResponse: testResp,
+		},
+		{
+			name: "bad response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+			},
+			expectedErr: APIError{
+				Status: "403 Forbidden",
+			},
+		},
+		{
+			name: "not found response",
+			response: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+			},
+			expectedErr: ErrNotFound,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			srv := httptest.NewServer(http.HandlerFunc(tc.response))
+			defer srv.Close()
+
+			client := New(srv.URL, "", newLogger(t))
+			apiResp, err := client.GetUser(ctx, "")
 			if tc.expectedErr != nil {
 				require.ErrorIs(t, err, tc.expectedErr)
 			} else {
 				require.NoError(t, err)
 			}
+			require.Equal(t, tc.expectedResponse, apiResp)
 		})
 	}
 }
