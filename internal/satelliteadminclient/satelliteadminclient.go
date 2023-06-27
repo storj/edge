@@ -60,6 +60,7 @@ type Project struct {
 // User is a satellite user.
 type User struct {
 	ID       uuid.UUID `json:"id,omitempty"`
+	FullName string    `json:"fullName,omitempty"`
 	Email    string    `json:"email,omitempty"`
 	PaidTier bool      `json:"paidTier,omitempty"`
 }

@@ -186,9 +186,8 @@ func printRecord(r record) {
 	if r.SatRecord != (satelliteadminclient.APIKeyResponse{}) {
 		printFixed("Project ID:", r.SatRecord.Project.ID.String())
 		printFixed("Owner ID:", r.SatRecord.Owner.ID.String())
-		if r.SatRecord.Owner.Email != "" {
-			printFixed("Owner email:", r.SatRecord.Owner.Email)
-		}
+		printFixed("Owner name:", r.SatRecord.Owner.FullName)
+		printFixed("Owner email:", r.SatRecord.Owner.Email)
 		printFixed("Paid tier:", strconv.FormatBool(r.SatRecord.Owner.PaidTier))
 	}
 }
