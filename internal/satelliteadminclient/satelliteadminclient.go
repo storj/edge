@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -31,13 +32,15 @@ var (
 type Client struct {
 	baseURL   string
 	authToken string
+	log       *log.Logger
 }
 
 // New returns a new satellite admin client.
-func New(baseURL, authToken string) *Client {
+func New(baseURL, authToken string, log *log.Logger) *Client {
 	return &Client{
 		baseURL:   baseURL,
 		authToken: authToken,
+		log:       log,
 	}
 }
 
@@ -119,6 +122,10 @@ func (c *Client) newRequest(ctx context.Context, method, uri string, body io.Rea
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
+	start := time.Now()
+	url := req.URL.String()
+	c.log.Println("sending", req.Method, "request to satellite admin", url)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -130,6 +137,8 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 		}
 		return nil, apiError(resp)
 	}
+
+	c.log.Println("received successful", req.Method, "from satellite admin", url, "(time taken:", time.Since(start), ")")
 
 	return resp, nil
 }

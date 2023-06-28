@@ -86,7 +86,7 @@ func loadSatAdminClients(clients map[string]*satelliteadminclient.Client, values
 		if len(parts) != 3 {
 			return fmt.Errorf("invalid satellite mapping %q", value)
 		}
-		clients[parts[0]] = satelliteadminclient.New(parts[1], parts[2])
+		clients[parts[0]] = satelliteadminclient.New(parts[1], parts[2], logger)
 	}
 	return nil
 }

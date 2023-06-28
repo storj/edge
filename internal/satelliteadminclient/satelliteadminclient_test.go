@@ -5,11 +5,15 @@ package satelliteadminclient
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -83,7 +87,7 @@ func TestResponse(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(tc.response))
 			defer srv.Close()
 
-			client := New(srv.URL, "")
+			client := New(srv.URL, "", newLogger(t))
 			apiResp, err := client.GetAPIKey(ctx, "")
 			if tc.expectedErr != nil {
 				require.ErrorIs(t, err, tc.expectedErr)
@@ -106,19 +110,21 @@ func TestNewRequest(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	client := New("http://localhost:10005", "123")
+	logger := newLogger(t)
+
+	client := New("http://localhost:10005", "123", logger)
 	req, err := client.newRequest(ctx, http.MethodDelete, "/api/apikeys/456", nil)
 	require.NoError(t, err)
 	require.Equal(t, "http://localhost:10005/api/apikeys/456", req.URL.String())
 	require.Equal(t, "123", req.Header.Get("Authorization"))
 
-	client = New("http://localhost:8888//", "abc123")
+	client = New("http://localhost:8888//", "abc123", logger)
 	req, err = client.newRequest(ctx, http.MethodGet, "//api/apikeys/456/", nil)
 	require.NoError(t, err)
 	require.Equal(t, "http://localhost:8888/api/apikeys/456/", req.URL.String())
 	require.Equal(t, "abc123", req.Header.Get("Authorization"))
 
-	client = New("test://////", "")
+	client = New("test://////", "", logger)
 	req, err = client.newRequest(ctx, http.MethodGet, "//api/apikeys/456/", nil)
 	require.NoError(t, err)
 	require.Equal(t, "test:///api/apikeys/456/", req.URL.String())
@@ -140,4 +146,11 @@ func TestAPIError(t *testing.T) {
 	require.Equal(t, "unexpected status: 400 Bad Request", APIError{
 		Status: "400 Bad Request",
 	}.Error())
+}
+
+func newLogger(t *testing.T) *log.Logger {
+	logger, err := zap.NewStdLogAt(zaptest.NewLogger(t).Named("satelliteadminclient"), zapcore.DebugLevel)
+	require.NoError(t, err)
+
+	return logger
 }
