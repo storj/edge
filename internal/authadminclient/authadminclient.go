@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/base58"
 	"storj.io/common/encryption"
+	"storj.io/common/errs2"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcconn"
@@ -193,7 +193,7 @@ func (c *Client) withAdminClient(ctx context.Context, addresses []string, fn fun
 	if len(addresses) == 0 {
 		return errs.New("node addresses unspecified")
 	}
-	var group errgroup.Group
+	var group errs2.Group
 	for _, address := range addresses {
 		address := address
 		group.Go(func() error {
@@ -210,7 +210,7 @@ func (c *Client) withAdminClient(ctx context.Context, addresses []string, fn fun
 			return nil
 		})
 	}
-	return group.Wait()
+	return errs.Combine(group.Wait()...)
 }
 
 // withReplicationClient runs fn sequentially on given node addresses.
