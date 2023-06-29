@@ -116,11 +116,15 @@ type cmdRecordDelete struct {
 	authClient      *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 	key             string
+	deleteAPIKey    bool
 }
 
 func (cmd *cmdRecordDelete) Setup(params clingy.Parameters) {
 	cmd.authClient = newAuthAdminClient(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
+	cmd.deleteAPIKey = params.Flag("delete-api-key", "if satellite admin addresses are configured, delete the API key on the satellite", true,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
@@ -132,7 +136,7 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 
 	// note: APIKey is empty if the input to this command is the key hash
 	// not the encryption key/access key ID. We can't decrypt it in this case.
-	if cmd.satAdminClients != nil && authRecord.APIKey != "" {
+	if cmd.satAdminClients != nil && authRecord.APIKey != "" && cmd.deleteAPIKey {
 		satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
 		if err != nil {
 			return err
