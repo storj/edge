@@ -80,11 +80,13 @@ func TestErrorResponse(t *testing.T) {
 
 			client := New(srv.URL, "", newLogger(t))
 			resp, err := client.doRequest(req) //nolint:bodyclose
+			if err == nil {
+				ctx.Check(resp.Body.Close)
+			}
 			if tc.expectedErr != nil {
 				require.ErrorIs(t, err, tc.expectedErr)
 			} else {
 				require.NoError(t, err)
-				ctx.Check(resp.Body.Close)
 			}
 		})
 	}
