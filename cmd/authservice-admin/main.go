@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 
 	"storj.io/gateway-mt/internal/authadminclient"
 	"storj.io/gateway-mt/internal/satelliteadminclient"
@@ -89,4 +90,11 @@ func loadSatAdminClients(clients map[string]*satelliteadminclient.Client, values
 		clients[parts[0]] = satelliteadminclient.New(parts[1], parts[2], logger)
 	}
 	return nil
+}
+
+func satAPIKeyError(err error) error {
+	if errs.Is(err, satelliteadminclient.ErrNotFound) {
+		return errs.New("api key not found on satellite. It may have already been deleted")
+	}
+	return err
 }

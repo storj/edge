@@ -41,7 +41,7 @@ func (cmd *cmdRecordShow) Setup(params clingy.Parameters) {
 func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
 	authRecord, err := cmd.authClient.Get(ctx, cmd.key)
 	if err != nil {
-		return err
+		return errs.New("get: %w", err)
 	}
 
 	record := record{
@@ -53,7 +53,7 @@ func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
 	if cmd.satAdminClients != nil && authRecord.APIKey != "" {
 		satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
 		if err != nil {
-			return err
+			return errs.New("parse node url: %w", err)
 		}
 
 		client, ok := cmd.satAdminClients[satelliteNodeURL.Address]
@@ -63,7 +63,7 @@ func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
 
 		apiKeyResp, err := client.GetAPIKey(ctx, authRecord.APIKey)
 		if err != nil {
-			return err
+			return errs.New("get api key: %w", satAPIKeyError(err))
 		}
 
 		record.SatRecord = apiKeyResp
@@ -131,7 +131,7 @@ func (cmd *cmdRecordDelete) Setup(params clingy.Parameters) {
 func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 	authRecord, err := cmd.authClient.Get(ctx, cmd.key)
 	if err != nil {
-		return err
+		return errs.New("get: %w", err)
 	}
 
 	// note: APIKey is empty if the input to this command is the key hash
@@ -139,7 +139,7 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 	if cmd.satAdminClients != nil && authRecord.APIKey != "" && cmd.deleteAPIKey {
 		satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
 		if err != nil {
-			return err
+			return errs.New("parse node url: %w", err)
 		}
 
 		client, ok := cmd.satAdminClients[satelliteNodeURL.Address]
@@ -148,11 +148,15 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 		}
 
 		if err := client.DeleteAPIKey(ctx, authRecord.APIKey); err != nil {
-			return err
+			return errs.New("delete api key: %w", satAPIKeyError(err))
 		}
 	}
 
-	return cmd.authClient.Delete(ctx, cmd.key)
+	if err := cmd.authClient.Delete(ctx, cmd.key); err != nil {
+		return errs.New("delete: %w", err)
+	}
+
+	return nil
 }
 
 func printRecord(r record) {

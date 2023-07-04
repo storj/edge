@@ -82,12 +82,12 @@ func (cmd *cmdLinksInspect) Execute(ctx context.Context) (err error) {
 func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *inspectResult) error {
 	link, err := sharedlink.Parse(url)
 	if err != nil {
-		return err
+		return errs.New("parse link: %w", err)
 	}
 
 	authRecord, err := cmd.authAdminClient.Resolve(ctx, link.AccessKey)
 	if err != nil {
-		return err
+		return errs.New("resolve: %w", err)
 	}
 
 	result.AuthRecord = authRecord
@@ -95,7 +95,7 @@ func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *
 	if cmd.satAdminClients != nil {
 		satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
 		if err != nil {
-			return err
+			return errs.New("parse node url: %w", err)
 		}
 
 		satAdminClient, ok := cmd.satAdminClients[satelliteNodeURL.Address]
@@ -105,7 +105,7 @@ func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *
 
 		apiKeyResp, err := satAdminClient.GetAPIKey(ctx, authRecord.APIKey)
 		if err != nil {
-			return err
+			return errs.New("get api key: %w", satAPIKeyError(err))
 		}
 
 		result.SatRecord = apiKeyResp
@@ -229,17 +229,17 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) (err error) {
 func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *revokeResult) error {
 	link, err := sharedlink.Parse(uri)
 	if err != nil {
-		return err
+		return errs.New("parse link: %w", err)
 	}
 
 	authRecord, err := cmd.authAdminClient.Resolve(ctx, link.AccessKey)
 	if err != nil {
-		return err
+		return errs.New("resolve: %w", err)
 	}
 
 	satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
 	if err != nil {
-		return err
+		return errs.New("parse node url: %w", err)
 	}
 
 	satAdminClient, ok := cmd.satAdminClients[satelliteNodeURL.Address]
@@ -249,7 +249,7 @@ func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *re
 
 	apiKeyResp, err := satAdminClient.GetAPIKey(ctx, authRecord.APIKey)
 	if err != nil {
-		return err
+		return errs.New("get api key: %w", satAPIKeyError(err))
 	}
 
 	result.Name = apiKeyResp.Owner.FullName
@@ -260,7 +260,7 @@ func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *re
 	if !apiKeyResp.Owner.PaidTier && cmd.setProjectLimitsZero {
 		userResp, err := satAdminClient.GetUser(ctx, apiKeyResp.Owner.Email)
 		if err != nil {
-			return err
+			return errs.New("get user: %w", err)
 		}
 
 		limits := make(url.Values)
@@ -273,18 +273,13 @@ func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *re
 
 		for _, project := range userResp.Projects {
 			if err := satAdminClient.SetProjectLimits(ctx, project.ID.String(), limits); err != nil {
-				return err
+				return errs.New("set project limits: %w", err)
 			}
 		}
 	}
 
 	if err := satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey); err != nil {
-		switch {
-		case errs.Is(err, satelliteadminclient.ErrNotFound):
-			return errs.New("api key not found on satellite. It may have already been deleted")
-		default:
-			return errs.New("failed to delete api key: %w. Please try this command again", err)
-		}
+		return errs.New("delete api key: %w", satAPIKeyError(err))
 	}
 
 	// note: accessKey could be an access grant, so we need to check first.
