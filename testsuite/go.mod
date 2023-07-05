@@ -14,10 +14,10 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230602145716-d6ea82d58b3d
+	storj.io/common v0.0.0-20230703090058-81cb588c23b6
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20230612092130-a0bd5759158e
-	storj.io/storj v1.79.0-rc
+	storj.io/private v0.0.0-20230627140631-807a2f00d0e1
+	storj.io/storj v1.82.1
 	storj.io/uplink v1.10.1-0.20230626081029-035890d408c2
 )
 
@@ -87,15 +87,12 @@ require (
 	github.com/graphql-go/graphql v0.7.9 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.11.0 // indirect
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.10.0 // indirect
-	github.com/jackc/pgx/v4 v4.15.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgtype v1.14.0 // indirect
+	github.com/jackc/pgx/v5 v5.3.1 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -226,7 +223,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.33 // indirect
-	storj.io/gateway v1.8.4-0.20230614110719-c0b253a4174b // indirect
+	storj.io/gateway v1.8.4-0.20230705192634-74654d9d4028 // indirect
 	storj.io/minio v0.0.0-20230627070725-370d887aacde // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
