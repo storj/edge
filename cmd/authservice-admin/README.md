@@ -126,7 +126,7 @@ Revoke one or more shared links located in a text file.
 
 This command requires the satellite admin addresses to be configured, so the API key can be deleted on the satellite.
 
-It also sets all free-tier owner's projects to zero limits. This can be disabled with the flag `--set-project-limits-zero=false`.
+It also freezes free-tier accounts. This can be disabled with the flag `--freeze-accounts=false`.
 
 ```console
 $ authservice-admin links revoke /tmp/links.txt

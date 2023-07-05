@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -184,17 +183,17 @@ type revokeResult struct {
 }
 
 type cmdLinksRevoke struct {
-	output               string
-	inputFilePath        string
-	setProjectLimitsZero bool
-	authAdminClient      *authadminclient.Client
-	satAdminClients      map[string]*satelliteadminclient.Client
+	output          string
+	inputFilePath   string
+	freezeAccounts  bool
+	authAdminClient *authadminclient.Client
+	satAdminClients map[string]*satelliteadminclient.Client
 }
 
 func (cmd *cmdLinksRevoke) Setup(params clingy.Parameters) {
 	cmd.authAdminClient = newAuthAdminClient(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
-	cmd.setProjectLimitsZero = params.Flag("set-project-limits-zero", "set project limits to zero for free-tier user's projects", true,
+	cmd.freezeAccounts = params.Flag("freeze-accounts", "freeze free-tier user accounts", true,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	cmd.output = params.Flag("output", "output format (either json or leave empty to output as text)", "", clingy.Short('o')).(string)
@@ -257,24 +256,9 @@ func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *re
 	result.PaidTier = apiKeyResp.Owner.PaidTier
 
 	// if we're revoking access to a free tier owner, set all their project limits to zero.
-	if !apiKeyResp.Owner.PaidTier && cmd.setProjectLimitsZero {
-		userResp, err := satAdminClient.GetUser(ctx, apiKeyResp.Owner.Email)
-		if err != nil {
-			return errs.New("get user: %w", err)
-		}
-
-		limits := make(url.Values)
-		limits.Set("usage", "0")
-		limits.Set("bandwidth", "0")
-		limits.Set("rate", "0")
-		limits.Set("buckets", "0")
-		limits.Set("burst", "0")
-		limits.Set("segments", "0")
-
-		for _, project := range userResp.Projects {
-			if err := satAdminClient.SetProjectLimits(ctx, project.ID.String(), limits); err != nil {
-				return errs.New("set project limits: %w", err)
-			}
+	if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
+		if err := satAdminClient.FreezeAccount(ctx, apiKeyResp.Owner.Email); err != nil {
+			return errs.New("freeze account: %w", err)
 		}
 	}
 
