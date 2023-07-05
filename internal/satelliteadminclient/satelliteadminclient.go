@@ -137,6 +137,21 @@ func (c *Client) GetUser(ctx context.Context, email string) (UserResponse, error
 	return r, nil
 }
 
+// FreezeAccount freezes the given user's account on the satellite so no upload or downloads may occur.
+// See https://github.com/storj/storj/tree/main/satellite/admin#put-apiusersuser-emailfreeze
+func (c *Client) FreezeAccount(ctx context.Context, email string) error {
+	req, err := c.newRequest(ctx, http.MethodPut, "/api/users/"+email+"/freeze", nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
 // SetProjectLimits sets the project limits.
 // See https://github.com/storj/storj/tree/main/satellite/admin#update-limits
 func (c *Client) SetProjectLimits(ctx context.Context, projectID string, limits url.Values) error {
