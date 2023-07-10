@@ -11,8 +11,8 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/http/requestid"
 	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
 )
@@ -67,7 +67,7 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 					Status:        rw.StatusCode(),
 				}),
 					zap.String("host", host),
-					zap.String("request-id", middleware.GetRequestID(r.Context())),
+					zap.String("request-id", requestid.FromContext(r.Context())),
 					// we are deliberately not logging the request URI as it has
 					// sensitive information in it.
 				)
