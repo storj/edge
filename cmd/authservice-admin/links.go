@@ -6,13 +6,18 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +26,7 @@ import (
 	"storj.io/gateway-mt/internal/authadminclient"
 	"storj.io/gateway-mt/internal/satelliteadminclient"
 	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/gateway-mt/pkg/hashreader"
 	"storj.io/gateway-mt/pkg/sharedlink"
 )
 
@@ -173,17 +179,19 @@ func isOnline(ctx context.Context, url string) (bool, error) {
 }
 
 type revokeResult struct {
-	URL      string `json:"url"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	PaidTier bool   `json:"paid_tier"`
-	Error    string `json:"error,omitempty"`
+	URL               string `json:"url"`
+	Name              string `json:"name"`
+	Email             string `json:"email"`
+	PaidTier          bool   `json:"paid_tier"`
+	ContentHashSHA256 string `json:"content_hash_sha256,omitempty"`
+	Error             string `json:"error,omitempty"`
 }
 
 type cmdLinksRevoke struct {
 	output          string
 	inputFilePath   string
 	freezeAccounts  bool
+	hashContents    bool
 	authAdminClient *authadminclient.Client
 	satAdminClients map[string]*satelliteadminclient.Client
 }
@@ -192,6 +200,9 @@ func (cmd *cmdLinksRevoke) Setup(params clingy.Parameters) {
 	cmd.authAdminClient = newAuthAdminClient(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.freezeAccounts = params.Flag("freeze-accounts", "freeze free-tier user accounts", true,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
+	cmd.hashContents = params.Flag("hash-contents", "hash link contents and send an event if events address configured", true,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	cmd.output = params.Flag("output", "output format (either json or leave empty to output as text)", "", clingy.Short('o')).(string)
@@ -208,6 +219,22 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 
 	for i, url := range urls {
 		results[i].URL = url
+
+		if cmd.hashContents {
+			hb, err := hashContents(ctx, url)
+			if err != nil {
+				results[i].Error = errs.New("hash contents: %w", err).Error()
+				continue
+			}
+
+			if hb != nil {
+				results[i].ContentHashSHA256 = hex.EncodeToString(hb)
+
+				ek.Event("revokedlink",
+					eventkit.String("link", url),
+					eventkit.String("hash-sha256", hex.EncodeToString(hb)))
+			}
+		}
 
 		link, err := sharedlink.Parse(url)
 		if err != nil {
@@ -280,6 +307,67 @@ func (cmd *cmdLinksRevoke) deleteAuthRecords(ctx context.Context, accessKey stri
 	return nil
 }
 
+func hashContents(ctx context.Context, url string) ([]byte, error) {
+	rawURL, err := rawLinkURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Printf("hashing contents of %s\n", rawURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode >= 500 {
+			return nil, errs.New("unexpected status: %s", resp.Status)
+		}
+
+		logger.Printf("%s appears to be offline (%s), skipping hashing", rawURL, resp.Status)
+		return nil, nil
+	}
+
+	hr := hashreader.New(resp.Body, sha256.New())
+	_, err = io.Copy(io.Discard, hr)
+	if err != nil {
+		return nil, err
+	}
+
+	hashSum := hr.Sum()
+
+	logger.Printf("sha256 sum of %s: %s", rawURL, hex.EncodeToString(hashSum))
+
+	return hashSum, nil
+}
+
+// rawLinkURL modifies a linksharing URL from /s/ to /raw/ format without any
+// query values. Anything else like S3 presigned URLs are returned parsed
+// without changes.
+func rawLinkURL(rawURL string) (*url.URL, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	path := u.EscapedPath()
+	if strings.HasPrefix(path, "/s/") {
+		u.Path = "/raw/" + path[len("/s/"):]
+		u.RawQuery = ""
+	}
+
+	return u, nil
+}
+
 func printRevokeResults(results []revokeResult) {
 	for _, r := range results {
 		fmt.Println(r.URL)
@@ -287,6 +375,9 @@ func printRevokeResults(results []revokeResult) {
 		printFixed("Name:", r.Name)
 		printFixed("Email:", r.Email)
 		printFixed("Paid tier:", strconv.FormatBool(r.PaidTier))
+		if r.ContentHashSHA256 != "" {
+			printFixed("Content hash SHA-256:", r.ContentHashSHA256)
+		}
 		if r.Error != "" {
 			printFixed("Error:", r.Error)
 		}

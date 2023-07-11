@@ -9,29 +9,60 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/gateway-mt/internal/authadminclient"
 	"storj.io/gateway-mt/internal/satelliteadminclient"
 )
 
-var logger *log.Logger
+var (
+	logger *log.Logger
+	ek     = eventkit.Package()
+)
 
 func init() {
 	logger = log.New(io.Discard, "", log.LstdFlags|log.LUTC)
 }
 
 func main() {
-	ok, err := clingy.Environment{}.Run(context.Background(), func(cmds clingy.Commands) {
+	ok, err := run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+	}
+	if !ok || err != nil {
+		os.Exit(1)
+	}
+}
+
+func run() (bool, error) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+
+	var eg errgroup.Group
+
+	ok, err := clingy.Environment{}.Run(ctx, func(cmds clingy.Commands) {
 		logEnabled := cmds.Flag("log.enabled", "log debug messages", false,
 			clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		).(bool)
 		if logEnabled {
 			logger.SetOutput(os.Stderr)
+		}
+
+		addr := cmds.Flag("events.addr", "address to send events to", "").(string)
+		if addr != "" {
+			logger.Printf("sending events to %s", addr)
+			ec := eventkit.NewUDPClient("authservice-admin", "v0.0.0", "", addr)
+			eventkit.DefaultRegistry.AddDestination(ec)
+			eg.Go(func() error {
+				ec.Run(ctx)
+				return nil
+			})
 		}
 
 		cmds.Group("record", "record commands", func() {
@@ -45,12 +76,14 @@ func main() {
 			cmds.New("revoke", "revoke access for given links", new(cmdLinksRevoke))
 		})
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-	}
-	if !ok || err != nil {
-		os.Exit(1)
-	}
+
+	stop()
+
+	// wait for event collector to shut down after context cancelled.
+	// no errors are returned, so there's no need to check.
+	_ = eg.Wait()
+
+	return ok, err
 }
 
 func newAuthAdminClient(params clingy.Parameters) *authadminclient.Client {
