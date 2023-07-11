@@ -200,7 +200,7 @@ func (cmd *cmdLinksRevoke) Setup(params clingy.Parameters) {
 	cmd.inputFilePath = params.Arg("input", "input file path").(string)
 }
 
-func (cmd *cmdLinksRevoke) Execute(ctx context.Context) (err error) {
+func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 	urls, err := scanURLs(cmd.inputFilePath)
 	if err != nil {
 		return err
@@ -211,7 +211,13 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) (err error) {
 	for i, url := range urls {
 		results[i].URL = url
 
-		if err := cmd.revokeURL(ctx, url, &results[i]); err != nil {
+		link, err := sharedlink.Parse(url)
+		if err != nil {
+			results[i].Error = errs.New("parse link: %w", err).Error()
+			continue
+		}
+
+		if err := cmd.revokeAccess(ctx, link.AccessKey, &results[i]); err != nil {
 			results[i].Error = err.Error()
 		}
 	}
@@ -225,13 +231,8 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) (err error) {
 	}
 }
 
-func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *revokeResult) error {
-	link, err := sharedlink.Parse(uri)
-	if err != nil {
-		return errs.New("parse link: %w", err)
-	}
-
-	authRecord, err := cmd.authAdminClient.Resolve(ctx, link.AccessKey)
+func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, result *revokeResult) error {
+	authRecord, err := cmd.authAdminClient.Resolve(ctx, accessKey)
 	if err != nil {
 		return errs.New("resolve: %w", err)
 	}
@@ -246,35 +247,42 @@ func (cmd *cmdLinksRevoke) revokeURL(ctx context.Context, uri string, result *re
 		return errs.New("could not find satellite admin address for %q", satelliteNodeURL.Address)
 	}
 
+	var eg errs.Group
+
 	apiKeyResp, err := satAdminClient.GetAPIKey(ctx, authRecord.APIKey)
 	if err != nil {
-		return errs.New("get api key: %w", satAPIKeyError(err))
-	}
+		if !errs.Is(err, satelliteadminclient.ErrNotFound) {
+			return errs.New("get api key: %w", err)
+		}
+	} else {
+		result.Name = apiKeyResp.Owner.FullName
+		result.Email = apiKeyResp.Owner.Email
+		result.PaidTier = apiKeyResp.Owner.PaidTier
 
-	result.Name = apiKeyResp.Owner.FullName
-	result.Email = apiKeyResp.Owner.Email
-	result.PaidTier = apiKeyResp.Owner.PaidTier
+		eg.Add(satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey))
 
-	// if we're revoking access to a free tier owner, set all their project limits to zero.
-	if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
-		if err := satAdminClient.FreezeAccount(ctx, apiKeyResp.Owner.Email); err != nil {
-			return errs.New("freeze account: %w", err)
+		if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
+			eg.Add(satAdminClient.FreezeAccount(ctx, apiKeyResp.Owner.Email))
 		}
 	}
 
-	if err := satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey); err != nil {
-		return errs.New("delete api key: %w", satAPIKeyError(err))
+	eg.Add(cmd.deleteAuthRecords(ctx, accessKey))
+
+	if eg.Err() != nil {
+		result.RemovedAt = time.Now().UTC()
 	}
 
+	return eg.Err()
+}
+
+func (cmd *cmdLinksRevoke) deleteAuthRecords(ctx context.Context, accessKey string) error {
 	// note: accessKey could be an access grant, so we need to check first.
-	if len(link.AccessKey) == authdb.EncKeySizeEncoded {
-		if err := cmd.authAdminClient.Delete(ctx, link.AccessKey); err != nil {
-			return errs.New("api key was deleted on satellite, but errors deleting on authservice nodes: %w. Please run `authservice-admin record delete %s --delete-api-key=false` to clean these up", err, link.AccessKey)
-		}
+	if len(accessKey) != authdb.EncKeySizeEncoded {
+		return nil
 	}
-
-	result.RemovedAt = time.Now().UTC()
-
+	if err := cmd.authAdminClient.Delete(ctx, accessKey); err != nil {
+		return errs.New("error deleting access keys on authservice nodes: %w. Please run `authservice-admin record delete %s --delete-api-key=false` to clean these up", err, accessKey)
+	}
 	return nil
 }
 
