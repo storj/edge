@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
@@ -174,12 +173,11 @@ func isOnline(ctx context.Context, url string) (bool, error) {
 }
 
 type revokeResult struct {
-	URL       string    `json:"url"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	PaidTier  bool      `json:"paid_tier"`
-	RemovedAt time.Time `json:"removed_at,omitempty"`
-	Error     string    `json:"error,omitempty"`
+	URL      string `json:"url"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	PaidTier bool   `json:"paid_tier"`
+	Error    string `json:"error,omitempty"`
 }
 
 type cmdLinksRevoke struct {
@@ -268,10 +266,6 @@ func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, r
 
 	eg.Add(cmd.deleteAuthRecords(ctx, accessKey))
 
-	if eg.Err() != nil {
-		result.RemovedAt = time.Now().UTC()
-	}
-
 	return eg.Err()
 }
 
@@ -293,9 +287,6 @@ func printRevokeResults(results []revokeResult) {
 		printFixed("Name:", r.Name)
 		printFixed("Email:", r.Email)
 		printFixed("Paid tier:", strconv.FormatBool(r.PaidTier))
-		if !r.RemovedAt.IsZero() {
-			printFixed("Removed at:", r.RemovedAt.Format(time.RFC3339))
-		}
 		if r.Error != "" {
 			printFixed("Error:", r.Error)
 		}
