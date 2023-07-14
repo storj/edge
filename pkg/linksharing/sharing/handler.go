@@ -56,6 +56,10 @@ type pageData struct {
 
 	ArchivePath      string
 	ShowViewContents bool
+
+	// Download button should be disabled for files the sharing access doesn't
+	// allow to download.
+	AllowDownload bool
 }
 
 // Config specifies the handler configuration.

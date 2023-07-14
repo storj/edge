@@ -501,3 +501,35 @@ func TestImagePreviewPath(t *testing.T) {
 		assert.Equal(t, tt.wantOgImage, ogImage, i)
 	}
 }
+
+func TestIsDownloadAllowed(t *testing.T) {
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, Config{
+		URLBases:  []string{"http://test.test"},
+		Templates: "../../../pkg/linksharing/web/",
+	})
+	require.NoError(t, err)
+
+	access, err := uplink.ParseAccess("1NfEFS9eR2QA5o6dov3QGNWrFRYZcufde1EcfS99cJB5ZewJZrWpJEZXat1d1GViu5R8G9NDjKz2z4nBUsmSyA6vPeUAnVheFARypytybCHCV8VcEPd1RyebPJ1apQQY8hNjk4r4v5Pe1sUULBERgemuPfcNMjMh5RUWfP1aNm7UFZToeV1ALKVKZCeetrnc8V2gaDz6R28Eaat62Xz7RBAmsfbJZ86GoDpw2PUrVMBGD9gtiRJiqTG7G")
+	require.NoError(t, err)
+
+	allowed := handler.isDownloadAllowed(access)
+	require.True(t, allowed)
+
+	downloadOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: false, AllowDownload: true},
+		uplink.SharePrefix{},
+	)
+	require.NoError(t, err)
+
+	allowed = handler.isDownloadAllowed(downloadOnlyAccess)
+	require.True(t, allowed)
+
+	listOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: true},
+		uplink.SharePrefix{},
+	)
+	require.NoError(t, err)
+
+	allowed = handler.isDownloadAllowed(listOnlyAccess)
+	require.False(t, allowed)
+}
