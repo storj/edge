@@ -50,7 +50,7 @@ node('node') {
       // as failed if the deployment job fails
       build job: 'edge-deployment', wait: true, propagate: true, parameters: [
         extendedChoice(name: 'REGIONS', value: 'Europe (Staging)'),
-        extendedChoice(name: 'SERVICES', value: 'Authservice,Gateway-MT'),
+        extendedChoice(name: 'SERVICES', value: 'Authservice,Gateway-MT,Linksharing'),
         booleanParam(name: 'CONFIRM', value: false)
       ]
 
