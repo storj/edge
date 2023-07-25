@@ -33,7 +33,7 @@ require (
 	storj.io/gateway v1.9.0
 	storj.io/minio v0.0.0-20230627070725-370d887aacde
 	storj.io/private v0.0.0-20230707205547-3f3b667f6ac0
-	storj.io/uplink v1.10.1-0.20230628184638-0e6829c81f5c
+	storj.io/uplink v1.11.0
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
