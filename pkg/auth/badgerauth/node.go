@@ -675,18 +675,13 @@ func IgnoreDialFailures(err error) error {
 type clocksLogObject map[string]uint64
 
 func (o clocksLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	var (
-		ids  []string
-		vals []uint64
-	)
-	for id, val := range o {
-		ids, vals = append(ids, id), append(vals, val)
+	var ids []string
+	for id := range o {
+		ids = append(ids, id)
 	}
-	f := func(i, j int) bool { return ids[i] < ids[j] }
-	sort.Slice(ids, f)
-	sort.Slice(vals, f)
-	for i, id := range ids {
-		enc.AddUint64(id, vals[i])
+	sort.Strings(ids)
+	for _, id := range ids {
+		enc.AddUint64(id, o[id])
 	}
 	return nil
 }
