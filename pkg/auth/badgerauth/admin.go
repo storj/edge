@@ -40,7 +40,7 @@ func (admin *Admin) InvalidateRecord(ctx context.Context, req *pb.InvalidateReco
 	}
 
 	return &resp, errToRPCStatusErr(admin.db.updateRecord(ctx, keyHash, func(record *pb.Record) {
-		record.InvalidatedAtUnix = time.Now().Unix()
+		record.InvalidatedAtUnix = time.Now().Round(time.Minute).Unix()
 		record.InvalidationReason = req.Reason
 	}))
 }
