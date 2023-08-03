@@ -18,6 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/gateway-mt/internal/authadminclient"
 	"storj.io/gateway-mt/internal/satelliteadminclient"
 )
@@ -128,6 +130,13 @@ func loadSatAdminClients(clients map[string]*satelliteadminclient.Client, values
 func satAPIKeyError(err error) error {
 	if errs.Is(err, satelliteadminclient.ErrNotFound) {
 		return errs.New("api key not found on satellite. It may have already been deleted")
+	}
+	return err
+}
+
+func authAccessKeyError(err error) error {
+	if errs2.IsRPC(err, rpcstatus.NotFound) {
+		return errs.New("access key not found on authservice. It may have already been deleted")
 	}
 	return err
 }

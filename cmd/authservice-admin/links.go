@@ -91,7 +91,7 @@ func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *
 
 	authRecord, err := cmd.authAdminClient.Resolve(ctx, link.AccessKey)
 	if err != nil {
-		return errs.New("resolve: %w", err)
+		return errs.New("get access key: %w", authAccessKeyError(err))
 	}
 
 	result.AuthRecord = authRecord
@@ -259,7 +259,7 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, result *revokeResult) error {
 	authRecord, err := cmd.authAdminClient.Resolve(ctx, accessKey)
 	if err != nil {
-		return errs.New("resolve: %w", err)
+		return errs.New("get access key: %w", authAccessKeyError(err))
 	}
 
 	satelliteNodeURL, err := storj.ParseNodeURL(authRecord.SatelliteAddress)
