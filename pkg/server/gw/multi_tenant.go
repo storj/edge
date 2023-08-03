@@ -297,13 +297,11 @@ func (l *MultiTenancyLayer) GetObjectNInfo(ctx context.Context, bucket, object s
 	reader, err = l.layer.GetObjectNInfo(miniogw.WithUplinkProject(ctx, project), bucket, object, rs, h, lockType, opts)
 	if err != nil {
 		err = errs.Combine(err, project.Close())
-		return nil, l.log(ctx, err)
+	} else {
+		reader.AppendCleanupFunc(func() { _ = project.Close() })
 	}
 
-	reader.AppendCleanupFunc(func() {
-		_ = project.Close()
-	})
-	return reader, nil
+	return reader, l.log(ctx, err)
 }
 
 // GetObjectInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectInfo.
