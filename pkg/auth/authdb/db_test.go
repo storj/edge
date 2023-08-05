@@ -206,6 +206,6 @@ func (mockStorage) Put(ctx context.Context, keyHash KeyHash, record *Record) (er
 func (mockStorage) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) {
 	return nil, nil
 }
-func (mockStorage) PingDB(ctx context.Context) error { return nil }
-func (mockStorage) Run(ctx context.Context) error    { return nil }
-func (mockStorage) Close() error                     { return nil }
+func (mockStorage) HealthCheck(ctx context.Context) error { return nil }
+func (mockStorage) Run(ctx context.Context) error         { return nil }
+func (mockStorage) Close() error                          { return nil }

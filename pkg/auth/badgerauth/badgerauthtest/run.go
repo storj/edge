@@ -35,7 +35,7 @@ func RunSingleNode(t *testing.T, config badgerauth.Config, fn func(ctx *testcont
 	require.NoError(t, err)
 	defer ctx.Check(node.Close)
 
-	require.NoError(t, node.UnderlyingDB().PingDB(ctx), "PingDB")
+	require.NoError(t, node.UnderlyingDB().HealthCheck(ctx), "HealthCheck")
 
 	nodectx, nodecancel := context.WithCancel(ctx)
 	var g errgroup.Group
@@ -101,7 +101,7 @@ func RunCluster(t *testing.T, c ClusterConfig, fn func(ctx *testcontext.Context,
 		node, err := badgerauth.New(log, config)
 		require.NoError(t, err)
 
-		require.NoError(t, node.UnderlyingDB().PingDB(ctx), "PingDB")
+		require.NoError(t, node.UnderlyingDB().HealthCheck(ctx), "HealthCheck")
 
 		nodes = append(nodes, node)
 	}

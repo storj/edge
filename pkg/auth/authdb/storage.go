@@ -78,8 +78,9 @@ type Storage interface {
 	// If the record is invalid, the error contains why.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
 
-	// PingDB ensures the storage backend works and returns an error otherwise.
-	PingDB(ctx context.Context) error
+	// HealthCheck ensures the storage backend works and returns an error
+	// otherwise.
+	HealthCheck(ctx context.Context) error
 
 	// Run runs the storage backend.
 	Run(ctx context.Context) error

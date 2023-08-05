@@ -310,9 +310,9 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	return nil, nil
 }
 
-// PingDB proxies DB's PingDB.
-func (node *Node) PingDB(ctx context.Context) error {
-	return node.db.PingDB(ctx)
+// HealthCheck proxies DB's HealthCheck.
+func (node *Node) HealthCheck(ctx context.Context) error {
+	return node.db.HealthCheck(ctx)
 }
 
 // Run runs the server and the associated servers.

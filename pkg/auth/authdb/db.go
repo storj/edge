@@ -232,11 +232,12 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessG
 	return string(ag), record.Public, secretKey, nil
 }
 
-// PingDB attempts to do a DB roundtrip. If it can't it will return an error.
-func (db *Database) PingDB(ctx context.Context) (err error) {
+// HealthCheck ensures the underlying storage backend works and returns an error
+// otherwise.
+func (db *Database) HealthCheck(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(db.storage.PingDB(ctx))
+	return errs.Wrap(db.storage.HealthCheck(ctx))
 }
 
 // apiKeyExpiration returns the expiration time of apiKey, and any error

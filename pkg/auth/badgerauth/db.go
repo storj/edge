@@ -229,8 +229,9 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	}))
 }
 
-// PingDB attempts to do a database roundtrip and returns an error if it can't.
-func (db *DB) PingDB(ctx context.Context) (err error) {
+// HealthCheck ensures the underlying storage engine works and returns an error
+// otherwise.
+func (db *DB) HealthCheck(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.View(func(txn *badger.Txn) error {
