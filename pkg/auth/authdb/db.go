@@ -113,9 +113,10 @@ func toBase32(k []byte) string {
 	return strings.ToLower(base32Encoding.EncodeToString(k))
 }
 
-// Database wraps a key/value store and uses it to store encrypted accesses and secrets.
+// Database wraps Storage implementation and uses it to store encrypted accesses
+// and secrets.
 type Database struct {
-	kv KV
+	storage Storage
 
 	mu                   sync.Mutex
 	allowedSatelliteURLs map[storj.NodeURL]struct{}
@@ -124,9 +125,9 @@ type Database struct {
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (with a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(kv KV, allowedSatelliteURLs map[storj.NodeURL]struct{}) *Database {
+func NewDatabase(storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}) *Database {
 	return &Database{
-		kv:                   kv,
+		storage:              storage,
 		allowedSatelliteURLs: allowedSatelliteURLs,
 	}
 }
@@ -138,9 +139,9 @@ func (db *Database) SetAllowedSatellites(allowedSatelliteURLs map[storj.NodeURL]
 	db.mu.Unlock()
 }
 
-// Put encrypts the access grant with the key and stores it in a key/value store
-// under the hash of the encryption key. It rejects access grants with
-// expiration times that are before a minute from now.
+// Put encrypts the access grant with the key and stores it under the hash of
+// the encryption key. It rejects access grants with expiration times that are
+// before a minute from now.
 func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -195,15 +196,15 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		ExpiresAt:            expiration,
 	}
 
-	return secretKey, errs.Wrap(db.kv.Put(ctx, key.Hash(), record))
+	return secretKey, errs.Wrap(db.storage.Put(ctx, key.Hash(), record))
 }
 
-// Get retrieves an access grant and secret key from the key/value store, looked up by the
-// hash of the access key and then decrypted.
+// Get retrieves an access grant and secret key, looked up by the hash of the
+// access key, and then decrypted.
 func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	record, err := db.kv.Get(ctx, accessKeyID.Hash())
+	record, err := db.storage.Get(ctx, accessKeyID.Hash())
 	if err != nil {
 		return "", false, secretKey, errs.Wrap(err)
 	} else if record == nil {
@@ -235,7 +236,7 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessG
 func (db *Database) PingDB(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs.Wrap(db.kv.PingDB(ctx))
+	return errs.Wrap(db.storage.PingDB(ctx))
 }
 
 // apiKeyExpiration returns the expiration time of apiKey, and any error

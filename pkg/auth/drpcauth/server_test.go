@@ -37,16 +37,16 @@ var minimalAccessSatelliteID = func() storj.NodeURL {
 func createBackend(t *testing.T, sizeLimit memory.Size) (_ *Server, _ *authdb.Database, close func() error) {
 	logger := zaptest.NewLogger(t)
 
-	kv, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
+	storage, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
 	require.NoError(t, err)
 
-	db := authdb.NewDatabase(kv, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}})
+	db := authdb.NewDatabase(storage, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}})
 
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
 
 	return NewServer(logger, db, endpoint, sizeLimit), db, func() error {
-		return errs.Combine(kv.Close(), logger.Sync())
+		return errs.Combine(storage.Close(), logger.Sync())
 	}
 }
 

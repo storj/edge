@@ -167,9 +167,9 @@ func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
 	defer mon.Task(db.eventTags()...)(&ctx)(&err)
 
-	// The check below is to make sure we conform to the KV interface
-	// definition, and it's performed outside of the transaction because it's
-	// not crucial (access key hashes are unique enough).
+	// The check below is to make sure we conform to the interface definition
+	// and that it's performed outside of the transaction because it's not
+	// crucial (access key hashes are unique enough).
 	if err = db.db.View(func(txn *badger.Txn) error {
 		if _, err = txn.Get(keyHash.Bytes()); err == nil {
 			return ErrKeyAlreadyExists
@@ -197,7 +197,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}))
 }
 
-// Get retrieves the record from the key/value store. It returns nil if the key
+// Get retrieves the record from the storage engine. It returns nil if the key
 // does not exist. If the record is invalid, the error contains why.
 func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
 	defer mon.Task(db.eventTags()...)(&ctx)(&err)

@@ -14,8 +14,9 @@ import (
 	"storj.io/private/dbutil"
 )
 
-// OpenKV opens the database connection with the appropriate driver.
-func OpenKV(ctx context.Context, log *zap.Logger, config Config) (_ authdb.KV, err error) {
+// OpenStorage opens the underlying storage for Auth Service's database,
+// determining the backend based on the connection string.
+func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.Storage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	driver, _, _, err := dbutil.SplitConnStr(config.KVBackend)

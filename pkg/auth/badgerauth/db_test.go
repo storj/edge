@@ -234,7 +234,7 @@ func randTime(d time.Duration) time.Time {
 }
 
 // TestBasicCycle sequentially tests the basic create → retrieve lifecycle of a
-// single record, verifying fundamental KV interface guarantees.
+// single record, verifying fundamental Storage interface guarantees.
 func TestBasicCycle(t *testing.T) {
 	id := badgerauth.NodeID{'b', 'a', 's', 'i', 'c'}
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}

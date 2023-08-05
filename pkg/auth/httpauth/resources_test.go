@@ -92,8 +92,8 @@ func TestResources_CRUD(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
-	kv := newKV(t, logger)
-	defer ctx.Check(kv.Close)
+	storage := newStorage(t, logger)
+	defer ctx.Check(storage.Close)
 
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Availability after startup", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		const path = "/v1/health/startup"
 
@@ -135,7 +135,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -155,7 +155,7 @@ func TestResources_CRUD(t *testing.T) {
 		var unknownSatelliteID storj.NodeURL
 		unknownSatelliteID.ID[4] = 7
 		allowed := map[storj.NodeURL]struct{}{unknownSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -169,7 +169,7 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 
 		allowed = map[storj.NodeURL]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -178,7 +178,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowed, _, err := nodelist.Resolve(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -198,7 +198,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Public", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -216,7 +216,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalidated", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
@@ -225,7 +225,7 @@ func TestResources_CRUD(t *testing.T) {
 		var key authdb.EncryptionKey
 		require.NoError(t, key.FromBase32(createResult["access_key_id"].(string)))
 
-		admin := badgerauth.NewAdmin(kv.(*badgerauth.Node).UnderlyingDB())
+		admin := badgerauth.NewAdmin(storage.(*badgerauth.Node).UnderlyingDB())
 		_, err := admin.InvalidateRecord(ctx, &pb.InvalidateRecordRequest{Key: key.Hash().Bytes(), Reason: "takedown"})
 		require.NoError(t, err)
 
@@ -240,7 +240,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalid request", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 		check := func(body string, expectedCode int) {
 			rec := httptest.NewRecorder()
@@ -266,14 +266,14 @@ func TestResources_Authorization(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
-	kv := newKV(t, logger)
-	defer ctx.Check(kv.Close)
+	storage := newStorage(t, logger)
+	defer ctx.Check(storage.Close)
 
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
 	allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-	res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+	res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -380,8 +380,8 @@ func TestResources_Shutdown(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
-	kv := newKV(t, logger)
-	defer ctx.Check(kv.Close)
+	storage := newStorage(t, logger)
+	defer ctx.Check(storage.Close)
 
 	endpoint, err := url.Parse("http://endpoint.test/")
 	require.NoError(t, err)
@@ -391,7 +391,7 @@ func TestResources_Shutdown(t *testing.T) {
 		req := httptest.NewRequest("GET", "/v1/health/live", nil)
 
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(kv, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
 		res.SetStartupDone()
 		if inShutdown {
 			res.SetShutdown()
@@ -457,11 +457,11 @@ func newResource(t *testing.T, logger *zap.Logger, db *authdb.Database, endpoint
 	return New(logger, db, endpoint, []string{"authToken"}, 4*memory.KiB)
 }
 
-func newKV(t *testing.T, logger *zap.Logger) (_ authdb.KV) {
+func newStorage(t *testing.T, logger *zap.Logger) (_ authdb.Storage) {
 	t.Helper()
 
-	kv, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
+	storage, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
 	require.NoError(t, err)
 
-	return kv
+	return storage
 }
