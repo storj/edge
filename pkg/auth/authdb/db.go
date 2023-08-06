@@ -157,7 +157,6 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	if err != nil {
 		return secretKey, ErrAccessGrant.Wrap(err)
 	}
-	mon.Event("as_region_use_put", monkit.NewSeriesTag("satellite", satelliteAddr))
 
 	db.mu.Lock()
 	_, ok := db.allowedSatelliteURLs[nodeURL]
@@ -222,11 +221,6 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessG
 	ag, err := encryption.Decrypt(record.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, &storj.Nonce{1})
 	if err != nil {
 		return "", false, secretKey, errs.Wrap(err)
-	}
-
-	// log satelliteAddress so we can cross reference if we're actively using the distributed db "globally"
-	if grant, err := grant.ParseAccess(string(ag)); err == nil {
-		mon.Event("as_region_use_get", monkit.NewSeriesTag("satellite", grant.SatelliteAddress))
 	}
 
 	return string(ag), record.Public, secretKey, nil
