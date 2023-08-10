@@ -1,6 +1,6 @@
 module storj.io/gateway-mt
 
-go 1.18
+go 1.19
 
 require (
 	github.com/caddyserver/certmagic v0.17.2
@@ -24,16 +24,16 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.7.0
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.3.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20230719104100-cb5eec2edc30
+	storj.io/common v0.0.0-20230822112919-e5441f1061f5
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/gateway v1.9.1-0.20230809110707-e3f598f42d95
 	storj.io/minio v0.0.0-20230809050351-70d4a6c974ce
 	storj.io/private v0.0.0-20230707205547-3f3b667f6ac0
-	storj.io/uplink v1.11.0
+	storj.io/uplink v1.11.1-0.20230824095320-ae5e4af292fa
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -175,12 +175,12 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.7.0 // indirect
-	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/api v0.118.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
