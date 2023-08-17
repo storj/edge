@@ -166,9 +166,8 @@ type StartupCheckConfig struct {
 //
 // architecture: Endpoint
 type Server struct {
-	log     *zap.Logger
-	handler http.Handler
-	name    string
+	log  *zap.Logger
+	name string
 
 	listener        net.Listener
 	listenerTLS     net.Listener
@@ -254,7 +253,6 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		serverTLS:       serverTLS,
 		shutdownTimeout: config.ShutdownTimeout,
 		startupCheck:    startupCheck,
-		handler:         handler,
 	}, nil
 }
 

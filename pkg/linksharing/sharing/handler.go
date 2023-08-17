@@ -371,13 +371,9 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 
 	switch {
-	case handler.redirectHTTPS && r.URL.Scheme == "http":
-		u, err := url.ParseRequestURI(r.RequestURI)
-		if err != nil {
-			return errdata.WithStatus(errs.New("invalid request URI"), http.StatusInternalServerError)
-		}
-		u.Scheme = "https"
-		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)
+	case handler.redirectHTTPS && r.TLS == nil:
+		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/static/"):
 		handler.static.ServeHTTP(w, r.WithContext(ctx))
