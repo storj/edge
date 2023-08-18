@@ -142,6 +142,7 @@ type Handler struct {
 	mapper                 *objectmap.IPDB
 	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
+	tierQuerying           *TierQueryingService
 	static                 http.Handler
 	redirectHTTPS          bool
 	landingRedirect        string
@@ -154,7 +155,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, inShutdown *int32, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, tierQuerying *TierQueryingService, inShutdown *int32, config Config) (*Handler, error) {
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -231,6 +232,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		mapper:                 mapper,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
+		tierQuerying:           tierQuerying,
 		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,

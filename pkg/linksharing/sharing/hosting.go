@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
@@ -35,6 +36,20 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	result, err := handler.txtRecords.FetchAccessForHost(ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r))
 	if err != nil {
 		return errdata.WithAction(err, "fetch access")
+	}
+
+	// Redirect to HTTPS only custom domains that are paid-tier and with `storj-tls:true` TXT record
+	if handler.redirectHTTPS && r.TLS == nil && result.TLS && handler.tierQuerying != nil {
+		paidTier, err := handler.tierQuerying.Do(ctx, result.Access, host)
+		if err != nil {
+			return errdata.WithAction(err, "query user tier")
+		}
+
+		if paidTier {
+			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+			http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
+			return nil
+		}
 	}
 
 	bucket, key := determineBucketAndObjectKey(result.Root, r.URL.Path)

@@ -96,14 +96,6 @@ func TestIntegration(t *testing.T) {
 			},
 		},
 		{
-			name: "Custom domain insecure redirect",
-			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
-			},
-			redirectHTTPS:    true,
-			wantRedirectResp: false,
-		},
-		{
 			name: "Public domain TLS",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
@@ -127,6 +119,27 @@ func TestIntegration(t *testing.T) {
 				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
 			},
 			wantErr: true,
+		},
+		{
+			name:      "Custom domain insecure TXT record disabled redirect",
+			tlsRecord: false,
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			redirectHTTPS:    true,
+			wantRedirectResp: false,
+		},
+		{
+			name:      "Custom domain insecure not paid tier redirect",
+			tlsRecord: true,
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			redirectHTTPS:    true,
+			wantRedirectResp: false,
 		},
 		{
 			name:      "Custom domain TLS not paid tier",
@@ -173,7 +186,7 @@ func TestIntegration(t *testing.T) {
 				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
 			redirectHTTPS:    true,
-			wantRedirectResp: false,
+			wantRedirectResp: true,
 		},
 		{
 			name:      "Custom domain TLS paid tier",

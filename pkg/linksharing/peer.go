@@ -79,7 +79,16 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		peer.Mapper = objectmap.NewIPDB(reader)
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, &peer.inShutdown, config.Handler)
+	tierQuerying, err := sharing.NewTierQueryingService(
+		config.Server.TLSConfig.TierServiceIdentity,
+		config.Server.TLSConfig.TierCacheExpiration,
+		config.Server.TLSConfig.TierCacheCapacity,
+	)
+	if err != nil {
+		return nil, errs.New("unable to create tier querying service: %w", err)
+	}
+
+	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, tierQuerying, &peer.inShutdown, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
@@ -89,7 +98,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
-		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords, dnsClient)
+		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords, tierQuerying, dnsClient)
 		if err != nil {
 			return nil, errs.New("unable to get decision func for Custom Domains@TLS feature: %w", err)
 		}
@@ -103,7 +112,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	return peer, nil
 }
 
-func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords, dnsClient *sharing.DNSClient) (httpserver.CertMagicOnDemandDecisionFunc, error) {
+func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords, tqs *sharing.TierQueryingService, dnsClient *sharing.DNSClient) (httpserver.CertMagicOnDemandDecisionFunc, error) {
 	bases := make([]*url.URL, 0, len(tlsConfig.CertMagicPublicURLs))
 	for _, base := range tlsConfig.CertMagicPublicURLs {
 		parsed, err := url.Parse(base)
@@ -111,11 +120,6 @@ func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecord
 			return nil, errs.New("invalid public URL %q: %v", base, err)
 		}
 		bases = append(bases, parsed)
-	}
-
-	tqs, err := sharing.NewTierQueryingService(tlsConfig.TierServiceIdentity, tlsConfig.TierCacheExpiration, tlsConfig.TierCacheCapacity)
-	if err != nil {
-		return nil, errs.New("unable to create tier querying service: %w", err)
 	}
 
 	return func(name string) error {
