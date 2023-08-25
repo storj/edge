@@ -14,11 +14,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230822112919-e5441f1061f5
+	storj.io/common v0.0.0-20230824112457-9233ce5adb92
 	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20230707205547-3f3b667f6ac0
-	storj.io/storj v1.86.1
-	storj.io/uplink v1.11.1-0.20230824095320-ae5e4af292fa
+	storj.io/private v0.0.0-20230824104110-1eac532af65a
+	storj.io/storj v0.12.1-0.20230828114923-b26df035f920
+	storj.io/uplink v1.11.1-0.20230828124250-80ff3b7be3a3
 )
 
 require (
@@ -85,7 +85,6 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/graphql-go/graphql v0.7.9 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect

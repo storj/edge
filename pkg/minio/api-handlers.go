@@ -143,12 +143,6 @@ func (h objectAPIHandlersWrapper) DeleteObjectHandler(w http.ResponseWriter, r *
 	h.core.DeleteObjectHandler(w, r)
 }
 
-func (h objectAPIHandlersWrapper) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-	h.core.GetBucketLocationHandler(w, r)
-}
-
 func (h objectAPIHandlersWrapper) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)

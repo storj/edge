@@ -204,6 +204,22 @@ func (l *MultiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (b
 	return bucketInfo, l.log(ctx, err)
 }
 
+// GetBucketLocation is meant to be used for S3's
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
+// and responds with the location that the bucket's placement is annotated with
+// (if any) on the satellite and any error encountered.
+func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName string) (location string, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return "", err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	location, err = bucket.GetBucketLocation(ctx, project, bucketName)
+	return location, l.log(ctx, miniogw.ConvertError(err, bucketName, ""))
+}
+
 // ListBuckets is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListBuckets.
 func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))

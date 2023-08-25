@@ -344,7 +344,6 @@ integration-env-purge: integration-env-stop integration-env-clean integration-ne
 
 .PHONY: integration-env-logs
 integration-env-logs: ## Retrieve logs from integration services
-	-docker logs integration-sim-${BUILD_NUMBER}
 	-docker logs integration-authservice-${BUILD_NUMBER}
 	-docker logs integration-gateway-${BUILD_NUMBER}
 
@@ -398,9 +397,8 @@ integration-image-build:
 		./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
-	git clone --filter blob:none --no-checkout https://github.com/storj/storj
 	storj-up init minimal,db && \
-		storj-up build remote github minimal -c $$(git -C storj rev-list --exclude='*rc*' --tags --max-count=1) -s && \
+		storj-up build remote github minimal -s && \
 		docker compose -p storj-up-integration build
 
 .PHONY: integration-network-create

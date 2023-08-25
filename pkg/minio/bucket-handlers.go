@@ -6,6 +6,8 @@ package minio
 import (
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"storj.io/gateway-mt/pkg/server/gw"
 	"storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
@@ -17,7 +19,10 @@ import (
 // sender of the request.
 func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := cmd.NewContext(r, w, "ListBucketsWithAttribution")
+		ctx := r.Context()
+		defer mon.Task()(&ctx)(nil)
+
+		ctx = cmd.NewContext(r, w, "ListBucketsWithAttribution")
 
 		defer logger.AuditLog(ctx, w, r, nil)
 
@@ -35,5 +40,34 @@ func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer) http.Hand
 		response := generateListBucketsWithAttributionResponse(buckets)
 
 		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(response))
+	}
+}
+
+func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		defer mon.Task()(&ctx)(nil)
+
+		ctx = cmd.NewContext(r, w, "GetBucketLocation")
+
+		defer logger.AuditLog(ctx, w, r, nil)
+
+		vars := mux.Vars(r)
+		bucket := vars["bucket"]
+
+		if _, _, s3Error := cmd.CheckRequestAuthTypeCredential(ctx, r, policy.GetBucketLocationAction, bucket, ""); s3Error != cmd.ErrNone {
+			cmd.WriteErrorResponse(ctx, w, cmd.GetAPIError(s3Error), r.URL, false)
+			return
+		}
+
+		location, err := layer.GetBucketLocation(ctx, bucket)
+		if err != nil {
+			cmd.WriteErrorResponse(ctx, w, cmd.ToAPIError(ctx, err), r.URL, false)
+			return
+		}
+
+		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(cmd.LocationResponse{
+			Location: location,
+		}))
 	}
 }
