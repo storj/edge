@@ -36,6 +36,7 @@ type Config struct {
 type Client interface {
 	MakeBucket(ctx context.Context, bucket, region string) error
 	RemoveBucket(ctx context.Context, bucket string) error
+	GetBucketLocation(ctx context.Context, bucket string) (string, error)
 	ListBuckets(ctx context.Context) ([]string, error)
 	ListBucketsAttribution(ctx context.Context) ([]string, error)
 
@@ -80,6 +81,12 @@ func (client *Minio) RemoveBucket(ctx context.Context, bucket string) error {
 		return MinioError.Wrap(err)
 	}
 	return nil
+}
+
+// GetBucketLocation returns the bucket's location.
+func (client *Minio) GetBucketLocation(ctx context.Context, bucket string) (string, error) {
+	location, err := client.API.GetBucketLocation(ctx, bucket)
+	return location, MinioError.Wrap(err)
 }
 
 // ListBuckets lists all buckets.
