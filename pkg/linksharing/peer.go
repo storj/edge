@@ -79,16 +79,19 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		peer.Mapper = objectmap.NewIPDB(reader)
 	}
 
-	tierQuerying, err := sharing.NewTierQueryingService(
-		config.Server.TLSConfig.TierServiceIdentity,
-		config.Server.TLSConfig.TierCacheExpiration,
-		config.Server.TLSConfig.TierCacheCapacity,
-	)
-	if err != nil {
-		return nil, errs.New("unable to create tier querying service: %w", err)
+	var tqs *sharing.TierQueryingService
+	if config.Server.TLSConfig != nil {
+		tqs, err = sharing.NewTierQueryingService(
+			config.Server.TLSConfig.TierServiceIdentity,
+			config.Server.TLSConfig.TierCacheExpiration,
+			config.Server.TLSConfig.TierCacheCapacity,
+		)
+		if err != nil {
+			return nil, errs.New("unable to create tier querying service: %w", err)
+		}
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, tierQuerying, &peer.inShutdown, config.Handler)
+	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, tqs, &peer.inShutdown, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
@@ -98,7 +101,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
-		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords, tierQuerying, dnsClient)
+		decisionFunc, err = customDomainsOverTLSDecisionFunc(config.Server.TLSConfig, txtRecords, tqs, dnsClient)
 		if err != nil {
 			return nil, errs.New("unable to get decision func for Custom Domains@TLS feature: %w", err)
 		}
