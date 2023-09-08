@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -33,10 +32,7 @@ import (
 	"storj.io/zipper"
 )
 
-var (
-	mon = monkit.Package()
-	ek  = eventkit.Package()
-)
+var mon = monkit.Package()
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {

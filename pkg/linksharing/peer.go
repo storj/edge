@@ -96,7 +96,8 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	credsHandle := handle.CredentialsHandler(handle)
+	eventHandle := sharing.EventHandler(handle)
+	credsHandle := handle.CredentialsHandler(eventHandle)
 	traceHandle := http.TraceHandler(credsHandle, mon)
 	metricsHandle := middleware.Metrics("linksharing", traceHandle)
 
