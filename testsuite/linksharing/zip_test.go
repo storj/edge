@@ -210,7 +210,8 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 				r.Header.Add("Accept-Encoding", "gzip")
 			}
 			require.NoError(t, err)
-			handler.ServeHTTP(w, r)
+			credsHandler := handler.CredentialsHandler(handler)
+			credsHandler.ServeHTTP(w, r)
 			// check status
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
 			// check content encoding

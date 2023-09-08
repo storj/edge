@@ -857,7 +857,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				r.Header.Set(k, v)
 			}
 
-			handler.ServeHTTP(w, r)
+			credsHandler := handler.CredentialsHandler(handler)
+			credsHandler.ServeHTTP(w, r)
 
 			assert.Equal(t, testCase.redirectLocation, w.Header().Get("Location"), "redirect location does not match")
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")

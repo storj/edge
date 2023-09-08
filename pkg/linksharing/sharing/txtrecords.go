@@ -28,9 +28,10 @@ type TXTRecords struct {
 
 // Result is the result of a query on TXTRecords.
 type Result struct {
-	Access *uplink.Access
-	Root   string
-	TLS    bool
+	SerializedAccess string
+	Access           *uplink.Access
+	Root             string
+	TLS              bool
 }
 
 type txtRecord struct {
@@ -185,9 +186,10 @@ func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 
 	return &txtRecord{
 		queryResult: Result{
-			Access: access,
-			Root:   root,
-			TLS:    tls,
+			SerializedAccess: serializedAccess,
+			Access:           access,
+			Root:             root,
+			TLS:              tls,
 		},
 		expiration: time.Now().Add(ttl),
 	}, nil

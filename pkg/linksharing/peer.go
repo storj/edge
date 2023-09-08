@@ -96,8 +96,9 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	handleWithTracing := http.TraceHandler(handle, mon)
-	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
+	credsHandle := handle.CredentialsHandler(handle)
+	traceHandle := http.TraceHandler(credsHandle, mon)
+	metricsHandle := middleware.Metrics("linksharing", traceHandle)
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
@@ -107,7 +108,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	peer.Server, err = httpserver.New(log, instrumentedHandle, decisionFunc, config.Server)
+	peer.Server, err = httpserver.New(log, metricsHandle, decisionFunc, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}
