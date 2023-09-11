@@ -286,9 +286,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		message = "Oops! Bandwidth limit exceeded."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrTooManyRequests):
-		status = http.StatusTooManyRequests
-		message = "Oops! Rate limited due too many request."
-		skipLog = true
+		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
+		return
 	case errors.Is(handlerErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled):
 		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
