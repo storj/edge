@@ -573,6 +573,8 @@ func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Acc
 	}
 	if uploadsConfig.RefactoredCodePath {
 		ctx = testuplink.WithConcurrentSegmentUploadsDefaultConfig(ctx)
+	} else {
+		ctx = testuplink.DisableConcurrentSegmentUploads(ctx)
 	}
 
 	return baseConfig.OpenProject(ctx, access)
