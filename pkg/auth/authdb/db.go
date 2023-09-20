@@ -138,8 +138,9 @@ func (db *Database) SetAllowedSatellites(allowedSatelliteURLs map[storj.NodeURL]
 	db.mu.Unlock()
 }
 
-// Put encrypts the access grant with the key and stores it in a key/value store under the
-// hash of the encryption key.
+// Put encrypts the access grant with the key and stores it in a key/value store
+// under the hash of the encryption key. It rejects access grants with
+// expiration times that are before a minute from now.
 func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -238,7 +239,7 @@ func (db *Database) PingDB(ctx context.Context) (err error) {
 }
 
 // apiKeyExpiration returns the expiration time of apiKey, and any error
-// encountered.
+// encountered. It rejects expiration times that are before a minute from now.
 //
 // TODO: we should expose this functionality in the API Key type natively.
 func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
@@ -260,6 +261,10 @@ func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
 				expiration = &cavExpiration
 			}
 		}
+	}
+
+	if expiration != nil && expiration.Before(time.Now().Add(time.Minute)) {
+		return nil, errs.New("expiration cannot be shorter than a minute")
 	}
 
 	return expiration, nil

@@ -56,7 +56,7 @@ func TestHandler_CORS(t *testing.T) {
 			Templates: "../../../pkg/linksharing/web/",
 		}
 
-		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
+		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
 		require.NoError(t, err)
 		_ = handler.serveHTTP(testcontext.New(t), rec, req)
 
@@ -93,7 +93,7 @@ func TestHandler_Shutdown(t *testing.T) {
 			Templates: "../../../pkg/linksharing/web/",
 		}
 
-		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, inShutdown, cfg)
+		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, inShutdown, cfg)
 		require.NoError(t, err)
 		err = handler.serveHTTP(testcontext.New(t), rec, req)
 		require.NoError(t, err)

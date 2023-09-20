@@ -19,6 +19,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
@@ -27,7 +28,6 @@ import (
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
 	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/nodelist"
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
@@ -166,7 +166,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	// logging. do not log paths - paths have access keys in them.
-	handler = middleware.AddRequestID(LogResponses(log, LogRequests(log, handler)))
+	handler = requestid.AddToContext(LogResponses(log, LogRequests(log, handler)))
 
 	drpcServer := drpcauth.NewServer(log, adb, endpoint, config.POSTSizeLimit)
 
@@ -255,7 +255,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 					Status:        rw.StatusCode(),
 				}),
 				zap.String("host", r.Host),
-				zap.String("request-id", middleware.GetRequestID(r.Context())),
+				zap.String("request-id", requestid.FromContext(r.Context())),
 			}
 
 			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {

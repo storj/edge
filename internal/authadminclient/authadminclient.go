@@ -9,13 +9,14 @@ import (
 	"encoding/hex"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/base58"
 	"storj.io/common/encryption"
+	"storj.io/common/errs2"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcconn"
@@ -27,8 +28,8 @@ import (
 // Error is a class of auth admin client errors.
 var Error = errs.Class("auth admin client")
 
-// AuthAdminClient is a client for managing auth records.
-type AuthAdminClient struct {
+// Client is a client for managing auth records.
+type Client struct {
 	log    *log.Logger
 	config Config
 }
@@ -61,7 +62,7 @@ func (r *Record) updateFromProto(pr *pb.Record, encKey authdb.EncryptionKey) err
 	return nil
 }
 
-// Config configures AuthAdminClient.
+// Config configures Client.
 type Config struct {
 	NodeAddresses []string `user:"true" help:"comma delimited list of node addresses"`
 	CertsDir      string   `user:"true" help:"directory for certificates for authentication"`
@@ -70,16 +71,16 @@ type Config struct {
 	InsecureDisableTLS bool `internal:"true"`
 }
 
-// New returns a new AuthAdminClient.
-func New(config Config, log *log.Logger) *AuthAdminClient {
-	return &AuthAdminClient{config: config, log: log}
+// New returns a new Client.
+func New(config Config, log *log.Logger) *Client {
+	return &Client{config: config, log: log}
 }
 
 // Get gets a record from the first configured node address.
-func (c *AuthAdminClient) Get(ctx context.Context, encodedKey string) (record *Record, err error) {
+func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err error) {
 	keyHash, encKey, err := keyFromInput(encodedKey)
 	if err != nil {
-		return nil, Error.New("key from input: %w", err)
+		return record, Error.New("key from input: %w", err)
 	}
 
 	var addresses []string
@@ -93,7 +94,6 @@ func (c *AuthAdminClient) Get(ctx context.Context, encodedKey string) (record *R
 			return errs.New("peek record: %w", err)
 		}
 
-		record = &Record{}
 		if err = record.updateFromProto(resp.Record, encKey); err != nil {
 			return errs.New("update from proto: %w", err)
 		}
@@ -103,7 +103,7 @@ func (c *AuthAdminClient) Get(ctx context.Context, encodedKey string) (record *R
 }
 
 // Invalidate invalidates a record on all configured node addresses.
-func (c *AuthAdminClient) Invalidate(ctx context.Context, encodedKey, reason string) error {
+func (c *Client) Invalidate(ctx context.Context, encodedKey, reason string) error {
 	keyHash, _, err := keyFromInput(encodedKey)
 	if err != nil {
 		return Error.New("key from input: %w", err)
@@ -122,7 +122,7 @@ func (c *AuthAdminClient) Invalidate(ctx context.Context, encodedKey, reason str
 }
 
 // Unpublish unpublishes a record on all configured node addresses.
-func (c *AuthAdminClient) Unpublish(ctx context.Context, encodedKey string) error {
+func (c *Client) Unpublish(ctx context.Context, encodedKey string) error {
 	keyHash, _, err := keyFromInput(encodedKey)
 	if err != nil {
 		return Error.New("key from input: %w", err)
@@ -138,7 +138,7 @@ func (c *AuthAdminClient) Unpublish(ctx context.Context, encodedKey string) erro
 }
 
 // Delete deletes a record on all configured node addresses.
-func (c *AuthAdminClient) Delete(ctx context.Context, encodedKey string) error {
+func (c *Client) Delete(ctx context.Context, encodedKey string) error {
 	keyHash, _, err := keyFromInput(encodedKey)
 	if err != nil {
 		return Error.New("key from input: %w", err)
@@ -162,23 +162,19 @@ func (c *AuthAdminClient) Delete(ctx context.Context, encodedKey string) error {
 //
 // Note that various fields on pb.Record are not set if resolving an access
 // grant, such as EncryptedAccessGrant, and ExpiresAtUnix.
-func (c *AuthAdminClient) Resolve(ctx context.Context, encodedKey string) (*Record, error) {
+func (c *Client) Resolve(ctx context.Context, encodedKey string) (record Record, err error) {
 	switch {
 	case len(encodedKey) == authdb.EncKeySizeEncoded || len(encodedKey) == authdb.KeyHashSizeEncoded:
-		record, err := c.Get(ctx, encodedKey)
-		if err != nil {
-			return nil, err
-		}
-		return record, nil
+		return c.Get(ctx, encodedKey)
 	case isAccessGrant(encodedKey):
 		accessGrant, err := grant.ParseAccess(encodedKey)
 		if err != nil {
-			return nil, err
+			return record, err
 		}
 		// linksharing links can contain the access grant directly. While it's
 		// not commonly done this way, we handle that case by building an auth
 		// record directly.
-		return &Record{
+		return Record{
 			Record: &pb.Record{
 				SatelliteAddress: accessGrant.SatelliteAddress,
 				MacaroonHead:     accessGrant.APIKey.Head(),
@@ -188,16 +184,16 @@ func (c *AuthAdminClient) Resolve(ctx context.Context, encodedKey string) (*Reco
 			APIKey:               accessGrant.APIKey.Serialize(),
 		}, nil
 	default:
-		return nil, errs.New("unknown key value %q", encodedKey)
+		return record, errs.New("unknown key value %q", encodedKey)
 	}
 }
 
 // withAdminClient runs fn concurrently on given node addresses.
-func (c *AuthAdminClient) withAdminClient(ctx context.Context, addresses []string, fn func(ctx context.Context, client pb.DRPCAdminServiceClient) error) error {
+func (c *Client) withAdminClient(ctx context.Context, addresses []string, fn func(ctx context.Context, client pb.DRPCAdminServiceClient) error) error {
 	if len(addresses) == 0 {
 		return errs.New("node addresses unspecified")
 	}
-	var group errgroup.Group
+	var group errs2.Group
 	for _, address := range addresses {
 		address := address
 		group.Go(func() error {
@@ -214,11 +210,11 @@ func (c *AuthAdminClient) withAdminClient(ctx context.Context, addresses []strin
 			return nil
 		})
 	}
-	return group.Wait()
+	return errs.Combine(group.Wait()...)
 }
 
 // withReplicationClient runs fn sequentially on given node addresses.
-func (c *AuthAdminClient) withReplicationClient(ctx context.Context, addresses []string, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error) error {
+func (c *Client) withReplicationClient(ctx context.Context, addresses []string, fn func(ctx context.Context, client pb.DRPCReplicationServiceClient) error) error {
 	if len(addresses) == 0 {
 		return errs.New("node addresses unspecified")
 	}
@@ -253,10 +249,26 @@ func dialAddress(ctx context.Context, address, certsDir string, insecureDisableT
 		tlsConfig = tlsCfg
 	}
 
+	var host string
+
+	// allow specifying host mapping, e.g. "1.2.3.4:20004=authnode-dc1-app1"
+	// but fallback to a single address if a single address given.
+	parts := strings.Split(address, "=")
+	switch len(parts) {
+	case 1:
+		address = parts[0]
+	case 2:
+		address = parts[0]
+		host = parts[1]
+	default:
+		return nil, errs.New("invalid address format: %q", address)
+	}
+
 	var dialer interface {
 		DialContext(context.Context, string, string) (net.Conn, error)
 	}
 	if tlsConfig != nil {
+		tlsConfig.ServerName = host
 		dialer = &tls.Dialer{Config: tlsConfig}
 	} else {
 		dialer = &net.Dialer{}

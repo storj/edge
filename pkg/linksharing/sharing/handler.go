@@ -27,6 +27,7 @@ import (
 	"storj.io/gateway-mt/pkg/errdata"
 	"storj.io/gateway-mt/pkg/linksharing/objectmap"
 	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 	"storj.io/zipper"
@@ -48,6 +49,23 @@ type pageData struct {
 	// of. automatically filled in by renderTemplate.
 	Base string
 
+	// This is the current Linksharing version hashed. It's useful to append
+	// to static file paths when including them in the HTML, so that if the file
+	// was modified in a new release then the browser will re-fetch the file.
+	// Browsers often cache static files with or without cache headers, unless
+	// you use no-cache in Cache-Control so it forces to check back with
+	// the server if the file was modified. To get a long caching period and
+	// no need to check back to the server, we add a version hash to each
+	// static file URL so it's re-fetched when we deploy a new release.
+	//
+	// TODO: a better way to do this would be to have files named with the
+	// commit hash, but we need a build system to do this.
+	//
+	// References:
+	//   * https://developer.chrome.com/docs/lighthouse/performance/uses-long-cache-ttl/
+	//   * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#caching_static_assets_with_cache_busting
+	VersionHash string
+
 	// TwitterImage and OgImage are, when not empty, valid paths to an image
 	// object and intended to be used as links to image previews when a
 	// linksharing URL pointing to an image is shared on Twitter and/or
@@ -56,6 +74,10 @@ type pageData struct {
 
 	ArchivePath      string
 	ShowViewContents bool
+
+	// Download button should be disabled for files the sharing access doesn't
+	// allow to download.
+	AllowDownload bool
 }
 
 // Config specifies the handler configuration.
@@ -138,6 +160,7 @@ type Handler struct {
 	mapper                 *objectmap.IPDB
 	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
+	tierQuerying           *TierQueryingService
 	static                 http.Handler
 	redirectHTTPS          bool
 	landingRedirect        string
@@ -150,7 +173,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, inShutdown *int32, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, tqs *TierQueryingService, inShutdown *int32, config Config) (*Handler, error) {
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -227,7 +250,8 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		mapper:                 mapper,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
-		static:                 http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath))),
+		tierQuerying:           tqs,
+		static:                 cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath)))),
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,
@@ -280,9 +304,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		message = "Oops! Bandwidth limit exceeded."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrTooManyRequests):
-		status = http.StatusTooManyRequests
-		message = "Oops! Rate limited due too many request."
-		skipLog = true
+		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
+		return
 	case errors.Is(handlerErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled):
 		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
@@ -339,6 +362,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, data pageData) {
 	data.Base = strings.TrimSuffix(handler.urlBases[0].String(), "/")
+	data.VersionHash = version.Build.CommitHash
 	err := handler.templates.ExecuteTemplate(w, template, data)
 	if err != nil {
 		handler.log.Error("error while executing template", zap.Error(err))
@@ -367,13 +391,9 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 
 	switch {
-	case handler.redirectHTTPS && r.URL.Scheme == "http":
-		u, err := url.ParseRequestURI(r.RequestURI)
-		if err != nil {
-			return errdata.WithStatus(errs.New("invalid request URI"), http.StatusInternalServerError)
-		}
-		u.Scheme = "https"
-		http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)
+	case handler.redirectHTTPS && r.TLS == nil:
+		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/static/"):
 		handler.static.ServeHTTP(w, r.WithContext(ctx))
@@ -402,6 +422,13 @@ func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter
 	}
 	_, err = w.Write([]byte("okay"))
 	return err
+}
+
+func cacheControlStatic(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=15552000")
+		h.ServeHTTP(w, r)
+	})
 }
 
 func isDomainOurs(host string, bases []*url.URL) (bool, error) {

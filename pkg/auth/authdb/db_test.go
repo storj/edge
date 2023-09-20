@@ -77,7 +77,7 @@ func TestApiKeyExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	// a, b and c are times in the order of appearance:
-	a := time.Now()
+	a := time.Now().Add(time.Hour)
 	b := a.Add(1)
 	c := b.Add(1)
 
@@ -129,6 +129,17 @@ func TestApiKeyExpiration_Invalid(t *testing.T) {
 	_, err = apiKeyExpiration(k) // one of the caveats is invalid
 	require.Error(t, err)
 }
+
+func TestApiKeyExpiration_ShortExpiration(t *testing.T) {
+	unrestricted, err := macaroon.NewAPIKey(nil)
+	require.NoError(t, err)
+
+	fut, pas := time.Now().Add(time.Hour), time.Unix(0, 0)
+
+	_, err = apiKeyExpiration(combineNotAfterCaveats(t, unrestricted, fut, pas))
+	require.Error(t, err)
+}
+
 func TestPutSatelliteValidation(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -161,6 +172,32 @@ func TestPutSatelliteValidation(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Put(ctx, key, invalidGrant, false)
 	require.Error(t, err)
+}
+
+func TestPutShortExpiration(t *testing.T) {
+	eu1 := "12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777"
+
+	url, err := storj.ParseNodeURL(eu1)
+	require.NoError(t, err)
+
+	enc, err := NewEncryptionKey()
+	require.NoError(t, err)
+
+	api, err := macaroon.NewAPIKey(nil)
+	require.NoError(t, err)
+
+	g := grant.Access{
+		SatelliteAddress: eu1,
+		EncAccess:        grant.NewEncryptionAccess(),
+		APIKey:           combineNotAfterCaveats(t, api, time.Unix(0, 0)),
+	}
+	s, err := g.Serialize()
+	require.NoError(t, err)
+
+	_, err = NewDatabase(mockKV{}, map[storj.NodeURL]struct{}{url: {}}).Put(context.TODO(), enc, s, true)
+	t.Log(err)
+	require.Error(t, err)
+	require.True(t, ErrAccessGrant.Has(err))
 }
 
 type mockKV struct{}

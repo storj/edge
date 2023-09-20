@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/lrucache"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/errdata"
@@ -36,10 +35,10 @@ func TestAuthClient_Resolve(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	svc := AuthClient{Config: Config{
+	svc := New(Config{
 		BaseURL: testServer.URL,
 		Token:   token,
-	}}
+	})
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -86,10 +85,14 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthClient{
-			Config: Config{BaseURL: ts.URL, Token: token},
-			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: 1}),
-		}
+		service := New(Config{
+			BaseURL: ts.URL,
+			Token:   token,
+			Cache: AuthServiceCacheConfig{
+				Expiration: time.Hour,
+				Capacity:   1,
+			},
+		})
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -118,10 +121,14 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthClient{
-			Config: Config{BaseURL: ts.URL, Token: token},
-			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: 1}),
-		}
+		service := New(Config{
+			BaseURL: ts.URL,
+			Token:   token,
+			Cache: AuthServiceCacheConfig{
+				Expiration: time.Hour,
+				Capacity:   1,
+			},
+		})
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -150,10 +157,14 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		service := AuthClient{
-			Config: Config{BaseURL: ts.URL, Token: token},
-			Cache:  lrucache.New(lrucache.Options{Expiration: time.Hour, Capacity: expectedCacheMisses}),
-		}
+		service := New(Config{
+			BaseURL: ts.URL,
+			Token:   token,
+			Cache: AuthServiceCacheConfig{
+				Expiration: time.Hour,
+				Capacity:   1,
+			},
+		})
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()

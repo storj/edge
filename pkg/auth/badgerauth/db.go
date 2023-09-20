@@ -405,7 +405,7 @@ func (db *DB) updateRecord(ctx context.Context, keyHash authdb.KeyHash, fn func(
 }
 
 func (db *DB) deleteRecord(ctx context.Context, keyHash authdb.KeyHash) error {
-	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
+	err := Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
 		if _, err := txn.Get(keyHash.Bytes()); err != nil {
 			return err
 		}
@@ -414,6 +414,12 @@ func (db *DB) deleteRecord(ctx context.Context, keyHash authdb.KeyHash) error {
 			deleteReplicationLogEntries(txn, keyHash),
 		)
 	}))
+	if err != nil {
+		db.log.Error("failed to delete a record through Admin API", zap.String("key", keyHash.ToHex()), zap.Error(err))
+		return err
+	}
+	db.log.Info("deleted a record through Admin API", zap.String("key", keyHash.ToHex()))
+	return nil
 }
 
 func (db *DB) eventTags() []monkit.SeriesTag {

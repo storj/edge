@@ -21,11 +21,13 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/internal/minioclient"
@@ -37,6 +39,9 @@ import (
 	"storj.io/gateway-mt/pkg/trustedip"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 var counter int64
@@ -46,6 +51,13 @@ func TestUploadDownload(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				s := fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
+					nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
+				require.NoError(t, config.Placement.AddPlacementFromString(s))
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 
@@ -245,7 +257,41 @@ func TestUploadDownload(t *testing.T) {
 			require.Contains(t, res, "attributionTest")
 			require.Contains(t, res, "testAttribution")
 		}
+		{ // GetBucketLocation
+			_, err = client.GetBucketLocation(ctx, "bucket-without-location-set")
+			require.True(t, minioclient.MinioError.Has(err))
+			require.ErrorAs(t, err, &minio.ErrorResponse{
+				StatusCode: 404,
+				Code:       "NoSuchBucket",
+				Message:    "The specified bucket does not exist.",
+				BucketName: "bucket-without-location-set",
+			})
 
+			// MinIO's SDK will cache the newly created bucket's location, and
+			// since we make it with an empty location for which it will supply
+			// "us-east-1" (or something else; the problem is that it will
+			// always supply something there and cache it), we need to create it
+			// low-level if we want to circumvent the impossible-to-disable
+			// cache to force the request to the gateway.
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket-without-location-set"))
+
+			location, err := client.GetBucketLocation(ctx, "bucket-without-location-set")
+			require.NoError(t, err)
+			require.Equal(t, "us-east-1", location) // MinIO's SDK swaps empty location for "us-east-1"…
+
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket-with-location-set"))
+
+			_, err = planet.Satellites[0].DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
+				ProjectID: planet.Uplinks[0].Projects[0].ID,
+				Name:      "bucket-with-location-set",
+				Placement: storj.PlacementConstraint(40),
+			})
+			require.NoError(t, err)
+
+			location, err = client.GetBucketLocation(ctx, "bucket-with-location-set")
+			require.NoError(t, err)
+			require.Equal(t, "Poland", location)
+		}
 	})
 }
 

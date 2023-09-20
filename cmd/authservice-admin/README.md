@@ -51,13 +51,28 @@ $ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb --certs-dir ~/.auth
 
 If running a command to modify a record, all nodes should be listed in the `--node-addresses` flag so the record is updated simultaneously on all the nodes. For `record show` commands, only the first node address will be consulted.
 
-### Commands
+## Interacting with Satellite admin
 
-#### Show record
+Optionally you can supply [satellite admin](https://github.com/storj/storj/tree/main/satellite/admin) addresses for this tool to interact with the satellite.
 
-Show a record. By default, tabbed output is shown. You can change this to JSON by specifying `--output json` or `-o json`.
+The satellite admin addresses are provided to the command comma separated, and each entry is joined by `=` in the form of `<address>=<admin-base-url>=<admin-token>`.
 
-To output more details with tabbed output, you can use `--expanded` or `-x`.
+* `<address>` is the satellite address from a satellite node URL, e.g. `us1.storj.io:7777`
+* `<admin-base-url>` is the address to the satellite admin for the satellite. This needs to be forwarded from the remote satellite deployment before it can be used here. e.g. `http://localhost:10005`.
+* `<admin-token>` is the authentication token required to authenticate with the satellite admin API.
+
+```console
+$ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb \
+	--certs-dir ~/.authservice-admin/certs \
+	--node-addresses node1:20004,node2:20004 \
+	--satellite-addresses satellite1:7777=http://localhost:10005=12345,satellite2:7777=http://localhost:10006=45678"
+```
+
+## Record commands
+
+### Show
+
+Show a record. By default, text output is shown. You can change this to JSON by specifying `--output json` or `-o json`.
 
 Note that macaroon head is hex encoded. Encrypted access key, and encrypted secret key are base64 encoded in the output.
 
@@ -65,7 +80,7 @@ Note that macaroon head is hex encoded. Encrypted access key, and encrypted secr
 $ authservice-admin record show <key>
 ```
 
-#### Invalidate record
+### Invalidate
 
 Invalidates an access key so it's no longer usable, and an error will be returned if attempted to be used on a Storj S3 Gateway, or Linksharing.
 
@@ -73,7 +88,7 @@ Invalidates an access key so it's no longer usable, and an error will be returne
 $ authservice-admin record invalidate <key> <reason>
 ```
 
-#### Unpublish record
+### Unpublish
 
 Restricts an access key from being used in publicly shared Linksharing URLs. In order to continue using it, signed requests using the secret key will be required.
 
@@ -81,10 +96,38 @@ Restricts an access key from being used in publicly shared Linksharing URLs. In 
 $ authservice-admin record unpublish <key>
 ```
 
-#### Delete record
+### Delete
 
 Deletes a access key record, and any corresponding replication log entries.
 
+If satellite admin addresses are configured, this will also delete the API key on the satellite.
+
 ```console
 $ authservice-admin record delete <key>
+```
+
+## Links commands
+
+### Inspect
+
+Inspect one or more shared links located in a text file. These links can be from the Linksharing service, or S3 gateway presigned links. By default, text output is shown. You can change this to JSON by specifying `--output json` or `-o json`.
+
+Note that macaroon head is hex encoded. Encrypted access key, and encrypted secret key are base64 encoded in the output.
+
+If satellite admin addresses are configured, more details about the owner are also included in the output.
+
+```console
+$ authservice-admin links inspect /tmp/links.txt
+```
+
+### Revoke
+
+Revoke one or more shared links located in a text file.
+
+This command requires the satellite admin addresses to be configured, so the API key can be deleted on the satellite.
+
+It also freezes free-tier accounts. This can be disabled with the flag `--freeze-accounts=false`.
+
+```console
+$ authservice-admin links revoke /tmp/links.txt
 ```

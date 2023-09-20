@@ -115,7 +115,7 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 		// Bucket operations
 		// GetBucketLocation
 		bucket.Methods(http.MethodGet).HandlerFunc(
-			cmd.MaxClients(cmd.CollectAPIStats("getbucketlocation", cmd.HTTPTraceAll(api.GetBucketLocationHandler)))).Queries("location", "")
+			cmd.MaxClients(cmd.CollectAPIStats("getbucketlocation", cmd.HTTPTraceAll(newGetBucketLocationHandler(layer))))).Queries("location", "")
 		// GetBucketPolicy
 		bucket.Methods(http.MethodGet).HandlerFunc(
 			cmd.MaxClients(cmd.CollectAPIStats("getbucketpolicy", cmd.HTTPTraceAll(api.GetBucketPolicyHandler)))).Queries("policy", "")

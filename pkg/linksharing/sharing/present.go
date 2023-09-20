@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/gateway-mt/pkg/errdata"
@@ -126,6 +127,11 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		if (download || !wrap) && !mapOnly && len(archivePath) == 0 && rangeErr == nil {
 			d, err := project.DownloadObject(ctx, pr.bucket, pr.realKey, options)
 			if err == nil {
+				defer func() {
+					if err := d.Close(); err != nil {
+						handler.log.Debug("couldn't close the download", zap.Error(err))
+					}
+				}()
 				// set the actual offset and length
 				httpRange := optionsToRange(d.Info().System.ContentLength, options)
 				return handler.showObject(ctx, w, r, pr, project, d.Info(), d, httpRange)
@@ -288,10 +294,32 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 
 	data.Data = input
 	data.Title = input.Key
+	data.AllowDownload = handler.isDownloadAllowed(pr.access)
 
 	handler.renderTemplate(w, "single-object.html", data)
 
 	return nil
+}
+
+// isDownloadAllowed checks an access grant if it allows downloads.
+func (handler *Handler) isDownloadAllowed(access *uplink.Access) bool {
+	mac, err := macaroon.ParseMacaroon(privateAccess.APIKey(access).SerializeRaw())
+	if err != nil {
+		handler.log.With(zap.Error(err)).Debug("unable to parse macaroon")
+		return false
+	}
+	for _, cavbuf := range mac.Caveats() {
+		var cav macaroon.Caveat
+		err := cav.UnmarshalBinary(cavbuf)
+		if err != nil {
+			handler.log.With(zap.Error(err)).Debug("unable to unmarshal caveat")
+			return false
+		}
+		if cav.DisallowReads {
+			return false
+		}
+	}
+	return true
 }
 
 func (handler *Handler) setHeaders(w http.ResponseWriter, r *http.Request, metadata map[string]string, hosting bool, filename string) {

@@ -56,7 +56,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 				Templates: "../../../pkg/linksharing/web/",
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
+			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -220,7 +220,7 @@ func TestContentDisposition(t *testing.T) {
 				StandardRendersContent: tc.standardRendersContent,
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, nil, nil, nil, nil, cfg)
+			handler, err := NewHandler(&zap.Logger{}, nil, nil, nil, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -387,7 +387,7 @@ func TestZipArchiveContentType(t *testing.T) {
 		URLBases:  []string{"http://test.test"},
 		Templates: "../../../pkg/linksharing/web/",
 	}
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
 	require.NoError(t, err)
 	handler.archiveRanger = func(_ context.Context, _ *uplink.Project, _, _, _ string, _ bool) (ranger.Ranger, bool, error) {
 		return SimpleRanger(nil, 0), false, nil
@@ -500,4 +500,36 @@ func TestImagePreviewPath(t *testing.T) {
 		assert.Equal(t, tt.wantTwitterImage, twitterImage, i)
 		assert.Equal(t, tt.wantOgImage, ogImage, i)
 	}
+}
+
+func TestIsDownloadAllowed(t *testing.T) {
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, Config{
+		URLBases:  []string{"http://test.test"},
+		Templates: "../../../pkg/linksharing/web/",
+	})
+	require.NoError(t, err)
+
+	access, err := uplink.ParseAccess("1NfEFS9eR2QA5o6dov3QGNWrFRYZcufde1EcfS99cJB5ZewJZrWpJEZXat1d1GViu5R8G9NDjKz2z4nBUsmSyA6vPeUAnVheFARypytybCHCV8VcEPd1RyebPJ1apQQY8hNjk4r4v5Pe1sUULBERgemuPfcNMjMh5RUWfP1aNm7UFZToeV1ALKVKZCeetrnc8V2gaDz6R28Eaat62Xz7RBAmsfbJZ86GoDpw2PUrVMBGD9gtiRJiqTG7G")
+	require.NoError(t, err)
+
+	allowed := handler.isDownloadAllowed(access)
+	require.True(t, allowed)
+
+	downloadOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: false, AllowDownload: true},
+		uplink.SharePrefix{},
+	)
+	require.NoError(t, err)
+
+	allowed = handler.isDownloadAllowed(downloadOnlyAccess)
+	require.True(t, allowed)
+
+	listOnlyAccess, err := access.Share(
+		uplink.Permission{AllowList: true},
+		uplink.SharePrefix{},
+	)
+	require.NoError(t, err)
+
+	allowed = handler.isDownloadAllowed(listOnlyAccess)
+	require.False(t, allowed)
 }

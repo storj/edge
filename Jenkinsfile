@@ -89,11 +89,11 @@ pipeline {
                                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile ' : ''}"
                             }
                             steps {
-                                sh 'make test 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                                sh 'make test 2>&1 | grep "^{.*" | tee .build/tests.json | xunit -out .build/tests.xml'
                             }
                             post {
                                 always {
-                                    sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                                    sh script: 'cat .build/tests.json| tparse -all -top -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/tests.json'
                                     junit '.build/tests.xml'
 
@@ -127,11 +127,11 @@ pipeline {
                                 // exhaust ports from 1024 to 10000 to ensure we don't
                                 // use hardcoded ports
                                 sh 'use-ports -from 1024 -to 10000 &'
-                                sh 'make --no-print-directory test-testsuite 2>&1 | tee .build/testsuite.json | xunit -out .build/testsuite.xml'
+                                sh 'make test-testsuite 2>&1 | grep "^{.*" | tee .build/testsuite.json | xunit -out .build/testsuite.xml'
                             }
                             post {
                                 always {
-                                    sh script: 'cat .build/testsuite.json | tparse -all -top -slow 100', returnStatus: true
+                                    sh script: 'cat .build/testsuite.json| tparse -all -top -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/testsuite.json'
                                     junit '.build/testsuite.xml'
 
@@ -164,7 +164,7 @@ pipeline {
         stage('Integration') {
             agent {
                 node {
-                    label 'main'
+                    label 'ondemand'
                 }
             }
 
@@ -184,6 +184,8 @@ pipeline {
                         sh 'bash -O extglob -c "rm -rf !(.git)"'
 
                         checkout scm
+                        // install storj-up dependency
+                        sh 'go install storj.io/storj-up@main'
                     }
                 }
 

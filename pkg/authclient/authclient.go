@@ -13,16 +13,18 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/lrucache"
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/middleware"
 )
 
 var mon = monkit.Package()
 
 // AuthClient communicates with the Auth Service.
 type AuthClient struct {
+	client *http.Client
+
 	Config
 	// Cache is used for caching authservice's responses.
 	Cache *lrucache.ExpiringLRU
@@ -31,6 +33,10 @@ type AuthClient struct {
 // New returns a new auth client.
 func New(config Config) *AuthClient {
 	return &AuthClient{
+		client: &http.Client{
+			Timeout:   config.Timeout,
+			Transport: &http.Transport{ResponseHeaderTimeout: config.Timeout},
+		},
 		Config: config,
 		Cache: lrucache.New(lrucache.Options{
 			Expiration: config.Cache.Expiration,
@@ -64,15 +70,11 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
 	req.Header.Set("Forwarded", "for="+clientIP)
-	middleware.AddRequestIDToHeaders(req)
+	requestid.Propagate(ctx, req)
 
 	delay := a.BackOff
-	client := http.Client{
-		Timeout:   a.Timeout,
-		Transport: &http.Transport{ResponseHeaderTimeout: a.Timeout},
-	}
 	for {
-		resp, err := client.Do(req)
+		resp, err := a.client.Do(req)
 		if err != nil {
 			if !delay.Maxed() {
 				if err := delay.Wait(ctx); err != nil {
@@ -173,11 +175,7 @@ func (a *AuthClient) GetHealthLive(ctx context.Context) (_ bool, err error) {
 		return false, AuthServiceError.Wrap(err)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.Token)
-	client := http.Client{
-		Timeout:   a.Timeout,
-		Transport: &http.Transport{ResponseHeaderTimeout: a.Timeout},
-	}
-	res, err := client.Do(req)
+	res, err := a.client.Do(req)
 	if err != nil {
 		return false, AuthServiceError.Wrap(err)
 	}

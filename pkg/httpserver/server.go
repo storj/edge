@@ -23,10 +23,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/identity"
 	"storj.io/gateway-mt/pkg/certstorage"
 	"storj.io/gateway-mt/pkg/gpublicca"
-	"storj.io/gateway-mt/pkg/middleware"
 	"storj.io/gateway-mt/pkg/startupcheck"
 )
 
@@ -166,9 +166,8 @@ type StartupCheckConfig struct {
 //
 // architecture: Endpoint
 type Server struct {
-	log     *zap.Logger
-	handler http.Handler
-	name    string
+	log  *zap.Logger
+	name string
 
 	listener        net.Listener
 	listenerTLS     net.Listener
@@ -191,7 +190,7 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		return nil, errs.New("server handler is required")
 	}
 
-	tlsConfig, httpHandler, err := configureTLS(log, handler, decisionFunc, config)
+	tlsConfig, err := configureTLS(log, decisionFunc, config)
 	if err != nil {
 		return nil, err
 	}
@@ -211,12 +210,11 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 
 	// logging
 	if config.TrafficLogging {
-		httpHandler = middleware.AddRequestID(logResponses(log, logRequests(log, httpHandler)))
-		handler = middleware.AddRequestID(logResponses(log, logRequests(log, handler)))
+		handler = requestid.AddToContext(logResponses(log, logRequests(log, handler)))
 	}
 
 	server := &http.Server{
-		Handler:  httpHandler,
+		Handler:  handler,
 		ErrorLog: zap.NewStdLog(log),
 	}
 
@@ -255,7 +253,6 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		serverTLS:       serverTLS,
 		shutdownTimeout: config.ShutdownTimeout,
 		startupCheck:    startupCheck,
-		handler:         handler,
 	}, nil
 }
 
@@ -341,16 +338,16 @@ func BaseTLSConfig() *tls.Config {
 	}
 }
 
-func configureTLS(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, http.Handler, error) {
+func configureTLS(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, error) {
 	if config.TLSConfig == nil {
-		return nil, handler, nil
+		return nil, nil
 	}
 
 	if config.TLSConfig.CertMagic {
 		if config.TLSConfig.CertMagicEmail == "" {
-			return nil, nil, errs.New("cert-magic.email must be provided when cert-magic is enabled")
+			return nil, errs.New("cert-magic.email must be provided when cert-magic is enabled")
 		}
-		return configureCertMagic(log, handler, decisionFunc, config)
+		return configureCertMagic(log, decisionFunc, config)
 	}
 
 	tlsConfig := BaseTLSConfig()
@@ -358,29 +355,29 @@ func configureTLS(log *zap.Logger, handler http.Handler, decisionFunc CertMagicO
 	if config.TLSConfig.CertDir != "" {
 		certs, err := loadCertsFromDir(config.TLSConfig.CertDir)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		tlsConfig.Certificates = certs
-		return tlsConfig, handler, nil
+		return tlsConfig, nil
 	}
 
 	switch {
 	case config.TLSConfig.CertFile != "" && config.TLSConfig.KeyFile != "":
 	case config.TLSConfig.CertFile == "" && config.TLSConfig.KeyFile == "":
-		return nil, handler, nil
+		return nil, nil
 	case config.TLSConfig.CertFile != "" && config.TLSConfig.KeyFile == "":
-		return nil, nil, errs.New("key file must be provided with cert file")
+		return nil, errs.New("key file must be provided with cert file")
 	case config.TLSConfig.CertFile == "" && config.TLSConfig.KeyFile != "":
-		return nil, nil, errs.New("cert file must be provided with key file")
+		return nil, errs.New("cert file must be provided with key file")
 	}
 
 	cert, err := tls.LoadX509KeyPair(config.TLSConfig.CertFile, config.TLSConfig.KeyFile)
 	if err != nil {
-		return nil, nil, errs.New("unable to load server keypair: %v", err)
+		return nil, errs.New("unable to load server keypair: %v", err)
 	}
 
 	tlsConfig.Certificates = []tls.Certificate{cert}
-	return tlsConfig, handler, nil
+	return tlsConfig, nil
 }
 
 func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
@@ -406,7 +403,7 @@ func loadCertsFromDir(configDir string) ([]tls.Certificate, error) {
 	return certificates, nil
 }
 
-func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, http.Handler, error) {
+func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*tls.Config, error) {
 	// We can't set the logger with the default cache so make our own
 	var magic *certmagic.Config
 	cache := certmagic.NewCache(certmagic.CacheOptions{
@@ -420,11 +417,11 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 
 	jsonKey, err := os.ReadFile(config.TLSConfig.CertMagicKeyFile)
 	if err != nil {
-		return nil, nil, errs.New("unable to read cert-magic-key-file: %v", err)
+		return nil, errs.New("unable to read cert-magic-key-file: %v", err)
 	}
 	cs, err := certstorage.NewGCS(config.TLSConfig.Ctx, log, jsonKey, config.TLSConfig.CertMagicBucket)
 	if err != nil {
-		return nil, nil, errs.New("initializing certstorage: %v", err)
+		return nil, errs.New("initializing certstorage: %v", err)
 	}
 
 	magic = certmagic.New(cache, certmagic.Config{
@@ -453,11 +450,11 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 	// Set the AltTLSALPNPort so the solver won't start another listener
 	_, port, err := net.SplitHostPort(config.AddressTLS)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	tlsALPNPort, err := net.LookupPort("tcp", port)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	googleCA := gpublicca.New(certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
@@ -509,7 +506,7 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 	if config.TLSConfig.CertMagicTestIssuer != nil {
 		caCert, err := os.ReadFile(config.TLSConfig.CertMagicTestIssuer.CertificatePath)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		trustedRoots := x509.NewCertPool()
 		trustedRoots.AppendCertsFromPEM(caCert)
@@ -528,7 +525,7 @@ func configureCertMagic(log *zap.Logger, handler http.Handler, decisionFunc Cert
 
 	// TODO(artur): figure out if we want to ManageSync here or somewhere else
 	// to use the process's context. certmagic.TLS uses context.Background...
-	return tlsConfig, handler, magic.ManageSync(context.TODO(), config.TLSConfig.CertMagicPublicURLs)
+	return tlsConfig, magic.ManageSync(context.TODO(), config.TLSConfig.CertMagicPublicURLs)
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {

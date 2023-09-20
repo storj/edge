@@ -190,7 +190,6 @@ func TestResolveRecord(t *testing.T) {
 		badgerauthtest.Put{
 			KeyHash: encKey.Hash(),
 			Record: &authdb.Record{
-				Public:               true,
 				SatelliteAddress:     testSatelliteURL,
 				MacaroonHead:         parsed.APIKey.Head(),
 				EncryptedAccessGrant: encAccessGrant,
