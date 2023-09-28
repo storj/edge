@@ -16,7 +16,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
 	github.com/rs/cors v1.7.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191
+	github.com/spacemonkeygo/monkit/v3 v3.0.22
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
@@ -27,13 +27,13 @@ require (
 	golang.org/x/sync v0.3.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20230907123639-5fd0608fd947
+	storj.io/common v0.0.0-20230925131608-3c287852acde
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
-	storj.io/gateway v1.9.1-0.20230809110707-e3f598f42d95
-	storj.io/minio v0.0.0-20230809050351-70d4a6c974ce
-	storj.io/private v0.0.0-20230824104110-1eac532af65a
-	storj.io/uplink v1.12.0
+	storj.io/gateway v1.9.1-0.20230928165947-670eedd6a4ab
+	storj.io/minio v0.0.0-20230901173759-f1d4dd341feb
+	storj.io/private v0.0.0-20230918125712-2a31a93e18ab
+	storj.io/uplink v1.12.1-0.20230928093012-c46ff1e3c01a
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -176,7 +176,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
-	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
@@ -192,6 +192,6 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
+	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 )
