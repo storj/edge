@@ -164,7 +164,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=/",
 			archivePath:      "/",
-			status:           http.StatusTooManyRequests,
+			status:           http.StatusForbidden,
 			body:             "Bandwidth limit exceeded",
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {

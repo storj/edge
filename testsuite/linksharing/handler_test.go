@@ -532,7 +532,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:             "GET download when exceeded bandwidth limit",
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
-			status:           http.StatusTooManyRequests,
+			status:           http.StatusForbidden,
 			body:             "Bandwidth limit exceeded",
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {

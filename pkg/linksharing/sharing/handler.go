@@ -277,27 +277,27 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(handlerErr, uplink.ErrBucketNotFound):
 		status = http.StatusNotFound
-		message = "Oops! Bucket not found."
+		message = "Bucket not found."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrObjectNotFound):
 		status = http.StatusNotFound
-		message = "Oops! Object not found."
+		message = "Object not found."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrBucketNameInvalid):
 		status = http.StatusBadRequest
-		message = "Oops! Invalid bucket name."
+		message = "Invalid bucket name."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrObjectKeyInvalid):
 		status = http.StatusBadRequest
-		message = "Oops! Invalid object key."
+		message = "Invalid object key."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrPermissionDenied):
 		status = http.StatusForbidden
 		message = "Access denied."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrBandwidthLimitExceeded):
-		status = http.StatusTooManyRequests
-		message = "Oops! Bandwidth limit exceeded."
+		status = http.StatusForbidden
+		message = "Bandwidth limit exceeded."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrTooManyRequests):
 		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
