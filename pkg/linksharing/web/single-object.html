@@ -14,9 +14,9 @@
             <p class="mt-3">{{.Data.Size}}</p>
         </div>
         <div class="col-12 col-md-7 text-center text-md-right">
-          {{ if .ShowViewContents }}<a href="?wrap=1&path=/" class="btn btn-primary btn-lg rounded-pill mb-3 mx-1 mx-md-2 mt-1" contents>View Contents</a>{{ end }}
+          {{ if .ShowViewContents }}<a href="?wrap=1&path=/" class="btn btn-primary btn-lg mb-3 mx-1 mx-md-2 mt-1" contents>View Contents</a>{{ end }}
             <a href="?download=1{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}" class="{{ if not .AllowDownload }}disabled {{ end }}btn btn-primary btn-lg rounded-pill mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg?v={{.VersionHash}}" alt="Download" class="ml-2"></a>
-            <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg rounded-pill mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg?v={{.VersionHash}}" alt="Share" class="ml-2"></button>
+            <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg?v={{.VersionHash}}" alt="Share" class="ml-2"></button>
         </div>
       </div>
 
@@ -35,7 +35,7 @@
     <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar active d-block">
       <div class="row mb-3 mt-3">
         <div class="col text-center text-md-left">
-          <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo mt-4" alt="Storj DCS Logo"></a>
+          <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo mt-4" alt="Storj Logo"></a>
         </div>
       </div>
       <div class="row">
