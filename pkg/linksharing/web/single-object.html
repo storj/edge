@@ -15,7 +15,7 @@
         </div>
         <div class="col-12 col-md-7 text-center text-md-right">
           {{ if .ShowViewContents }}<a href="?wrap=1&path=/" class="btn btn-primary btn-lg mb-3 mx-1 mx-md-2 mt-1" contents>View Contents</a>{{ end }}
-            <a href="?download=1{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}" class="{{ if not .AllowDownload }}disabled {{ end }}btn btn-primary btn-lg rounded-pill mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg?v={{.VersionHash}}" alt="Download" class="ml-2"></a>
+            <a href="?download=1{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}" class="{{ if not .AllowDownload }}disabled {{ end }}btn btn-primary btn-lg mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg?v={{.VersionHash}}" alt="Download" class="ml-2"></a>
             <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg?v={{.VersionHash}}" alt="Share" class="ml-2"></button>
         </div>
       </div>
