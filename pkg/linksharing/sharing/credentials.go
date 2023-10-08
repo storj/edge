@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -40,8 +41,10 @@ func credentialsFromContext(ctx context.Context) *credentials {
 // CredentialsHandler retrieves and saves credentials as a context value.
 func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.EscapedPath(), "/")
+
 		// don't try and get credentials for requests that don't need them.
-		if strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/health/process") {
+		if strings.HasPrefix(path, "static/") || strings.HasPrefix(path, "health/process") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -59,6 +62,14 @@ func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 		}
 
 		if ourDomain {
+			// backwards compatibility
+			if !strings.HasPrefix(path, "s/") && !strings.HasPrefix(path, "raw/") {
+				// preserve query params
+				destination := (&url.URL{Path: "/s/" + path, RawQuery: r.URL.RawQuery}).String()
+				http.Redirect(w, r, destination, http.StatusSeeOther)
+				return
+			}
+
 			creds, err = h.standardCredentials(ctx, r)
 		} else {
 			creds, err = h.hostingCredentials(ctx, r)
