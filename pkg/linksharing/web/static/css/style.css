@@ -8,8 +8,8 @@ html {
 
 footer {
   width: 100%;
-  padding-top: 40px;
-  padding-bottom: 40px;
+  padding-top: 30px;
+  padding-bottom: 30px;
   border-top: 1px solid #EDEEEF;
 }
 
@@ -25,6 +25,10 @@ p, span, a {
   color: #000;
 }
 
+a:hover {
+  color: #0149FF;
+}
+
 .bg-grey {
   background: #F9FAFC;
 }
@@ -38,7 +42,7 @@ p, span, a {
 }
 
 .logo {
-  width: 180px;
+  width: 160px;
   height: auto;
 }
 
@@ -54,25 +58,23 @@ p, span, a {
   font-size: 14px;
   line-height: 18px;
   text-align: center;
-  letter-spacing: .25px;
   text-align: center;
-  border-width: 2px;
+  border-width: 1px;
 }
 .btn-lg {
-  font-size: 16px;
   line-height: 32px;
-  padding: 0.55rem 2.2rem;
+  padding: 0.5rem 1.5rem;
 }
 
 .btn-primary {
   color: #fff;
-  background-color: #376FFF;
-  border-color: #376FFF;
+  background-color: #0149FF;
+  border-color: #0149FF;
 }
 .btn-primary:hover {
   color: #fff;
-  background-color: #0059d0;
-  border-color: #0059d0;
+  background-color: #091C45;
+  border-color: #091C45;
 }
 .btn-download {
   margin-top: 40px;
@@ -82,13 +84,13 @@ p, span, a {
   border-top-right-radius: 0;
 }
 .btn-outline-primary {
-  border-color: #376FFF;
-  color: #376FFF;
+  border-color: #0149FF;
+  color: #0149FF;
 }
 .btn-outline-primary:hover {
-  background-color: #0059d0;
+  background-color: #091C45;
   color: #fff;
-  border-color: #0059d0;
+  border-color: #091C45;
 }
 .btn-outline-secondary {
   border-color: #c3c8cf;
@@ -103,7 +105,7 @@ p, span, a {
   position: absolute;
   bottom: 30px;
   right: 28px;
-  color: #0068DC;
+  color: #0149FF;
 }
 .btn-light {
   background: #fff;
@@ -311,7 +313,7 @@ p, span, a {
   border-radius: 4px;
 }
 .directory-link:hover .directory-name, .directory-link:hover .directory-size {
-  color: #376FFF;
+  color: #0149FF;
 }
 .directory-link img {
   margin-right: 12px;
@@ -354,7 +356,7 @@ p, span, a {
   width: 100%;
   height: 100%;
   z-index: -1;
-  opacity: .2;
+  opacity: .15;
 }
 
 .error-title {
@@ -369,10 +371,9 @@ p, span, a {
   font-size: 12px;
   min-height: 37px;
   background: #F2F4F7;
-  border-radius: 50px;
+  border-radius: 6px;
   font-style: normal;
   font-weight: bold;
-  color: #5F5F5F;
   padding: 14px 20px;
 }
 
