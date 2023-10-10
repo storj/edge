@@ -6,7 +6,6 @@ package sharing
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -31,11 +30,10 @@ func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWrite
 	case strings.HasPrefix(path, "s/"): // wrap the file with a nice frame
 		path = path[len("s/"):]
 		pr.wrapDefault = true
-	default: // backwards compatibility
-		// preserve query params
-		destination := (&url.URL{Path: "/s/" + path, RawQuery: r.URL.RawQuery}).String()
-		http.Redirect(w, r, destination, http.StatusSeeOther)
-		return nil
+	default:
+		// note that CredentialsHandler takes care of redirecting backwards
+		// compatible links that don't have "s/" or "raw/" in the path.
+		return errdata.WithStatus(errs.New("missing access"), http.StatusBadRequest)
 	}
 
 	parts := strings.SplitN(path, "/", 3)

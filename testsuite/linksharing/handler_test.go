@@ -185,6 +185,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "invalid method",
 			method:           "PUT",
+			path:             "s/",
 			status:           http.StatusMethodNotAllowed,
 			body:             "Malformed request.",
 			expectedRPCCalls: []string{},
@@ -223,6 +224,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:             "Access denied.",
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
+		},
+		{
+			name:             "GET redirect without s/ in path",
+			method:           "GET",
+			path:             path.Join(goodAccessName, "testbucket", "test/foo"),
+			status:           http.StatusSeeOther,
+			redirectLocation: "/" + path.Join("s", goodAccessName, "testbucket", "test/foo"),
 		},
 		{
 			name:             "GET found access key",
