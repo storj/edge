@@ -34,7 +34,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		}
 
 		if paidTier {
-			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 			http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 			return nil
 		}

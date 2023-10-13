@@ -388,7 +388,7 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 
 	switch {
 	case handler.redirectHTTPS && r.TLS == nil:
-		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/static/"):
