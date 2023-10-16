@@ -226,13 +226,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:             "GET redirect without s/ in path",
-			method:           "GET",
-			path:             path.Join(goodAccessName, "testbucket", "test/foo"),
-			status:           http.StatusSeeOther,
-			redirectLocation: "/" + path.Join("s", goodAccessName, "testbucket", "test/foo"),
-		},
-		{
 			name:             "GET found access key",
 			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),

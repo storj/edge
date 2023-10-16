@@ -65,15 +65,18 @@ func TestIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		tlsRecord        bool
-		cnameRecord      string
-		dialContext      func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
-		access           func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
-		url              func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		redirectHTTPS    bool
-		wantRedirectResp bool
-		wantErr          bool
+		name               string
+		tlsRecord          bool
+		cnameRecord        string
+		dialContext        func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
+		access             func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
+		url                func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		followRedirect     bool
+		redirectHTTPS      bool
+		wantRedirectResp   bool
+		redirectLocation   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		redirectStatusCode int
+		wantErr            bool
 	}{
 		{
 			name: "Public domain insecure",
@@ -86,8 +89,47 @@ func TestIntegration(t *testing.T) {
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
-			redirectHTTPS:    true,
-			wantRedirectResp: true,
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain insecure redirect without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain insecure redirect to HTTPS without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain secure redirect without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+			},
 		},
 		{
 			name: "Custom domain insecure",
@@ -185,8 +227,12 @@ func TestIntegration(t *testing.T) {
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
-			redirectHTTPS:    true,
-			wantRedirectResp: true,
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d/", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
 		},
 		{
 			name:      "Custom domain TLS paid tier",
@@ -310,7 +356,7 @@ func TestIntegration(t *testing.T) {
 						},
 					}}
 
-					if tc.redirectHTTPS {
+					if !tc.followRedirect {
 						// Configure the HTTP client to not follow the redirect, so we can check it below.
 						client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 							return http.ErrUseLastResponse
@@ -329,20 +375,18 @@ func TestIntegration(t *testing.T) {
 					require.NoError(t, err, url)
 					defer ctx.Check(resp.Body.Close)
 
-					body, err := io.ReadAll(resp.Body)
-					require.NoError(t, err, url)
-
 					if !tc.wantRedirectResp {
+						body, err := io.ReadAll(resp.Body)
+						require.NoError(t, err, url)
+
 						require.Equal(t, http.StatusOK, resp.StatusCode)
 						require.Equal(t, "HELLO!", string(body), url)
 						return
 					}
 
-					require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
-
-					expectedHTTPSURL, err := httpsURL(url)
-					require.NoError(t, err, url)
-					require.Contains(t, string(body), expectedHTTPSURL)
+					require.Equal(t, tc.redirectStatusCode, resp.StatusCode)
+					redirectLocation := tc.redirectLocation(t, peer, accessKey, root, publicDomain, customDomain)
+					require.Equal(t, redirectLocation, resp.Header.Get("Location"))
 				})
 			})
 		})
@@ -713,15 +757,4 @@ func issuerKey(ca string) string {
 		}
 	}
 	return key
-}
-
-func httpsURL(httpURL string) (string, error) {
-	u, err := url.Parse(httpURL)
-	if err != nil {
-		return "", err
-	}
-
-	u.Scheme = "https"
-
-	return u.String(), nil
 }

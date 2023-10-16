@@ -64,9 +64,27 @@ func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 		if ourDomain {
 			// backwards compatibility
 			if !strings.HasPrefix(path, "s/") && !strings.HasPrefix(path, "raw/") {
-				// preserve query params
-				destination := (&url.URL{Path: "/s/" + path, RawQuery: r.URL.RawQuery}).String()
-				http.Redirect(w, r, destination, http.StatusSeeOther)
+				// we also redirect HTTP to HTTPS at the same time if required.
+				// this avoids the need for a double redirect if we are
+				// redirecting backwards compatible style link and HTTPS on the
+				// next redirect.
+
+				var scheme string
+				switch {
+				case h.redirectHTTPS || r.TLS != nil:
+					scheme = "https"
+				default:
+					scheme = "http"
+				}
+
+				destination := (&url.URL{
+					Scheme:   scheme,
+					Host:     r.Host,
+					Path:     "/s/" + path,
+					RawQuery: r.URL.RawQuery,
+				}).String()
+
+				http.Redirect(w, r, destination, http.StatusPermanentRedirect)
 				return
 			}
 
