@@ -97,6 +97,30 @@ func TestIntegration(t *testing.T) {
 			},
 		},
 		{
+			name: "Public domain insecure redirect with escaping",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+		},
+		{
+			name: "Public domain insecure redirect without /s or /raw prefix and with escaping",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+		},
+		{
 			name: "Public domain insecure redirect without /s or /raw prefix",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
@@ -232,6 +256,22 @@ func TestIntegration(t *testing.T) {
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s:%d/", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+		},
+		{
+			name:      "Custom domain insecure paid tier redirect with escaping",
+			tlsRecord: true,
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
 		},
 		{
