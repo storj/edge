@@ -41,7 +41,7 @@ func credentialsFromContext(ctx context.Context) *credentials {
 // CredentialsHandler retrieves and saves credentials as a context value.
 func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.EscapedPath(), "/")
+		path := strings.TrimPrefix(r.URL.Path, "/")
 
 		// don't try and get credentials for requests that don't need them.
 		if strings.HasPrefix(path, "static/") || strings.HasPrefix(path, "health/process") {
