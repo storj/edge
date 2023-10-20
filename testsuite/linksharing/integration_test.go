@@ -65,19 +65,32 @@ func TestIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		tlsRecord          bool
-		cnameRecord        string
-		dialContext        func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
-		access             func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
-		url                func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		followRedirect     bool
-		redirectHTTPS      bool
-		wantRedirectResp   bool
-		redirectLocation   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		redirectStatusCode int
-		wantErr            bool
+		name                  string
+		tlsRecord             bool
+		cnameRecord           string
+		dialContext           func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
+		access                func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
+		url                   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		followRedirect        bool
+		redirectHTTPS         bool
+		landingRedirectTarget string
+		wantRedirectResp      bool
+		redirectLocation      func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		redirectStatusCode    int
+		wantErr               bool
 	}{
+		{
+			name: "Public domain landing page redirect",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/", publicDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			landingRedirectTarget: "https://www.storj.io/",
+			wantRedirectResp:      true,
+			redirectStatusCode:    http.StatusSeeOther,
+			redirectLocation: func(_ *testing.T, _ *linksharing.Peer, _, _, _, _ string) string {
+				return "https://www.storj.io/"
+			},
+		},
 		{
 			name: "Public domain insecure",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -371,13 +384,14 @@ func TestIntegration(t *testing.T) {
 				}
 
 				runEnvironment(t, ctx, environmentConfig{
-					gcsKeyPath:    gcsKeyPath,
-					gcsBucketName: gcsBucketName,
-					publicDomain:  publicDomain,
-					ident:         ident,
-					dnsRecords:    dnsRecords,
-					authRecords:   authRecords,
-					redirectHTTPS: tc.redirectHTTPS,
+					gcsKeyPath:            gcsKeyPath,
+					gcsBucketName:         gcsBucketName,
+					publicDomain:          publicDomain,
+					ident:                 ident,
+					dnsRecords:            dnsRecords,
+					authRecords:           authRecords,
+					redirectHTTPS:         tc.redirectHTTPS,
+					landingRedirectTarget: tc.landingRedirectTarget,
 				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
 					require.NoError(t, err)
@@ -434,13 +448,14 @@ func TestIntegration(t *testing.T) {
 }
 
 type environmentConfig struct {
-	gcsKeyPath    string
-	gcsBucketName string
-	publicDomain  string
-	ident         *identity.FullIdentity
-	dnsRecords    map[string]mockdns.Zone
-	authRecords   map[string]authHandlerEntry
-	redirectHTTPS bool
+	gcsKeyPath            string
+	gcsBucketName         string
+	publicDomain          string
+	ident                 *identity.FullIdentity
+	dnsRecords            map[string]mockdns.Zone
+	authRecords           map[string]authHandlerEntry
+	redirectHTTPS         bool
+	landingRedirectTarget string
 }
 
 func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
@@ -530,9 +545,10 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 				BaseURL: authServer.URL,
 				Token:   authToken,
 			},
-			Templates:     "./../../pkg/linksharing/web/",
-			DNSServer:     dnsSrv.LocalAddr().String(),
-			RedirectHTTPS: config.redirectHTTPS,
+			Templates:             "./../../pkg/linksharing/web/",
+			DNSServer:             dnsSrv.LocalAddr().String(),
+			RedirectHTTPS:         config.redirectHTTPS,
+			LandingRedirectTarget: config.landingRedirectTarget,
 		},
 	})
 	require.NoError(t, err)

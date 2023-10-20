@@ -62,6 +62,11 @@ func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 		}
 
 		if ourDomain {
+			if path == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// backwards compatibility
 			if !strings.HasPrefix(path, "s/") && !strings.HasPrefix(path, "raw/") {
 				// we also redirect HTTP to HTTPS at the same time if required.
