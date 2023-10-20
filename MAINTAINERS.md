@@ -45,6 +45,7 @@ Examples of Release Candidates:
   - Go to https://github.com/storj/edge/releases.
   - Cick the `Edit` button on the release.
   - Upload all binaries as release artifacts.
+  - Upload sha256sums as well
   - Add the following line for the description:
 ```
 Docker image: `9b58a11-v1.0.1-go1.13.8`
