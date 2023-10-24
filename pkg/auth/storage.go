@@ -11,6 +11,7 @@ import (
 
 	"storj.io/gateway-mt/pkg/auth/authdb"
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/gateway-mt/pkg/auth/spannerauth"
 	"storj.io/private/dbutil"
 )
 
@@ -27,6 +28,8 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 	switch driver {
 	case "badger":
 		return badgerauth.New(log, config.Node)
+	case "spanner":
+		return spannerauth.Open(ctx, log, config.Spanner)
 	default:
 		return nil, errs.New("unknown scheme: %q", config.KVBackend)
 	}

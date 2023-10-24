@@ -32,7 +32,10 @@ func TestCloudDatabase(t *testing.T) {
 	require.NoError(t, err)
 	defer server.Close()
 
-	db, err := spannerauth.OpenWithEmulatorAddr(ctx, logger, server.Addr, "", "projects/P/instances/I/databases/D")
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 

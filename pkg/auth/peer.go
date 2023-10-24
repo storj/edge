@@ -27,6 +27,7 @@ import (
 	"storj.io/gateway-mt/pkg/auth/badgerauth"
 	"storj.io/gateway-mt/pkg/auth/drpcauth"
 	"storj.io/gateway-mt/pkg/auth/httpauth"
+	"storj.io/gateway-mt/pkg/auth/spannerauth"
 	"storj.io/gateway-mt/pkg/httplog"
 	"storj.io/gateway-mt/pkg/nodelist"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -61,7 +62,8 @@ type Config struct {
 
 	CertMagic certMagic
 
-	Node badgerauth.Config
+	Node    badgerauth.Config
+	Spanner spannerauth.Config
 }
 
 // certMagic is a config struct for configuring CertMagic options.

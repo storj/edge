@@ -21,9 +21,21 @@ import (
 
 const defaultExactStaleness = 15 * time.Second // [0, time.Hour)
 
-// Error is the error class for this package.
-var Error = errs.Class("spannerauth")
-var _ authdb.Storage = (*CloudDatabase)(nil) // make sure we always implement authdb.Storage
+var (
+	_ authdb.Storage = (*CloudDatabase)(nil)
+
+	// Error is a class of spannerauth errors.
+	Error = errs.Class("spannerauth")
+)
+
+// Config is config to configure the Cloud Spanner database.
+type Config struct {
+	DatabaseName        string `user:"true" help:"name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID"`
+	CredentialsFilename string `user:"true" help:"credentials file with access to Cloud Spanner database"`
+
+	// Address is used for Cloud Spanner Emulator in tests.
+	Address string `internal:"true"`
+}
 
 // CloudDatabase represents a remote Cloud Spanner database that implements the
 // Storage interface.
@@ -32,24 +44,18 @@ type CloudDatabase struct {
 	client *spanner.Client
 }
 
-// Open returns initialized CloudDatabase.
-func Open(ctx context.Context, logger *zap.Logger, credentialsFilename, databaseName string) (*CloudDatabase, error) {
-	return OpenWithEmulatorAddr(ctx, logger, "", credentialsFilename, databaseName)
-}
-
-// OpenWithEmulatorAddr returns initialized CloudDatabase connected to Cloud
-// Spanner Emulator. If emulatorAddr is empty, it skips options for emulator
-// entirely.
-func OpenWithEmulatorAddr(ctx context.Context, logger *zap.Logger, emulatorAddr, credentialsFilename, databaseName string) (*CloudDatabase, error) {
-	config := spanner.ClientConfig{
+// Open returns initialized CloudDatabase connected to Cloud Spanner.
+// If address is specified in config, it configures options for Cloud Spanner
+// Emulator.
+func Open(ctx context.Context, logger *zap.Logger, config Config) (*CloudDatabase, error) {
+	opts := []option.ClientOption{option.WithCredentialsFile(config.CredentialsFilename)}
+	if config.Address != "" {
+		opts = append(opts, EmulatorOpts(config.Address)...)
+	}
+	c, err := spanner.NewClientWithConfig(ctx, config.DatabaseName, spanner.ClientConfig{
 		Logger:      zap.NewStdLog(logger),
 		Compression: "gzip",
-	}
-	opts := []option.ClientOption{option.WithCredentialsFile(credentialsFilename)}
-	if emulatorAddr != "" {
-		opts = append(opts, EmulatorOpts(emulatorAddr)...)
-	}
-	c, err := spanner.NewClientWithConfig(ctx, databaseName, config, opts...)
+	}, opts...)
 	return &CloudDatabase{logger: logger, client: c}, Error.Wrap(err)
 }
 
