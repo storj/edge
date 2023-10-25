@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
@@ -30,6 +31,7 @@ var (
 
 	// Error is a class of spannerauth errors.
 	Error = errs.Class("spannerauth")
+	mon   = monkit.Package()
 )
 
 // Config is config to configure the Cloud Spanner database.
@@ -48,9 +50,8 @@ type CloudDatabase struct {
 	client *spanner.Client
 }
 
-// Open returns initialized CloudDatabase connected to Cloud Spanner.
-// If address is specified in config, it configures options for Cloud Spanner
-// Emulator.
+// Open returns initialized CloudDatabase connected to Cloud Spanner. If address
+// is specified in config, it configures options for Cloud Spanner Emulator.
 func Open(ctx context.Context, logger *zap.Logger, config Config) (*CloudDatabase, error) {
 	opts := []option.ClientOption{option.WithCredentialsFile(config.CredentialsFilename)}
 	if config.Address != "" {
@@ -76,6 +77,8 @@ func EmulatorOpts(addr string) []option.ClientOption {
 // Put stores the record in the remote Cloud Spanner database.
 // It is an error if the key already exists.
 func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ms := []*spanner.Mutation{
 		spanner.InsertMap("records", map[string]interface{}{
 			"encryption_key_hash": keyHash.Bytes(),
@@ -102,6 +105,8 @@ func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record 
 // It returns (nil, nil) if the key does not exist.
 // If the record is invalid, the error contains why.
 func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	tab := "records"
 	key := spanner.Key{keyHash.Bytes()}
 	col := []string{
