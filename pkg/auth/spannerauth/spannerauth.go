@@ -19,6 +19,10 @@ import (
 	"storj.io/gateway-mt/pkg/auth/authdb"
 )
 
+// defaultExactStaleness is the default value for how stale reads from Cloud
+// Spanner should be. As described in Cloud Spanner Replication
+// (https://cloud.google.com/spanner/docs/replication#read-only), 15 seconds is
+// a reasonable staleness value to use for good performance.
 const defaultExactStaleness = 15 * time.Second // [0, time.Hour)
 
 var (
