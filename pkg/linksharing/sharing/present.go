@@ -64,6 +64,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	download := queryFlagLookup(q, "download", pr.downloadDefault)
 	wrap := queryFlagLookup(q, "wrap", !queryFlagLookup(q, "view", !pr.wrapDefault))
 	mapOnly := queryFlagLookup(q, "map", false)
+	cursor := q.Get("cursor")
 	var archivePath string
 
 	if len(q["path"]) > 0 {
@@ -105,7 +106,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
-		return handler.servePrefix(ctx, w, project, pr, "")
+		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 
 	case pr.realKey != "":
 		var objectErr error
@@ -169,7 +170,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 			http.Redirect(w, r, r.URL.Path+"/", http.StatusSeeOther)
 			return nil
 		}
-		return handler.servePrefix(ctx, w, project, pr, "")
+		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 	default:
 		return errdata.WithAction(err, "unexpected case")
 	}
@@ -233,7 +234,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if archivePath == "/" {
-		return handler.servePrefix(ctx, w, project, pr, archivePath)
+		return handler.servePrefix(ctx, w, project, pr, archivePath, "")
 	}
 
 	locations, pieces, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)

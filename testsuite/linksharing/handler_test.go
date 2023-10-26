@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -47,47 +48,54 @@ func TestNewHandler(t *testing.T) {
 		{
 			name: "URL base must be http or https",
 			config: sharing.Config{
-				URLBases: []string{"gopher://chunks"},
+				URLBases:      []string{"gopher://chunks"},
+				ListPageLimit: 100,
 			},
 			err: "URL base must be http:// or https://",
 		},
 		{
 			name: "URL base must contain host",
 			config: sharing.Config{
-				URLBases: []string{"http://"},
+				URLBases:      []string{"http://"},
+				ListPageLimit: 100,
 			},
 			err: "URL base must contain host",
 		},
 		{
 			name: "URL base can have a port",
 			config: sharing.Config{
-				URLBases: []string{"http://host:99"},
+				URLBases:      []string{"http://host:99"},
+				ListPageLimit: 100,
 			},
 		},
 		{
 			name: "URL base can have a path",
 			config: sharing.Config{
-				URLBases: []string{"http://host/gopher"},
+				URLBases:      []string{"http://host/gopher"},
+				ListPageLimit: 100,
 			},
 		},
 		{
 			name: "URL base must not contain user info",
 			config: sharing.Config{
-				URLBases: []string{"http://joe@host"},
+				URLBases:      []string{"http://joe@host"},
+				ListPageLimit: 100,
 			},
 			err: "URL base must not contain user info",
 		},
 		{
 			name: "URL base must not contain query values",
 			config: sharing.Config{
-				URLBases: []string{"http://host/?gopher=chunks"},
+				URLBases:      []string{"http://host/?gopher=chunks"},
+				ListPageLimit: 100,
 			},
 			err: "URL base must not contain query values",
 		},
 		{
 			name: "URL base must not contain a fragment",
 			config: sharing.Config{
-				URLBases: []string{"http://host/#gopher-chunks"},
+				URLBases:      []string{"http://host/#gopher-chunks"},
+				ListPageLimit: 100,
 			},
 			err: "URL base must not contain a fragment",
 		},
@@ -125,6 +133,15 @@ type authHandlerEntry struct {
 
 func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOOBAR"))
+	require.NoError(t, err)
+
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test0", []byte("FOOBAR"))
+	require.NoError(t, err)
+
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test1", []byte("FOOBAR"))
+	require.NoError(t, err)
+
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test2", []byte("FOOBAR"))
 	require.NoError(t, err)
 
 	bandwidthLimit, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID)
@@ -167,6 +184,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	}, authToken))
 	defer validAuthServer.Close()
 
+	type listPageLimit struct {
+		v int
+	}
+
 	testCases := []struct {
 		name             string
 		host             string
@@ -176,7 +197,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		redirectLocation string
 		status           int
 		reqHeader        map[string]string
-		body             string
+		body             []string
+		notContains      []string
+		listPageLimit    *listPageLimit
+		newHandlerErr    error
 		authserver       string
 		expectedRPCCalls []string
 		prepFunc         func() error
@@ -187,7 +211,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "PUT",
 			path:             "s/",
 			status:           http.StatusMethodNotAllowed,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -195,7 +219,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             "s/",
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -203,7 +227,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
-			body:             "Internal server error.",
+			body:             []string{"Internal server error."},
 			authserver:       "invalid://",
 			expectedRPCCalls: []string{},
 		},
@@ -212,7 +236,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
-			body:             "Access denied.",
+			body:             []string{"Access denied."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -221,7 +245,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
-			body:             "Access denied.",
+			body:             []string{"Access denied."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -230,7 +254,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			body:             "foo",
+			body:             []string{"foo"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
@@ -239,7 +263,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess),
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -247,7 +271,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
-			body:             "Object not found",
+			body:             []string{"Object not found"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
@@ -255,7 +279,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			body:             "foo",
+			body:             []string{"foo"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -263,7 +287,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?download=1"),
 			status:           http.StatusOK,
-			body:             "FOOBAR",
+			body:             []string{"FOOBAR"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -271,7 +295,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
-			body:             "circle",
+			body:             []string{"circle"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -279,7 +303,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
-			body:             "circle",
+			body:             []string{"circle"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -287,7 +311,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?view=1"),
 			status:           http.StatusOK,
-			body:             "FOOBAR",
+			body:             []string{"FOOBAR"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -295,7 +319,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
-			body:             "You’re getting this file from all over the world",
+			body:             []string{"You’re getting this file from all over the world"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -303,7 +327,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
-			body:             "You’re getting this file from all over the world",
+			body:             []string{"You’re getting this file from all over the world"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -311,7 +335,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=no"),
 			status:           http.StatusOK,
-			body:             "FOOBAR",
+			body:             []string{"FOOBAR"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -329,7 +353,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"Range": "bytes=0-",
 			},
 			status:           http.StatusPartialContent,
-			body:             "FOOBAR",
+			body:             []string{"FOOBAR"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -340,7 +364,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"Range": "bytes=0-1",
 			},
 			status:           http.StatusPartialContent,
-			body:             "FO",
+			body:             []string{"FO"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -351,7 +375,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"Range": "bytes=-3",
 			},
 			status:           http.StatusPartialContent,
-			body:             "BAR",
+			body:             []string{"BAR"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -362,7 +386,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"Range": "bytes=0-10",
 			},
 			status:           http.StatusPartialContent,
-			body:             "FOO",
+			body:             []string{"FOO"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -401,7 +425,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:     "GET",
 			path:       path.Join("raw", goodAccessName, "testbucket", "test/foo1") + "/",
 			status:     http.StatusOK,
-			body:       "FOO",
+			body:       []string{"FOO"},
 			authserver: validAuthServer.URL,
 			// todo(sean): sometimes this responds with different results. For example:
 			// * []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"}
@@ -420,7 +444,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket") + "/",
 			status:           http.StatusOK,
-			body:             "test/",
+			body:             []string{"test/"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
@@ -428,8 +452,73 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			status:           http.StatusOK,
-			body:             "foo",
+			body:             []string{"foo"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 1 limit 1",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination") + "/",
+			status:           http.StatusOK,
+			body:             []string{"test0", "Next", "?cursor=test0"},
+			notContains:      []string{"test1", "test2"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 2 limit 1",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test0"),
+			status:           http.StatusOK,
+			body:             []string{"test2", "Next", "?cursor=test2"},
+			notContains:      []string{"test0", "test1"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 3 limit 1",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test2"),
+			status:           http.StatusOK,
+			body:             []string{"test1"},
+			notContains:      []string{"test2", "test0", "Next"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 1 limit 2",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination") + "/",
+			status:           http.StatusOK,
+			listPageLimit:    &listPageLimit{v: 2},
+			body:             []string{"test0", "test2", "Next", "?cursor=test2"},
+			notContains:      []string{"test1"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 2 limit 2",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test2"),
+			status:           http.StatusOK,
+			listPageLimit:    &listPageLimit{v: 2},
+			body:             []string{"test1"},
+			notContains:      []string{"test0", "test2", "Next"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing with cursor at last object fails",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test1"),
+			status:           http.StatusNotFound,
+			notContains:      []string{"test0", "test1", "test2"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:          "List page limit of 0 should error",
+			listPageLimit: &listPageLimit{v: 0},
+			newHandlerErr: sharing.ErrInvalidListPageLimit,
+		},
+		{
+			name:          "List page limit of -1 should error",
+			listPageLimit: &listPageLimit{v: -1},
+			newHandlerErr: sharing.ErrInvalidListPageLimit,
 		},
 		{
 			name:             "GET prefix listing empty",
@@ -458,7 +547,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
-			body:             "Access denied",
+			body:             []string{"Access denied"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -466,7 +555,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             "s/",
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -474,7 +563,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
-			body:             "Internal server error.",
+			body:             []string{"Internal server error."},
 			authserver:       "invalid://",
 			expectedRPCCalls: []string{},
 		},
@@ -483,7 +572,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
-			body:             "Access denied.",
+			body:             []string{"Access denied."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -492,7 +581,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
-			body:             "Access denied",
+			body:             []string{"Access denied"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -501,7 +590,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			body:             "",
+			body:             []string{""},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
@@ -510,7 +599,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", serializedAccess),
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -518,7 +607,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
-			body:             "Object not found",
+			body:             []string{"Object not found"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
@@ -526,7 +615,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			body:             "",
+			body:             []string{""},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -534,7 +623,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
-			body:             "Bandwidth limit exceeded",
+			body:             []string{"Bandwidth limit exceeded"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				// set bandwidth limit to 0
@@ -585,7 +674,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			host:             "mydomain.com",
 			method:           "GET",
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -601,7 +690,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusBadRequest,
-			body:             "Malformed request.",
+			body:             []string{"Malformed request."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -617,7 +706,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusBadRequest,
-			body:             "Invalid bucket name.",
+			body:             []string{"Invalid bucket name."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -634,7 +723,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusForbidden,
-			body:             "Access denied.",
+			body:             []string{"Access denied."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -684,7 +773,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusOK,
-			body:             "HELLO!",
+			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
@@ -707,7 +796,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusOK,
-			body:             "HELLO!",
+			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
@@ -730,7 +819,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusOK,
-			body:             "HELLO!",
+			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
@@ -754,7 +843,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusOK,
-			body:             "FOO",
+			body:             []string{"FOO"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
 		},
@@ -772,7 +861,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusNotFound,
-			body:             "Object not found",
+			body:             []string{"Object not found"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
 		},
@@ -790,7 +879,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				},
 			},
 			status:           http.StatusNotFound,
-			body:             "NOT FOUND!",
+			body:             []string{"NOT FOUND!"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects", "/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
@@ -841,13 +930,22 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			require.NoError(t, err)
 			defer ctx.Check(dnsSrv.Close)
 
+			listPageLimit := 1
+			if testCase.listPageLimit != nil {
+				listPageLimit = testCase.listPageLimit.v
+			}
+
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
 				URLBases:          []string{"http://localhost"},
 				Templates:         "./../../pkg/linksharing/web/",
 				AuthServiceConfig: authConfig,
 				DNSServer:         dnsSrv.LocalAddr().String(),
+				ListPageLimit:     listPageLimit,
 			})
-			require.NoError(t, err)
+			require.Equal(t, testCase.newHandlerErr, err)
+			if testCase.newHandlerErr != nil {
+				return
+			}
 
 			url := "http://" + host + "/" + testCase.path
 			w := httptest.NewRecorder()
@@ -863,7 +961,16 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 
 			assert.Equal(t, testCase.redirectLocation, w.Header().Get("Location"), "redirect location does not match")
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
-			assert.Contains(t, w.Body.String(), testCase.body, "body does not match")
+			if testCase.body != nil {
+				for _, elem := range testCase.body {
+					assert.Contains(t, w.Body.String(), elem, fmt.Sprintf("body does not contain expected element: %s", elem))
+				}
+			}
+			if testCase.notContains != nil {
+				for _, elem := range testCase.notContains {
+					assert.NotContains(t, w.Body.String(), elem, fmt.Sprintf("body should not contain element: %s", elem))
+				}
+			}
 			if testCase.expectedRPCCalls != nil {
 				assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())
 			}

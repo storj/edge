@@ -50,6 +50,7 @@ type LinkSharing struct {
 	UseClientIPHeaders     bool          `user:"true" help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
+	ListPageLimit          int           `help:"maximum number of paths to list on a single page" default:"100"`
 
 	SatelliteConnectionPool satelliteConnectionPoolConfig
 	ConnectionPool          connectionPoolConfig
@@ -186,6 +187,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				UserAgent:   "linksharing",
 				DialTimeout: runCfg.DialTimeout,
 			},
+			ListPageLimit: runCfg.ListPageLimit,
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 		ShutdownDelay: runCfg.ShutdownDelay,

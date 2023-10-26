@@ -64,6 +64,8 @@ func TestIntegration(t *testing.T) {
 		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
 
+	const listPageLimit = 1
+
 	tests := []struct {
 		name                  string
 		tlsRecord             bool
@@ -392,6 +394,7 @@ func TestIntegration(t *testing.T) {
 					authRecords:           authRecords,
 					redirectHTTPS:         tc.redirectHTTPS,
 					landingRedirectTarget: tc.landingRedirectTarget,
+					listPageLimit:         listPageLimit,
 				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
 					require.NoError(t, err)
@@ -456,6 +459,7 @@ type environmentConfig struct {
 	authRecords           map[string]authHandlerEntry
 	redirectHTTPS         bool
 	landingRedirectTarget string
+	listPageLimit         int
 }
 
 func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
@@ -549,6 +553,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 			DNSServer:             dnsSrv.LocalAddr().String(),
 			RedirectHTTPS:         config.redirectHTTPS,
 			LandingRedirectTarget: config.landingRedirectTarget,
+			ListPageLimit:         config.listPageLimit,
 		},
 	})
 	require.NoError(t, err)

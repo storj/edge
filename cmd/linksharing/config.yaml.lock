@@ -97,6 +97,9 @@ key-file: ""
 # the url to redirect empty requests to
 landing-redirect-target: https://www.storj.io/
 
+# maximum number of paths to list on a single page
+# list-page-limit: 100
+
 # if true, log function filename and line number
 # log.caller: false
 

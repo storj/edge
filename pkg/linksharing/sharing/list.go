@@ -30,13 +30,13 @@ type listObject struct {
 	Prefix bool
 }
 
-func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, archivePath string) (err error) {
+func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, archivePath, cursor string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	var input struct {
 		Title       string
 		Breadcrumbs []breadcrumb
 		Objects     []listObject
+		NextCursor  string
 	}
 	input.Title = pr.title
 	input.Breadcrumbs = append(input.Breadcrumbs, pr.root)
@@ -55,7 +55,7 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 	if len(archivePath) > 0 {
 		input.Objects, err = listObjectsArchive(ctx, project, pr)
 	} else {
-		input.Objects, err = listObjectsPrefix(ctx, project, pr)
+		input.Objects, input.NextCursor, err = listObjectsPrefix(ctx, project, pr, cursor, handler.listPageLimit)
 	}
 	if err != nil {
 		return err
@@ -74,13 +74,14 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 	return nil
 }
 
-func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest) (objects []listObject, err error) {
+func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedRequest, cursor string, limit int) (objects []listObject, nextCursor string, err error) {
 	projectObjects := project.ListObjects(ctx, pr.bucket, &uplink.ListObjectsOptions{
 		Prefix: pr.realKey,
+		Cursor: cursor,
 		System: true,
 	})
-	// TODO add paging
-	for projectObjects.Next() {
+
+	for limit > 0 && projectObjects.Next() {
 		item := projectObjects.Item()
 		key := item.Key[len(pr.realKey):]
 		var keyURL string
@@ -95,8 +96,13 @@ func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedR
 			Size:   memory.Size(item.System.ContentLength).Base10String(),
 			Prefix: item.IsPrefix,
 		})
+		limit--
 	}
-	return objects, errdata.WithAction(projectObjects.Err(), "list objects")
+	// run Next one more time to see if there are more objects beyond this page.
+	if projectObjects.Next() {
+		nextCursor = objects[len(objects)-1].Key
+	}
+	return objects, nextCursor, errdata.WithAction(projectObjects.Err(), "list objects")
 }
 
 func listObjectsArchive(ctx context.Context, project *uplink.Project, pr *parsedRequest) (objects []listObject, err error) {

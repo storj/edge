@@ -32,7 +32,12 @@ import (
 	"storj.io/zipper"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// ErrInvalidListPageLimit is an error returned when list page limit is not greater than zero.
+	ErrInvalidListPageLimit = errs.New("list page limit must be greater than zero")
+)
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {
@@ -137,6 +142,9 @@ type Config struct {
 	// StandardViewsHTML controls whether to serve HTML as text/html instead of
 	// text/plain for standard (non-hosting) requests.
 	StandardViewsHTML bool
+
+	// Maximum number of paths to list on a single page.
+	ListPageLimit int
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -166,10 +174,14 @@ type Handler struct {
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 	inShutdown             *int32
+	listPageLimit          int
 }
 
 // NewHandler creates a new link sharing HTTP handler.
 func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, tqs *TierQueryingService, inShutdown *int32, config Config) (*Handler, error) {
+	if config.ListPageLimit <= 0 {
+		return nil, ErrInvalidListPageLimit
+	}
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -256,6 +268,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
 		inShutdown:             inShutdown,
+		listPageLimit:          config.ListPageLimit,
 	}, nil
 }
 

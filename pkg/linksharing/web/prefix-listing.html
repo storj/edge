@@ -37,7 +37,8 @@
             </div>
 
             {{if (gt (len .Data.Breadcrumbs) 1)}}
-            <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/"> <!-- template comment: . instead of .. is a special case for going back inside a zip -->
+            <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/">
+              <!-- template comment: . instead of .. is a special case for going back inside a zip -->
               <div class="row">
                 <div class="col">
                   <img src="{{.Base}}/static/img/back.svg?v={{.VersionHash}}" alt="Back">
@@ -70,6 +71,17 @@
               </div>
             </a>
             {{end}}
+            {{end}}
+
+            {{ if .Data.NextCursor }}
+            <a class="directory-link" href="./?cursor={{ .Data.NextCursor }}">
+              <div class="row">
+                <div class="col">
+                  <img src="{{.Base}}/static/img/next.svg?v={{.VersionHash}}" alt="Next">
+                  <span class="directory-name">Next</span>
+                </div>
+              </div>
+            </a>
             {{end}}
 
           </section>

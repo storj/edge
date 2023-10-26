@@ -205,8 +205,9 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			}
 
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
-				URLBases:  []string{"http://localhost"},
-				Templates: "./../../pkg/linksharing/web/",
+				ListPageLimit: 1,
+				URLBases:      []string{"http://localhost"},
+				Templates:     "./../../pkg/linksharing/web/",
 			})
 			require.NoError(t, err)
 
