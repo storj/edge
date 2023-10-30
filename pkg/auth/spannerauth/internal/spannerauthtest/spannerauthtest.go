@@ -47,7 +47,7 @@ func ConfigureTestServer(ctx context.Context, logger *zap.Logger) (*spannertest.
 				satellite_address      STRING(MAX) NOT NULL,
 				macaroon_head          BYTES(MAX)  NOT NULL,
 				expires_at             TIMESTAMP,
-				encrypted_secret_key   BYTES(32)   NOT NULL,
+				encrypted_secret_key   BYTES(48)   NOT NULL,
 				encrypted_access_grant BYTES(MAX)  NOT NULL,
 				invalidation_reason    STRING(MAX),
 				invalidated_at         TIMESTAMP

@@ -4,6 +4,7 @@
 package spannerauth_test
 
 import (
+	"crypto/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/encryption"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/gateway-mt/pkg/auth/authdb"
@@ -46,7 +49,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 0; i < 123; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(time.Time{})
+		r := createRandomRecord(t, time.Time{})
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -54,7 +57,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 123; i < 456; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(time.Now())
+		r := createRandomRecord(t, time.Now())
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -62,7 +65,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 456; i < 789; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(time.Now().Add(time.Hour).UTC())
+		r := createRandomRecord(t, time.Now().Add(time.Hour).UTC())
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -78,12 +81,23 @@ func TestCloudDatabase(t *testing.T) {
 	}
 }
 
-func createRandomRecord(expiresAt time.Time) *authdb.Record {
-	k := testrand.Key()
+func createRandomRecord(t *testing.T, expiresAt time.Time) *authdb.Record {
+	var secretKey authdb.SecretKey
+	_, err := rand.Read(secretKey[:])
+	require.NoError(t, err)
+
+	encKey, err := authdb.NewEncryptionKey()
+	require.NoError(t, err)
+
+	storjKey := encKey.ToStorjKey()
+
+	encSecretKey, err := encryption.Encrypt(secretKey[:], storj.EncAESGCM, &storjKey, &storj.Nonce{})
+	require.NoError(t, err)
+
 	r := authdb.Record{
 		SatelliteAddress:     testrand.NodeID().String(),
 		MacaroonHead:         testrand.Bytes(32 * memory.B),
-		EncryptedSecretKey:   k[:],
+		EncryptedSecretKey:   encSecretKey,
 		EncryptedAccessGrant: testrand.Bytes(4 * memory.KiB),
 	}
 	if !expiresAt.IsZero() {
