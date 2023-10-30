@@ -12,6 +12,7 @@ import (
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/spannerauth/spannerauthmigration"
 	"storj.io/private/dbutil"
 )
 
@@ -30,6 +31,16 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 		return badgerauth.New(log, config.Node)
 	case "spanner":
 		return spannerauth.Open(ctx, log, config.Spanner)
+	case "spannermigration":
+		src, err := badgerauth.New(log, config.Node)
+		if err != nil {
+			return nil, err
+		}
+		dst, err := spannerauth.Open(ctx, log, config.Spanner)
+		if err != nil {
+			return nil, errs.Combine(err, src.Close())
+		}
+		return spannerauthmigration.New(log, src, dst), nil
 	default:
 		return nil, errs.New("unknown scheme: %q", config.KVBackend)
 	}
