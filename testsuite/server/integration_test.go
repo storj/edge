@@ -55,7 +55,7 @@ func TestUploadDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				s := fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
 					nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
-				require.NoError(t, config.Placement.AddPlacementFromString(s))
+				require.NoError(t, config.Placement.Set(s))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

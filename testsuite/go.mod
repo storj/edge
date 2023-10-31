@@ -12,11 +12,11 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230925131608-3c287852acde
+	storj.io/common v0.0.0-20231101115145-09481ec98b57
 	storj.io/edge v0.0.0-00010101000000-000000000000
-	storj.io/private v0.0.0-20230918125712-2a31a93e18ab
-	storj.io/storj v1.88.3
-	storj.io/uplink v1.12.1-0.20230928093012-c46ff1e3c01a
+	storj.io/private v0.0.0-20231012141933-ae62725d6691
+	storj.io/storj v1.91.0-alpha.0.20231103194705-d0f444742768
+	storj.io/uplink v1.12.2-0.20231101191324-61e765593356
 )
 
 require (
@@ -161,8 +161,8 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.14.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
-	github.com/quic-go/quic-go v0.39.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
+	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -183,7 +183,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
-	github.com/stripe/stripe-go/v72 v72.90.0 // indirect
+	github.com/stripe/stripe-go/v75 v75.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -191,7 +191,6 @@ require (
 	github.com/tidwall/sjson v1.0.4 // indirect
 	github.com/tinylib/msgp v1.1.3 // indirect
 	github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a // indirect
-	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3 // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/willf/bloom v2.0.3+incompatible // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
@@ -242,6 +241,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.33 // indirect
 	storj.io/gateway v1.9.1-0.20231024072257-381303f6b555 // indirect
+	storj.io/infectious v0.0.1 // indirect
 	storj.io/minio v0.0.0-20230901173759-f1d4dd341feb // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
