@@ -456,7 +456,7 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 			mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "false"))
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
-		log.Info("encountered duplicate key. See https://github.com/storj/gateway-mt/issues/210", nodeIDField, keyHashField)
+		log.Info("encountered duplicate key. See https://github.com/storj/edge/issues/210", nodeIDField, keyHashField)
 		mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "true"))
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
 		return Error.Wrap(err)

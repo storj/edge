@@ -32,7 +32,7 @@ var ReplicationLogError = errs.Class("replication log")
 // ReplicationLogEntry represents replication log entry.
 //
 // Key layout reference:
-// https://github.com/storj/gateway-mt/blob/3ef75f412a50118d9d910e1b372e126e6ffb7503/docs/blueprints/new-auth-database.md#replication-log-entry
+// https://github.com/storj/edge/blob/3ef75f412a50118d9d910e1b372e126e6ffb7503/docs/blueprints/new-auth-database.md#replication-log-entry
 type ReplicationLogEntry struct {
 	ID      NodeID
 	Clock   Clock

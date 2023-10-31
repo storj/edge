@@ -10,13 +10,13 @@ Edge services bridge the gap between [the native integration](https://github.com
 
 - [MinIO fork upon which Gateway-ST and Gateway-MT are based](https://github.com/storj/minio)
 - [Gateway-ST](https://github.com/storj/gateway-st)
-- [Gateway-MT and Link Sharing Service](https://github.com/storj/gateway-mt) (this repository)
+- [Gateway-MT and Link Sharing Service](https://github.com/storj/edge) (this repository)
 
 <!-- TODO(artur): dependency graph might be nice. -->
 
 #### What is Auth Service (included in this repository) and why do we need it?
 
-Auth Service maps existing access grants to S3-specific Access Key ID/Secret Access Key pairs on demand. The primary reason for using Auth Service is that it's hard to pass long access grants in Access Key ID/Secret Access Key. See [this](https://github.com/storj/gateway-mt/blob/7113bd0a4b0e746da9fa0374f216d23d075c5c17/docs/blueprints/security-auth.md#design) for a more in-depth explanation of how Gateway-MT works with Auth Service. Link Sharing Service can work with and without Auth Service (it's easier and more secure with Auth Service). Gateway-ST does not need Auth Service.
+Auth Service maps existing access grants to S3-specific Access Key ID/Secret Access Key pairs on demand. The primary reason for using Auth Service is that it's hard to pass long access grants in Access Key ID/Secret Access Key. See [this](https://github.com/storj/edge/blob/7113bd0a4b0e746da9fa0374f216d23d075c5c17/docs/blueprints/security-auth.md#design) for a more in-depth explanation of how Gateway-MT works with Auth Service. Link Sharing Service can work with and without Auth Service (it's easier and more secure with Auth Service). Gateway-ST does not need Auth Service.
 
 ### Roadmap
 

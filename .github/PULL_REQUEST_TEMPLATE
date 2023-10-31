@@ -14,7 +14,7 @@
 - No Markdown
 - The body is wrapped at 72 characters unless it's really needed (ASCII art, table, or long link)
 - If there is a corresponding issue, add either `Closes #1234`, `Fixes #1234`, `Resolves #1234` or `Updates #1234` (the latter if this is not a complete fix) to this comment
-- If referring to a repo other than `storj/gateway-mt`, you can use the `owner/repo#issue_number` syntax: `Fixes storj/common#1234`
+- If referring to a repo other than `storj/edge`, you can use the `owner/repo#issue_number` syntax: `Fixes storj/common#1234`
 - We do not use Signed-off-by lines. Please don't add them. Our Gerrit server & GitHub bots enforce CLA compliance instead
 - More: https://github.com/storj/docs/blob/main/code/Git.md
 - Delete these instructions once you have read and applied them

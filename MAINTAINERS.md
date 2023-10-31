@@ -26,9 +26,9 @@ Examples of Release Candidates:
 
 ## Step-by-step release process
 1. Announce your intention to make a new release to the #team-integrations-edge Slack channel.
-2. Wait for a confirmation by at least one maintainer of this project (storj/gateway-mt) before proceeding with the next step.
+2. Wait for a confirmation by at least one maintainer of this project (storj/edge) before proceeding with the next step.
 3. Create a new release from the Github web interface:
-  - Go to https://github.com/storj/gateway-mt/releases.
+  - Go to https://github.com/storj/edge/releases.
   - Click the `Draft a new release` button.
   - Enter `Tag version` following the rules for the version number, e.g. `v1.2.3`.
   - Enter the same value as `Release title`, e.g. `v1.2.3`.
@@ -42,7 +42,7 @@ Examples of Release Candidates:
   * https://hub.docker.com/r/storjlabs/linksharing/tags
 6. Find the build tag (e.g. `9b58a11-v1.0.1-go1.13.8`) and download all the binaries to your local drive.
 7. Update the Github release:
-  - Go to https://github.com/storj/gateway-mt/releases.
+  - Go to https://github.com/storj/edge/releases.
   - Cick the `Edit` button on the release.
   - Upload all binaries as release artifacts.
   - Add the following line for the description:
