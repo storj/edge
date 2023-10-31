@@ -40,7 +40,7 @@ func ConfigureTestServer(ctx context.Context, logger *zap.Logger) (*spannertest.
 	// https://cloud.google.com/spanner/docs/reference/standard-sql/data-definition-language
 	o, err := a.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
 		Statements: []string{
-			`CREATE TABLE records (
+			`CREATE TABLE IF NOT EXISTS records (
 				encryption_key_hash    BYTES(32)   NOT NULL,
 				created_at             TIMESTAMP   NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
 				public                 BOOL        NOT NULL,
