@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/certstorage"
+	"storj.io/edge/pkg/certstorage"
 )
 
 // TLSInfo is a struct to handle the preferred/configured TLS options.

@@ -20,8 +20,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/gateway-mt/internal/authadminclient"
-	"storj.io/gateway-mt/internal/satelliteadminclient"
+	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/satelliteadminclient"
 )
 
 var (

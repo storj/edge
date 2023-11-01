@@ -12,7 +12,7 @@ import (
 	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/edge/pkg/server/gwlog"
 )
 
 var (

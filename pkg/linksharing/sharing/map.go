@@ -15,7 +15,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/dotworld"
 	"storj.io/dotworld/reference"
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 	"storj.io/uplink/private/object"
 )

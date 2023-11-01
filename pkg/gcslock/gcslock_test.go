@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/gcslock/gcsops"
-	"storj.io/gateway-mt/pkg/internal/gcstest"
+	"storj.io/edge/pkg/gcslock/gcsops"
+	"storj.io/edge/pkg/internal/gcstest"
 )
 
 func TestMutex_PutHeadPatchDeleteCycle(t *testing.T) {

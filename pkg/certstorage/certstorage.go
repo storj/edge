@@ -18,8 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/gcslock"
-	"storj.io/gateway-mt/pkg/gcslock/gcsops"
+	"storj.io/edge/pkg/gcslock"
+	"storj.io/edge/pkg/gcslock/gcsops"
 )
 
 var (

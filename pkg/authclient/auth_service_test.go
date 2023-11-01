@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/errdata"
 )
 
 func TestAuthClient_Resolve(t *testing.T) {

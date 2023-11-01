@@ -482,6 +482,6 @@ go generate
 
 ### Testing
 
-storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest package contains most of the tooling necessary for running exhaustive unit tests.
+storj.io/edge/pkg/auth/badgerauth/badgerauthtest package contains most of the tooling necessary for running exhaustive unit tests.
 
 TODO(artur): it might be beneficial to have a binary that starts a local cluster for running integration tests and manual testing.

@@ -12,7 +12,7 @@ import (
 	miniogo "github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/gateway/miniogw"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"

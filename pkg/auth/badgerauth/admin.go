@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 // Admin represents a service that allows managing database records directly.

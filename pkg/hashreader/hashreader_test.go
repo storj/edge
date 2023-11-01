@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/hashreader"
+	"storj.io/edge/pkg/hashreader"
 )
 
 func TestHashImplementations(t *testing.T) {

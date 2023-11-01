@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/spannerauth"
 )
 
 // Error is the error class for this package.

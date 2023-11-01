@@ -19,7 +19,7 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/pkg/nodelist"
+	"storj.io/edge/pkg/nodelist"
 )
 
 var (

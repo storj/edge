@@ -12,8 +12,8 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/server/middleware"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"

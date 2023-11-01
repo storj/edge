@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/trustedip"
 )
 
 func TestGetClientIP(t *testing.T) {

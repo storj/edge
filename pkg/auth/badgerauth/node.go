@@ -30,9 +30,9 @@ import (
 	"storj.io/drpc/drpcconn"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
-	"storj.io/gateway-mt/pkg/backoff"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/backoff"
 )
 
 var (

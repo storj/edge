@@ -13,8 +13,8 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/useragent"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/trustedip"
 	privateAccess "storj.io/uplink/private/access"
 )
 

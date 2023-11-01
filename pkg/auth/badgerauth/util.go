@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 // timestampToTime converts Unix time to *time.Time. It checks whether the

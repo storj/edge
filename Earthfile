@@ -6,21 +6,21 @@ gatewaymt-bin:
     COPY . .
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        go build -o release/earthly/gateway-mt storj.io/gateway-mt/cmd/gateway-mt
+        go build -o release/earthly/gateway-mt storj.io/edge/cmd/gateway-mt
     SAVE ARTIFACT release/earthly binaries AS LOCAL release/earthly
 
 authservice-bin:
     COPY . .
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        go build -o release/earthly/authservice storj.io/gateway-mt/cmd/authservice
+        go build -o release/earthly/authservice storj.io/edge/cmd/authservice
     SAVE ARTIFACT release/earthly binaries AS LOCAL release/earthly
 
 linksharing-bin:
     COPY . .
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        go build -o release/earthly/linksharing storj.io/gateway-mt/cmd/linksharing
+        go build -o release/earthly/linksharing storj.io/edge/cmd/linksharing
     SAVE ARTIFACT release/earthly binaries AS LOCAL release/earthly
 
 build-storjup:

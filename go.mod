@@ -1,4 +1,4 @@
-module storj.io/gateway-mt
+module storj.io/edge
 
 go 1.19
 

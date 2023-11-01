@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/httpserver"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
-	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/httpserver"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/server/middleware"
 )
 
 var mon = monkit.Package()

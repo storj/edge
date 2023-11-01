@@ -22,8 +22,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
-	"storj.io/gateway-mt/pkg/backoff"
-	"storj.io/gateway-mt/pkg/gcslock/gcsops"
+	"storj.io/edge/pkg/backoff"
+	"storj.io/edge/pkg/gcslock/gcsops"
 )
 
 const expirationHeader = "x-goog-meta-expiration"

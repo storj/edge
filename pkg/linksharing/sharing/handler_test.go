@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/objectmap"
 )
 
 func TestCompareHosts(t *testing.T) {

@@ -23,8 +23,8 @@ import (
 
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/server"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/server"
+	"storj.io/edge/pkg/trustedip"
 )
 
 var (

@@ -14,8 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 )
 

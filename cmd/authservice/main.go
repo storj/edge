@@ -16,8 +16,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
-	"storj.io/gateway-mt/internal/register"
-	"storj.io/gateway-mt/pkg/auth"
+	"storj.io/edge/internal/register"
+	"storj.io/edge/pkg/auth"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )

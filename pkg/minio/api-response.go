@@ -6,7 +6,7 @@ package minio
 import (
 	"encoding/xml"
 
-	"storj.io/gateway-mt/pkg/server/gw"
+	"storj.io/edge/pkg/server/gw"
 	"storj.io/minio/cmd"
 )
 

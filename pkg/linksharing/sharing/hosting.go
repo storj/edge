@@ -13,7 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 )
 

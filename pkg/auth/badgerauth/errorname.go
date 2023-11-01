@@ -8,7 +8,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/authdb"
 )
 
 func init() {

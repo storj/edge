@@ -26,7 +26,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth"
 )
 
 // TestPeer_Close ensures that closing bare Peer with minimal config it needs to

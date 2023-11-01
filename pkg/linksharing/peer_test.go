@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/gateway-mt/pkg/httpserver"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/httpserver"
+	"storj.io/edge/pkg/linksharing/sharing"
 )
 
 func TestNewPeerMinimalConfig(t *testing.T) {

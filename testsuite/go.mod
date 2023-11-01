@@ -1,8 +1,6 @@
-module storj.io/gateway-mt/testsuite
+module storj.io/edge/testsuite
 
 go 1.19
-
-replace storj.io/gateway-mt => ../
 
 require (
 	github.com/aws/aws-sdk-go v1.36.15
@@ -15,7 +13,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
 	storj.io/common v0.0.0-20230925131608-3c287852acde
-	storj.io/gateway-mt v0.0.0-00010101000000-000000000000
+	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/private v0.0.0-20230918125712-2a31a93e18ab
 	storj.io/storj v1.88.3
 	storj.io/uplink v1.12.1-0.20230928093012-c46ff1e3c01a
@@ -249,3 +247,5 @@ require (
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
 )
+
+replace storj.io/edge => ../

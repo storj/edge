@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/authdb"
 )
 
 // defaultExactStaleness is the default value for how stale reads from Cloud

@@ -9,8 +9,8 @@ import (
 	badger "github.com/outcaste-io/badger/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 const (

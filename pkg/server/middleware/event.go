@@ -14,8 +14,8 @@ import (
 
 	"storj.io/common/grant"
 	"storj.io/common/useragent"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/trustedip"
 )
 
 var ek = eventkit.Package()

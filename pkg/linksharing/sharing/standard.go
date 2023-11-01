@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/errdata"
 )
 
 func (handler *Handler) handleStandard(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {

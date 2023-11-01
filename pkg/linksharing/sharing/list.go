@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"storj.io/common/memory"
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 	"storj.io/zipper"
 )

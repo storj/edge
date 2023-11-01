@@ -14,8 +14,8 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/http/requestid"
-	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 	"storj.io/private/process/gcloudlogging"
 )

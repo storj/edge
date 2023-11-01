@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 // TODO(artur): it might not be worth differentiating between asserts and

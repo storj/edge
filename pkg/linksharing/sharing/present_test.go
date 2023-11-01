@@ -17,8 +17,8 @@ import (
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/uplink"
 )
 

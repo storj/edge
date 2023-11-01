@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/backoff"
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/backoff"
+	"storj.io/edge/pkg/errdata"
 )
 
 // AuthServiceError wraps all the errors returned when resolving an access key.

@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-option go_package = "storj.io/gateway-mt/pkg/auth/badgerauth/pb";
+option go_package = "storj.io/edge/pkg/auth/badgerauth/pb";
 
 package badgerauth;
 

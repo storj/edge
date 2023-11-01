@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/lrucache"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/errdata"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/errdata"
 )
 
 var mon = monkit.Package()

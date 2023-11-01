@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 func TestTimestampToTime(t *testing.T) {

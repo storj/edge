@@ -23,11 +23,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/internal/authadminclient"
-	"storj.io/gateway-mt/internal/satelliteadminclient"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/hashreader"
-	"storj.io/gateway-mt/pkg/sharedlink"
+	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/satelliteadminclient"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/hashreader"
+	"storj.io/edge/pkg/sharedlink"
 )
 
 type inspectResult struct {

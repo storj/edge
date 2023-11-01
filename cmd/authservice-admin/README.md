@@ -5,7 +5,7 @@ This is a tool used to interact directly with records stored in a badgerauth bac
 ## Install
 
 ```console
-$ go install storj.io/gateway-mt/cmd/authservice-admin
+$ go install storj.io/edge/cmd/authservice-admin
 ```
 
 ## Usage

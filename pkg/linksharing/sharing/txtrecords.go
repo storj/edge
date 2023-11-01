@@ -12,7 +12,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/edge/pkg/authclient"
 	"storj.io/uplink"
 )
 

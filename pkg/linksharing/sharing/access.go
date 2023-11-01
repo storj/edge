@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/base58"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/linksharing/sharing/internal/signed"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/linksharing/sharing/internal/signed"
 	"storj.io/uplink"
 )
 

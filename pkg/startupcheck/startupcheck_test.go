@@ -26,7 +26,7 @@ import (
 	"storj.io/drpc/drpcmigrate"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
-	"storj.io/gateway-mt/pkg/startupcheck"
+	"storj.io/edge/pkg/startupcheck"
 )
 
 func TestCheck(t *testing.T) {

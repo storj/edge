@@ -19,10 +19,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/drpc/drpcconn"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 func TestServer(t *testing.T) {

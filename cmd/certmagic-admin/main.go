@@ -21,8 +21,8 @@ import (
 	"github.com/zeebo/clingy"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/certstorage"
-	"storj.io/gateway-mt/pkg/gpublicca"
+	"storj.io/edge/pkg/certstorage"
+	"storj.io/edge/pkg/gpublicca"
 )
 
 type certmagicConfig struct {

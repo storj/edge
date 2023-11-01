@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/internal/authadminclient"
-	"storj.io/gateway-mt/internal/satelliteadminclient"
+	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/satelliteadminclient"
 )
 
 type record struct {

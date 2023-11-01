@@ -8,7 +8,7 @@ package main_test
 import (
 	"testing"
 
-	"storj.io/gateway-mt/cmd/internal/testconfiglock"
+	"storj.io/edge/cmd/internal/testconfiglock"
 )
 
 func TestConfigLock(t *testing.T) {

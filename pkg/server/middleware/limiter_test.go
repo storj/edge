@@ -17,7 +17,7 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/edge/pkg/authclient"
 )
 
 const maxConncurrent = 3

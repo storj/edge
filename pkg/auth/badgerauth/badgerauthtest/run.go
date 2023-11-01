@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth"
 )
 
 // RunSingleNode tests against a single node cluster of badgerauth.

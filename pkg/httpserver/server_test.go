@@ -26,8 +26,8 @@ import (
 
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing"
 )
 
 var (

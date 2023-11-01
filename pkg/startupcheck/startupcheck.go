@@ -16,7 +16,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/pkg/nodelist"
+	"storj.io/edge/pkg/nodelist"
 )
 
 const defaultTimeout = 60 * time.Second

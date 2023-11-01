@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/authdb"
 )
 
 // Resources wrap a database and expose methods over HTTP.
