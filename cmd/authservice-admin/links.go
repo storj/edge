@@ -287,7 +287,7 @@ func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, r
 		eg.Add(satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey))
 
 		if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
-			eg.Add(satAdminClient.FreezeAccount(ctx, apiKeyResp.Owner.Email))
+			eg.Add(satAdminClient.ViolationFreezeAccount(ctx, apiKeyResp.Owner.Email))
 		}
 	}
 
