@@ -359,9 +359,8 @@ func rawLinkURL(rawURL string) (*url.URL, error) {
 		return nil, err
 	}
 
-	path := u.EscapedPath()
-	if strings.HasPrefix(path, "/s/") {
-		u.Path = "/raw/" + path[len("/s/"):]
+	if strings.HasPrefix(u.Path, "/s/") {
+		u.Path = "/raw/" + u.Path[len("/s/"):]
 		u.RawQuery = ""
 	}
 
