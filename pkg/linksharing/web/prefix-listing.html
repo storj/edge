@@ -36,18 +36,6 @@
               </div>
             </div>
 
-            {{if (gt (len .Data.Breadcrumbs) 1)}}
-            <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/">
-              <!-- template comment: . instead of .. is a special case for going back inside a zip -->
-              <div class="row">
-                <div class="col">
-                  <img src="{{.Base}}/static/img/back.svg?v={{.VersionHash}}" alt="Back">
-                  <span class="directory-name">Back</span>
-                </div>
-              </div>
-            </a>
-            {{end}}
-
             {{range .Data.Objects}}
             {{if .Prefix}}
             <a class="directory-link" href="{{.URL}}">
@@ -73,17 +61,44 @@
             {{end}}
             {{end}}
 
-            {{ if .Data.NextCursor }}
-            <a class="directory-link" href="./?cursor={{ .Data.NextCursor }}">
-              <div class="row">
+            {{if or (gt (len .Data.Breadcrumbs) 1) .Data.ShowBackButton .Data.NextCursor}}
+            <div class="row">
+              {{if (gt (len .Data.Breadcrumbs) 1)}}
+              <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/">
+                <!-- template comment: . instead of .. is a special case for going back inside a zip -->
+                <div class="col">
+                  <img src="{{.Base}}/static/img/back.svg?v={{.VersionHash}}" alt="...">
+                  <span class="directory-name">...</span>
+                </div>
+              </a>
+              {{end}}
+
+              {{if .Data.ShowBackButton}}
+              <a class="directory-link" href="./">
+                <div class="col">
+                  <img src="{{.Base}}/static/img/back.svg?v={{.VersionHash}}" alt="Back To Page 1">
+                  <span class="directory-name">Back To Page 1</span>
+                </div>
+              </a>
+
+              <div class="directory-link" onClick="history.back()">
+                <div class="col">
+                  <img src="{{.Base}}/static/img/back.svg?v={{.VersionHash}}" alt="Back">
+                  <span class="directory-name">Back</span>
+                </div>
+              </div>
+              {{end}}
+
+              {{ if .Data.NextCursor }}
+              <a class="directory-link" href="./?cursor={{ .Data.NextCursor }}">
                 <div class="col">
                   <img src="{{.Base}}/static/img/next.svg?v={{.VersionHash}}" alt="Next">
                   <span class="directory-name">Next</span>
                 </div>
-              </div>
-            </a>
-            {{end}}
-
+              </a>
+              {{end}}
+              {{end}}
+            </div>
           </section>
 
         </div>

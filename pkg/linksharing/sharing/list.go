@@ -33,10 +33,11 @@ type listObject struct {
 func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, archivePath, cursor string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var input struct {
-		Title       string
-		Breadcrumbs []breadcrumb
-		Objects     []listObject
-		NextCursor  string
+		Title          string
+		Breadcrumbs    []breadcrumb
+		Objects        []listObject
+		NextCursor     string
+		ShowBackButton bool
 	}
 	input.Title = pr.title
 	input.Breadcrumbs = append(input.Breadcrumbs, pr.root)
@@ -63,6 +64,10 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 
 	if len(input.Objects) == 0 {
 		return errdata.WithAction(uplink.ErrObjectNotFound, "serve prefix - empty")
+	}
+
+	if cursor != "" {
+		input.ShowBackButton = true
 	}
 
 	handler.renderTemplate(w, "prefix-listing.html", pageData{

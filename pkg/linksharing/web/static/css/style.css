@@ -302,6 +302,7 @@ a:hover {
   margin-bottom: 24px;
 }
 .directory-link:hover {
+  cursor: pointer;
   text-decoration: none;
 }
 .directory-link .row {
