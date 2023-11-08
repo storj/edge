@@ -114,7 +114,7 @@ func listObjectsArchive(ctx context.Context, project *uplink.Project, pr *parsed
 	zipItems := zip.List()
 	sort.Strings(zipItems)
 	for _, name := range zipItems {
-		keyURL := url.PathEscape(filepath.Base(pr.realKey)) + "?path=" + url.PathEscape(name)
+		keyURL := url.PathEscape(filepath.Base(pr.realKey)) + "?path=" + url.QueryEscape(name)
 		f, err := zip.FileInfo(ctx, name)
 		if err != nil {
 			// err here is only if invalid strings are returned from zip.List()
