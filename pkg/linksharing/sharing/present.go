@@ -6,6 +6,7 @@ package sharing
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/textproto"
@@ -268,6 +269,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		}
 		f, err := zip.FileInfo(ctx, archivePath)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return uplink.ErrObjectNotFound
+			}
 			return err
 		}
 		input.Key = archivePath

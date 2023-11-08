@@ -160,6 +160,13 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
+			name:             "ZIP wrap nonexistent path",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=nonexistent.txt&wrap=1",
+			status:           http.StatusNotFound,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+		},
+		{
 			name:             "ZIP list when exceeded bandwidth limit",
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=/",
