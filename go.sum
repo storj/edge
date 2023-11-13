@@ -1844,8 +1844,8 @@ storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c h1:92Hl7mBzjfMNNkkO3uV
 storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c/go.mod h1:iK+dmHZZXQlW7ahKdNSOo+raMk5BDL2wbD62FIeXLWs=
 storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c h1:or/DtG5uaZpzimL61ahlgAA+MTYn/U3txz4fe+XBFUg=
 storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c/go.mod h1:JCuc3C0gzCJHQ4J6SOx/Yjg+QTpX0D+Fvs5H46FETCk=
-storj.io/private v0.0.0-20230918125712-2a31a93e18ab h1:CE40+UL0ttxMmD+YnEOa7s7c7pLA2y577D3mp5prqS8=
-storj.io/private v0.0.0-20230918125712-2a31a93e18ab/go.mod h1:LuJVzguWEMXd8y/XRQZhWCUTmo5LpnYumiUgX+JAs6A=
+storj.io/private v0.0.0-20231012141933-ae62725d6691 h1:s/TxryjR2RkyYrZg6SkM30QCAKU7mAHQJeUFUdjcQXI=
+storj.io/private v0.0.0-20231012141933-ae62725d6691/go.mod h1:LuJVzguWEMXd8y/XRQZhWCUTmo5LpnYumiUgX+JAs6A=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
 storj.io/uplink v1.12.2-0.20231101191324-61e765593356 h1:eNex7LrrhtTwglTYg0QxgBVuOrmI2dUXSSBRtPNfzsY=
 storj.io/uplink v1.12.2-0.20231101191324-61e765593356/go.mod h1:FijbSlvLWgzDg/gYyE+rVxTNOlQhCGTn7qPsbFHgeQU=
