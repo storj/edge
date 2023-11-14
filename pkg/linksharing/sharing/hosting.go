@@ -7,15 +7,13 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 )
 
@@ -23,38 +21,28 @@ import (
 func (handler *Handler) handleHostingService(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	host, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		var aerr *net.AddrError
-		if errors.As(err, &aerr) && aerr.Err == "missing port in address" {
-			host = r.Host
-		} else {
-			return errdata.WithStatus(err, http.StatusBadRequest)
-		}
-	}
-
-	result, err := handler.txtRecords.FetchAccessForHost(ctx, host, trustedip.GetClientIP(handler.trustedClientIPsList, r))
-	if err != nil {
-		return errdata.WithAction(err, "fetch access")
+	creds := credentialsFromContext(ctx)
+	if creds.err != nil {
+		return creds.err
 	}
 
 	// Redirect to HTTPS only custom domains that are paid-tier and with `storj-tls:true` TXT record
-	if handler.redirectHTTPS && r.TLS == nil && result.TLS && handler.tierQuerying != nil {
-		paidTier, err := handler.tierQuerying.Do(ctx, result.Access, host)
+	if handler.redirectHTTPS && r.TLS == nil && creds.hostingTLS && handler.tierQuerying != nil {
+		paidTier, err := handler.tierQuerying.Do(ctx, creds.access, creds.hostingHost)
 		if err != nil {
 			return errdata.WithAction(err, "query user tier")
 		}
 
 		if paidTier {
-			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 			http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 			return nil
 		}
 	}
 
-	bucket, key := determineBucketAndObjectKey(result.Root, r.URL.Path)
+	bucket, key := determineBucketAndObjectKey(creds.hostingRoot, r.URL.Path)
 
-	project, err := handler.uplink.OpenProject(ctx, result.Access)
+	project, err := handler.uplink.OpenProject(ctx, creds.access)
 	if err != nil {
 		return errdata.WithAction(err, "open project")
 	}
@@ -72,16 +60,16 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}
 
 	err = handler.presentWithProject(ctx, w, r, &parsedRequest{
-		access:          result.Access,
+		access:          creds.access,
 		bucket:          bucket,
 		realKey:         key,
 		visibleKey:      visibleKey,
-		title:           host,
-		root:            breadcrumb{Prefix: host, URL: "/"},
+		title:           creds.hostingHost,
+		root:            breadcrumb{Prefix: creds.hostingHost, URL: "/"},
 		wrapDefault:     false,
 		downloadDefault: false,
 		hosting:         true,
-		hostingTLS:      result.TLS,
+		hostingTLS:      creds.hostingTLS,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal
@@ -92,7 +80,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 
 	// in ObjectNotFound, let the user provide a custom 404 page
 
-	bucket, key = determineBucketAndObjectKey(result.Root, "/404.html")
+	bucket, key = determineBucketAndObjectKey(creds.hostingRoot, "/404.html")
 	download, err := project.DownloadObject(ctx, bucket, key, nil)
 	if err != nil {
 		// if this returns uplink.ErrObjectNotFound, then, that's still

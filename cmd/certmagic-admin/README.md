@@ -5,7 +5,7 @@ This is a tool used to interact directly with certificates stored by CertMagic.
 ## Install
 
 ```console
-$ go install storj.io/gateway-mt/cmd/certmagic-admin
+$ go install storj.io/edge/cmd/certmagic-admin
 ```
 
 ## Prerequisites

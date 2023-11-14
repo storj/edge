@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"storj.io/gateway-mt/pkg/server/gw"
-	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/edge/pkg/server/gw"
+	"storj.io/edge/pkg/server/middleware"
 	"storj.io/minio/cmd"
 	xhttp "storj.io/minio/cmd/http"
 )

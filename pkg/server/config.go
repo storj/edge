@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/gateway-mt/pkg/authclient"
+	"storj.io/edge/pkg/authclient"
 	"storj.io/gateway/miniogw"
 )
 

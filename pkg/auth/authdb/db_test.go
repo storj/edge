@@ -163,7 +163,7 @@ func TestPutSatelliteValidation(t *testing.T) {
 
 	url, err := storj.ParseNodeURL(validURL)
 	require.NoError(t, err)
-	db := NewDatabase(mockKV{}, map[storj.NodeURL]struct{}{url: {}})
+	db := NewDatabase(mockStorage{}, map[storj.NodeURL]struct{}{url: {}})
 
 	key, err := NewEncryptionKey()
 	require.NoError(t, err)
@@ -194,16 +194,18 @@ func TestPutShortExpiration(t *testing.T) {
 	s, err := g.Serialize()
 	require.NoError(t, err)
 
-	_, err = NewDatabase(mockKV{}, map[storj.NodeURL]struct{}{url: {}}).Put(context.TODO(), enc, s, true)
+	_, err = NewDatabase(mockStorage{}, map[storj.NodeURL]struct{}{url: {}}).Put(context.TODO(), enc, s, true)
 	t.Log(err)
 	require.Error(t, err)
 	require.True(t, ErrAccessGrant.Has(err))
 }
 
-type mockKV struct{}
+type mockStorage struct{}
 
-func (mockKV) Put(ctx context.Context, keyHash KeyHash, record *Record) (err error) { return nil }
-func (mockKV) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) { return nil, nil }
-func (mockKV) PingDB(ctx context.Context) error                                     { return nil }
-func (mockKV) Run(ctx context.Context) error                                        { return nil }
-func (mockKV) Close() error                                                         { return nil }
+func (mockStorage) Put(ctx context.Context, keyHash KeyHash, record *Record) (err error) { return nil }
+func (mockStorage) Get(ctx context.Context, keyHash KeyHash) (record *Record, err error) {
+	return nil, nil
+}
+func (mockStorage) HealthCheck(ctx context.Context) error { return nil }
+func (mockStorage) Run(ctx context.Context) error         { return nil }
+func (mockStorage) Close() error                          { return nil }

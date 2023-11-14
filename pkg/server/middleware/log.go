@@ -17,10 +17,10 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/grant"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/server/gwlog"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/edge/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 	"storj.io/private/process/gcloudlogging"
 )
@@ -189,7 +189,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		gcloudlogging.LogHTTPRequest(httpRequestLog),
 		gcloudlogging.LogOperation(&gcloudlogging.Operation{
 			ID:       gl.API,
-			Producer: "storj.io/gateway-mt",
+			Producer: "storj.io/edge",
 		}),
 		zap.String("host", r.Host),
 		zap.String("error", gl.TagValue("error")),

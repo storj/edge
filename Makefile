@@ -109,7 +109,7 @@ lint: ## Lint
 	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG}
 	check-downgrades
 
-	go-licenses check --ignore "storj.io/dotworld,storj.io/gateway-mt" ./...
+	go-licenses check --ignore "storj.io/dotworld,storj.io/edge" ./...
 
 	# A bit of an explanation around this shellcheck command:
 	# * Find all scripts recursively that have the .sh extension, except for "testsuite@tmp" which Jenkins creates temporarily
@@ -129,7 +129,7 @@ lint-testsuite: ## Lint testsuite
 	staticcheck ./...
 	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG_TESTSUITE}
 
-	go-licenses check --ignore "storj.io/dotworld,storj.io/gateway-mt" ./...
+	go-licenses check --ignore "storj.io/dotworld,storj.io/edge" ./...
 
 ##@ Local development/Public Jenkins/Cross-Vet
 
@@ -187,7 +187,7 @@ verify: lint cross-vet test ## Execute pre-commit verification
 
 ##@ Release/Private Jenkins/Build
 
-GO_VERSION ?= 1.20.6
+GO_VERSION ?= 1.21.3
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 
 ifeq (${BRANCH_NAME},main)

@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/objectmap"
 )
 
 func TestCompareHosts(t *testing.T) {
@@ -52,8 +52,9 @@ func TestHandler_CORS(t *testing.T) {
 		req.Header.Add("Origin", "http://example.com")
 
 		cfg := Config{
-			URLBases:  []string{"http://test.test"},
-			Templates: "../../../pkg/linksharing/web/",
+			ListPageLimit: 1,
+			URLBases:      []string{"http://test.test"},
+			Templates:     "../../../pkg/linksharing/web/",
 		}
 
 		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
@@ -89,8 +90,9 @@ func TestHandler_Shutdown(t *testing.T) {
 		req := httptest.NewRequest("GET", "http://test.test/health/process", nil)
 
 		cfg := Config{
-			URLBases:  []string{"http://test.test"},
-			Templates: "../../../pkg/linksharing/web/",
+			ListPageLimit: 1,
+			URLBases:      []string{"http://test.test"},
+			Templates:     "../../../pkg/linksharing/web/",
 		}
 
 		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, inShutdown, cfg)

@@ -23,13 +23,14 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/drpcauth"
-	"storj.io/gateway-mt/pkg/auth/httpauth"
-	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/nodelist"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/drpcauth"
+	"storj.io/edge/pkg/auth/httpauth"
+	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/nodelist"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/private/process/gcloudlogging"
 )
 
@@ -61,7 +62,8 @@ type Config struct {
 
 	CertMagic certMagic
 
-	Node badgerauth.Config
+	Node    badgerauth.Config
+	Spanner spannerauth.Config
 }
 
 // certMagic is a config struct for configuring CertMagic options.
@@ -75,10 +77,10 @@ type certMagic struct {
 
 // Peer is the representation of authservice.
 type Peer struct {
-	log *zap.Logger
-	kv  authdb.KV
-	adb *authdb.Database
-	res *httpauth.Resources
+	log     *zap.Logger
+	storage authdb.Storage
+	adb     *authdb.Database
+	res     *httpauth.Resources
 
 	handler       http.Handler
 	httpListener  net.Listener
@@ -139,12 +141,12 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		publicURLs = append(publicURLs, u.Hostname())
 	}
 
-	kv, err := OpenKV(ctx, log.Named("db"), config)
+	storage, err := OpenStorage(ctx, log.Named("db"), config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	adb := authdb.NewDatabase(kv, allowedSats)
+	adb := authdb.NewDatabase(storage, allowedSats)
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
@@ -192,10 +194,10 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	return &Peer{
-		log: log,
-		kv:  kv,
-		adb: adb,
-		res: res,
+		log:     log,
+		storage: storage,
+		adb:     adb,
+		res:     res,
 
 		handler:       handler,
 		httpListener:  httpListener,
@@ -289,7 +291,7 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return p.kv.Run(groupCtx)
+		return p.storage.Run(groupCtx)
 	})
 
 	if p.tlsConfig == nil {
@@ -329,7 +331,7 @@ func (p *Peer) Close() error {
 		_ = p.drpcTLSListener.Close()
 	}
 
-	return errs.Wrap(p.kv.Close())
+	return errs.Wrap(p.storage.Close())
 }
 
 // ServeHTTP starts serving HTTP clients.

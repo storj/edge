@@ -19,9 +19,9 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/server"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/server"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )

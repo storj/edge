@@ -30,9 +30,9 @@ import (
 	"storj.io/drpc/drpcconn"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
-	"storj.io/gateway-mt/pkg/backoff"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/backoff"
 )
 
 var (
@@ -310,9 +310,9 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	return nil, nil
 }
 
-// PingDB proxies DB's PingDB.
-func (node *Node) PingDB(ctx context.Context) error {
-	return node.db.PingDB(ctx)
+// HealthCheck proxies DB's HealthCheck.
+func (node *Node) HealthCheck(ctx context.Context) error {
+	return node.db.HealthCheck(ctx)
 }
 
 // Run runs the server and the associated servers.

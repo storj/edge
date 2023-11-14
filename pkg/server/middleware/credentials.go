@@ -21,9 +21,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/memory"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd"
 )
 

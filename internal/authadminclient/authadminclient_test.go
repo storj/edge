@@ -16,10 +16,10 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	client "storj.io/gateway-mt/internal/authadminclient"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest"
+	client "storj.io/edge/internal/authadminclient"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
 )
 
 const (

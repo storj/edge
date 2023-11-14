@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/server/gwlog"
+	"storj.io/edge/pkg/server/gwlog"
 )
 
 func TestMetrics(t *testing.T) {
@@ -49,18 +49,18 @@ func TestMetrics(t *testing.T) {
 	Metrics("gmt", status(500)).ServeHTTP(rr, req)
 	Metrics("gmt", status(500)).ServeHTTP(rr, req)
 
-	c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+	c := monkit.Collect(monkit.ScopeNamed("storj.io/edge/pkg/server/middleware"))
 
 	for _, v := range []string{"time_to_first_byte", "response_time", "time_to_header", "bytes_written"} {
-		assert.Equal(t, 1.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 count", v)])
-		assert.Equal(t, 2.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 count", v)])
-		assert.Equal(t, 3.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 count", v)])
+		assert.Equal(t, 1.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=200 count", v)])
+		assert.Equal(t, 2.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=400 count", v)])
+		assert.Equal(t, 3.0, c[fmt.Sprintf("gmt_%s,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=500 count", v)])
 	}
 
-	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 sum"])
-	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=200 recent"])
-	assert.EqualValues(t, 2*bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 sum"])
-	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=400 recent"])
-	assert.EqualValues(t, 3*bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 sum"])
-	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/gateway-mt/pkg/server/middleware,status_code=500 recent"])
+	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=200 sum"])
+	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=200 recent"])
+	assert.EqualValues(t, 2*bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=400 sum"])
+	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=400 recent"])
+	assert.EqualValues(t, 3*bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=500 sum"])
+	assert.EqualValues(t, bytesWritten, c["gmt_bytes_written,api=ListObjects,method=get,scope=storj.io/edge/pkg/server/middleware,status_code=500 recent"])
 }

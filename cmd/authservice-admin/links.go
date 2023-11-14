@@ -23,11 +23,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
-	"storj.io/gateway-mt/internal/authadminclient"
-	"storj.io/gateway-mt/internal/satelliteadminclient"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/hashreader"
-	"storj.io/gateway-mt/pkg/sharedlink"
+	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/satelliteadminclient"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/hashreader"
+	"storj.io/edge/pkg/sharedlink"
 )
 
 type inspectResult struct {
@@ -287,7 +287,7 @@ func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, r
 		eg.Add(satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey))
 
 		if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
-			eg.Add(satAdminClient.FreezeAccount(ctx, apiKeyResp.Owner.Email))
+			eg.Add(satAdminClient.ViolationFreezeAccount(ctx, apiKeyResp.Owner.Email))
 		}
 	}
 
@@ -359,9 +359,8 @@ func rawLinkURL(rawURL string) (*url.URL, error) {
 		return nil, err
 	}
 
-	path := u.EscapedPath()
-	if strings.HasPrefix(path, "/s/") {
-		u.Path = "/raw/" + path[len("/s/"):]
+	if strings.HasPrefix(u.Path, "/s/") {
+		u.Path = "/raw/" + u.Path[len("/s/"):]
 		u.RawQuery = ""
 	}
 

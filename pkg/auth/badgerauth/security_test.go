@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth"
 )
 
 func TestTLSOptions(t *testing.T) {

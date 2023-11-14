@@ -20,9 +20,9 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcconn"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 // Error is a class of auth admin client errors.

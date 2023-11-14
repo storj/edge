@@ -30,13 +30,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/internal/minioclient"
-	"storj.io/gateway-mt/internal/register"
-	"storj.io/gateway-mt/pkg/auth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/server"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/internal/minioclient"
+	"storj.io/edge/internal/register"
+	"storj.io/edge/pkg/auth"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/server"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -55,7 +55,7 @@ func TestUploadDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				s := fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
 					nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
-				require.NoError(t, config.Placement.AddPlacementFromString(s))
+				require.NoError(t, config.Placement.Set(s))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

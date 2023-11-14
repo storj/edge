@@ -137,10 +137,10 @@ func (c *Client) GetUser(ctx context.Context, email string) (UserResponse, error
 	return r, nil
 }
 
-// FreezeAccount freezes the given user's account on the satellite so no upload or downloads may occur.
-// See https://github.com/storj/storj/tree/main/satellite/admin#put-apiusersuser-emailfreeze
-func (c *Client) FreezeAccount(ctx context.Context, email string) error {
-	req, err := c.newRequest(ctx, http.MethodPut, "/api/users/"+email+"/freeze", nil)
+// ViolationFreezeAccount freezes the given user's account on the satellite so no upload or downloads may occur.
+// See https://github.com/storj/storj/tree/main/satellite/admin#put-apiusersuser-emailviolation-freeze
+func (c *Client) ViolationFreezeAccount(ctx context.Context, email string) error {
+	req, err := c.newRequest(ctx, http.MethodPut, "/api/users/"+email+"/violation-freeze", nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}

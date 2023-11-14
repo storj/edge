@@ -26,7 +26,7 @@ import (
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	"storj.io/drpc/drpcwire"
-	"storj.io/gateway-mt/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/authdb"
 )
 
 var mon = monkit.Package()
@@ -38,7 +38,7 @@ type Server struct {
 
 	log *zap.Logger
 
-	// This is duplicated with package storj.io/gateway-mt/pkg/auth/httpauth/resources
+	// This is duplicated with package storj.io/edge/pkg/auth/httpauth/resources
 	// TODO: factor out common functionality
 	db                   *authdb.Database
 	endpoint             *url.URL

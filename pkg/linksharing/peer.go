@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/httpserver"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
-	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/httpserver"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/server/middleware"
 )
 
 var mon = monkit.Package()
@@ -96,8 +96,10 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	handleWithTracing := http.TraceHandler(handle, mon)
-	instrumentedHandle := middleware.Metrics("linksharing", handleWithTracing)
+	eventHandle := sharing.EventHandler(handle)
+	credsHandle := handle.CredentialsHandler(eventHandle)
+	traceHandle := http.TraceHandler(credsHandle, mon)
+	metricsHandle := middleware.Metrics("linksharing", traceHandle)
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
@@ -107,7 +109,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	peer.Server, err = httpserver.New(log, instrumentedHandle, decisionFunc, config.Server)
+	peer.Server, err = httpserver.New(log, metricsHandle, decisionFunc, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}

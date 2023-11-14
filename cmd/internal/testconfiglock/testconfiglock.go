@@ -37,7 +37,7 @@ func Check(t *testing.T, name string) {
 
 	// run the executable to create a config file
 	tmp := ctx.Dir(name + "-cfg-lock")
-	exe := ctx.Compile("storj.io/gateway-mt/cmd/" + name)
+	exe := ctx.Compile("storj.io/edge/cmd/" + name)
 	cmd := exec.Command(exe, "--config-dir", tmp, "--defaults", "release", "setup")
 	out, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "Error running %s: %s", name, out)

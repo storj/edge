@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/gateway-mt/pkg/server/middleware"
+	"storj.io/edge/pkg/server/middleware"
 )
 
 // Error is a class of sharedlink errors.

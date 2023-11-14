@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/gateway-mt/pkg/sharedlink"
+	"storj.io/edge/pkg/sharedlink"
 )
 
 func TestParse(t *testing.T) {

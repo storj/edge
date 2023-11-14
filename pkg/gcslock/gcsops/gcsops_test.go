@@ -19,7 +19,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/pkg/internal/gcstest"
+	"storj.io/edge/pkg/internal/gcstest"
 )
 
 func TestClient_BasicCycle(t *testing.T) {

@@ -16,8 +16,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
-	"storj.io/gateway-mt/internal/register"
-	"storj.io/gateway-mt/pkg/auth"
+	"storj.io/edge/internal/register"
+	"storj.io/edge/pkg/auth"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )
@@ -120,23 +120,23 @@ func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	migrationCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	kv, err := auth.OpenKV(migrationCtx, zap.L().Named("migration"), runCfg)
+	storage, err := auth.OpenStorage(migrationCtx, zap.L().Named("migration"), runCfg)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, kv.Close()) }()
+	defer func() { err = errs.Combine(err, storage.Close()) }()
 
 	var g errgroup.Group
 
 	g.Go(func() error {
-		return errs2.IgnoreCanceled(kv.Run(migrationCtx))
+		return errs2.IgnoreCanceled(storage.Run(migrationCtx))
 	})
 
-	migrator, ok := kv.(interface {
+	migrator, ok := storage.(interface {
 		MigrateToLatest(ctx context.Context) error
 	})
 	if !ok {
-		return errs.New("database backend %T does not support migrations", kv)
+		return errs.New("storage backend (%T) does not support migrations", storage)
 	}
 
 	if err = migrator.MigrateToLatest(migrationCtx); err != nil {

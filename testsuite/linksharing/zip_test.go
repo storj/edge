@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,8 +23,8 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -40,6 +41,12 @@ func CreateZip(t *testing.T) []byte {
 	f, err = w.CreateHeader(&zip.FileHeader{Name: "store.txt", Method: zip.Store})
 	require.NoError(t, err)
 	_, err = f.Write([]byte("Saved as store"))
+	require.NoError(t, err)
+
+	// add a file with & in name to test it is properly encoded into URL query param.
+	f, err = w.CreateHeader(&zip.FileHeader{Name: "foo&bar.txt", Method: zip.Store})
+	require.NoError(t, err)
+	_, err = f.Write([]byte("foobar"))
 	require.NoError(t, err)
 
 	require.NoError(t, w.Flush())
@@ -68,7 +75,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		path             string
 		archivePath      string
 		status           int
-		body             string
+		body             []string
 		expectedRPCCalls []string
 		acceptGzip       bool
 		expectGzip       bool
@@ -80,7 +87,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip"),
 			archivePath:      "/",
 			status:           http.StatusOK,
-			body:             "View Contents",
+			body:             []string{"View Contents"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -89,7 +96,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=/",
 			archivePath:      "/",
 			status:           http.StatusOK,
-			body:             "Back",
+			body:             []string{"Back", "?path=foo%26bar.txt"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -97,7 +104,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&download=1",
 			status:           http.StatusOK,
-			body:             "Saved as store",
+			body:             []string{"Saved as store"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -105,7 +112,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
 			status:           http.StatusOK,
-			body:             "Saved as deflate",
+			body:             []string{"Saved as deflate"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -113,7 +120,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&download=1",
 			status:           http.StatusOK,
-			body:             "Saved as store",
+			body:             []string{"Saved as store"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 			acceptGzip:       true,
 		},
@@ -122,7 +129,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
 			status:           http.StatusOK,
-			body:             "Saved as deflate",
+			body:             []string{"Saved as deflate"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 			acceptGzip:       true,
 			expectGzip:       true,
@@ -132,7 +139,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&wrap=1",
 			status:           http.StatusOK,
-			body:             "14 B", // the wrapper page shows the file size
+			body:             []string{"14 B"}, // the wrapper page shows the file size
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -140,7 +147,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&wrap=1",
 			status:           http.StatusOK,
-			body:             "16 B", // the wrapper page shows the file size
+			body:             []string{"16 B"}, // the wrapper page shows the file size
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
@@ -148,7 +155,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&map=1",
 			status:           http.StatusOK,
-			body:             "Files under 4k are stored as metadata with strong encryption.",
+			body:             []string{"Files under 4k are stored as metadata with strong encryption."},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -156,16 +163,23 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&map=1",
 			status:           http.StatusOK,
-			body:             "Files under 4k are stored as metadata with strong encryption.",
+			body:             []string{"Files under 4k are stored as metadata with strong encryption."},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:             "ZIP wrap nonexistent path",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=nonexistent.txt&wrap=1",
+			status:           http.StatusNotFound,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 		},
 		{
 			name:             "ZIP list when exceeded bandwidth limit",
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=/",
 			archivePath:      "/",
-			status:           http.StatusTooManyRequests,
-			body:             "Bandwidth limit exceeded",
+			status:           http.StatusForbidden,
+			body:             []string{"Bandwidth limit exceeded"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
 			prepFunc: func() error {
 				// set bandwidth limit to 0
@@ -198,8 +212,9 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			}
 
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
-				URLBases:  []string{"http://localhost"},
-				Templates: "./../../pkg/linksharing/web/",
+				ListPageLimit: 1,
+				URLBases:      []string{"http://localhost"},
+				Templates:     "./../../pkg/linksharing/web/",
 			})
 			require.NoError(t, err)
 
@@ -210,7 +225,8 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 				r.Header.Add("Accept-Encoding", "gzip")
 			}
 			require.NoError(t, err)
-			handler.ServeHTTP(w, r)
+			credsHandler := handler.CredentialsHandler(handler)
+			credsHandler.ServeHTTP(w, r)
 			// check status
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
 			// check content encoding
@@ -228,7 +244,9 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 				body, err = io.ReadAll(w.Body)
 				require.NoError(t, err)
 			}
-			assert.Contains(t, string(body), testCase.body, "body does not match")
+			for _, elem := range testCase.body {
+				assert.Contains(t, string(body), elem, fmt.Sprintf("body does not contain expected element: %s", elem))
+			}
 			// check RPC calls
 			assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())
 		})

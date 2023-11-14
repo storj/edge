@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 const nodeIDKey = "node_id"
@@ -167,9 +167,9 @@ func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
 	defer mon.Task(db.eventTags()...)(&ctx)(&err)
 
-	// The check below is to make sure we conform to the KV interface
-	// definition, and it's performed outside of the transaction because it's
-	// not crucial (access key hashes are unique enough).
+	// The check below is to make sure we conform to the interface definition
+	// and that it's performed outside of the transaction because it's not
+	// crucial (access key hashes are unique enough).
 	if err = db.db.View(func(txn *badger.Txn) error {
 		if _, err = txn.Get(keyHash.Bytes()); err == nil {
 			return ErrKeyAlreadyExists
@@ -197,7 +197,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 	}))
 }
 
-// Get retrieves the record from the key/value store. It returns nil if the key
+// Get retrieves the record from the storage engine. It returns nil if the key
 // does not exist. If the record is invalid, the error contains why.
 func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.Record, err error) {
 	defer mon.Task(db.eventTags()...)(&ctx)(&err)
@@ -229,8 +229,9 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 	}))
 }
 
-// PingDB attempts to do a database roundtrip and returns an error if it can't.
-func (db *DB) PingDB(ctx context.Context) (err error) {
+// HealthCheck ensures the underlying storage engine works and returns an error
+// otherwise.
+func (db *DB) HealthCheck(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.View(func(txn *badger.Txn) error {
@@ -455,7 +456,7 @@ func InsertRecord(log *zap.Logger, txn *badger.Txn, nodeID NodeID, keyHash authd
 			mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "false"))
 			return errKeyAlreadyExistsRecordsNotEqual
 		}
-		log.Info("encountered duplicate key. See https://github.com/storj/gateway-mt/issues/210", nodeIDField, keyHashField)
+		log.Info("encountered duplicate key. See https://github.com/storj/edge/issues/210", nodeIDField, keyHashField)
 		mon.Event("as_badgerauth_duplicate_key", monkit.NewSeriesTag("values_equal", "true"))
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
 		return Error.Wrap(err)

@@ -25,9 +25,9 @@ import (
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/identity"
-	"storj.io/gateway-mt/pkg/certstorage"
-	"storj.io/gateway-mt/pkg/gpublicca"
-	"storj.io/gateway-mt/pkg/startupcheck"
+	"storj.io/edge/pkg/certstorage"
+	"storj.io/edge/pkg/gpublicca"
+	"storj.io/edge/pkg/startupcheck"
 )
 
 var mon = monkit.Package()

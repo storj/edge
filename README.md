@@ -1,7 +1,7 @@
 # Storj Edge Services
 
-[![Go Report Card](https://goreportcard.com/badge/storj.io/gateway-mt)](https://goreportcard.com/report/storj.io/gateway-mt)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/gateway-mt)
+[![Go Report Card](https://goreportcard.com/badge/storj.io/edge)](https://goreportcard.com/report/storj.io/edge)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/edge)
 
 <img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 

@@ -16,10 +16,10 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/pkg/auth/authdb"
-	"storj.io/gateway-mt/pkg/auth/badgerauth"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest"
-	"storj.io/gateway-mt/pkg/auth/badgerauth/pb"
+	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
+	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 func TestKV(t *testing.T) {
@@ -234,7 +234,7 @@ func randTime(d time.Duration) time.Time {
 }
 
 // TestBasicCycle sequentially tests the basic create → retrieve lifecycle of a
-// single record, verifying fundamental KV interface guarantees.
+// single record, verifying fundamental Storage interface guarantees.
 func TestBasicCycle(t *testing.T) {
 	id := badgerauth.NodeID{'b', 'a', 's', 'i', 'c'}
 	keyHash := authdb.KeyHash{'t', 'e', 's', 't'}
@@ -316,7 +316,7 @@ func TestBasicCycle(t *testing.T) {
 			Entries: currentReplicationLogEntries,
 		}.Check(ctx, t, node)
 
-		scope := "storj.io/gateway-mt/pkg/auth/badgerauth"
+		scope := "storj.io/edge/pkg/auth/badgerauth"
 		c := monkit.Collect(monkit.ScopeNamed(scope))
 
 		for name, count := range map[string]float64{

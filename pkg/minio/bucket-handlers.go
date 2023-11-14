@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"storj.io/gateway-mt/pkg/server/gw"
+	"storj.io/edge/pkg/server/gw"
 	"storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/bucket/policy"

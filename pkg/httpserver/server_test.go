@@ -26,8 +26,8 @@ import (
 
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing"
 )
 
 var (
@@ -42,8 +42,9 @@ eAOcuTgWmgqXRnHVwKJl2g1pCb2hRANCAARWxVAPyT1BRs2hqiDuHlPXr1kVDXuw
 func TestServer(t *testing.T) {
 	address := "localhost:15001"
 	handlerConfig := sharing.Config{
-		URLBases:  []string{"https://localhost:15001"},
-		Templates: "../../pkg/linksharing/web/",
+		ListPageLimit: 1,
+		URLBases:      []string{"https://localhost:15001"},
+		Templates:     "../../pkg/linksharing/web/",
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
 	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, handlerConfig)

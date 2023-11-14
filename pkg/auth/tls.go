@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/gateway-mt/pkg/certstorage"
+	"storj.io/edge/pkg/certstorage"
 )
 
 // TLSInfo is a struct to handle the preferred/configured TLS options.
@@ -81,6 +81,15 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 		return nil, errs.New("initializing certstorage: %v", err)
 	}
 	certmagic.Default.Storage = cs
+
+	certmagic.Default.OnDemand = &certmagic.OnDemandConfig{DecisionFunc: func(name string) error {
+		for _, host := range config.PublicURL {
+			if name == host {
+				return nil
+			}
+		}
+		return errs.New("%s is not a public URL", name)
+	}}
 
 	// Set the AltTLSALPNPort so the solver won't start another listener
 	_, port, err := net.SplitHostPort(config.ListenAddr)

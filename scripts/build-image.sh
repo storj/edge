@@ -42,7 +42,7 @@ docker run \
 	-w /go/build \
 	--rm storjlabs/golang:"$GO_VERSION" \
 	go build -o release/"$BUILD_NUMBER"/"$COMPONENT"_linux_"$GOARCH" \
-		storj.io/gateway-mt/cmd/"$COMPONENT"
+		storj.io/edge/cmd/"$COMPONENT"
 
 trap 'rm -r release/"$BUILD_NUMBER"' EXIT
 

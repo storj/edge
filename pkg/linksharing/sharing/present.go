@@ -5,8 +5,8 @@ package sharing
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/textproto"
@@ -14,16 +14,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/ranger/httpranger"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/linksharing/objectranger"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/linksharing/objectranger"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 	"storj.io/zipper"
@@ -62,20 +60,11 @@ func (handler *Handler) present(ctx context.Context, w http.ResponseWriter, r *h
 func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ek.Event("present",
-		eventkit.String("host", r.Host),
-		eventkit.String("method", r.Method),
-		eventkit.Bool("hosting", pr.hosting),
-		eventkit.Bool("hosting-tls", pr.hostingTLS),
-		eventkit.String("bucket", pr.bucket),
-		eventkit.String("remote-ip", trustedip.GetClientIP(handler.trustedClientIPsList, r)),
-		eventkit.String("macaroon-head", hex.EncodeToString(privateAccess.APIKey(pr.access).Head())),
-		eventkit.String("satellite-address", pr.access.SatelliteAddress()))
-
 	q := r.URL.Query()
 	download := queryFlagLookup(q, "download", pr.downloadDefault)
 	wrap := queryFlagLookup(q, "wrap", !queryFlagLookup(q, "view", !pr.wrapDefault))
 	mapOnly := queryFlagLookup(q, "map", false)
+	cursor := q.Get("cursor")
 	var archivePath string
 
 	if len(q["path"]) > 0 {
@@ -117,7 +106,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
-		return handler.servePrefix(ctx, w, project, pr, "")
+		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 
 	case pr.realKey != "":
 		var objectErr error
@@ -181,7 +170,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 			http.Redirect(w, r, r.URL.Path+"/", http.StatusSeeOther)
 			return nil
 		}
-		return handler.servePrefix(ctx, w, project, pr, "")
+		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 	default:
 		return errdata.WithAction(err, "unexpected case")
 	}
@@ -245,7 +234,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if archivePath == "/" {
-		return handler.servePrefix(ctx, w, project, pr, archivePath)
+		return handler.servePrefix(ctx, w, project, pr, archivePath, "")
 	}
 
 	locations, pieces, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
@@ -281,6 +270,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		}
 		f, err := zip.FileInfo(ctx, archivePath)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return uplink.ErrObjectNotFound
+			}
 			return err
 		}
 		input.Key = archivePath

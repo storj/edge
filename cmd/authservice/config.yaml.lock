@@ -164,6 +164,12 @@ public-url: []
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 
+# credentials file with access to Cloud Spanner database
+spanner.credentials-filename: ""
+
+# name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID
+spanner.database-name: ""
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,10 +22,10 @@ import (
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -35,7 +34,9 @@ import (
 
 var (
 	mon = monkit.Package()
-	ek  = eventkit.Package()
+
+	// ErrInvalidListPageLimit is an error returned when list page limit is not greater than zero.
+	ErrInvalidListPageLimit = errs.New("list page limit must be greater than zero")
 )
 
 // pageData is the type that is passed to the template rendering engine.
@@ -141,6 +142,9 @@ type Config struct {
 	// StandardViewsHTML controls whether to serve HTML as text/html instead of
 	// text/plain for standard (non-hosting) requests.
 	StandardViewsHTML bool
+
+	// Maximum number of paths to list on a single page.
+	ListPageLimit int
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -170,10 +174,14 @@ type Handler struct {
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 	inShutdown             *int32
+	listPageLimit          int
 }
 
 // NewHandler creates a new link sharing HTTP handler.
 func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, tqs *TierQueryingService, inShutdown *int32, config Config) (*Handler, error) {
+	if config.ListPageLimit <= 0 {
+		return nil, ErrInvalidListPageLimit
+	}
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)
@@ -260,6 +268,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
 		inShutdown:             inShutdown,
+		listPageLimit:          config.ListPageLimit,
 	}, nil
 }
 
@@ -281,27 +290,27 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(handlerErr, uplink.ErrBucketNotFound):
 		status = http.StatusNotFound
-		message = "Oops! Bucket not found."
+		message = "Bucket not found."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrObjectNotFound):
 		status = http.StatusNotFound
-		message = "Oops! Object not found."
+		message = "Object not found."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrBucketNameInvalid):
 		status = http.StatusBadRequest
-		message = "Oops! Invalid bucket name."
+		message = "Invalid bucket name."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrObjectKeyInvalid):
 		status = http.StatusBadRequest
-		message = "Oops! Invalid object key."
+		message = "Invalid object key."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrPermissionDenied):
 		status = http.StatusForbidden
 		message = "Access denied."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrBandwidthLimitExceeded):
-		status = http.StatusTooManyRequests
-		message = "Oops! Bandwidth limit exceeded."
+		status = http.StatusForbidden
+		message = "Bandwidth limit exceeded."
 		skipLog = true
 	case errors.Is(handlerErr, uplink.ErrTooManyRequests):
 		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
@@ -392,7 +401,7 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 
 	switch {
 	case handler.redirectHTTPS && r.TLS == nil:
-		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.EscapedPath(), RawQuery: r.URL.RawQuery}
+		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/static/"):

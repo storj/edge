@@ -3,7 +3,7 @@ Auth Database
 
 Package badgerauth implements eventually consistent auth database built on top of [BadgerDB](https://dgraph.io/docs/badger/).
 
-The implementation is based on the design from the [New Auth Database](https://github.com/storj/gateway-mt/blob/bd1f6f8ea2d48933524aa88cfd45469b2414e382/docs/blueprints/new-auth-database.md) blueprint.
+The implementation is based on the design from the [New Auth Database](https://github.com/storj/edge/blob/bd1f6f8ea2d48933524aa88cfd45469b2414e382/docs/blueprints/new-auth-database.md) blueprint.
 
 The implementation differs from what's been described in the blueprint slightly. Specifically, the ability to invalidate and delete records through the KV interface has been removed, which drastically simplified implementation. Mainly we don't need to handle special cases around invalidation/deletion, handle out-of-sync nodes (there won't be out-of-sync nodes), and prune the replication log since we won't delete anything through the KV interface.
 
@@ -482,6 +482,6 @@ go generate
 
 ### Testing
 
-storj.io/gateway-mt/pkg/auth/badgerauth/badgerauthtest package contains most of the tooling necessary for running exhaustive unit tests.
+storj.io/edge/pkg/auth/badgerauth/badgerauthtest package contains most of the tooling necessary for running exhaustive unit tests.
 
 TODO(artur): it might be beneficial to have a binary that starts a local cluster for running integration tests and manual testing.

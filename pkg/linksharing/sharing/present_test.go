@@ -17,8 +17,8 @@ import (
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/errdata"
-	"storj.io/gateway-mt/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/uplink"
 )
 
@@ -52,8 +52,9 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Config{
-				URLBases:  []string{"http://test.test"},
-				Templates: "../../../pkg/linksharing/web/",
+				ListPageLimit: 1,
+				URLBases:      []string{"http://test.test"},
+				Templates:     "../../../pkg/linksharing/web/",
 			}
 
 			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
@@ -215,6 +216,7 @@ func TestContentDisposition(t *testing.T) {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Config{
+				ListPageLimit:          1,
 				URLBases:               []string{"http://test.test"},
 				Templates:              "../../../pkg/linksharing/web/",
 				StandardRendersContent: tc.standardRendersContent,
@@ -384,8 +386,9 @@ func TestHasValue(t *testing.T) {
 
 func TestZipArchiveContentType(t *testing.T) {
 	cfg := Config{
-		URLBases:  []string{"http://test.test"},
-		Templates: "../../../pkg/linksharing/web/",
+		ListPageLimit: 1,
+		URLBases:      []string{"http://test.test"},
+		Templates:     "../../../pkg/linksharing/web/",
 	}
 	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
 	require.NoError(t, err)
@@ -504,8 +507,9 @@ func TestImagePreviewPath(t *testing.T) {
 
 func TestIsDownloadAllowed(t *testing.T) {
 	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, Config{
-		URLBases:  []string{"http://test.test"},
-		Templates: "../../../pkg/linksharing/web/",
+		ListPageLimit: 1,
+		URLBases:      []string{"http://test.test"},
+		Templates:     "../../../pkg/linksharing/web/",
 	})
 	require.NoError(t, err)
 

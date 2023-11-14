@@ -17,7 +17,7 @@ var Invalid = errs.Class("invalid")
 // KeyHashError is a class of key hash errors.
 var KeyHashError = errs.Class("key hash")
 
-// Record is a key/value store record.
+// Record holds encrypted credentials alongside metadata.
 type Record struct {
 	SatelliteAddress     string
 	MacaroonHead         []byte // 32 bytes probably
@@ -30,7 +30,7 @@ type Record struct {
 // KeyHashSizeEncoded is the length of a hex encoded KeyHash.
 const KeyHashSizeEncoded = 64
 
-// KeyHash is the key portion of the key/value store.
+// KeyHash is the key under which Records are saved.
 type KeyHash [32]byte
 
 // SetBytes sets the key hash from bytes.
@@ -66,24 +66,25 @@ func (kh KeyHash) ToHex() string {
 // Bytes returns the bytes for key hash.
 func (kh KeyHash) Bytes() []byte { return kh[:] }
 
-// KV is an abstract key/value store of KeyHash to Records.
-type KV interface {
-	// Put stores the record in the key/value store.
+// Storage is meant to be the storage backend for Auth Service's database, with
+// the ability to store and retrieve records saved under key hashes.
+type Storage interface {
+	// Put stores the record.
 	// It is an error if the key already exists.
 	Put(ctx context.Context, keyHash KeyHash, record *Record) (err error)
 
-	// Get retrieves the record from the key/value store.
-	// It returns nil if the key does not exist.
+	// Get retrieves the record.
+	// It returns (nil, nil) if the key does not exist.
 	// If the record is invalid, the error contains why.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
 
-	// PingDB attempts to do a DB roundtrip. If it can't it will return an
-	// error.
-	PingDB(ctx context.Context) error
+	// HealthCheck ensures the storage backend works and returns an error
+	// otherwise.
+	HealthCheck(ctx context.Context) error
 
-	// Run runs the server and the associated servers
+	// Run runs the storage backend.
 	Run(ctx context.Context) error
 
-	// Close closes the database.
+	// Close closes the storage backend.
 	Close() error
 }

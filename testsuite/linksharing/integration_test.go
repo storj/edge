@@ -45,11 +45,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/gcslock/gcsops"
-	"storj.io/gateway-mt/pkg/httpserver"
-	"storj.io/gateway-mt/pkg/linksharing"
-	"storj.io/gateway-mt/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/gcslock/gcsops"
+	"storj.io/edge/pkg/httpserver"
+	"storj.io/edge/pkg/linksharing"
+	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -64,17 +64,35 @@ func TestIntegration(t *testing.T) {
 		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
 
+	const listPageLimit = 1
+
 	tests := []struct {
-		name             string
-		tlsRecord        bool
-		cnameRecord      string
-		dialContext      func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
-		access           func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
-		url              func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		redirectHTTPS    bool
-		wantRedirectResp bool
-		wantErr          bool
+		name                  string
+		tlsRecord             bool
+		cnameRecord           string
+		dialContext           func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
+		access                func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
+		url                   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		followRedirect        bool
+		redirectHTTPS         bool
+		landingRedirectTarget string
+		wantRedirectResp      bool
+		redirectLocation      func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		redirectStatusCode    int
+		wantErr               bool
 	}{
+		{
+			name: "Public domain landing page redirect",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/", publicDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			landingRedirectTarget: "https://www.storj.io/",
+			wantRedirectResp:      true,
+			redirectStatusCode:    http.StatusSeeOther,
+			redirectLocation: func(_ *testing.T, _ *linksharing.Peer, _, _, _, _ string) string {
+				return "https://www.storj.io/"
+			},
+		},
 		{
 			name: "Public domain insecure",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -86,8 +104,71 @@ func TestIntegration(t *testing.T) {
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
-			redirectHTTPS:    true,
-			wantRedirectResp: true,
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain insecure redirect with escaping",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+		},
+		{
+			name: "Public domain insecure redirect without /s or /raw prefix and with escaping",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+			},
+		},
+		{
+			name: "Public domain insecure redirect without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain insecure redirect to HTTPS without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain secure redirect without /s or /raw prefix",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+			},
 		},
 		{
 			name: "Custom domain insecure",
@@ -185,8 +266,28 @@ func TestIntegration(t *testing.T) {
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
 			},
-			redirectHTTPS:    true,
-			wantRedirectResp: true,
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d/", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+		},
+		{
+			name:      "Custom domain insecure paid tier redirect with escaping",
+			tlsRecord: true,
+			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
+				return newPaidAccess(ctx, t, planet.Satellites[0])
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("http://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
+			redirectHTTPS:      true,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusPermanentRedirect,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
+			},
 		},
 		{
 			name:      "Custom domain TLS paid tier",
@@ -285,13 +386,15 @@ func TestIntegration(t *testing.T) {
 				}
 
 				runEnvironment(t, ctx, environmentConfig{
-					gcsKeyPath:    gcsKeyPath,
-					gcsBucketName: gcsBucketName,
-					publicDomain:  publicDomain,
-					ident:         ident,
-					dnsRecords:    dnsRecords,
-					authRecords:   authRecords,
-					redirectHTTPS: tc.redirectHTTPS,
+					gcsKeyPath:            gcsKeyPath,
+					gcsBucketName:         gcsBucketName,
+					publicDomain:          publicDomain,
+					ident:                 ident,
+					dnsRecords:            dnsRecords,
+					authRecords:           authRecords,
+					redirectHTTPS:         tc.redirectHTTPS,
+					landingRedirectTarget: tc.landingRedirectTarget,
+					listPageLimit:         listPageLimit,
 				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
 					require.NoError(t, err)
@@ -310,7 +413,7 @@ func TestIntegration(t *testing.T) {
 						},
 					}}
 
-					if tc.redirectHTTPS {
+					if !tc.followRedirect {
 						// Configure the HTTP client to not follow the redirect, so we can check it below.
 						client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 							return http.ErrUseLastResponse
@@ -329,20 +432,18 @@ func TestIntegration(t *testing.T) {
 					require.NoError(t, err, url)
 					defer ctx.Check(resp.Body.Close)
 
-					body, err := io.ReadAll(resp.Body)
-					require.NoError(t, err, url)
-
 					if !tc.wantRedirectResp {
+						body, err := io.ReadAll(resp.Body)
+						require.NoError(t, err, url)
+
 						require.Equal(t, http.StatusOK, resp.StatusCode)
 						require.Equal(t, "HELLO!", string(body), url)
 						return
 					}
 
-					require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
-
-					expectedHTTPSURL, err := httpsURL(url)
-					require.NoError(t, err, url)
-					require.Contains(t, string(body), expectedHTTPSURL)
+					require.Equal(t, tc.redirectStatusCode, resp.StatusCode)
+					redirectLocation := tc.redirectLocation(t, peer, accessKey, root, publicDomain, customDomain)
+					require.Equal(t, redirectLocation, resp.Header.Get("Location"))
 				})
 			})
 		})
@@ -350,13 +451,15 @@ func TestIntegration(t *testing.T) {
 }
 
 type environmentConfig struct {
-	gcsKeyPath    string
-	gcsBucketName string
-	publicDomain  string
-	ident         *identity.FullIdentity
-	dnsRecords    map[string]mockdns.Zone
-	authRecords   map[string]authHandlerEntry
-	redirectHTTPS bool
+	gcsKeyPath            string
+	gcsBucketName         string
+	publicDomain          string
+	ident                 *identity.FullIdentity
+	dnsRecords            map[string]mockdns.Zone
+	authRecords           map[string]authHandlerEntry
+	redirectHTTPS         bool
+	landingRedirectTarget string
+	listPageLimit         int
 }
 
 func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
@@ -446,9 +549,11 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 				BaseURL: authServer.URL,
 				Token:   authToken,
 			},
-			Templates:     "./../../pkg/linksharing/web/",
-			DNSServer:     dnsSrv.LocalAddr().String(),
-			RedirectHTTPS: config.redirectHTTPS,
+			Templates:             "./../../pkg/linksharing/web/",
+			DNSServer:             dnsSrv.LocalAddr().String(),
+			RedirectHTTPS:         config.redirectHTTPS,
+			LandingRedirectTarget: config.landingRedirectTarget,
+			ListPageLimit:         config.listPageLimit,
 		},
 	})
 	require.NoError(t, err)
@@ -713,15 +818,4 @@ func issuerKey(ca string) string {
 		}
 	}
 	return key
-}
-
-func httpsURL(httpURL string) (string, error) {
-	u, err := url.Parse(httpURL)
-	if err != nil {
-		return "", err
-	}
-
-	u.Scheme = "https"
-
-	return u.String(), nil
 }

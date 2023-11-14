@@ -19,8 +19,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd"
 )
 
@@ -553,8 +553,8 @@ jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3
 
 			authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 
-			metricKey := fmt.Sprintf("auth,scope=storj.io/gateway-mt/pkg/server/middleware,type=%s,version=%s value", tc.authType, tc.authVersion)
-			c := monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+			metricKey := fmt.Sprintf("auth,scope=storj.io/edge/pkg/server/middleware,type=%s,version=%s value", tc.authType, tc.authVersion)
+			c := monkit.Collect(monkit.ScopeNamed("storj.io/edge/pkg/server/middleware"))
 			initialCount := c[metricKey]
 
 			AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -576,7 +576,7 @@ jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3
 				require.Equal(t, tc.expectedErrorStatus, rr.Code)
 			}
 
-			c = monkit.Collect(monkit.ScopeNamed("storj.io/gateway-mt/pkg/server/middleware"))
+			c = monkit.Collect(monkit.ScopeNamed("storj.io/edge/pkg/server/middleware"))
 			require.Equal(t, initialCount+tc.expectedCount, c[metricKey])
 		})
 	}

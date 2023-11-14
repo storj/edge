@@ -5,17 +5,39 @@ package httpserver
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/http/requestid"
-	"storj.io/gateway-mt/pkg/httplog"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/trustedip"
+	xhttp "storj.io/minio/cmd/http"
 	"storj.io/private/process/gcloudlogging"
 )
+
+type headersLogObject struct {
+	headers http.Header
+}
+
+func (o *headersLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	for k, v := range o.headers {
+		var val string
+		// obfuscate any credentials and sensitive information in headers.
+		switch k {
+		case xhttp.Authorization, "Cookie", xhttp.AmzCopySource:
+			val = "[...]"
+		default:
+			val = strings.Join(v, ",")
+		}
+		enc.AddString(k, val)
+	}
+	return nil
+}
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
@@ -55,22 +77,33 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
-				ce.Write(gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
-					Protocol:      r.Proto,
-					RequestMethod: method,
-					RequestSize:   r.ContentLength,
-					ResponseSize:  rw.Written(),
-					UserAgent:     r.UserAgent(),
-					RemoteIP:      remoteIP(r),
-					Latency:       time.Since(start),
-					Status:        rw.StatusCode(),
+			httpRequestLog := &gcloudlogging.HTTPRequest{
+				Protocol:      r.Proto,
+				RequestMethod: method,
+				RequestSize:   r.ContentLength,
+				ResponseSize:  rw.Written(),
+				UserAgent:     r.UserAgent(),
+				RemoteIP:      remoteIP(r),
+				Latency:       time.Since(start),
+				Status:        rw.StatusCode(),
+			}
+
+			fields := []zapcore.Field{
+				gcloudlogging.LogHTTPRequest(httpRequestLog),
+				// we are deliberately not logging the request URI as it has
+				// sensitive information in it.
+				zap.String("host", host),
+				zap.String("request-id", requestid.FromContext(r.Context())),
+				zap.Object("request-headers", &headersLogObject{
+					headers: r.Header,
 				}),
-					zap.String("host", host),
-					zap.String("request-id", requestid.FromContext(r.Context())),
-					// we are deliberately not logging the request URI as it has
-					// sensitive information in it.
-				)
+				zap.Object("response-headers", &headersLogObject{
+					headers: rw.Header(),
+				}),
+			}
+
+			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
+				ce.Write(fields...)
 			}
 		}))
 }

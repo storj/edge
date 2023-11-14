@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/pkg/authclient"
-	"storj.io/gateway-mt/pkg/server/gwlog"
-	"storj.io/gateway-mt/pkg/trustedip"
+	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/edge/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 )
 
