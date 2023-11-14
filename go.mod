@@ -30,7 +30,7 @@ require (
 	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20231113203817-660658f1c45a
+	storj.io/common v0.0.0-20231114142336-6bf1d675854d
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/gateway v1.9.1-0.20231024072257-381303f6b555
