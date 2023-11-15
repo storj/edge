@@ -91,7 +91,6 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 		"public":                 record.Public,
 		"satellite_address":      record.SatelliteAddress,
 		"macaroon_head":          record.MacaroonHead,
-		"expires_at":             record.ExpiresAt,
 		"encrypted_secret_key":   record.EncryptedSecretKey,
 		"encrypted_access_grant": record.EncryptedAccessGrant,
 		// "invalidation_reason"
@@ -102,6 +101,13 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 	// the database will default to setting this to the current timestamp.
 	if !createdAt.IsZero() {
 		in["created_at"] = createdAt
+	}
+
+	// we do not set any expiry unless it's non-zero. If an empty time.Time was
+	// passed, then the value should be null in the database to ensure row
+	// deletion policy doesn't inadvertently delete non-expiring records.
+	if record.ExpiresAt != nil && !record.ExpiresAt.IsZero() {
+		in["expires_at"] = record.ExpiresAt
 	}
 
 	ms := []*spanner.Mutation{

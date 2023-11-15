@@ -81,6 +81,50 @@ func TestCloudDatabase(t *testing.T) {
 	}
 }
 
+func TestRecordExpiry(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
+
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NoError(t, db.HealthCheck(ctx))
+
+	var k1 authdb.KeyHash
+	require.NoError(t, k1.SetBytes([]byte(strconv.Itoa(1))))
+
+	futureTime := time.Now().Add(time.Hour).UTC()
+	r1 := createRandomRecord(t, futureTime)
+	require.NoError(t, err, db.Put(ctx, k1, r1))
+
+	r, err := db.Get(ctx, k1)
+	require.NoError(t, err)
+	require.Equal(t, &futureTime, r.ExpiresAt)
+
+	var k2 authdb.KeyHash
+	require.NoError(t, k2.SetBytes([]byte(strconv.Itoa(2))))
+
+	r2 := createRandomRecord(t, time.Time{})
+	// createRandomRecord will discard out any zero time, so ensure it's set.
+	r2.ExpiresAt = &time.Time{}
+	require.NoError(t, err, db.Put(ctx, k2, r2))
+
+	r, err = db.Get(ctx, k2)
+	require.NoError(t, err)
+	require.Nil(t, r.ExpiresAt)
+}
+
 func createRandomRecord(t *testing.T, expiresAt time.Time) *authdb.Record {
 	var secretKey authdb.SecretKey
 	_, err := rand.Read(secretKey[:])
