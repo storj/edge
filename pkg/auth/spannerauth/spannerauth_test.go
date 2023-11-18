@@ -49,7 +49,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 0; i < 123; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(t, time.Time{})
+		r := createRandomRecord(t, time.Time{}, false)
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -57,7 +57,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 123; i < 456; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(t, time.Now())
+		r := createRandomRecord(t, time.Now(), false)
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -65,7 +65,7 @@ func TestCloudDatabase(t *testing.T) {
 	for i := 456; i < 789; i++ {
 		var k authdb.KeyHash
 		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(t, time.Now().Add(time.Hour).UTC())
+		r := createRandomRecord(t, time.Now().Add(time.Hour).UTC(), false)
 		reference[k] = r
 		require.NoError(t, db.Put(ctx, k, r))
 	}
@@ -75,6 +75,66 @@ func TestCloudDatabase(t *testing.T) {
 		require.NoError(t, err)
 		if r.ExpiresAt != nil && r.ExpiresAt.Before(time.Now()) {
 			require.Nil(t, actual)
+		} else {
+			require.Equal(t, r, actual)
+		}
+	}
+}
+
+func TestCloudDatabaseAdmin(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
+
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NoError(t, db.HealthCheck(ctx))
+
+	reference := make(map[authdb.KeyHash]*authdb.Record)
+	for i := 0; i < 5; i++ {
+		var k authdb.KeyHash
+		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
+		r := createRandomRecord(t, time.Time{}, true)
+		reference[k] = r
+		require.NoError(t, db.Put(ctx, k, r))
+	}
+
+	// invalidate
+	{
+		var k authdb.KeyHash
+		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(1))))
+		require.NoError(t, db.Invalidate(ctx, k, "test"))
+	}
+	// unpublish
+	{
+		var k authdb.KeyHash
+		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(2))))
+		require.NoError(t, db.Unpublish(ctx, k))
+		reference[k].Public = false
+	}
+	// delete
+	{
+		var k authdb.KeyHash
+		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(3))))
+		require.NoError(t, db.Delete(ctx, k))
+		reference[k] = nil
+	}
+
+	for k, r := range reference {
+		actual, err := db.Get(ctx, k)
+		if err != nil {
+			require.EqualError(t, err, spannerauth.Error.Wrap(authdb.Invalid.New("test")).Error())
 		} else {
 			require.Equal(t, r, actual)
 		}
@@ -105,7 +165,7 @@ func TestRecordExpiry(t *testing.T) {
 	require.NoError(t, k1.SetBytes([]byte(strconv.Itoa(1))))
 
 	futureTime := time.Now().Add(time.Hour).UTC()
-	r1 := createRandomRecord(t, futureTime)
+	r1 := createRandomRecord(t, futureTime, false)
 	require.NoError(t, err, db.Put(ctx, k1, r1))
 
 	r, err := db.Get(ctx, k1)
@@ -115,7 +175,7 @@ func TestRecordExpiry(t *testing.T) {
 	var k2 authdb.KeyHash
 	require.NoError(t, k2.SetBytes([]byte(strconv.Itoa(2))))
 
-	r2 := createRandomRecord(t, time.Time{})
+	r2 := createRandomRecord(t, time.Time{}, false)
 	// createRandomRecord will discard out any zero time, so ensure it's set.
 	r2.ExpiresAt = &time.Time{}
 	require.NoError(t, err, db.Put(ctx, k2, r2))
@@ -125,7 +185,7 @@ func TestRecordExpiry(t *testing.T) {
 	require.Nil(t, r.ExpiresAt)
 }
 
-func createRandomRecord(t *testing.T, expiresAt time.Time) *authdb.Record {
+func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *authdb.Record {
 	var secretKey authdb.SecretKey
 	_, err := rand.Read(secretKey[:])
 	require.NoError(t, err)
@@ -147,7 +207,9 @@ func createRandomRecord(t *testing.T, expiresAt time.Time) *authdb.Record {
 	if !expiresAt.IsZero() {
 		r.ExpiresAt = &expiresAt
 	}
-	if testrand.Intn(2) == 1 {
+	if forcePublic {
+		r.Public = true
+	} else if testrand.Intn(2) == 1 {
 		r.Public = true
 	}
 	return &r

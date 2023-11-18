@@ -27,7 +27,8 @@ import (
 const defaultExactStaleness = 15 * time.Second // [0, time.Hour)
 
 var (
-	_ authdb.Storage = (*CloudDatabase)(nil)
+	_ authdb.Storage      = (*CloudDatabase)(nil)
+	_ authdb.StorageAdmin = (*CloudDatabase)(nil)
 
 	// Error is a class of spannerauth errors.
 	Error = errs.Class("spannerauth")
@@ -48,6 +49,8 @@ type Config struct {
 type CloudDatabase struct {
 	logger *zap.Logger
 	client *spanner.Client
+
+	table string
 }
 
 // Open returns initialized CloudDatabase connected to Cloud Spanner. If address
@@ -61,7 +64,11 @@ func Open(ctx context.Context, logger *zap.Logger, config Config) (*CloudDatabas
 		Logger:      zap.NewStdLog(logger),
 		Compression: "gzip",
 	}, opts...)
-	return &CloudDatabase{logger: logger, client: c}, Error.Wrap(err)
+	return &CloudDatabase{
+		logger: logger,
+		client: c,
+		table:  "records",
+	}, Error.Wrap(err)
 }
 
 // EmulatorOpts returns ClientOptions for Cloud Spanner Emulator.
@@ -127,7 +134,6 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tab := "records"
 	key := spanner.Key{keyHash.Bytes()}
 	col := []string{
 		"public",
@@ -142,7 +148,7 @@ func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *aut
 	boundedTx := d.client.Single().WithTimestampBound(spanner.ExactStaleness(defaultExactStaleness))
 	defer boundedTx.Close()
 
-	row, err := boundedTx.ReadRow(ctx, tab, key, col)
+	row, err := boundedTx.ReadRow(ctx, d.table, key, col)
 	if err != nil {
 		if !isRecordNotFound(err) {
 			return nil, Error.Wrap(err)
@@ -151,7 +157,7 @@ func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *aut
 		// inserted, so we will perform a strong read as a slow path.
 		tx := d.client.Single()
 		defer tx.Close()
-		row, err = tx.ReadRow(ctx, tab, key, col)
+		row, err = tx.ReadRow(ctx, d.table, key, col)
 		if err != nil {
 			if !isRecordNotFound(err) {
 				return nil, Error.Wrap(err)
@@ -219,6 +225,55 @@ func (d *CloudDatabase) Run(ctx context.Context) error {
 // Close closes the remote Cloud Spanner database.
 func (d *CloudDatabase) Close() error {
 	d.client.Close()
+	return nil
+}
+
+// Invalidate invalidates the record.
+func (d *CloudDatabase) Invalidate(ctx context.Context, keyHash authdb.KeyHash, reason string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	t, err := d.client.Apply(ctx, []*spanner.Mutation{spanner.UpdateMap(d.table, map[string]interface{}{
+		"encryption_key_hash": keyHash.Bytes(),
+		"invalidation_reason": reason,
+		"invalidated_at":      time.Now(),
+	})})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	d.logger.Debug("invalidated", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+
+	return nil
+}
+
+// Unpublish unpublishes the record.
+func (d *CloudDatabase) Unpublish(ctx context.Context, keyHash authdb.KeyHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	t, err := d.client.Apply(ctx, []*spanner.Mutation{spanner.UpdateMap(d.table, map[string]interface{}{
+		"encryption_key_hash": keyHash.Bytes(),
+		"public":              false,
+	})})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	d.logger.Debug("unpublished", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+
+	return nil
+}
+
+// Delete deletes the record.
+func (d *CloudDatabase) Delete(ctx context.Context, keyHash authdb.KeyHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	t, err := d.client.Apply(ctx, []*spanner.Mutation{spanner.Delete(d.table, spanner.Key{keyHash.Bytes()})})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	d.logger.Debug("deleted", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+
 	return nil
 }
 
