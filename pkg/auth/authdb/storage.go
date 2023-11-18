@@ -88,3 +88,19 @@ type Storage interface {
 	// Close closes the storage backend.
 	Close() error
 }
+
+// StorageAdmin extends Storage by allowing administrative queries to Auth
+// Service's database.
+type StorageAdmin interface {
+	Storage
+
+	// Invalidate invalidates the record.
+	Invalidate(ctx context.Context, keyHash KeyHash, reason string) error
+
+	// Unpublish unpublishes the record; this way it's not accessible through,
+	// e.g., Link Sharing Service.
+	Unpublish(ctx context.Context, keyHash KeyHash) error
+
+	// Delete deletes the record.
+	Delete(ctx context.Context, keyHash KeyHash) error
+}
