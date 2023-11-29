@@ -69,6 +69,12 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	serializedAccess, err := access.Serialize()
 	require.NoError(t, err)
 
+	type gzipPreference int
+	const (
+		acceptGzip gzipPreference = iota + 1
+		rejectGzip
+	)
+
 	testCases := []struct {
 		name             string
 		method           string
@@ -77,9 +83,9 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		status           int
 		body             []string
 		expectedRPCCalls []string
-		acceptGzip       bool
-		expectGzip       bool
-		prepFunc         func() error
+		gzipPreference
+		expectGzip bool
+		prepFunc   func() error
 	}{
 		{
 			name:             "ZIP wrap",
@@ -114,6 +120,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			status:           http.StatusOK,
 			body:             []string{"Saved as deflate"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			expectGzip:       true,
 		},
 		{
 			name:             "ZIP download store.txt client supports gzip",
@@ -122,7 +129,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			status:           http.StatusOK,
 			body:             []string{"Saved as store"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
-			acceptGzip:       true,
+			gzipPreference:   acceptGzip,
 		},
 		{
 			name:             "ZIP download deflate.txt client supports gzip",
@@ -131,8 +138,17 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			status:           http.StatusOK,
 			body:             []string{"Saved as deflate"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
-			acceptGzip:       true,
+			gzipPreference:   acceptGzip,
 			expectGzip:       true,
+		},
+		{
+			name:             "ZIP download deflate.txt client rejects gzip",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
+			status:           http.StatusOK,
+			body:             []string{"Saved as deflate"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/DownloadObject"},
+			gzipPreference:   rejectGzip,
 		},
 		{
 			name:             "ZIP wrap store.txt",
@@ -221,8 +237,10 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			url := "http://localhost/" + testCase.path
 			w := httptest.NewRecorder()
 			r, err := http.NewRequestWithContext(contextWithRecording, testCase.method, url, nil)
-			if testCase.acceptGzip {
+			if testCase.gzipPreference == acceptGzip {
 				r.Header.Add("Accept-Encoding", "gzip")
+			} else if testCase.gzipPreference == rejectGzip {
+				r.Header.Add("Accept-Encoding", "gzip;q=0")
 			}
 			require.NoError(t, err)
 			credsHandler := handler.CredentialsHandler(handler)

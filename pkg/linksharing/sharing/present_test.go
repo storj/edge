@@ -537,3 +537,27 @@ func TestIsDownloadAllowed(t *testing.T) {
 	allowed = handler.isDownloadAllowed(listOnlyAccess)
 	require.False(t, allowed)
 }
+
+func TestIsContentCodingAcceptable(t *testing.T) {
+	require.Equal(t, true, isContentCodingAcceptable("gzip", http.Header{}))
+	require.Equal(t, true, isContentCodingAcceptable("identity", http.Header{"Accept-Encoding": []string{""}}))
+
+	for _, tt := range []struct {
+		value    string
+		accepted bool
+	}{
+		{"gzip", true},
+		{"gzip, br", true},
+		{"", false},
+		{"*", true},
+		{"*;q=0", false},
+		{"*;q=0.1", true},
+		{"gzip;q=0", false},
+		{"gzip;q=0.1", true},
+		{" GzIp ; Q = 0.1 ,", true},
+		{"gzip, *;q=0", true},
+	} {
+		header := http.Header{"Accept-Encoding": []string{tt.value}}
+		require.Equal(t, tt.accepted, isContentCodingAcceptable("gzip", header), "Header value: %s", tt.value)
+	}
+}

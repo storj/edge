@@ -349,7 +349,11 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			message = "Range header isn't compatible with path query."
 			skipLog = true
 		case http.StatusUnsupportedMediaType:
-			message = "The zip archive is invalid or uses the wrong compression format."
+			if _, ok := w.Header()["Accept-Encoding"]; ok {
+				message = "Unsupported content coding."
+			} else {
+				message = "The zip archive is invalid or uses the wrong compression format."
+			}
 			skipLog = true
 		}
 	}
