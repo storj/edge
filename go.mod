@@ -21,7 +21,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
-	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
+	github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.8.0
@@ -30,13 +30,13 @@ require (
 	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20231114142336-6bf1d675854d
+	storj.io/common v0.0.0-20231130134106-1fa84867e323
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/gateway v1.9.1-0.20231024072257-381303f6b555
 	storj.io/minio v0.0.0-20230901173759-f1d4dd341feb
-	storj.io/private v0.0.0-20231012141933-ae62725d6691
-	storj.io/uplink v1.12.2-0.20231101191324-61e765593356
+	storj.io/private v0.0.0-20231127092015-c439a594bc1d
+	storj.io/uplink v1.12.3-0.20231130143633-4a092fa01b98
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -106,6 +106,8 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/jtolio/crawlspace v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
+	github.com/jtolio/crawlspace/tools v0.0.0-20231115161146-57d90b78ce62 // indirect
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6 // indirect
 	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
@@ -113,6 +115,8 @@ require (
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/klauspost/readahead v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
@@ -154,6 +158,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/rs/xid v1.2.1 // indirect
 	github.com/secure-io/sio-go v0.3.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.1 // indirect
@@ -179,9 +184,11 @@ require (
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/goof v0.0.0-20230830143729-8a73f2ee257d // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
+	github.com/zeebo/sudo v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
@@ -203,7 +210,7 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/infectious v0.0.1 // indirect
+	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 )
