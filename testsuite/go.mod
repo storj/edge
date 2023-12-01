@@ -247,9 +247,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.33 // indirect
-	storj.io/gateway v1.9.1-0.20231024072257-381303f6b555 // indirect
+	storj.io/gateway v1.9.1-0.20231201173731-a0182b497ad0 // indirect
 	storj.io/infectious v0.0.2 // indirect
-	storj.io/minio v0.0.0-20230901173759-f1d4dd341feb // indirect
+	storj.io/minio v0.0.0-20231122123534-730e38e5b7ab // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect

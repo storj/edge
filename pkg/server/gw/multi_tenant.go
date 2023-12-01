@@ -209,6 +209,10 @@ func (l *MultiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (b
 // and responds with the location that the bucket's placement is annotated with
 // (if any) on the satellite and any error encountered.
 func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName string) (location string, err error) {
+	if err = miniogw.ValidateBucket(ctx, bucketName); err != nil {
+		return "", l.log(ctx, minio.BucketNameInvalid{Bucket: bucketName})
+	}
+
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return "", err
