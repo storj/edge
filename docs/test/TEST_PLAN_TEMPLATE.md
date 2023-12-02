@@ -1,42 +1,42 @@
----
-name: "\u270D Task Template"
-about: "Template for tasks"
-title: 'Task Template'
-labels: ''
-assignees: ''
+# Storj Basic Testplan Template
 
----
+&nbsp;
 
 ## [Title]
 > Here we give the title for the Testplan, f.e if the feature is a **"New Button"**, the title could be **New Button Testplan**
 
-## [Acceptance Criteria]
-<!--- What is the outcome of the task/spike? Examples include new tickets, documentation, etc. -->
+&nbsp;
+
+## [Background]
 > An introduction to the Testplan i.e what the Testplan is going to cover, or the feature to be implemented along with a link to the design document, figma design even if it is private
--
+
+&nbsp;
 
 ## [Test Scenarios]
 >What task or feature are we trying to test?  Label each scenario with an ID for easy tracking f.e 1. Example Feature
-<!--- Add any links or documents that are relevant to understanding the outcome of this task. (PRDs, Blueprints, Slack Discussion, etc) -->
--
+
+&nbsp;
 
 ## [Test Cases]
-> Determine test cases for said scenario ex. positive and negative testing
-> Label each test cases with an ID for easy tracking f.e Test Case X 1.1,
-> Test Case Y 1.2, Test Case Z 1.3 etc.
--
+>Determine test cases for said scenario ex. positive and negative testing
+>Label each test cases with an ID for easy tracking f.e Test Case X 1.1,
+>Test Case Y 1.2, Test Case Z 1.3 etc.
 
-### [Test Case Descriptions]
+&nbsp;
+
+## [Description]
 > Here users describe what happens in the test cases f.e what the user does in each test and what the user should expect as end result
 > Can write this as a conditional statement f.e if user clicks this button, then modal should open
--
+
+&nbsp;
 
 ## [Comments]
 > In this section users can input their own comments f.e improvements needed, actual outcomes for said tests etc and feature requests
--
+
+&nbsp;
 
 ## [Test Plan Table]
-> In this section users should move input from the previous four sections and fix it into a table
+> In this section users should move input from the previous four sections and fix it into a table 
 
 ```
 | Test Scenario       | Test Case     | Test Description   | Comments       |
@@ -47,8 +47,9 @@ assignees: ''
 |                     | Test Case 2.2 | TC2.2 Descriotion  | TC2.2 Comment  |
 
 ```
--
+
+&nbsp;
 
 ## [Open Issues]
 > In this section, separate from comments, any issues can be brought up from the design document. Also, any questions/issues that could help the test plan in the future should be brought up as well.
--
+
