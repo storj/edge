@@ -4,10 +4,12 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -18,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/tags"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -37,6 +40,7 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
 	"storj.io/edge/pkg/trustedip"
+	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -325,4 +329,297 @@ func waitForGatewayStart(ctx context.Context, client minioclient.Client, maxStar
 			return errs.New("exceeded maxStartupWait duration")
 		}
 	}
+}
+
+func TestVersioning(t *testing.T) {
+	var counter int64
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+		NonParallel: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+		// TODO: make address not hardcoded the address selection here may
+		// conflict with some automatically bound address.
+		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
+		authSvcAddrTLS := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
+
+		gwConfig := server.Config{}
+
+		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
+
+		gwConfig.Server.Address = "127.0.0.1:0"
+		gwConfig.Auth.BaseURL = "http://" + authSvcAddr
+		gwConfig.InsecureLogAll = true
+		authClient := authclient.New(gwConfig.Auth)
+
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, 10)
+		require.NoError(t, err)
+
+		defer ctx.Check(gateway.Close)
+
+		authConfig := auth.Config{
+			Endpoint:          "http://" + gateway.Address(),
+			AuthToken:         []string{"super-secret"},
+			POSTSizeLimit:     4 * memory.KiB,
+			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
+			KVBackend:         "badger://",
+			ListenAddr:        authSvcAddr,
+			ListenAddrTLS:     authSvcAddrTLS,
+			Node: badgerauth.Config{
+				FirstStart:          true,
+				ReplicationInterval: 5 * time.Second,
+			},
+		}
+
+		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
+		require.NoError(t, err)
+
+		// auth peer needs to be canceled to shut the servers down.
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		ctx.Go(func() error {
+			defer ctx.Check(auth.Close)
+			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
+		})
+
+		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
+
+		serialized, err := access.Serialize()
+		require.NoError(t, err)
+
+		s3Credentials, err := register.Access(ctx, "http://"+authSvcAddr, serialized, false)
+		require.NoError(t, err)
+
+		client, err := minioclient.NewMinio(minioclient.Config{
+			S3Gateway: gateway.Address(),
+			Satellite: planet.Satellites[0].Addr(),
+			AccessKey: s3Credentials.AccessKeyID,
+			SecretKey: s3Credentials.SecretKey,
+			APIKey:    planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
+			NoSSL:     true,
+		})
+		require.NoError(t, err)
+
+		ctx.Go(func() error {
+			return gateway.Run(ctx)
+		})
+
+		require.NoError(t, waitForGatewayStart(ctx, client, 5*time.Second))
+
+		rawClient, ok := client.(*minioclient.Minio)
+		require.True(t, ok)
+
+		t.Run("bucket versioning enabling-disabling", func(t *testing.T) {
+			bucket := "bucket"
+			err = rawClient.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
+			require.NoError(t, err)
+
+			v, err := rawClient.API.GetBucketVersioning(ctx, bucket)
+			require.NoError(t, err)
+			require.Empty(t, v.Status)
+
+			require.NoError(t, rawClient.API.EnableVersioning(ctx, bucket))
+
+			v, err = rawClient.API.GetBucketVersioning(ctx, bucket)
+			require.NoError(t, err)
+			require.EqualValues(t, versioning.Enabled, v.Status)
+
+			require.NoError(t, rawClient.API.SuspendVersioning(ctx, bucket))
+
+			v, err = rawClient.API.GetBucketVersioning(ctx, bucket)
+			require.NoError(t, err)
+			require.EqualValues(t, versioning.Suspended, v.Status)
+		})
+
+		t.Run("check VersionID support for different methods", func(t *testing.T) {
+			bucket := testrand.BucketName()
+
+			require.NoError(t, rawClient.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}))
+			require.NoError(t, rawClient.API.EnableVersioning(ctx, bucket))
+
+			// upload first version
+			expectedContentA1 := testrand.Bytes(5 * memory.KiB)
+			uploadInfo, err := rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContentA1), int64(len(expectedContentA1)), minio.PutObjectOptions{})
+			require.NoError(t, err)
+			require.NotEmpty(t, uploadInfo.VersionID)
+
+			objectA1VersionID := uploadInfo.VersionID
+
+			statInfo, err := rawClient.API.StatObject(ctx, bucket, "objectA", minio.GetObjectOptions{})
+			require.NoError(t, err)
+			require.Equal(t, objectA1VersionID, statInfo.VersionID)
+
+			// the same request but with VersionID specified
+			statInfo, err = rawClient.API.StatObject(ctx, bucket, "objectA", minio.GetObjectOptions{
+				VersionID: objectA1VersionID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, objectA1VersionID, statInfo.VersionID)
+
+			tags, err := tags.NewTags(map[string]string{
+				"key1": "tag1",
+			}, true)
+			require.NoError(t, err)
+			err = rawClient.API.PutObjectTagging(ctx, bucket, "objectA", tags, minio.PutObjectTaggingOptions{})
+			require.NoError(t, err)
+
+			// upload second version
+			expectedContentA2 := testrand.Bytes(5 * memory.KiB)
+			uploadInfo, err = rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContentA2), int64(len(expectedContentA2)), minio.PutObjectOptions{})
+			require.NoError(t, err)
+			require.NotEmpty(t, uploadInfo.VersionID)
+
+			objectA2VersionID := uploadInfo.VersionID
+
+			statInfo, err = rawClient.API.StatObject(ctx, bucket, "objectA", minio.GetObjectOptions{})
+			require.NoError(t, err)
+			require.Equal(t, objectA2VersionID, statInfo.VersionID)
+
+			// the same request but with VersionID specified
+			statInfo, err = rawClient.API.StatObject(ctx, bucket, "objectA", minio.GetObjectOptions{
+				VersionID: objectA2VersionID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, objectA2VersionID, statInfo.VersionID)
+
+			// // check that we have two different versions
+			object, err := rawClient.API.GetObject(ctx, bucket, "objectA", minio.GetObjectOptions{
+				VersionID: objectA1VersionID,
+			})
+			require.NoError(t, err)
+
+			contentA1, err := io.ReadAll(object)
+			require.NoError(t, err)
+			require.Equal(t, expectedContentA1, contentA1)
+
+			object, err = rawClient.API.GetObject(ctx, bucket, "objectA", minio.GetObjectOptions{
+				VersionID: objectA2VersionID,
+			})
+			require.NoError(t, err)
+
+			contentA2, err := io.ReadAll(object)
+			require.NoError(t, err)
+			require.Equal(t, expectedContentA2, contentA2)
+
+			tagsInfo, err := rawClient.API.GetObjectTagging(ctx, bucket, "objectA", minio.GetObjectTaggingOptions{
+				VersionID: objectA1VersionID,
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, tags.ToMap(), tagsInfo.ToMap())
+
+			// TODO(ver): add test for setting tag for specific version when implemented
+		})
+
+		t.Run("check VersionID while completing multipart upload", func(t *testing.T) {
+			bucket := testrand.BucketName()
+
+			require.NoError(t, rawClient.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}))
+			require.NoError(t, rawClient.API.EnableVersioning(ctx, bucket))
+
+			expectedContent := testrand.Bytes(500 * memory.KiB)
+			uploadInfo, err := rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContent), -1, minio.PutObjectOptions{})
+			require.NoError(t, err)
+			require.NotEmpty(t, uploadInfo.VersionID)
+		})
+
+		t.Run("check VersionID with delete object and delete objects", func(t *testing.T) {
+			bucket := testrand.BucketName()
+
+			require.NoError(t, rawClient.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}))
+			require.NoError(t, rawClient.API.EnableVersioning(ctx, bucket))
+
+			versionIDs := make([]string, 5)
+
+			for i := range versionIDs {
+				expectedContent := testrand.Bytes(5 * memory.KiB)
+				uploadInfo, err := rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContent), int64(len(expectedContent)), minio.PutObjectOptions{})
+				require.NoError(t, err)
+				require.NotEmpty(t, uploadInfo.VersionID)
+				versionIDs[i] = uploadInfo.VersionID
+			}
+
+			err := rawClient.API.RemoveObject(ctx, bucket, "objectA", minio.RemoveObjectOptions{
+				VersionID: versionIDs[0],
+			})
+			require.NoError(t, err)
+
+			objectsCh := make(chan minio.ObjectInfo)
+			ctx.Go(func() error {
+				defer close(objectsCh)
+				for _, versionID := range versionIDs[1:] {
+					objectsCh <- minio.ObjectInfo{
+						Key:       "objectA",
+						VersionID: versionID,
+					}
+				}
+				return nil
+			})
+
+			errorCh := rawClient.API.RemoveObjects(ctx, bucket, objectsCh, minio.RemoveObjectsOptions{})
+			for e := range errorCh {
+				require.NoError(t, e.Err)
+			}
+
+			// TODO(ver): replace with ListObjectVersions when implemented
+			for _, versionID := range versionIDs {
+				_, err := rawClient.API.StatObject(ctx, bucket, "objectA", minio.GetObjectOptions{
+					VersionID: versionID,
+				})
+				require.Error(t, err)
+				require.Equal(t, "NoSuchKey", minio.ToErrorResponse(err).Code)
+			}
+		})
+
+		t.Run("ListObjectVersions", func(t *testing.T) {
+			bucket := testrand.BucketName()
+
+			require.NoError(t, rawClient.API.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}))
+			require.NoError(t, rawClient.API.EnableVersioning(ctx, bucket))
+
+			for range rawClient.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+				WithVersions: true,
+			}) {
+				require.Fail(t, "no objects to list")
+			}
+
+			expectedContent := testrand.Bytes(5 * memory.KiB)
+			_, err := rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContent), int64(len(expectedContent)), minio.PutObjectOptions{})
+			require.NoError(t, err)
+
+			err = rawClient.API.RemoveObject(ctx, bucket, "objectA", minio.RemoveObjectOptions{})
+			require.NoError(t, err)
+
+			_, err = rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContent), int64(len(expectedContent)), minio.PutObjectOptions{})
+			require.NoError(t, err)
+
+			err = rawClient.API.RemoveObject(ctx, bucket, "objectA", minio.RemoveObjectOptions{})
+			require.NoError(t, err)
+
+			_, err = rawClient.API.PutObject(ctx, bucket, "objectA", bytes.NewReader(expectedContent), int64(len(expectedContent)), minio.PutObjectOptions{})
+			require.NoError(t, err)
+
+			listedObjects := 0
+			listedDeleteMarkers := 0
+			for objectInfo := range rawClient.API.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+				WithVersions: true,
+			}) {
+				if objectInfo.IsDeleteMarker {
+					listedDeleteMarkers++
+				} else {
+					listedObjects++
+				}
+			}
+			require.Equal(t, 2, listedDeleteMarkers)
+			require.Equal(t, 3, listedObjects)
+
+			// TODO(ver): add tests to check listing order when will be fixed on satellite side: https://github.com/storj/storj/issues/6550
+		})
+	})
 }

@@ -25,6 +25,7 @@ import (
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
+	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
@@ -224,6 +225,32 @@ func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName st
 	return location, l.log(ctx, miniogw.ConvertError(err, bucketName, ""))
 }
 
+// GetBucketVersioning retrieves versioning configuration of a bucket.
+func (l *MultiTenancyLayer) GetBucketVersioning(ctx context.Context, bucket string) (versioning *versioning.Versioning, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	versioning, err = l.layer.GetBucketVersioning(miniogw.WithUplinkProject(ctx, project), bucket)
+	return versioning, l.log(ctx, err)
+}
+
+// SetBucketVersioning enables versioning on a bucket.
+func (l *MultiTenancyLayer) SetBucketVersioning(ctx context.Context, bucket string, v *versioning.Versioning) error {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	err = l.layer.SetBucketVersioning(miniogw.WithUplinkProject(ctx, project), bucket, v)
+	return l.log(ctx, err)
+}
+
 // ListBuckets is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListBuckets.
 func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
@@ -304,6 +331,19 @@ func (l *MultiTenancyLayer) ListObjectsV2(ctx context.Context, bucket, prefix, c
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	result, err = l.layer.ListObjectsV2(miniogw.WithUplinkProject(ctx, project), bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
+	return result, l.log(ctx, err)
+}
+
+// ListObjectVersions returns information about all versions of the objects in a bucket.
+func (l *MultiTenancyLayer) ListObjectVersions(ctx context.Context, bucket, prefix, marker, versionMarker, delimiter string, maxKeys int) (result minio.ListObjectVersionsInfo, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return minio.ListObjectVersionsInfo{}, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	result, err = l.layer.ListObjectVersions(miniogw.WithUplinkProject(ctx, project), bucket, prefix, marker, versionMarker, delimiter, maxKeys)
 	return result, l.log(ctx, err)
 }
 
