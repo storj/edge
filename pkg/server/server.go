@@ -76,6 +76,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		Capacity:       config.SatelliteConnectionPool.Capacity,
 		KeyCapacity:    config.SatelliteConnectionPool.KeyCapacity,
 		IdleExpiration: config.SatelliteConnectionPool.IdleExpiration,
+		MaxLifetime:    config.ConnectionPool.MaxLifetime,
 	})
 
 	connectionPool := rpcpool.New(rpcpool.Options{
@@ -83,6 +84,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		Capacity:       config.ConnectionPool.Capacity,
 		KeyCapacity:    config.ConnectionPool.KeyCapacity,
 		IdleExpiration: config.ConnectionPool.IdleExpiration,
+		MaxLifetime:    config.ConnectionPool.MaxLifetime,
 	})
 
 	uplinkConfig := configureUplinkConfig(config.Client)

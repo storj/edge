@@ -76,6 +76,9 @@ cert-magic.staging: false
 # RPC connection pool limit per key (non-satellite connections)
 # connection-pool.key-capacity: 5
 
+# RPC connection pool max lifetime of a connection
+# connection-pool.max-lifetime: 10m0s
+
 # list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway
 # cors-origins: '*'
 
@@ -168,6 +171,9 @@ cert-magic.staging: false
 
 # RPC connection pool limit per key (satellite connections)
 # satellite-connection-pool.key-capacity: 0
+
+# RPC connection pool max lifetime of a connection
+# satellite-connection-pool.max-lifetime: 10m0s
 
 # Address to serve gateway on
 # server.address: :20010

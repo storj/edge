@@ -73,6 +73,9 @@ connection-pool.idle-expiration: 2m0s
 # RPC connection pool key capacity
 connection-pool.key-capacity: 5
 
+# RPC connection pool max lifetime of a connection
+# connection-pool.max-lifetime: 10m0s
+
 # address to listen on for debug endpoints
 # debug.addr: 127.0.0.1:0
 
@@ -153,6 +156,9 @@ redirect-https: true
 
 # RPC connection pool limit per key (satellite connections)
 # satellite-connection-pool.key-capacity: 0
+
+# RPC connection pool max lifetime of a connection
+# satellite-connection-pool.max-lifetime: 10m0s
 
 # time to delay server shutdown while returning 503s on the health endpoint
 shutdown-delay: 45s

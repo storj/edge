@@ -152,6 +152,7 @@ type ConnectionPoolConfig struct {
 	Capacity       int
 	KeyCapacity    int
 	IdleExpiration time.Duration
+	MaxLifetime    time.Duration
 }
 
 // Handler implements the link sharing HTTP handler.
@@ -210,6 +211,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 			Capacity:       config.ConnectionPool.Capacity,
 			KeyCapacity:    config.ConnectionPool.KeyCapacity,
 			IdleExpiration: config.ConnectionPool.IdleExpiration,
+			MaxLifetime:    config.ConnectionPool.MaxLifetime,
 		}))
 	if err != nil {
 		return nil, err
@@ -222,6 +224,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 				Capacity:       config.SatelliteConnectionPool.Capacity,
 				KeyCapacity:    config.SatelliteConnectionPool.KeyCapacity,
 				IdleExpiration: config.SatelliteConnectionPool.IdleExpiration,
+				MaxLifetime:    config.SatelliteConnectionPool.MaxLifetime,
 			}))
 		if err != nil {
 			return nil, err
