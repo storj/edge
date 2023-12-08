@@ -254,7 +254,12 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	// contact other nodes, then we don't return an error so authclient doesn't
 	// block requests indefinitely through backoff/retry.
 
-	result := make(chan *authdb.Record, 1)
+	type recordInfo struct {
+		record             *authdb.Record
+		invalidationReason string
+	}
+
+	result := make(chan recordInfo, 1)
 
 	var group errs2.Group
 
@@ -270,13 +275,16 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 			}
 
 			select {
-			case result <- &authdb.Record{
-				SatelliteAddress:     r.SatelliteAddress,
-				MacaroonHead:         r.MacaroonHead,
-				EncryptedSecretKey:   r.EncryptedSecretKey,
-				EncryptedAccessGrant: r.EncryptedAccessGrant,
-				ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
-				Public:               r.Public,
+			case result <- recordInfo{
+				record: &authdb.Record{
+					SatelliteAddress:     r.SatelliteAddress,
+					MacaroonHead:         r.MacaroonHead,
+					EncryptedSecretKey:   r.EncryptedSecretKey,
+					EncryptedAccessGrant: r.EncryptedAccessGrant,
+					ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
+					Public:               r.Public,
+				},
+				invalidationReason: r.InvalidationReason,
 			}:
 				cancel()
 			default:
@@ -289,10 +297,13 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	allErrs := group.Wait()
 
 	select {
-	case record = <-result:
+	case info := <-result:
+		if info.invalidationReason != "" {
+			return nil, authdb.Invalid.New("%s", info.invalidationReason)
+		}
 		// If we had at least one success, we drop all errors and just go ahead
 		// and return the first result.
-		return record, nil
+		return info.record, nil
 	default:
 	}
 
