@@ -24,7 +24,7 @@ Examples of Release Candidates:
 - `v1.0.0-rc.4`
 - `v2.1.0-rc.1`
 
-## Step-by-step release process
+## Step-by-step release process (releases are tentatively scheduled for every other wednesday)
 1. Announce your intention to make a new release to the #team-integrations-edge Slack channel.
 2. Wait for a confirmation by at least one maintainer of this project (storj/edge) before proceeding with the next step.
 3. Create a new release from the Github web interface:
