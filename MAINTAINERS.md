@@ -32,7 +32,7 @@ Examples of Release Candidates:
   - Click the `Draft a new release` button.
   - Enter `Tag version` following the rules for the version number, e.g. `v1.2.3`.
   - Enter the same value as `Release title`, e.g. `v1.2.3`.
-  - Describe the changes since the previous release in a human-readable way. Only those changes that affect users. No need to describe refactorings, etc. Do not use the auto-generate changelog feature; github doesn't take into consideration that we are syncing the main repo from gerrit. 
+  - Describe the changes since the previous release in a human-readable way. Only those changes that affect users. No need to describe refactorings, etc. Do not use the auto-generate changelog feature.
   - Select the `This is a pre-release` checkbox. This checkbox must always be selected at this point, even if this is an official release. We will deselelect it after we upload the binaries to the release. Otherwise, the links to the binaries of the latest release will be broken in the documentation and other places.
   - Click the `Publish release` button.
 4. Creating the release tag triggers the release build on the private Jenkins: https://build.storj.io/job/gateway-mt/view/tags/
