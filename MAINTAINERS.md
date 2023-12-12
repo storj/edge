@@ -24,7 +24,7 @@ Examples of Release Candidates:
 - `v1.0.0-rc.4`
 - `v2.1.0-rc.1`
 
-## Step-by-step release process
+## Step-by-step release process (releases are tentatively scheduled for every other wednesday)
 1. Announce your intention to make a new release to the #team-integrations-edge Slack channel.
 2. Wait for a confirmation by at least one maintainer of this project (storj/edge) before proceeding with the next step.
 3. Create a new release from the Github web interface:
@@ -32,7 +32,7 @@ Examples of Release Candidates:
   - Click the `Draft a new release` button.
   - Enter `Tag version` following the rules for the version number, e.g. `v1.2.3`.
   - Enter the same value as `Release title`, e.g. `v1.2.3`.
-  - Describe the changes since the previous release in a human-readable way. Only those changes that affect users. No need to describe refactorings, etc.
+  - Describe the changes since the previous release in a human-readable way. Only those changes that affect users. No need to describe refactorings, etc. Do not use the auto-generate changelog feature.
   - Select the `This is a pre-release` checkbox. This checkbox must always be selected at this point, even if this is an official release. We will deselelect it after we upload the binaries to the release. Otherwise, the links to the binaries of the latest release will be broken in the documentation and other places.
   - Click the `Publish release` button.
 4. Creating the release tag triggers the release build on the private Jenkins: https://build.storj.io/job/gateway-mt/view/tags/
@@ -48,11 +48,7 @@ Examples of Release Candidates:
   - Upload sha256sums as well.
   - Add the following line for the description:
 ```
-Docker image: `9b58a11-v1.0.1-go1.13.8`
+Docker image: `70cd153-v1.67.0-go1.21.3`
 ```
   - If this is an official release, deselect the `This is a pre-release` checkbox.
   - Click the `Update release` button.
-8. _Optional, but recommended_: Run `make bump-dependencies` to update all our common dependencies (storj, and minio). The idea is to do this early in the release cycle to have enough time for catching regressions. To do this manually for a dependency, in the root of the repo:
-  - `go get <url> && go mod tidy`
-  - Repeat the above command inside `testsuite`.
-
