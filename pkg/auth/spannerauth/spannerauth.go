@@ -132,6 +132,22 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 // It returns (nil, nil) if the key does not exist.
 // If the record is invalid, the error contains why.
 func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.Record, err error) {
+	full, err := d.GetFullRecord(ctx, keyHash)
+	if err != nil {
+		return nil, err
+	}
+	if full == nil {
+		return nil, nil
+	}
+	if full.IsInvalid() {
+		return nil, Error.Wrap(authdb.Invalid.New("%s", full.InvalidationReason))
+	}
+	return &full.Record, nil
+}
+
+// GetFullRecord retrieves the record from the remote Cloud Spanner database.
+// It returns (nil, nil) if the key does not exist.
+func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHash) (_ *authdb.FullRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	key := spanner.Key{keyHash.Bytes()}
@@ -143,6 +159,7 @@ func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *aut
 		"encrypted_secret_key",
 		"encrypted_access_grant",
 		"invalidation_reason",
+		"invalidated_at",
 	}
 
 	boundedTx := d.client.Single().WithTimestampBound(spanner.ExactStaleness(defaultExactStaleness))
@@ -166,15 +183,7 @@ func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *aut
 		}
 	}
 
-	var invalidationReason spanner.NullString
-	if err := row.ColumnByName("invalidation_reason", &invalidationReason); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if invalidationReason.StringVal != "" {
-		return nil, Error.Wrap(authdb.Invalid.New("%s", invalidationReason.StringVal))
-	}
-
-	record := new(authdb.Record)
+	record := new(authdb.FullRecord)
 	if err := row.ColumnByName("public", &record.Public); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -193,6 +202,18 @@ func (d *CloudDatabase) Get(ctx context.Context, keyHash authdb.KeyHash) (_ *aut
 	if err := row.ColumnByName("encrypted_access_grant", &record.EncryptedAccessGrant); err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	var invalidationReason spanner.NullString
+	if err := row.ColumnByName("invalidation_reason", &invalidationReason); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	record.InvalidationReason = invalidationReason.StringVal
+
+	var invalidatedAt spanner.NullTime
+	if err := row.ColumnByName("invalidated_at", &invalidatedAt); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	record.InvalidatedAt = invalidatedAt.Time
 
 	// From https://cloud.google.com/spanner/docs/ttl:
 	//

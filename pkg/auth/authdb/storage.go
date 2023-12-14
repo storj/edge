@@ -27,6 +27,18 @@ type Record struct {
 	Public               bool // if true, knowledge of secret key is not required
 }
 
+// FullRecord extends Record and includes invalidation information.
+type FullRecord struct {
+	Record
+	InvalidatedAt      time.Time
+	InvalidationReason string
+}
+
+// IsInvalid returns whether the record was invalidated.
+func (f FullRecord) IsInvalid() bool {
+	return f.InvalidationReason != "" || !f.InvalidatedAt.IsZero()
+}
+
 // KeyHashSizeEncoded is the length of a hex encoded KeyHash.
 const KeyHashSizeEncoded = 64
 
@@ -93,6 +105,10 @@ type Storage interface {
 // Service's database.
 type StorageAdmin interface {
 	Storage
+
+	// GetFullRecord retrieves a record with invalidation information.
+	// It returns (nil, nil) if the key does not exist.
+	GetFullRecord(ctx context.Context, keyHash KeyHash) (record *FullRecord, err error)
 
 	// Invalidate invalidates the record.
 	Invalidate(ctx context.Context, keyHash KeyHash, reason string) error

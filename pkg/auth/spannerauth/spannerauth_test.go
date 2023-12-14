@@ -101,44 +101,46 @@ func TestCloudDatabaseAdmin(t *testing.T) {
 
 	require.NoError(t, db.HealthCheck(ctx))
 
-	reference := make(map[authdb.KeyHash]*authdb.Record)
-	for i := 0; i < 5; i++ {
+	withRecord := func(name string, fn func(t *testing.T, k authdb.KeyHash)) {
 		var k authdb.KeyHash
-		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
-		r := createRandomRecord(t, time.Time{}, true)
-		reference[k] = r
-		require.NoError(t, db.Put(ctx, k, r))
+		testrand.Read(k[:])
+		require.NoError(t, db.Put(ctx, k, createRandomRecord(t, time.Time{}, true)))
+		t.Run(name, func(t *testing.T) {
+			fn(t, k)
+		})
 	}
 
-	// invalidate
-	{
-		var k authdb.KeyHash
-		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(1))))
+	withRecord("Invalidate", func(t *testing.T, k authdb.KeyHash) {
 		require.NoError(t, db.Invalidate(ctx, k, "test"))
-	}
-	// unpublish
-	{
-		var k authdb.KeyHash
-		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(2))))
-		require.NoError(t, db.Unpublish(ctx, k))
-		reference[k].Public = false
-	}
-	// delete
-	{
-		var k authdb.KeyHash
-		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(3))))
-		require.NoError(t, db.Delete(ctx, k))
-		reference[k] = nil
-	}
 
-	for k, r := range reference {
-		actual, err := db.Get(ctx, k)
-		if err != nil {
-			require.EqualError(t, err, spannerauth.Error.Wrap(authdb.Invalid.New("test")).Error())
-		} else {
-			require.Equal(t, r, actual)
-		}
-	}
+		_, err := db.Get(ctx, k)
+		require.True(t, authdb.Invalid.Has(err))
+
+		r, err := db.GetFullRecord(ctx, k)
+		require.NoError(t, err)
+		require.Equal(t, "test", r.InvalidationReason)
+		require.WithinDuration(t, time.Now(), r.InvalidatedAt, time.Minute)
+	})
+
+	withRecord("Unpublish", func(t *testing.T, k authdb.KeyHash) {
+		require.NoError(t, db.Unpublish(ctx, k))
+
+		r, err := db.Get(ctx, k)
+		require.NoError(t, err)
+		require.False(t, r.Public)
+	})
+
+	withRecord("Delete", func(t *testing.T, k authdb.KeyHash) {
+		require.NoError(t, db.Delete(ctx, k))
+
+		record, err := db.Get(ctx, k)
+		require.NoError(t, err)
+		require.Nil(t, record)
+
+		fullRecord, err := db.GetFullRecord(ctx, k)
+		require.NoError(t, err)
+		require.Nil(t, fullRecord)
+	})
 }
 
 func TestRecordExpiry(t *testing.T) {
