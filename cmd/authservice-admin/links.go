@@ -38,14 +38,14 @@ type inspectResult struct {
 }
 
 type cmdLinksInspect struct {
-	output          string
-	inputFilePath   string
-	authAdminClient *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
+	output           string
+	inputFilePath    string
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
 }
 
 func (cmd *cmdLinksInspect) Setup(params clingy.Parameters) {
-	cmd.authAdminClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.output = params.Flag("output", "output format (either json or leave empty to output as text)", "", clingy.Short('o')).(string)
 	cmd.inputFilePath = params.Arg("input", "input file path").(string)
@@ -56,6 +56,12 @@ func (cmd *cmdLinksInspect) Execute(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
 
 	results := make([]inspectResult, len(urls))
 
@@ -69,7 +75,7 @@ func (cmd *cmdLinksInspect) Execute(ctx context.Context) (err error) {
 		}
 		results[i].Online = online
 
-		if err := cmd.setRecords(ctx, url, &results[i]); err != nil {
+		if err := cmd.setRecords(ctx, url, &results[i], authClient); err != nil {
 			results[i].Error = err.Error()
 		}
 	}
@@ -83,13 +89,13 @@ func (cmd *cmdLinksInspect) Execute(ctx context.Context) (err error) {
 	}
 }
 
-func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *inspectResult) error {
+func (cmd *cmdLinksInspect) setRecords(ctx context.Context, url string, result *inspectResult, authClient *authadminclient.Client) error {
 	link, err := sharedlink.Parse(url)
 	if err != nil {
 		return errs.New("parse link: %w", err)
 	}
 
-	authRecord, err := cmd.authAdminClient.Resolve(ctx, link.AccessKey)
+	authRecord, err := authClient.Resolve(ctx, link.AccessKey)
 	if err != nil {
 		return errs.New("get access key: %w", authAccessKeyError(err))
 	}
@@ -188,16 +194,16 @@ type revokeResult struct {
 }
 
 type cmdLinksRevoke struct {
-	output          string
-	inputFilePath   string
-	freezeAccounts  bool
-	hashContents    bool
-	authAdminClient *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
+	output           string
+	inputFilePath    string
+	freezeAccounts   bool
+	hashContents     bool
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
 }
 
 func (cmd *cmdLinksRevoke) Setup(params clingy.Parameters) {
-	cmd.authAdminClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.freezeAccounts = params.Flag("freeze-accounts", "freeze free-tier user accounts", true,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
@@ -214,6 +220,12 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
 
 	results := make([]revokeResult, len(urls))
 
@@ -242,7 +254,7 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 			continue
 		}
 
-		if err := cmd.revokeAccess(ctx, link.AccessKey, &results[i]); err != nil {
+		if err := cmd.revokeAccess(ctx, link.AccessKey, &results[i], authClient); err != nil {
 			results[i].Error = err.Error()
 		}
 	}
@@ -256,8 +268,8 @@ func (cmd *cmdLinksRevoke) Execute(ctx context.Context) error {
 	}
 }
 
-func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, result *revokeResult) error {
-	authRecord, err := cmd.authAdminClient.Resolve(ctx, accessKey)
+func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, result *revokeResult, authClient *authadminclient.Client) error {
+	authRecord, err := authClient.Resolve(ctx, accessKey)
 	if err != nil {
 		return errs.New("get access key: %w", authAccessKeyError(err))
 	}
@@ -291,17 +303,17 @@ func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, r
 		}
 	}
 
-	eg.Add(cmd.deleteAuthRecords(ctx, accessKey))
+	eg.Add(cmd.deleteAuthRecords(ctx, accessKey, authClient))
 
 	return eg.Err()
 }
 
-func (cmd *cmdLinksRevoke) deleteAuthRecords(ctx context.Context, accessKey string) error {
+func (cmd *cmdLinksRevoke) deleteAuthRecords(ctx context.Context, accessKey string, authClient *authadminclient.Client) error {
 	// note: accessKey could be an access grant, so we need to check first.
 	if len(accessKey) != authdb.EncKeySizeEncoded {
 		return nil
 	}
-	if err := cmd.authAdminClient.Delete(ctx, accessKey); err != nil {
+	if err := authClient.Delete(ctx, accessKey); err != nil {
 		return errs.New("error deleting access keys on authservice nodes: %w. Please run `authservice-admin record delete %s --delete-api-key=false` to clean these up", err, accessKey)
 	}
 	return nil
@@ -312,10 +324,11 @@ func hashContents(ctx context.Context, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	url = rawURL.String()
 
 	logger.Printf("hashing contents of %s\n", rawURL)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

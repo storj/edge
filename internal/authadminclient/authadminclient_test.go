@@ -5,18 +5,18 @@ package authadminclient_test
 
 import (
 	"encoding/hex"
-	"io"
-	"log"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	client "storj.io/edge/internal/authadminclient"
+	badgeradmin "storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
@@ -32,11 +32,20 @@ func TestGetRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
-		client := client.New(client.Config{
-			NodeAddresses:      cluster.Addresses(),
-			InsecureDisableTLS: true,
-		}, log.New(io.Discard, "", 0))
+		log := zaptest.NewLogger(t)
+		defer ctx.Check(log.Sync)
+
+		noAddrClient, err := client.Open(ctx, client.Config{}, log)
+		require.NoError(t, err)
+
+		client, err := client.Open(ctx, client.Config{
+			Badger: badgeradmin.Config{
+				NodeAddresses:      cluster.Addresses(),
+				InsecureDisableTLS: true,
+			},
+		}, log)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, keys, _ := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 1)
 		for _, node := range cluster.Nodes {
@@ -84,7 +93,7 @@ func TestGetRecord(t *testing.T) {
 		require.Equal(t, testAPIKey, record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
 		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
-		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
+		require.Equal(t, expiresAt.Unix(), record.ExpiresAt.Unix())
 	})
 }
 
@@ -92,11 +101,20 @@ func TestInvalidateRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
-		client := client.New(client.Config{
-			NodeAddresses:      cluster.Addresses(),
-			InsecureDisableTLS: true,
-		}, log.New(io.Discard, "", 0))
+		log := zaptest.NewLogger(t)
+		defer ctx.Check(log.Sync)
+
+		noAddrClient, err := client.Open(ctx, client.Config{}, log)
+		require.NoError(t, err)
+
+		client, err := client.Open(ctx, client.Config{
+			Badger: badgeradmin.Config{
+				NodeAddresses:      cluster.Addresses(),
+				InsecureDisableTLS: true,
+			},
+		}, log)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {
@@ -122,11 +140,20 @@ func TestUnpublishRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
-		client := client.New(client.Config{
-			NodeAddresses:      cluster.Addresses(),
-			InsecureDisableTLS: true,
-		}, log.New(io.Discard, "", 0))
+		log := zaptest.NewLogger(t)
+		defer ctx.Check(log.Sync)
+
+		noAddrClient, err := client.Open(ctx, client.Config{}, log)
+		require.NoError(t, err)
+
+		client, err := client.Open(ctx, client.Config{
+			Badger: badgeradmin.Config{
+				NodeAddresses:      cluster.Addresses(),
+				InsecureDisableTLS: true,
+			},
+		}, log)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {
@@ -147,11 +174,20 @@ func TestDeleteRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
-		client := client.New(client.Config{
-			NodeAddresses:      cluster.Addresses(),
-			InsecureDisableTLS: true,
-		}, log.New(io.Discard, "", 0))
+		log := zaptest.NewLogger(t)
+		defer ctx.Check(log.Sync)
+
+		noAddrClient, err := client.Open(ctx, client.Config{}, log)
+		require.NoError(t, err)
+
+		client, err := client.Open(ctx, client.Config{
+			Badger: badgeradmin.Config{
+				NodeAddresses:      cluster.Addresses(),
+				InsecureDisableTLS: true,
+			},
+		}, log)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, cluster.Nodes[0], 5)
 		for _, node := range cluster.Nodes {
@@ -170,11 +206,20 @@ func TestResolveRecord(t *testing.T) {
 	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
 		NodeCount: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		noAddrClient := client.New(client.Config{}, log.New(io.Discard, "", 0))
-		client := client.New(client.Config{
-			NodeAddresses:      cluster.Addresses(),
-			InsecureDisableTLS: true,
-		}, log.New(io.Discard, "", 0))
+		log := zaptest.NewLogger(t)
+		defer ctx.Check(log.Sync)
+
+		noAddrClient, err := client.Open(ctx, client.Config{}, log)
+		require.NoError(t, err)
+
+		client, err := client.Open(ctx, client.Config{
+			Badger: badgeradmin.Config{
+				NodeAddresses:      cluster.Addresses(),
+				InsecureDisableTLS: true,
+			},
+		}, log)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		encKey, err := authdb.NewEncryptionKey()
 		require.NoError(t, err)
@@ -208,7 +253,7 @@ func TestResolveRecord(t *testing.T) {
 		require.Equal(t, "", record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
 		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
-		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
+		require.Equal(t, expiresAt.Unix(), record.ExpiresAt.Unix())
 
 		record, err = client.Resolve(ctx, encKey.ToBase32())
 		require.NoError(t, err)
@@ -218,7 +263,7 @@ func TestResolveRecord(t *testing.T) {
 		require.Equal(t, testAPIKey, record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
 		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
-		require.Equal(t, expiresAt.Unix(), record.ExpiresAtUnix)
+		require.Equal(t, expiresAt.Unix(), record.ExpiresAt.Unix())
 
 		record, err = noAddrClient.Resolve(ctx, testAccessGrant)
 		require.NoError(t, err)
@@ -228,7 +273,7 @@ func TestResolveRecord(t *testing.T) {
 		require.Equal(t, testAPIKey, record.APIKey)
 		require.Equal(t, parsed.APIKey.Head(), record.MacaroonHead)
 		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), record.MacaroonHeadHex)
-		require.Zero(t, record.ExpiresAtUnix)
+		require.Nil(t, record.ExpiresAt)
 	})
 }
 

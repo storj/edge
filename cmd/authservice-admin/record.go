@@ -25,21 +25,27 @@ type record struct {
 }
 
 type cmdRecordShow struct {
-	authClient      *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
-	key             string
-	output          string
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
+	key              string
+	output           string
 }
 
 func (cmd *cmdRecordShow) Setup(params clingy.Parameters) {
-	cmd.authClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.output = params.Flag("output", "output format (either json or leave empty to output as text)", "", clingy.Short('o')).(string)
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
 func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
-	authRecord, err := cmd.authClient.Get(ctx, cmd.key)
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
+
+	authRecord, err := authClient.Get(ctx, cmd.key)
 	if err != nil {
 		return errs.New("get: %w", err)
 	}
@@ -79,48 +85,58 @@ func (cmd *cmdRecordShow) Execute(ctx context.Context) error {
 }
 
 type cmdRecordInvalidate struct {
-	authClient      *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
-	key             string
-	reason          string
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
+	key              string
+	reason           string
 }
 
 func (cmd *cmdRecordInvalidate) Setup(params clingy.Parameters) {
-	cmd.authClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 	cmd.reason = params.Arg("reason", "invalidation reason").(string)
 }
 
 func (cmd *cmdRecordInvalidate) Execute(ctx context.Context) error {
-	return cmd.authClient.Invalidate(ctx, cmd.key, cmd.reason)
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
+	return authClient.Invalidate(ctx, cmd.key, cmd.reason)
 }
 
 type cmdRecordUnpublish struct {
-	authClient      *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
-	key             string
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
+	key              string
 }
 
 func (cmd *cmdRecordUnpublish) Setup(params clingy.Parameters) {
-	cmd.authClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.key = params.Arg("key", "Access key ID or key hash").(string)
 }
 
 func (cmd *cmdRecordUnpublish) Execute(ctx context.Context) error {
-	return cmd.authClient.Unpublish(ctx, cmd.key)
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
+	return authClient.Unpublish(ctx, cmd.key)
 }
 
 type cmdRecordDelete struct {
-	authClient      *authadminclient.Client
-	satAdminClients map[string]*satelliteadminclient.Client
-	key             string
-	deleteAPIKey    bool
+	authClientConfig authadminclient.Config
+	satAdminClients  map[string]*satelliteadminclient.Client
+	key              string
+	deleteAPIKey     bool
 }
 
 func (cmd *cmdRecordDelete) Setup(params clingy.Parameters) {
-	cmd.authClient = newAuthAdminClient(params)
+	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
 	cmd.deleteAPIKey = params.Flag("delete-api-key", "if satellite admin addresses are configured, delete the API key on the satellite", true,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
@@ -129,7 +145,13 @@ func (cmd *cmdRecordDelete) Setup(params clingy.Parameters) {
 }
 
 func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
-	authRecord, err := cmd.authClient.Get(ctx, cmd.key)
+	authClient, err := authadminclient.Open(ctx, cmd.authClientConfig, zapLogger)
+	if err != nil {
+		return errs.New("open auth admin client: %w", err)
+	}
+	defer func() { _ = authClient.Close() }()
+
+	authRecord, err := authClient.Get(ctx, cmd.key)
 	if err != nil {
 		return errs.New("get: %w", err)
 	}
@@ -152,7 +174,7 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 		}
 	}
 
-	if err := cmd.authClient.Delete(ctx, cmd.key); err != nil {
+	if err := authClient.Delete(ctx, cmd.key); err != nil {
 		return errs.New("delete: %w", err)
 	}
 
@@ -161,17 +183,13 @@ func (cmd *cmdRecordDelete) Execute(ctx context.Context) error {
 
 func printRecord(r record) {
 	if r.AuthRecord != (authadminclient.Record{}) {
-		if r.AuthRecord.CreatedAtUnix != 0 {
-			printFixed("Created:", time.Unix(r.AuthRecord.CreatedAtUnix, 0).UTC().Format(time.RFC3339))
-		}
+		printFixed("Created:", r.AuthRecord.CreatedAt.UTC().Format(time.RFC3339))
 		printFixed("Public:", strconv.FormatBool(r.AuthRecord.Public))
-		if r.AuthRecord.ExpiresAtUnix != 0 {
-			printFixed("Expires:", time.Unix(r.AuthRecord.ExpiresAtUnix, 0).UTC().Format(time.RFC3339))
+		if r.AuthRecord.ExpiresAt != nil {
+			printFixed("Expires:", r.AuthRecord.ExpiresAt.UTC().Format(time.RFC3339))
 		}
-		if r.AuthRecord.InvalidatedAtUnix != 0 {
-			printFixed("Invalidated:", time.Unix(r.AuthRecord.InvalidatedAtUnix, 0).UTC().Format(time.RFC3339))
-		}
-		if r.AuthRecord.InvalidationReason != "" {
+		if r.AuthRecord.IsInvalid() {
+			printFixed("Invalidated:", r.AuthRecord.InvalidatedAt.UTC().Format(time.RFC3339))
 			printFixed("Invalidation reason:", r.AuthRecord.InvalidationReason)
 		}
 		if r.AuthRecord.SatelliteAddress != "" {

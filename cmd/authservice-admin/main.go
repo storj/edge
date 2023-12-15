@@ -15,22 +15,31 @@ import (
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/eventkit"
 )
 
 var (
-	logger *log.Logger
-	ek     = eventkit.Package()
+	logger    *log.Logger
+	zapLogger *zap.Logger
+	ek        = eventkit.Package()
 )
 
 func init() {
 	logger = log.New(io.Discard, "", log.LstdFlags|log.LUTC)
+	zapLogger = zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.AddSync(zapcore.AddSync(logger.Writer())),
+		zap.DebugLevel,
+	))
 }
 
 func main() {
@@ -88,14 +97,16 @@ func run() (bool, error) {
 	return ok, err
 }
 
-func newAuthAdminClient(params clingy.Parameters) *authadminclient.Client {
-	return authadminclient.New(authadminclient.Config{
-		NodeAddresses: params.Flag("node-addresses", "comma delimited list of authservice node addresses", []string{},
-			clingy.Transform(func(s string) ([]string, error) {
-				return strings.Split(s, ","), nil
-			})).([]string),
-		CertsDir: params.Flag("certs-dir", "directory of certificates for authentication with authservice nodes", "").(string),
-	}, logger)
+func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
+	return authadminclient.Config{
+		Badger: badgerauth.Config{
+			NodeAddresses: params.Flag("badger-node-addresses", "comma delimited list of badger authservice node addresses", []string{},
+				clingy.Transform(func(s string) ([]string, error) {
+					return strings.Split(s, ","), nil
+				})).([]string),
+			CertsDir: params.Flag("badger-certs-dir", "directory of certificates for authentication with badger authservice nodes", "").(string),
+		},
+	}
 }
 
 func mustSatAdminClients(params clingy.Parameters) map[string]*satelliteadminclient.Client {

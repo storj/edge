@@ -30,6 +30,7 @@ type Record struct {
 // FullRecord extends Record and includes invalidation information.
 type FullRecord struct {
 	Record
+	CreatedAt          time.Time
 	InvalidatedAt      time.Time
 	InvalidationReason string
 }
@@ -106,7 +107,7 @@ type Storage interface {
 type StorageAdmin interface {
 	Storage
 
-	// GetFullRecord retrieves a record with invalidation information.
+	// GetFullRecord retrieves a record with information relevant to auth service administration.
 	// It returns (nil, nil) if the key does not exist.
 	GetFullRecord(ctx context.Context, keyHash KeyHash) (record *FullRecord, err error)
 

@@ -155,6 +155,7 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		"public",
 		"satellite_address",
 		"macaroon_head",
+		"created_at",
 		"expires_at",
 		"encrypted_secret_key",
 		"encrypted_access_grant",
@@ -202,6 +203,12 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 	if err := row.ColumnByName("encrypted_access_grant", &record.EncryptedAccessGrant); err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	var createdAt spanner.NullTime
+	if err := row.ColumnByName("created_at", &createdAt); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	record.CreatedAt = createdAt.Time
 
 	var invalidationReason spanner.NullString
 	if err := row.ColumnByName("invalidation_reason", &invalidationReason); err != nil {
