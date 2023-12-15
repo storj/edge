@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/internal/spannerauthtest"
+	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 )
 
 // NOTE(artur): I'm hoping to extract this test to be a general test in the

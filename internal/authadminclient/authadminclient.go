@@ -6,6 +6,7 @@ package authadminclient
 import (
 	"context"
 	"encoding/hex"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/spannerauth"
 )
 
 // Error is a class of auth admin client errors.
@@ -23,9 +25,10 @@ var Error = errs.Class("auth admin client")
 
 // Client is a client for managing auth records.
 type Client struct {
-	log    *zap.Logger
-	admin  authdb.StorageAdmin
-	config Config
+	log     *zap.Logger
+	spanner authdb.StorageAdmin
+	badger  authdb.StorageAdmin
+	config  Config
 }
 
 // Record is a representation of pb.Record for display purposes.
@@ -58,33 +61,42 @@ func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.Enc
 
 // Config configures Client.
 type Config struct {
-	Badger badgerauth.Config
+	Spanner spannerauth.Config
+	Badger  badgerauth.Config
 }
 
-// Open returns an initialized Client connected to the configured badgerauth database.
+// Open returns an initialized Client connected to the configured databases.
 func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) {
 	client := &Client{config: config, log: log}
+
+	if config.Spanner.DatabaseName != "" {
+		spanner, err := spannerauth.Open(ctx, log, config.Spanner)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		client.spanner = spanner
+	}
 
 	if len(config.Badger.NodeAddresses) > 0 {
 		badger, err := badgerauth.Open(ctx, log, config.Badger)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(errs.Combine(err, client.Close()))
 		}
-		client.admin = badger
+		client.badger = badger
 	}
 
 	return client, nil
 }
 
-// Close closes the client's database connection.
+// Close closes the client's database connections.
 func (c *Client) Close() error {
-	return Error.Wrap(c.admin.Close())
+	return Error.Wrap(errs.Combine(c.spanner.Close(), c.badger.Close()))
 }
 
 // Get returns a record.
 func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err error) {
-	if c.admin == nil {
-		return record, Error.New("database isn't configured")
+	if c.spanner == nil && c.badger == nil {
+		return record, Error.New("no databases configured")
 	}
 
 	key, err := keyFromInput(encodedKey)
@@ -92,49 +104,75 @@ func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err
 		return record, Error.New("key from input: %w", err)
 	}
 
-	resp, err := c.admin.GetFullRecord(ctx, key.hash)
-	if err != nil {
-		return record, Error.New("get record: %w", err)
+	var spannerResp *authdb.FullRecord
+	if c.spanner != nil {
+		spannerResp, err = c.spanner.GetFullRecord(ctx, key.hash)
+		if err != nil {
+			return record, Error.New("get record: %w", err)
+		}
+		if spannerResp == nil {
+			c.log.Warn("record not found", zap.String("key", encodedKey), zap.String("backend", "spanner"))
+		}
 	}
-	if resp == nil {
-		return record, Error.New("key %q does not exist", encodedKey)
+
+	var badgerResp *authdb.FullRecord
+	if c.badger != nil {
+		badgerResp, err = c.badger.GetFullRecord(ctx, key.hash)
+		if err != nil {
+			return record, Error.New("get record: %w", err)
+		}
+		if badgerResp == nil {
+			c.log.Warn("record not found", zap.String("key", encodedKey), zap.String("backend", "badger"))
+		}
 	}
+
+	var resp *authdb.FullRecord
+	if spannerResp != nil {
+		if badgerResp != nil && !spannerResp.EqualWithinDuration(*badgerResp, time.Minute) {
+			return record, Error.New("mismatch between spanner and badger records")
+		}
+		resp = spannerResp
+	} else if badgerResp != nil {
+		resp = badgerResp
+	} else {
+		return record, Error.New("key %q does not exist", key)
+	}
+
 	if err = record.updateFromAuthDB(resp, key.encKey); err != nil {
 		return record, Error.New("update from auth db: %w", err)
 	}
-
 	return record, nil
 }
 
-// Invalidate invalidates a record.
+// Invalidate invalidates a record on all configured authservice databases.
 func (c *Client) Invalidate(ctx context.Context, encodedKey, reason string) error {
-	return c.withDB(ctx, "invalidate", encodedKey, func(ctx context.Context, keyInfo parsedKey, db authdb.StorageAdmin) error {
-		return db.Invalidate(ctx, keyInfo.hash, reason)
+	return c.withDBs(ctx, "invalidate", encodedKey, func(ctx context.Context, keyInfo parsedKey, admin authdb.StorageAdmin) error {
+		return admin.Invalidate(ctx, keyInfo.hash, reason)
 	})
 }
 
-// Unpublish unpublishes a record.
+// Unpublish unpublishes a record on all configured authservice databases.
 func (c *Client) Unpublish(ctx context.Context, encodedKey string) error {
-	return c.withDB(ctx, "unpublish", encodedKey, func(ctx context.Context, keyInfo parsedKey, db authdb.StorageAdmin) error {
-		return db.Unpublish(ctx, keyInfo.hash)
+	return c.withDBs(ctx, "unpublish", encodedKey, func(ctx context.Context, keyInfo parsedKey, admin authdb.StorageAdmin) error {
+		return admin.Unpublish(ctx, keyInfo.hash)
 	})
 }
 
-// Delete deletes a record.
+// Delete deletes a record from all configured authservice databases.
 func (c *Client) Delete(ctx context.Context, encodedKey string) error {
-	return c.withDB(ctx, "delete", encodedKey, func(ctx context.Context, keyInfo parsedKey, db authdb.StorageAdmin) error {
-		return db.Delete(ctx, keyInfo.hash)
+	return c.withDBs(ctx, "delete", encodedKey, func(ctx context.Context, keyInfo parsedKey, admin authdb.StorageAdmin) error {
+		return admin.Delete(ctx, keyInfo.hash)
 	})
 }
 
-func (c *Client) withDB(
+func (c *Client) withDBs(
 	ctx context.Context,
 	action string,
 	encodedKey string,
 	fn func(ctx context.Context, key parsedKey, db authdb.StorageAdmin) error,
 ) error {
-	if c.admin == nil {
-		return Error.New("database isn't configured")
+	if c.spanner == nil && c.badger == nil {
+		return Error.New("no databases configured")
 	}
 
 	keyInfo, err := keyFromInput(encodedKey)
@@ -142,7 +180,14 @@ func (c *Client) withDB(
 		return Error.New("key from input: %w", err)
 	}
 
-	if err := fn(ctx, keyInfo, c.admin); err != nil {
+	var errGroup errs.Group
+	if c.spanner != nil {
+		errGroup.Add(fn(ctx, keyInfo, c.spanner))
+	}
+	if c.badger != nil {
+		errGroup.Add(fn(ctx, keyInfo, c.badger))
+	}
+	if err := errGroup.Err(); err != nil {
 		return Error.New("%s record: %w", action, err)
 	}
 

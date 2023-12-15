@@ -4,6 +4,7 @@
 package authdb
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"time"
@@ -38,6 +39,41 @@ type FullRecord struct {
 // IsInvalid returns whether the record was invalidated.
 func (f FullRecord) IsInvalid() bool {
 	return f.InvalidationReason != "" || !f.InvalidatedAt.IsZero()
+}
+
+// EqualWithinDuration checks if this FullRecord is equal to another,
+// comparing time.Time fields (CreatedAt, InvalidatedAt) using a given margin of error.
+func (f FullRecord) EqualWithinDuration(other FullRecord, dur time.Duration) bool {
+	if f.SatelliteAddress != other.SatelliteAddress || f.InvalidationReason != other.InvalidationReason {
+		return false
+	}
+
+	if !bytes.Equal(f.MacaroonHead, other.MacaroonHead) ||
+		!bytes.Equal(f.EncryptedSecretKey, other.EncryptedSecretKey) ||
+		!bytes.Equal(f.EncryptedAccessGrant, other.EncryptedAccessGrant) {
+		return false
+	}
+
+	if f.ExpiresAt == nil {
+		if other.ExpiresAt != nil {
+			return false
+		}
+	} else if other.ExpiresAt == nil || !f.ExpiresAt.Equal(*other.ExpiresAt) {
+		return false
+	}
+
+	if !withinDuration(f.CreatedAt, other.CreatedAt, dur) || !withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
+		return false
+	}
+
+	return f.Public == other.Public
+}
+
+func withinDuration(t1 time.Time, t2 time.Time, dur time.Duration) bool {
+	if t1.After(t2) {
+		t1, t2 = t2, t1
+	}
+	return t2.Sub(t1) < dur
 }
 
 // KeyHashSizeEncoded is the length of a hex encoded KeyHash.

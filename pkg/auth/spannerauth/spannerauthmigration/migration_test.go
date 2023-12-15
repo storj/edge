@@ -19,7 +19,7 @@ import (
 	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
 	"storj.io/edge/pkg/auth/badgerauth/pb"
 	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/internal/spannerauthtest"
+	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 )
 
 func TestStorage(t *testing.T) {
