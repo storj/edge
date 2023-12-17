@@ -164,6 +164,15 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	serializedListOnlyAccess, err := listOnlyAccess.Serialize()
 	require.NoError(t, err)
 
+	prefixedAccess, err := access.Share(
+		uplink.Permission{AllowList: true},
+		uplink.SharePrefix{Bucket: "testbucket", Prefix: "test/"},
+	)
+	require.NoError(t, err)
+
+	serializedPrefixedAccess, err := prefixedAccess.Serialize()
+	require.NoError(t, err)
+
 	downloadOnlyAccess, err := access.Share(
 		uplink.Permission{AllowList: false, AllowDownload: true},
 		uplink.SharePrefix{Bucket: "testbucket"},
@@ -177,6 +186,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	goodAccessName := randomAccessKey(t)
 	privateAccessName := randomAccessKey(t)
 	listOnlyAccessName := randomAccessKey(t)
+	prefixedAccessName := randomAccessKey(t)
 	downloadOnlyAccessName := randomAccessKey(t)
 
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
@@ -184,6 +194,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		goodAccessName:         {serializedAccess, true},
 		privateAccessName:      {serializedAccess, false},
 		listOnlyAccessName:     {serializedListOnlyAccess, true},
+		prefixedAccessName:     {serializedPrefixedAccess, true},
 		downloadOnlyAccessName: {serializedDownloadOnlyAccess, true},
 	}, authToken))
 	defer validAuthServer.Close()
@@ -526,6 +537,20 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:             []string{"test1", ".foo", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test0", "test2", "Next", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:   "GET directory listing shows link to parent directory",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test") + "/",
+			status: http.StatusOK,
+			body:   []string{"..."},
+		},
+		{
+			name:        "GET directory listing hides link to unlistable parent directory",
+			method:      "GET",
+			path:        path.Join("s", serializedPrefixedAccess, "testbucket", "test") + "/",
+			status:      http.StatusOK,
+			notContains: []string{"..."},
 		},
 		{
 			name:             "GET prefix listing with cursor at last object fails",

@@ -12,7 +12,9 @@ import (
 	"sort"
 	"strings"
 
+	"storj.io/common/grant"
 	"storj.io/common/memory"
+	"storj.io/common/paths"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 	"storj.io/zipper"
@@ -33,22 +35,41 @@ type listObject struct {
 func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, archivePath, cursor string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var input struct {
-		Title          string
-		Breadcrumbs    []breadcrumb
-		Objects        []listObject
-		NextCursor     string
-		ShowBackButton bool
+		Title            string
+		Breadcrumbs      []breadcrumb
+		Objects          []listObject
+		NextCursor       string
+		ShowBackButton   bool
+		IsParentListable bool
 	}
 	input.Title = pr.title
 	input.Breadcrumbs = append(input.Breadcrumbs, pr.root)
 	if pr.visibleKey != "" {
-		parts := strings.Split(strings.TrimRight(pr.visibleKey, "/"), "/")
+		trimmed := strings.TrimRight(pr.visibleKey, "/")
+		parts := strings.Split(trimmed, "/")
 		for i, prefix := range parts {
 			url := input.Breadcrumbs[i].URL + prefix
 			if archivePath == "" || i < len(parts)-1 {
 				url += "/"
 			}
 			input.Breadcrumbs = append(input.Breadcrumbs, breadcrumb{Prefix: prefix, URL: url})
+		}
+
+		serializedAccess, err := pr.access.Serialize()
+		if err != nil {
+			return errdata.WithAction(err, "serve prefix")
+		}
+		access, err := grant.ParseAccess(serializedAccess)
+		if err != nil {
+			return errdata.WithAction(err, "serve prefix")
+		}
+
+		var parent string
+		if index := strings.LastIndexByte(trimmed, '/'); index != -1 {
+			parent = pr.visibleKey[:index]
+		}
+		if _, _, base := access.EncAccess.Store.LookupUnencrypted(pr.bucket, paths.NewUnencrypted(parent)); base != nil {
+			input.IsParentListable = true
 		}
 	}
 

@@ -61,9 +61,9 @@
             {{end}}
             {{end}}
 
-            {{if or (gt (len .Data.Breadcrumbs) 1) .Data.ShowBackButton .Data.NextCursor}}
+            {{if or .Data.IsParentListable .Data.ShowBackButton .Data.NextCursor}}
             <div class="row">
-              {{if (gt (len .Data.Breadcrumbs) 1)}}
+              {{if .Data.IsParentListable}}
               <a class="directory-link" href="{{if .ShowViewContents}}.{{else}}..{{end}}/">
                 <!-- template comment: . instead of .. is a special case for going back inside a zip -->
                 <div class="col">
