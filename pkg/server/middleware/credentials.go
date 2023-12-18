@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -24,6 +23,7 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/trustedip"
+	"storj.io/eventkit"
 	"storj.io/minio/cmd"
 )
 

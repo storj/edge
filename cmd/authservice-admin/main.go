@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
@@ -22,6 +21,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/edge/internal/authadminclient"
 	"storj.io/edge/internal/satelliteadminclient"
+	"storj.io/eventkit"
 )
 
 var (

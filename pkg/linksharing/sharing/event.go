@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/trustedip"
+	"storj.io/eventkit"
 	privateAccess "storj.io/uplink/private/access"
 )
 

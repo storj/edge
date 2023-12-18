@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
@@ -28,6 +27,7 @@ import (
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/hashreader"
 	"storj.io/edge/pkg/sharedlink"
+	"storj.io/eventkit"
 )
 
 type inspectResult struct {

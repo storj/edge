@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/eventkit"
 )
 
 var (

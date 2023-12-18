@@ -9,7 +9,6 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
 	github.com/grantae/certinfo v0.0.0-20170412194111-59d56a35515b
-	github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d
 	github.com/libdns/googleclouddns v1.1.0
 	github.com/mholt/acmez v1.0.4
 	github.com/miekg/dns v1.1.50
@@ -25,18 +24,19 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.8.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.5.0
 	google.golang.org/api v0.128.0
 	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20231130134106-1fa84867e323
+	storj.io/common v0.0.0-20231213124955-23aba17361c7
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
-	storj.io/gateway v1.9.1-0.20231206174402-ce70bbfd8eee
+	storj.io/eventkit v0.0.0-20231215144225-968576eb7548
+	storj.io/gateway v1.9.1-0.20231215152719-dd9a64a1c021
 	storj.io/minio v0.0.0-20231122123534-730e38e5b7ab
-	storj.io/private v0.0.0-20231127092015-c439a594bc1d
-	storj.io/uplink v1.12.3-0.20231205090325-b1a25d92efca
+	storj.io/private v0.0.0-20231215152845-c5d4aba552e2
+	storj.io/uplink v1.12.3-0.20231215150144-64b6fe256777
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -192,11 +192,11 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
