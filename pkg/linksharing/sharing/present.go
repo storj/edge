@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"math"
 	"mime"
@@ -20,11 +19,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/ranger/httpranger"
-	"storj.io/common/storj"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/linksharing/objectranger"
 	"storj.io/uplink"
@@ -218,30 +215,6 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if (download || !wrap) && !mapOnly {
-		// If object key encryption is disabled for this access, it's unclear if object decryption
-		// is possible. Try reading a portion of the object and bubble up the decryption error.
-		if o.System.ContentLength > 0 {
-			serializedAccess, err := pr.access.Serialize()
-			if err != nil {
-				return errdata.WithAction(err, "serve content")
-			}
-			access, err := grant.ParseAccess(serializedAccess)
-			if err != nil {
-				return errdata.WithAction(err, "serve content")
-			}
-			cipher := access.EncAccess.Store.GetDefaultPathCipher()
-			if cipher == storj.EncNull {
-				dl, err := project.DownloadObject(ctx, pr.bucket, o.Key, &uplink.DownloadOptions{Length: 1})
-				if err != nil {
-					return errdata.WithAction(err, "serve content")
-				}
-				_, err = io.CopyN(io.Discard, dl, 1)
-				if err != nil {
-					return errdata.WithAction(err, "serve content")
-				}
-			}
-		}
-
 		if len(archivePath) > 0 { // handle zip archives
 			handler.setHeaders(w, r, o.Custom, pr.hosting, archivePath)
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now

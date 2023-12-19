@@ -19,7 +19,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/encryption"
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/common/rpc/rpcpool"
@@ -319,10 +318,6 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(handlerErr, uplink.ErrTooManyRequests):
 		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 		return
-	case encryption.ErrDecryptFailed.Has(handlerErr):
-		status = http.StatusForbidden
-		message = "Unauthorized passphrase."
-		skipLog = true
 	case errors.Is(handlerErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled):
 		status = errdata.HTTPStatusClientClosedRequest
 		message = "Client closed request."
