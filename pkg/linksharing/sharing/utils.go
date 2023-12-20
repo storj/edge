@@ -47,6 +47,15 @@ func queryIntLookup(q url.Values, name string, defValue int) int {
 	return defValue
 }
 
+// queryStringLookup finds a string value in a url.Values struct, returning
+// defValue if not found.
+func queryStringLookup(q url.Values, name string, defValue string) string {
+	if vals, ok := q[name]; ok && len(vals) > 0 {
+		return vals[0]
+	}
+	return defValue
+}
+
 // MutexGroup is a group of mutexes by name that attempts to only keep track of
 // live mutexes. The zero value is okay to use.
 type MutexGroup struct {

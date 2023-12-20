@@ -103,6 +103,12 @@ connection-pool.key-capacity: 5
 # dns server address to use for TXT resolution
 dns-server: 1.1.1.1:53
 
+# whether downloading a prefix as a zip or tar file is enabled
+# download-prefix-enabled: false
+
+# maximum number of files from a prefix that can be packaged into a downloadable zip
+# download-zip-limit: 1000
+
 # use a assets dir that is reparsed for every request
 # dynamic-assets-dir: ""
 

@@ -72,6 +72,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 	q := r.URL.Query()
 	download := queryFlagLookup(q, "download", pr.downloadDefault)
+	downloadKind := queryStringLookup(q, "download-kind", "zip")
 	wrap := queryFlagLookup(q, "wrap", !queryFlagLookup(q, "view", !pr.wrapDefault))
 	mapOnly := queryFlagLookup(q, "map", false)
 	cursor := q.Get("cursor")
@@ -116,6 +117,9 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
+		if (download || !wrap) && !pr.hosting {
+			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
+		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 
 	case pr.realKey != "":
@@ -160,7 +164,10 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		if isPrefix {
-			http.Redirect(w, r, r.URL.Path+"/", http.StatusSeeOther)
+			u := r.URL
+			u.Path += "/"
+
+			http.Redirect(w, r, u.String(), http.StatusSeeOther)
 			return nil
 		}
 
@@ -177,8 +184,14 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 		// special case for if the user requested a bucket but there's no trailing slash
 		if !strings.HasSuffix(r.URL.Path, "/") {
-			http.Redirect(w, r, r.URL.Path+"/", http.StatusSeeOther)
+			u := r.URL
+			u.Path += "/"
+
+			http.Redirect(w, r, u.String(), http.StatusSeeOther)
 			return nil
+		}
+		if (download || !wrap) && !pr.hosting {
+			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
 		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 	default:

@@ -150,6 +150,12 @@ type Config struct {
 	// Maximum number of paths to list on a single page.
 	ListPageLimit int
 
+	// DownloadPrefixEnabled allows enabling/disabling the ability to download a prefix as a zip or tar file.
+	DownloadPrefixEnabled bool
+	// DownloadZipLimit is the maximum number of files from a prefix that can be packaged into a downloadable zip.
+	// A file indicating that the downloaded prefix is incomplete is included in the zip file if exceeded.
+	DownloadZipLimit int
+
 	// ConcurrentRequestLimit is the number of total concurrent requests a handler will serve. If <= 0, no limit.
 	ConcurrentRequestLimit int
 	// ConcurrentRequestWait if true will make requests wait for a free slot instead of returning 429 (the default, false).
@@ -190,6 +196,8 @@ type Handler struct {
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 	inShutdown             *int32
 	listPageLimit          int
+	downloadPrefixEnabled  bool
+	downloadZipLimit       int
 	concurrentRequests     *semaphore.Weighted
 	concurrentRequestWait  bool
 	blockedPaths           map[string]bool
@@ -337,6 +345,8 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		archiveRanger:          defaultArchiveRanger,
 		inShutdown:             inShutdown,
 		listPageLimit:          config.ListPageLimit,
+		downloadPrefixEnabled:  config.DownloadPrefixEnabled,
+		downloadZipLimit:       config.DownloadZipLimit,
 		concurrentRequests:     concurrentRequests,
 		concurrentRequestWait:  config.ConcurrentRequestWait,
 		blockedPaths:           blockedPaths,

@@ -4,17 +4,28 @@
 package sharing
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/common/grant"
 	"storj.io/common/memory"
 	"storj.io/common/paths"
+	"storj.io/common/sync2"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 	"storj.io/zipper"
@@ -167,4 +178,158 @@ func listObjectsArchive(ctx context.Context, project *uplink.Project, pr *parsed
 		})
 	}
 	return objects, nil
+}
+
+func (handler *Handler) downloadPrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, downloadKind string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if downloadKind != "zip" && downloadKind != "tar.gz" {
+		return errdata.WithStatus(errs.New("Invalid download kind provided. Must be 'zip' or 'tar.gz'"), http.StatusBadRequest)
+	}
+
+	if downloadKind == "zip" {
+		return handler.downloadZip(ctx, w, project, pr)
+	}
+	return handler.downloadTarGz(ctx, w, project, pr)
+}
+
+func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	fileName := pr.bucket
+	endOfPrefix := path.Base(pr.realKey)
+	if endOfPrefix != "." && endOfPrefix != "/" {
+		fileName = endOfPrefix
+	}
+	fileName += ".zip"
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+
+	zipWriter := zip.NewWriter(w)
+	defer func() { err = errs.Combine(err, zipWriter.Close()) }()
+
+	objects := project.ListObjects(ctx, pr.bucket, &uplink.ListObjectsOptions{
+		Prefix:    pr.realKey,
+		Recursive: true,
+		System:    true,
+	})
+
+	totalCount := 0
+	zipLimitExceeded := errs.New("zip limit exceeded")
+	processItem := func(item *uplink.Object) (err error) {
+		totalCount++
+		// this check is necessary to limit the amount of memory that can be consumed due to downloading zip files containing many objects
+		// zip file headers must be kept in memory until the file is closed
+		if totalCount > handler.downloadZipLimit {
+			header := zip.FileHeader{
+				Name:     "TRUNCATED.txt",
+				Method:   zip.Deflate,
+				Modified: time.Now(),
+			}
+
+			zipEntry, err := zipWriter.CreateHeader(&header)
+			if err != nil {
+				return err
+			}
+			fileMessage := fmt.Sprintf(`This archive contains only the first %d objects from the downloaded prefix.
+To download a larger number of objects at once, download the prefix using the tar.gz archive.`, handler.downloadZipLimit)
+			_, err = sync2.Copy(ctx, zipEntry, bytes.NewReader([]byte(fileMessage)))
+			if err != nil {
+				return err
+			}
+			return zipLimitExceeded
+		}
+
+		object, err := project.DownloadObject(ctx, pr.bucket, item.Key, nil)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, object.Close()) }()
+
+		header := zip.FileHeader{
+			Name:     item.Key[len(pr.realKey):],
+			Method:   zip.Deflate,
+			Modified: item.System.Created,
+		}
+
+		zipEntry, err := zipWriter.CreateHeader(&header)
+		if err != nil {
+			return err
+		}
+		_, err = sync2.Copy(ctx, zipEntry, object)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for objects.Next() {
+		if err := processItem(objects.Item()); err != nil {
+			if errors.Is(err, zipLimitExceeded) {
+				return nil
+			}
+			return err
+		}
+	}
+	if err := objects.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	fileName := pr.bucket
+	endOfPrefix := path.Base(pr.realKey)
+	if endOfPrefix != "." && endOfPrefix != "/" {
+		fileName = endOfPrefix
+	}
+	fileName += ".tar.gz"
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+
+	gzipWriter := gzip.NewWriter(w)
+	defer func() { err = errs.Combine(err, gzipWriter.Close()) }()
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer func() { err = errs.Combine(err, tarWriter.Close()) }()
+
+	objects := project.ListObjects(ctx, pr.bucket, &uplink.ListObjectsOptions{
+		Prefix:    pr.realKey,
+		Recursive: true,
+		System:    true,
+	})
+
+	processItem := func(item *uplink.Object) (err error) {
+		object, err := project.DownloadObject(ctx, pr.bucket, item.Key, nil)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, object.Close()) }()
+		header := tar.Header{
+			Name:    item.Key[len(pr.realKey):],
+			ModTime: item.System.Created,
+			Size:    item.System.ContentLength,
+			Mode:    0600,
+		}
+		err = tarWriter.WriteHeader(&header)
+		if err != nil {
+			return err
+		}
+		_, err = sync2.Copy(ctx, tarWriter, object)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for objects.Next() {
+		if err := processItem(objects.Item()); err != nil {
+			return err
+		}
+	}
+	if err := objects.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }

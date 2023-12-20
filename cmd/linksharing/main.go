@@ -53,6 +53,8 @@ type LinkSharing struct {
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ListPageLimit          int           `help:"maximum number of paths to list on a single page" default:"100"`
+	DownloadPrefixEnabled  bool          `help:"whether downloading a prefix as a zip or tar file is enabled" default:"false"`
+	DownloadZipLimit       int           `help:"maximum number of files from a prefix that can be packaged into a downloadable zip" default:"1000"`
 	DynamicAssetsDir       string        `help:"use a assets dir that is reparsed for every request" default:""`
 	ConcurrentRequestLimit int           `help:"the number of concurrent requests total to allow" default:"40000"`
 	ConcurrentRequestWait  bool          `help:"if true, wait until a slot opens. if false, return 429" default:"false"`
@@ -219,6 +221,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			ConcurrentRequestLimit: runCfg.ConcurrentRequestLimit,
 			ConcurrentRequestWait:  runCfg.ConcurrentRequestWait,
 			BlockedPaths:           strings.Split(runCfg.BlockedPaths, ","),
+			DownloadPrefixEnabled:  runCfg.DownloadPrefixEnabled,
+			DownloadZipLimit:       runCfg.DownloadZipLimit,
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 		ShutdownDelay: runCfg.ShutdownDelay,
