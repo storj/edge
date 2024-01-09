@@ -90,7 +90,14 @@ func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) 
 
 // Close closes the client's database connections.
 func (c *Client) Close() error {
-	return Error.Wrap(errs.Combine(c.spanner.Close(), c.badger.Close()))
+	var errGroup errs.Group
+	if c.spanner != nil {
+		errGroup.Add(c.spanner.Close())
+	}
+	if c.badger != nil {
+		errGroup.Add(c.badger.Close())
+	}
+	return Error.Wrap(errGroup.Err())
 }
 
 // Get returns a record.
