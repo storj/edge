@@ -36,11 +36,7 @@ var (
 
 func init() {
 	logger = log.New(io.Discard, "", log.LstdFlags|log.LUTC)
-	zapLogger = zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
-		zapcore.AddSync(zapcore.AddSync(logger.Writer())),
-		zap.DebugLevel,
-	))
+	zapLogger = zap.NewNop()
 }
 
 func main() {
@@ -63,6 +59,11 @@ func run() (bool, error) {
 			clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		).(bool)
 		if logEnabled {
+			zapLogger = zap.New(zapcore.NewCore(
+				zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+				zapcore.AddSync(zapcore.AddSync(os.Stderr)),
+				zap.DebugLevel,
+			))
 			logger.SetOutput(os.Stderr)
 		}
 
