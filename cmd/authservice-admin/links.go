@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/edge/internal/authadminclient"
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/edge/pkg/auth/authdb"
@@ -351,7 +352,7 @@ func hashContents(ctx context.Context, url string) ([]byte, error) {
 	}
 
 	hr := hashreader.New(resp.Body, sha256.New())
-	_, err = io.Copy(io.Discard, hr)
+	_, err = sync2.Copy(ctx, io.Discard, hr)
 	if err != nil {
 		return nil, err
 	}

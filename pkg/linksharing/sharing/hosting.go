@@ -6,13 +6,13 @@ package sharing
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
 
+	"storj.io/common/sync2"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
 )
@@ -95,7 +95,7 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}()
 
 	w.WriteHeader(http.StatusNotFound)
-	_, err = io.Copy(w, download)
+	_, err = sync2.Copy(ctx, w, download)
 	if err != nil {
 		return errdata.WithAction(err, "serve 404")
 	}
