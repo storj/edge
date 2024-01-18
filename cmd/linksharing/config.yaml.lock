@@ -106,6 +106,9 @@ landing-redirect-target: https://www.storj.io/
 # if true, log function filename and line number
 # log.caller: false
 
+# custom level overrides for specific loggers in the format NAME1=ERROR,NAME2=WARN,... Only level increment is supported, and only for selected loggers!
+# log.custom-level: ""
+
 # if true, set logging to development mode
 # log.development: false
 

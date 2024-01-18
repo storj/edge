@@ -12,12 +12,12 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20231213124955-23aba17361c7
+	storj.io/common v0.0.0-20240116121339-670742423093
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20231122123534-730e38e5b7ab
-	storj.io/private v0.0.0-20231215152845-c5d4aba552e2
+	storj.io/private v0.0.0-20240111100918-0d94010112ba
 	storj.io/storj v1.94.1
-	storj.io/uplink v1.12.3-0.20231215150144-64b6fe256777
+	storj.io/uplink v1.12.3-0.20240118012909-fe904c4d39e0
 )
 
 require (
@@ -249,7 +249,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.33 // indirect
 	storj.io/eventkit v0.0.0-20231215144225-968576eb7548 // indirect
-	storj.io/gateway v1.9.1-0.20231215152719-dd9a64a1c021 // indirect
+	storj.io/gateway v1.9.1-0.20240118153321-dda2a8814123 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
