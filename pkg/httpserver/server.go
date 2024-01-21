@@ -18,6 +18,7 @@ import (
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/googleclouddns"
 	"github.com/mholt/acmez"
+	"github.com/pires/go-proxyproto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -48,6 +49,10 @@ type Config struct {
 
 	// AddressTLS is the address to bind the https server to. It must be set, but is not used if TLS is not configured.
 	AddressTLS string
+
+	// ProxyAddressTLS is the address to which the https server that handles PROXY protocol requests is bound.
+	// It is optional and is not used if TLS is not configured.
+	ProxyAddressTLS string
 
 	// Whether requests and responses are logged or not. Sometimes you might provide your own logging middleware instead.
 	TrafficLogging bool
@@ -169,12 +174,14 @@ type Server struct {
 	log  *zap.Logger
 	name string
 
-	listener        net.Listener
-	listenerTLS     net.Listener
-	server          *http.Server
-	serverTLS       *http.Server
-	shutdownTimeout time.Duration
-	startupCheck    *startupcheck.NodeURLCheck
+	listener         net.Listener
+	listenerTLS      net.Listener
+	proxyListenerTLS *proxyproto.Listener
+	server           *http.Server
+	serverTLS        *http.Server
+	proxyServerTLS   *http.Server
+	shutdownTimeout  time.Duration
+	startupCheck     *startupcheck.NodeURLCheck
 }
 
 // CertMagicOnDemandDecisionFunc is a concrete type for
@@ -200,11 +207,28 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		return nil, errs.New("unable to listen on %s: %v", config.Address, err)
 	}
 
-	var listenerTLS net.Listener
+	var (
+		listenerTLS      net.Listener
+		proxyListenerTLS *proxyproto.Listener
+	)
 	if tlsConfig != nil {
 		listenerTLS, err = net.Listen("tcp", config.AddressTLS)
 		if err != nil {
 			return nil, errs.New("unable to listen on %s: %v", config.AddressTLS, err)
+		}
+
+		if config.ProxyAddressTLS != "" {
+			proxyListener, err := net.Listen("tcp", config.ProxyAddressTLS)
+			if err != nil {
+				return nil, errs.New("unable to listen on %s: %v", config.ProxyAddressTLS, err)
+			}
+
+			proxyListenerTLS = &proxyproto.Listener{
+				Listener: proxyListener,
+				Policy: func(upstream net.Addr) (proxyproto.Policy, error) {
+					return proxyproto.REQUIRE, nil
+				},
+			}
 		}
 	}
 
@@ -221,6 +245,12 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 	serverTLS := &http.Server{
 		Handler:   handler,
 		TLSConfig: tlsConfig,
+		ErrorLog:  zap.NewStdLog(log),
+	}
+
+	proxyServerTLS := &http.Server{
+		Handler:   handler,
+		TLSConfig: tlsConfig.Clone(),
 		ErrorLog:  zap.NewStdLog(log),
 	}
 
@@ -245,14 +275,16 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 	}
 
 	return &Server{
-		log:             log,
-		name:            config.Name,
-		listener:        listener,
-		listenerTLS:     listenerTLS,
-		server:          server,
-		serverTLS:       serverTLS,
-		shutdownTimeout: config.ShutdownTimeout,
-		startupCheck:    startupCheck,
+		log:              log,
+		name:             config.Name,
+		listener:         listener,
+		listenerTLS:      listenerTLS,
+		proxyListenerTLS: proxyListenerTLS,
+		server:           server,
+		serverTLS:        serverTLS,
+		proxyServerTLS:   proxyServerTLS,
+		shutdownTimeout:  config.ShutdownTimeout,
+		startupCheck:     startupCheck,
 	}, nil
 }
 
@@ -268,30 +300,33 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 	var group errgroup.Group
 
-	group.Go(func() (err error) {
-		server.log.With(zap.String("addr", server.Addr())).Sugar().Info("HTTP server started")
-		err = server.server.Serve(server.listener)
-
+	startServer := func(httpSrv *http.Server, listener net.Listener, name string, useTLS bool) (err error) {
+		server.log.With(zap.String("addr", listener.Addr().String())).Sugar().Infof("%s server started", name)
+		if useTLS {
+			err = httpSrv.ServeTLS(listener, "", "")
+		} else {
+			err = httpSrv.Serve(listener)
+		}
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		server.log.With(zap.Error(err)).Error("Server closed unexpectedly")
+		server.log.With(zap.Error(err)).Sugar().Errorf("%s server closed unexpectedly", name)
 		return err
-	})
+	}
 
-	group.Go(func() (err error) {
-		if server.serverTLS.TLSConfig != nil {
-			server.log.With(zap.String("addr", server.AddrTLS())).Sugar().Info("HTTPS server started")
-			err = server.serverTLS.ServeTLS(server.listenerTLS, "", "")
-
-			if errors.Is(err, http.ErrServerClosed) {
-				return nil
-			}
-			server.log.With(zap.Error(err)).Error("Server closed unexpectedly")
-			return err
-		}
-		return nil
+	group.Go(func() error {
+		return startServer(server.server, server.listener, "HTTP", false)
 	})
+	if server.serverTLS.TLSConfig != nil {
+		group.Go(func() error {
+			return startServer(server.serverTLS, server.listenerTLS, "HTTPS", true)
+		})
+	}
+	if server.proxyListenerTLS != nil {
+		group.Go(func() error {
+			return startServer(server.proxyServerTLS, server.proxyListenerTLS, "HTTPS (PROXY protocol)", true)
+		})
+	}
 
 	return group.Wait()
 }
@@ -307,13 +342,19 @@ func (server *Server) Shutdown() (err error) {
 		return shutdownWithTimeout(server.server, server.shutdownTimeout)
 	})
 
-	group.Go(func() error {
-		if server.serverTLS.TLSConfig != nil {
+	if server.serverTLS.TLSConfig != nil {
+		group.Go(func() error {
 			server.log.Info("HTTPS server shutting down")
 			return shutdownWithTimeout(server.serverTLS, server.shutdownTimeout)
-		}
-		return nil
-	})
+		})
+	}
+
+	if server.proxyListenerTLS != nil {
+		group.Go(func() error {
+			server.log.Info("HTTPS (PROXY protocol) server shutting down")
+			return shutdownWithTimeout(server.proxyServerTLS, server.shutdownTimeout)
+		})
+	}
 
 	return group.Wait()
 }
@@ -326,6 +367,11 @@ func (server *Server) Addr() string {
 // AddrTLS returns the public TLS address.
 func (server *Server) AddrTLS() string {
 	return server.listenerTLS.Addr().String()
+}
+
+// ProxyAddrTLS returns the TLS address for PROXY protocol requests.
+func (server *Server) ProxyAddrTLS() string {
+	return server.proxyListenerTLS.Addr().String()
 }
 
 // BaseTLSConfig returns a tls.Config with some good default settings for security.

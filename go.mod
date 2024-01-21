@@ -15,6 +15,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
+	github.com/pires/go-proxyproto v0.7.0
 	github.com/rs/cors v1.7.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.22
 	github.com/spf13/cobra v1.1.3

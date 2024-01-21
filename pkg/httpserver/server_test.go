@@ -20,9 +20,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
@@ -139,6 +143,99 @@ func TestServer(t *testing.T) {
 			testCase.DoGet(ctx, t)
 		})
 	}
+}
+
+func TestProxyProtocol(t *testing.T) {
+	ctx := testcontext.NewWithTimeout(t, time.Minute)
+	defer ctx.Cleanup()
+
+	tempDir := t.TempDir()
+
+	keyPath := filepath.Join(tempDir, "privkey.pem")
+	err := os.WriteFile(keyPath, []byte(testKey), 0644)
+	require.NoError(t, err)
+
+	certPath := filepath.Join(tempDir, "public.pem")
+	err = os.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
+	require.NoError(t, err)
+
+	// set up the server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+	observedLogger := zap.New(observedZapCore)
+
+	server, err := New(observedLogger, mux, nil, Config{
+		Name:            "test",
+		Address:         "127.0.0.1:0",
+		AddressTLS:      "127.0.0.1:0",
+		ProxyAddressTLS: "127.0.0.1:0",
+		TLSConfig: &TLSConfig{
+			CertFile:  certPath,
+			KeyFile:   keyPath,
+			ConfigDir: tempDir,
+		},
+		TrafficLogging: true,
+	})
+	require.NoError(t, err)
+
+	defer ctx.Check(server.Shutdown)
+
+	ctx.Go(func() error {
+		return server.Run(ctx)
+	})
+
+	expectedClientAddr := &net.TCPAddr{
+		IP: net.IPv4(11, 22, 33, 44),
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: certPoolFromCert(testCert),
+			},
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				d := &net.Dialer{}
+				conn, err := d.DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+
+				tcpAddr, err := net.ResolveTCPAddr(network, addr)
+				if err != nil {
+					return nil, errs.Combine(err, conn.Close())
+				}
+
+				header := proxyproto.HeaderProxyFromAddrs(0, expectedClientAddr, tcpAddr)
+				if _, err = header.WriteTo(conn); err != nil {
+					return nil, errs.Combine(err, conn.Close())
+				}
+
+				return conn, nil
+			},
+		},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s", server.ProxyAddrTLS()), nil)
+	require.NoError(t, err)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	// ensure the server was able to log the client's IP
+	logs := observedLogs.All()
+	require.NotEmpty(t, logs)
+
+	logs = observedLogs.FilterMessage("access").All()
+	require.NotEmpty(t, logs)
+
+	fields, ok := logs[0].ContextMap()["httpRequest"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, expectedClientAddr.IP.String(), fields["remoteIp"])
 }
 
 type serverTestCase struct {
