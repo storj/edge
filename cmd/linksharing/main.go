@@ -33,6 +33,7 @@ import (
 type LinkSharing struct {
 	Address                string        `user:"true" help:"public address to listen on" default:":20020"`
 	AddressTLS             string        `user:"true" help:"public tls address to listen on" default:":20021"`
+	ProxyAddressTLS        string        `user:"true" help:"tls address to listen on for PROXY protocol requests" default:":20022"`
 	InsecureDisableTLS     bool          `user:"true" help:"listen using insecure connections only" releaseDefault:"false" devDefault:"true"`
 	CertFile               string        `user:"true" help:"server certificate file"`
 	KeyFile                string        `user:"true" help:"server key file"`
@@ -165,6 +166,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			Name:               "Link Sharing",
 			Address:            runCfg.Address,
 			AddressTLS:         runCfg.AddressTLS,
+			ProxyAddressTLS:    runCfg.ProxyAddressTLS,
 			TrafficLogging:     true,
 			TLSConfig:          tlsConfig,
 			ShutdownTimeout:    -1,

@@ -142,6 +142,9 @@ landing-redirect-target: https://www.storj.io/
 # how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
 
+# tls address to listen on for PROXY protocol requests
+proxy-address-tls: :20022
+
 # comma separated list of public urls for the server
 public-url: ""
 

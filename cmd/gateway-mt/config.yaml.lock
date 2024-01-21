@@ -184,6 +184,9 @@ cert-magic.staging: false
 # Address to securely serve (TLS) gateway on
 # server.address-tls: :20011
 
+# Secure (TLS) gateway address for PROXY protocol requests
+# server.proxy-address-tls: :20012
+
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 

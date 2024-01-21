@@ -151,6 +151,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	server, err := httpserver.New(log, handler, nil, httpserver.Config{
 		Address:            config.Server.Address,
 		AddressTLS:         config.Server.AddressTLS,
+		ProxyAddressTLS:    config.Server.ProxyAddressTLS,
 		TLSConfig:          tlsConfig,
 		TrafficLogging:     false, // gateway-mt has its own logging middleware for this
 		StartupCheckConfig: httpserver.StartupCheckConfig(config.StartupCheck),

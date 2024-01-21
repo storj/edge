@@ -13,8 +13,9 @@ import (
 
 // AddrConfig honestly only exists to preserve legacy CLI parameter naming.
 type AddrConfig struct {
-	Address    string `help:"Address to serve gateway on" default:":20010"`
-	AddressTLS string `help:"Address to securely serve (TLS) gateway on" default:":20011"`
+	Address         string `help:"Address to serve gateway on" default:":20010"`
+	AddressTLS      string `help:"Address to securely serve (TLS) gateway on" default:":20011"`
+	ProxyAddressTLS string `help:"Secure (TLS) gateway address for PROXY protocol requests" default:":20012"`
 }
 
 // Config determines how server listens for requests.
