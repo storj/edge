@@ -379,6 +379,10 @@ func (l *MultiTenancyLayer) GetObjectInfo(ctx context.Context, bucket, object st
 
 // PutObject is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObject.
 func (l *MultiTenancyLayer) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
+	if l.config.Uploads.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
+		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
+	}
+
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
@@ -463,6 +467,10 @@ func (l *MultiTenancyLayer) NewMultipartUpload(ctx context.Context, bucket, obje
 
 // PutObjectPart is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObjectPart.
 func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
+	if l.config.Uploads.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
+		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
+	}
+
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.PartInfo{}, err
@@ -612,9 +620,6 @@ func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Acc
 		return nil, err
 	}
 
-	if uploadsConfig.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
-		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
-	}
 	if uploadsConfig.RefactoredCodePath {
 		ctx = testuplink.WithConcurrentSegmentUploadsDefaultConfig(ctx)
 	} else {
