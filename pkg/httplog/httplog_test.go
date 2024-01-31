@@ -36,11 +36,11 @@ func TestStatusLevel(t *testing.T) {
 		},
 		{
 			status:        http.StatusBadRequest,
-			expectedLevel: zap.InfoLevel,
+			expectedLevel: zap.DebugLevel,
 		},
 		{
 			status:        http.StatusNotFound,
-			expectedLevel: zap.InfoLevel,
+			expectedLevel: zap.DebugLevel,
 		},
 		{
 			status:        http.StatusInternalServerError,
@@ -49,6 +49,10 @@ func TestStatusLevel(t *testing.T) {
 		{
 			status:        http.StatusBadGateway,
 			expectedLevel: zap.ErrorLevel,
+		},
+		{
+			status:        http.StatusNotImplemented,
+			expectedLevel: zap.WarnLevel,
 		},
 	}
 	for _, tc := range testCases {
