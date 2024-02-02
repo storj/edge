@@ -51,14 +51,14 @@ Examples of Release Candidates:
 
 ## Github Release Template
 Be sure to update these items from the template:
-- v1.69.0 should be the current release tag.
-- v1.70.2 should be the tag anticipated for release
-- current build tag text should be the current build tag, i.e. `d6fc137-v1.70.2-go1.21.3`
+- vA.B.C should be the release revision from the current latest release.
+- vX.Y.Z should be the version anticipated for release
+- build tag text should be the build tag for the anticipated release i.e. `d6fc137-v1.70.2-go1.21.3`
 
 ```
 ## Changes
-**Full Changelog**: https://github.com/storj/edge/compare/v1.69.0...v1.70.2
+**Full Changelog**: https://github.com/storj/edge/compare/vA.B.C...vX.Y.Z
 
 ## Docker Image
-`current build tag`
+`build tag`
 ```
