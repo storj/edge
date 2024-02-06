@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/eventkit"
 )
@@ -40,8 +43,7 @@ func CollectEvent(h http.Handler) http.Handler {
 			credentials := GetAccess(r.Context())
 			if credentials != nil {
 				if credentials.AccessGrant != "" {
-					access, err := grant.ParseAccess(credentials.AccessGrant)
-					if err == nil {
+					if access, err := grant.ParseAccess(credentials.AccessGrant); err == nil {
 						macHead = hex.EncodeToString(access.APIKey.Head())
 						satelliteAddress = access.SatelliteAddress
 					}
@@ -54,10 +56,27 @@ func CollectEvent(h http.Handler) http.Handler {
 				}
 			}
 
+			gl, ok := gwlog.FromContext(r.Context())
+			if !ok {
+				gl = gwlog.New()
+				r = r.WithContext(gl.WithContext(r.Context()))
+			}
+
 			h.ServeHTTP(w, r)
 
 			if !rw.WroteHeader() {
 				rw.WriteHeader(http.StatusOK)
+			}
+
+			var queryJSON, requestHeadersJSON, responseHeadersJSON string
+			if b, err := json.Marshal(&httplog.RequestQueryLogObject{Query: r.URL.Query()}); err == nil {
+				queryJSON = string(b)
+			}
+			if b, err := json.Marshal(&httplog.HeadersLogObject{Headers: r.Header}); err == nil {
+				requestHeadersJSON = string(b)
+			}
+			if b, err := json.Marshal(&httplog.HeadersLogObject{Headers: rw.Header()}); err == nil {
+				responseHeadersJSON = string(b)
 			}
 
 			ek.Event("gmt",
@@ -71,6 +90,12 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
-				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)))
+				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
+				eventkit.String("error", gl.TagValue("error")),
+				eventkit.String("request-id", gl.RequestID),
+				eventkit.String("api-operation", gl.API),
+				eventkit.String("query", queryJSON),
+				eventkit.String("request-headers", requestHeadersJSON),
+				eventkit.String("response-headers", responseHeadersJSON))
 		}))
 }

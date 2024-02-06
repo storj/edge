@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/eventkit"
 	privateAccess "storj.io/uplink/private/access"
@@ -63,6 +65,17 @@ func EventHandler(h http.Handler) http.Handler {
 				rw.WriteHeader(http.StatusOK)
 			}
 
+			var queryJSON, requestHeadersJSON, responseHeadersJSON string
+			if b, err := json.Marshal(&httplog.RequestQueryLogObject{Query: r.URL.Query()}); err == nil {
+				queryJSON = string(b)
+			}
+			if b, err := json.Marshal(&httplog.HeadersLogObject{Headers: r.Header}); err == nil {
+				requestHeadersJSON = string(b)
+			}
+			if b, err := json.Marshal(&httplog.HeadersLogObject{Headers: rw.Header()}); err == nil {
+				responseHeadersJSON = string(b)
+			}
+
 			ek.Event("present",
 				eventkit.String("protocol", r.Proto),
 				eventkit.String("host", r.Host),
@@ -77,6 +90,9 @@ func EventHandler(h http.Handler) http.Handler {
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
-				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)))
+				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
+				eventkit.String("query", queryJSON),
+				eventkit.String("request-headers", requestHeadersJSON),
+				eventkit.String("response-headers", responseHeadersJSON))
 		}))
 }

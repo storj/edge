@@ -123,8 +123,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		}
 	}
 	if credentials != nil && credentials.AccessGrant != "" {
-		access, err := grant.ParseAccess(credentials.AccessGrant)
-		if err == nil {
+		if access, err := grant.ParseAccess(credentials.AccessGrant); err == nil {
 			macaroonHead = hex.EncodeToString(access.APIKey.Head())
 			satelliteAddress = access.SatelliteAddress
 		}
@@ -143,16 +142,16 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("macaroon-head", macaroonHead),
 		zap.String("satellite-address", satelliteAddress),
 		zap.Object("query", &httplog.RequestQueryLogObject{
-			Query:  r.URL.Query(),
-			LogAll: insecureLogAll,
+			Query:                                   r.URL.Query(),
+			InsecureDisableConfidentialSanitization: insecureLogAll,
 		}),
 		zap.Object("request-headers", &httplog.HeadersLogObject{
-			Headers: r.Header,
-			LogAll:  insecureLogAll,
+			Headers:                                 r.Header,
+			InsecureDisableConfidentialSanitization: insecureLogAll,
 		}),
 		zap.Object("response-headers", &httplog.HeadersLogObject{
-			Headers: rw.Header(),
-			LogAll:  true, // we don't need to hide any known response header values.
+			Headers:                                 rw.Header(),
+			InsecureDisableConfidentialSanitization: true, // we don't need to hide any known response header values.
 		}),
 	}
 
