@@ -6,8 +6,6 @@ package middleware
 import (
 	"encoding/hex"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -21,7 +19,6 @@ import (
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/trustedip"
-	xhttp "storj.io/minio/cmd/http"
 	"storj.io/private/process/gcloudlogging"
 )
 
@@ -101,58 +98,6 @@ func NewLogResponses(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc 
 	}
 }
 
-type requestQueryLogObject struct {
-	query  url.Values
-	logAll bool
-}
-
-func (o *requestQueryLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	for k, v := range o.query {
-		if o.logAll {
-			enc.AddString(k, strings.Join(v, ","))
-			continue
-		}
-
-		var val string
-		// obfuscate any credentials or confidential information in the query value.
-		// https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html
-		// https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
-		switch k {
-		case "prefix", xhttp.AmzAccessKeyID, xhttp.AmzSignatureV2, xhttp.AmzSignature, xhttp.AmzCredential:
-			val = "[...]"
-		default:
-			val = strings.Join(v, ",")
-		}
-		enc.AddString(k, val)
-	}
-	return nil
-}
-
-type headersLogObject struct {
-	headers http.Header
-	logAll  bool
-}
-
-func (o *headersLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	for k, v := range o.headers {
-		if o.logAll {
-			enc.AddString(k, strings.Join(v, ","))
-			continue
-		}
-
-		var val string
-		// obfuscate any credentials and sensitive information in headers.
-		switch k {
-		case xhttp.Authorization, "Cookie", xhttp.AmzCopySource:
-			val = "[...]"
-		default:
-			val = strings.Join(v, ",")
-		}
-		enc.AddString(k, val)
-	}
-	return nil
-}
-
 func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
 	httpRequestLog := &gcloudlogging.HTTPRequest{
 		Protocol:      r.Proto,
@@ -197,17 +142,17 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("encryption-key-hash", accessKeyHash),
 		zap.String("macaroon-head", macaroonHead),
 		zap.String("satellite-address", satelliteAddress),
-		zap.Object("query", &requestQueryLogObject{
-			query:  r.URL.Query(),
-			logAll: insecureLogAll,
+		zap.Object("query", &httplog.RequestQueryLogObject{
+			Query:  r.URL.Query(),
+			LogAll: insecureLogAll,
 		}),
-		zap.Object("request-headers", &headersLogObject{
-			headers: r.Header,
-			logAll:  insecureLogAll,
+		zap.Object("request-headers", &httplog.HeadersLogObject{
+			Headers: r.Header,
+			LogAll:  insecureLogAll,
 		}),
-		zap.Object("response-headers", &headersLogObject{
-			headers: rw.Header(),
-			logAll:  true, // we don't need to hide any known response header values.
+		zap.Object("response-headers", &httplog.HeadersLogObject{
+			Headers: rw.Header(),
+			LogAll:  true, // we don't need to hide any known response header values.
 		}),
 	}
 
