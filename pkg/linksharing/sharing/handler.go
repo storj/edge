@@ -32,6 +32,11 @@ import (
 	"storj.io/zipper"
 )
 
+// FilePlaceholder is the name of a prefixed empty object which is created when a user creates a folder in the
+// satellite UI, so folders are visible without user objects.
+// https://github.com/storj/storj/blob/4545aacea30a4ed9fd5dd5b978656590164d8ffc/web/satellite/src/store/modules/objectBrowserStore.ts#L646
+const FilePlaceholder = ".file_placeholder"
+
 var (
 	mon = monkit.Package()
 

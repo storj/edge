@@ -135,14 +135,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOOBAR"))
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test0", []byte("FOOBAR"))
-	require.NoError(t, err)
+	testListPrefix := "pagination"
+	for i := 0; i < 4; i++ {
+		var name string
+		if i == 3 {
+			name = fmt.Sprintf("%s/%s", testListPrefix, sharing.FilePlaceholder)
+		} else {
+			name = fmt.Sprintf("%s/test%d", testListPrefix, i)
+		}
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test1", []byte("FOOBAR"))
-	require.NoError(t, err)
-
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "pagination/test2", []byte("FOOBAR"))
-	require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", name, []byte("FOOBAR"))
+		require.NoError(t, err)
+	}
 
 	bandwidthLimit, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID)
 	require.NoError(t, err)
@@ -458,56 +462,77 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET prefix listing success page 1 limit 1",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination") + "/",
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix) + "/",
 			status:           http.StatusOK,
 			body:             []string{"test0", "Next", "?cursor=test0"},
-			notContains:      []string{"test1", "test2", "Back To Page 1", "history.back()"},
+			notContains:      []string{"test1", "test2", sharing.FilePlaceholder, "Back To Page 1", "history.back()"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 1",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test0"),
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test0"),
 			status:           http.StatusOK,
 			body:             []string{"test2", "Next", "?cursor=test2", "Back To Page 1", "history.back()"},
-			notContains:      []string{"test0", "test1"},
+			notContains:      []string{"test0", "test1", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
-			name:             "GET prefix listing success page 3 limit 1",
+			name:             "GET prefix listing success page 3 limit 1; is final page since next page would only contain FilePlaceholder.",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test2"),
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
 			status:           http.StatusOK,
 			body:             []string{"test1", "Back To Page 1", "history.back()"},
-			notContains:      []string{"test2", "test0", "Next"},
+			notContains:      []string{"test2", "test0", "Next", sharing.FilePlaceholder},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+		},
+		{
+			name:             "GET prefix listing success page 3 limit 1; is not final page since next page contains more than just FilePlaceholder.",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
+			status:           http.StatusOK,
+			body:             []string{"test1", "Back To Page 1", "history.back()"},
+			notContains:      []string{"test2", "test0", sharing.FilePlaceholder},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("%s/%s", testListPrefix, ".foo"), []byte("FOO"))
+			},
+		},
+		{
+			name:             "GET prefix listing success page 4 limit 1",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test1"),
+			status:           http.StatusOK,
+			body:             []string{".foo", "Back To Page 1", "history.back()"},
+			notContains:      []string{"test1", "test2", "test0", "Next", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET prefix listing success page 1 limit 2",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination") + "/",
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix) + "/",
 			status:           http.StatusOK,
 			listPageLimit:    &listPageLimit{v: 2},
 			body:             []string{"test0", "test2", "Next", "?cursor=test2"},
-			notContains:      []string{"test1", "Back To Page 1", "history.back()"},
+			notContains:      []string{"test1", ".foo", "Back To Page 1", "history.back()", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 2",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test2"),
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
 			status:           http.StatusOK,
 			listPageLimit:    &listPageLimit{v: 2},
-			body:             []string{"test1", "Back To Page 1", "history.back()"},
-			notContains:      []string{"test0", "test2", "Next"},
+			body:             []string{"test1", ".foo", "Back To Page 1", "history.back()"},
+			notContains:      []string{"test0", "test2", "Next", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{
 			name:             "GET prefix listing with cursor at last object fails",
 			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "pagination", "?cursor=test1"),
+			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=.foo"),
 			status:           http.StatusNotFound,
-			notContains:      []string{"test0", "test1", "test2"},
+			notContains:      []string{"test0", "test1", "test2", ".foo", sharing.FilePlaceholder},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/GetObject", "/metainfo.Metainfo/ListObjects"},
 		},
 		{

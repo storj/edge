@@ -89,6 +89,9 @@ func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedR
 	for limit > 0 && projectObjects.Next() {
 		item := projectObjects.Item()
 		key := item.Key[len(pr.realKey):]
+		if key == FilePlaceholder {
+			continue
+		}
 		var keyURL string
 		if item.IsPrefix {
 			keyURL = url.PathEscape(strings.TrimSuffix(key, "/")) + "/"
@@ -106,6 +109,14 @@ func listObjectsPrefix(ctx context.Context, project *uplink.Project, pr *parsedR
 	// run Next one more time to see if there are more objects beyond this page.
 	if projectObjects.Next() {
 		nextCursor = objects[len(objects)-1].Key
+
+		// if next object is file placeholder, check if it's the final object. If so, don't
+		// set nextCursor, so we don't show a Next button which leads to an empty page.
+		if projectObjects.Item().Key[len(pr.realKey):] == FilePlaceholder {
+			if !projectObjects.Next() {
+				nextCursor = ""
+			}
+		}
 	}
 	return objects, nextCursor, errdata.WithAction(projectObjects.Err(), "list objects")
 }
