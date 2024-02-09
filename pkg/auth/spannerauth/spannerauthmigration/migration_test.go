@@ -4,6 +4,7 @@
 package spannerauthmigration
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
@@ -152,6 +154,40 @@ func TestStorage(t *testing.T) {
 		c := monkit.Collect(monkit.ScopeNamed(scope))
 		assert.EqualValues(t, 100, c["as_spannerauthmigration_destination_miss,scope="+scope+" total"])
 		assert.EqualValues(t, 101, c["as_spannerauthmigration_destination_hit,scope="+scope+" total"])
+	})
+}
+
+func TestContextCanceledHandling(t *testing.T) {
+	badgerauthtest.RunSingleNode(t, badgerauth.Config{}, func(ctx *testcontext.Context, t *testing.T, log *zap.Logger, node *badgerauth.Node) {
+		src := node
+
+		server, err := spannerauthtest.ConfigureTestServer(ctx, log)
+		require.NoError(t, err)
+		defer server.Close()
+
+		dst, err := spannerauth.Open(ctx, log, spannerauth.Config{
+			DatabaseName: "projects/P/instances/I/databases/D",
+			Address:      server.Addr,
+		})
+		require.NoError(t, err)
+		defer ctx.Check(dst.Close)
+
+		s := New(log, src, dst)
+		s.mon = monkit.Default.ScopeNamed(t.Name())
+
+		require.NoError(t, s.HealthCheck(ctx))
+
+		ctxWithCancel, cancel := context.WithCancel(ctx)
+		cancel()
+
+		var k authdb.KeyHash
+		testrand.Read(k[:])
+		err = s.Put(ctxWithCancel, k, &authdb.Record{})
+		require.True(t, Error.Has(err))
+		require.ErrorIs(t, err, context.Canceled)
+		_, err = s.Get(ctxWithCancel, k)
+		require.True(t, Error.Has(err))
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }
 

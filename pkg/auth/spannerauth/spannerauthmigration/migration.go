@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 
+	"storj.io/common/errs2"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/badgerauth/pb"
@@ -54,11 +55,13 @@ func (s *Storage) Put(ctx context.Context, keyHash authdb.KeyHash, record *authd
 	defer s.mon.Task()(&ctx)(&err)
 
 	if err := s.src.Put(ctx, keyHash, record); err != nil {
-		return Error.New("failed to write to badgerauth: %s", err)
+		return Error.New("failed to write to badgerauth: %w", err)
 	}
 	s.log.Debug("Wrote to badgerauth", zap.String("keyHash", keyHash.ToHex()))
 	if err := s.dst.Put(ctx, keyHash, record); err != nil {
-		s.mon.Event("as_spannerauthmigration_destination_put_err")
+		if !errs2.IsCanceled(err) {
+			s.mon.Event("as_spannerauthmigration_destination_put_err")
+		}
 		return Error.New("failed to write to spannerauth: %w", err)
 	}
 	s.log.Debug("Wrote to spannerauth", zap.String("keyHash", keyHash.ToHex()))
@@ -71,7 +74,7 @@ func (s *Storage) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 	defer s.mon.Task()(&ctx)(&err)
 
 	record, err = s.dst.Get(ctx, keyHash)
-	if (record == nil || err != nil) && !authdb.Invalid.Has(err) {
+	if (record == nil || err != nil) && !errs2.IsCanceled(err) && !authdb.Invalid.Has(err) {
 		if err != nil {
 			s.log.Warn("unexpected destination store error @ Get", zap.Error(err))
 		}
