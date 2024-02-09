@@ -12,6 +12,7 @@ package drpcauth
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/url"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -77,19 +79,21 @@ func (g *Server) RegisterAccess(
 	// attack.
 	if len(request.AccessGrant) > g.accessGrantSizeLimit.Int() {
 		err = errs.New("provided access grant is too large")
-		g.log.Error("DRPC RegisterAccess failed", zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+		return nil, g.wrapError(err.Error(), "DRPC/RegisterAccess", rpcstatus.InvalidArgument)
 	}
 
 	response, err := g.registerAccessImpl(ctx, request)
 	if err != nil {
-		g.log.Error("DRPC RegisterAccess failed", zap.Error(err))
-		err = rpcstatus.Wrap(rpcstatus.Internal, err)
-	} else {
-		g.log.Debug("DRPC RegisterAccess success")
+		if errs2.IsCanceled(err) {
+			m := fmt.Sprintf("%s will never be used: %s", response.AccessKeyId, err)
+			return nil, g.wrapError(m, "DRPC/RegisterAccess", rpcstatus.Canceled)
+		}
+		return nil, g.wrapError(err.Error(), "DRPC/RegisterAccess", rpcstatus.Internal)
 	}
 
-	return response, err
+	g.log.Debug("DRPC RegisterAccess success")
+
+	return response, nil
 }
 
 func (g *Server) registerAccessImpl(
@@ -115,6 +119,17 @@ func (g *Server) registerAccessImpl(
 	}
 
 	return &response, nil
+}
+
+func (g *Server) wrapError(msg, method string, code rpcstatus.StatusCode) error {
+	g.log.Info("writing error", zap.String("msg", msg), zap.String("method", method), zap.String("code", code.String()))
+	switch code {
+	case rpcstatus.Canceled:
+		msg = "" // the client is long gone anyway
+	case rpcstatus.Internal:
+		msg = "" // message can contain sensitive details we don't want to expose
+	}
+	return rpcstatus.Error(code, msg)
 }
 
 // StartListen start a DRPC server on the given listener.
