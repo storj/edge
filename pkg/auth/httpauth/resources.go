@@ -14,6 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/edge/pkg/auth/authdb"
 )
@@ -97,6 +98,9 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
 	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
+	if status == 499 {
+		msg = "" // the client is long gone anyway
+	}
 	if status >= http.StatusInternalServerError {
 		msg = "" // message can contain sensitive details we don't want to expose
 	}
@@ -180,6 +184,10 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 			res.writeError(w, "newAccess", err.Error(), http.StatusBadRequest)
 			return
 		}
+		if errs2.IsCanceled(err) {
+			res.writeError(w, "newAccess", fmt.Sprintf("%s will never be used: %s", key.ToBase32(), err), 499)
+			return
+		}
 		res.writeError(w, "newAccess", fmt.Sprintf("error storing request in database: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}
@@ -241,7 +249,10 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
 			return
 		}
-
+		if errs2.IsCanceled(err) {
+			res.writeError(w, "getAccess", err.Error(), 499)
+			return
+		}
 		res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
 		return
 	}
