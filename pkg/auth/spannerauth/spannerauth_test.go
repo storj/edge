@@ -4,6 +4,7 @@
 package spannerauth_test
 
 import (
+	"context"
 	"crypto/rand"
 	"strconv"
 	"testing"
@@ -114,6 +115,7 @@ func TestCloudDatabaseAdmin(t *testing.T) {
 		require.NoError(t, db.Invalidate(ctx, k, "test"))
 
 		_, err := db.Get(ctx, k)
+		require.True(t, spannerauth.Error.Has(err))
 		require.True(t, authdb.Invalid.Has(err))
 
 		r, err := db.GetFullRecord(ctx, k)
@@ -185,6 +187,39 @@ func TestRecordExpiry(t *testing.T) {
 	r, err = db.Get(ctx, k2)
 	require.NoError(t, err)
 	require.Nil(t, r.ExpiresAt)
+}
+
+func TestContextCanceledHandling(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
+
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NoError(t, db.HealthCheck(ctx))
+
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	cancel()
+
+	var k authdb.KeyHash
+	testrand.Read(k[:])
+	err = db.Put(ctxWithCancel, k, createRandomRecord(t, time.Time{}, true))
+	require.True(t, spannerauth.Error.Has(err))
+	require.ErrorIs(t, err, context.Canceled)
+	_, err = db.Get(ctxWithCancel, k)
+	require.True(t, spannerauth.Error.Has(err))
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *authdb.Record {

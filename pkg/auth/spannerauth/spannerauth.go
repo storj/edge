@@ -122,6 +122,9 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 	}
 	t, err := d.client.Apply(ctx, ms)
 	if err != nil {
+		if isOperationCanceled(err) {
+			return Error.New("%w: %w", context.Canceled, err)
+		}
 		return Error.Wrap(err)
 	}
 	d.logger.Debug("applied", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
@@ -168,6 +171,9 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 
 	row, err := boundedTx.ReadRow(ctx, d.table, key, col)
 	if err != nil {
+		if isOperationCanceled(err) {
+			return nil, Error.New("%w: %w", context.Canceled, err)
+		}
 		if !isRecordNotFound(err) {
 			return nil, Error.Wrap(err)
 		}
@@ -177,6 +183,9 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		defer tx.Close()
 		row, err = tx.ReadRow(ctx, d.table, key, col)
 		if err != nil {
+			if isOperationCanceled(err) {
+				return nil, Error.New("%w: %w", context.Canceled, err)
+			}
 			if !isRecordNotFound(err) {
 				return nil, Error.Wrap(err)
 			}
@@ -307,4 +316,8 @@ func (d *CloudDatabase) Delete(ctx context.Context, keyHash authdb.KeyHash) (err
 
 func isRecordNotFound(err error) bool {
 	return spanner.ErrCode(err) == codes.NotFound
+}
+
+func isOperationCanceled(err error) bool {
+	return spanner.ErrCode(err) == codes.Canceled
 }
