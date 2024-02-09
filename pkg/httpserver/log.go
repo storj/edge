@@ -5,7 +5,6 @@ package httpserver
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,28 +15,8 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/trustedip"
-	xhttp "storj.io/minio/cmd/http"
 	"storj.io/private/process/gcloudlogging"
 )
-
-type headersLogObject struct {
-	headers http.Header
-}
-
-func (o *headersLogObject) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	for k, v := range o.headers {
-		var val string
-		// obfuscate any credentials and sensitive information in headers.
-		switch k {
-		case xhttp.Authorization, "Cookie", xhttp.AmzCopySource:
-			val = "[...]"
-		default:
-			val = strings.Join(v, ",")
-		}
-		enc.AddString(k, val)
-	}
-	return nil
-}
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
@@ -94,11 +73,11 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				// sensitive information in it.
 				zap.String("host", host),
 				zap.String("request-id", requestid.FromContext(r.Context())),
-				zap.Object("request-headers", &headersLogObject{
-					headers: r.Header,
+				zap.Object("request-headers", &httplog.HeadersLogObject{
+					Headers: r.Header,
 				}),
-				zap.Object("response-headers", &headersLogObject{
-					headers: rw.Header(),
+				zap.Object("response-headers", &httplog.HeadersLogObject{
+					Headers: rw.Header(),
 				}),
 			}
 
