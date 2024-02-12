@@ -161,6 +161,9 @@ node.replication-limit: 1000
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB
 
+# TLS address to listen on for PROXY protocol requests
+# proxy-addr-tls: :20005
+
 # comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)
 public-url: []
 

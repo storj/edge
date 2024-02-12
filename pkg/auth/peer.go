@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/pires/go-proxyproto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -56,6 +57,8 @@ type Config struct {
 	DRPCListenAddr    string `user:"true" help:"public DRPC address to listen on" default:":20002"`
 	DRPCListenAddrTLS string `user:"true" help:"public DRPC+TLS address to listen on" default:":20003"`
 
+	ProxyAddrTLS string `help:"TLS address to listen on for PROXY protocol requests" default:":20005"`
+
 	CertFile  string   `user:"true" help:"server certificate file" default:""`
 	KeyFile   string   `user:"true" help:"server key file" default:""`
 	PublicURL []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
@@ -89,6 +92,8 @@ type Peer struct {
 	drpcServer      pb.DRPCEdgeAuthServer
 	drpcListener    net.Listener
 	drpcTLSListener net.Listener
+
+	proxyTLSListener net.Listener
 
 	config         Config
 	areSatsDynamic bool
@@ -181,7 +186,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	var httpsListener, drpcTLSListener net.Listener
+	var httpsListener, drpcTLSListener, proxyTLSListener net.Listener
 	if tlsConfig != nil {
 		httpsListener, err = tls.Listen("tcp", config.ListenAddrTLS, tlsConfig)
 		if err != nil {
@@ -190,6 +195,20 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		drpcTLSListener, err = tls.Listen("tcp", config.DRPCListenAddrTLS, tlsConfig)
 		if err != nil {
 			return nil, errs.Wrap(err)
+		}
+
+		if config.ProxyAddrTLS != "" {
+			proxyListener, err := net.Listen("tcp", config.ProxyAddrTLS)
+			if err != nil {
+				return nil, errs.Wrap(err)
+			}
+
+			proxyTLSListener = tls.NewListener(&proxyproto.Listener{
+				Listener: proxyListener,
+				Policy: func(upstream net.Addr) (proxyproto.Policy, error) {
+					return proxyproto.REQUIRE, nil
+				},
+			}, tlsConfig)
 		}
 	}
 
@@ -206,6 +225,8 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		drpcServer:      drpcServer,
 		drpcListener:    drpcListener,
 		drpcTLSListener: drpcTLSListener,
+
+		proxyTLSListener: proxyTLSListener,
 
 		config:         config,
 		areSatsDynamic: areSatsDynamic,
@@ -303,6 +324,11 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 		})
 
 		group.Go(func() error {
+			p.log.Info("Starting HTTPS (PROXY protocol) server", zap.String("address", p.proxyTLSListener.Addr().String()))
+			return p.ServeHTTP(groupCtx, p.proxyTLSListener)
+		})
+
+		group.Go(func() error {
 			return p.ServeDRPC(groupCtx, p.drpcTLSListener)
 		})
 	}
@@ -329,6 +355,9 @@ func (p *Peer) Close() error {
 	}
 	if p.drpcTLSListener != nil {
 		_ = p.drpcTLSListener.Close()
+	}
+	if p.proxyTLSListener != nil {
+		_ = p.proxyTLSListener.Close()
 	}
 
 	return errs.Wrap(p.storage.Close())
@@ -391,6 +420,11 @@ func (p *Peer) DRPCAddress() string {
 // DRPCTLSAddress returns the address of the DRPC+TLS listener.
 func (p *Peer) DRPCTLSAddress() string {
 	return p.drpcTLSListener.Addr().String()
+}
+
+// ProxyAddressTLS returns the TLS address for the PROXY protocol listener.
+func (p *Peer) ProxyAddressTLS() string {
+	return p.proxyTLSListener.Addr().String()
 }
 
 func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Database, allowedSatellites []string) {

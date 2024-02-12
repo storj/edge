@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"net/http"
@@ -20,12 +21,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 
+	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/edge/pkg/auth/badgerauth"
 )
 
@@ -231,6 +239,95 @@ func TestPeer_TLSDRPC(t *testing.T) {
 	require.Equal(t, "endpoint", registerAccessResponse.Endpoint)
 }
 
+func TestPeer_ProxyProtocol(t *testing.T) {
+	ctx := testcontext.NewWithTimeout(t, time.Minute)
+	defer ctx.Cleanup()
+
+	certFile, keyFile, certificatePEM, _ := createSelfSignedCertificateFile(t, "localhost")
+
+	stdCore := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.Lock(os.Stdout),
+		zap.DebugLevel,
+	)
+	observedCore, observedLogs := observer.New(zap.DebugLevel)
+	logger := zap.New(zapcore.NewTee(stdCore, observedCore))
+
+	p, err := New(ctx, logger, Config{
+		Endpoint:          "https://example.com",
+		AllowedSatellites: []string{testrand.NodeID().String() + "@127.0.0.1:7777"},
+		KVBackend:         "badger://",
+		ProxyAddrTLS:      "127.0.0.1:0",
+		CertFile:          certFile.Name(),
+		KeyFile:           keyFile.Name(),
+		Node: badgerauth.Config{
+			FirstStart:          true,
+			ReplicationInterval: 5 * time.Second,
+		},
+	}, "")
+	require.NoError(t, err)
+
+	serverCtx, serverCancel := context.WithCancel(ctx)
+	defer serverCancel()
+
+	ctx.Go(func() error {
+		return errs2.IgnoreCanceled(p.Run(serverCtx))
+	})
+
+	expectedClientAddr := &net.TCPAddr{
+		IP: net.IPv4(11, 22, 33, 44),
+	}
+
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(certificatePEM)
+
+	// send a PROXY protocol request to the server
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: certPool,
+			},
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				d := &net.Dialer{}
+				conn, err := d.DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+
+				tcpAddr, err := net.ResolveTCPAddr(network, addr)
+				if err != nil {
+					return nil, errs.Combine(err, conn.Close())
+				}
+
+				header := proxyproto.HeaderProxyFromAddrs(0, expectedClientAddr, tcpAddr)
+				if _, err = header.WriteTo(conn); err != nil {
+					return nil, errs.Combine(err, conn.Close())
+				}
+
+				return conn, nil
+			},
+		},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/v1/health/startup", p.ProxyAddressTLS()), nil)
+	require.NoError(t, err)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	// ensure the server was able to log the client's IP
+	logs := observedLogs.All()
+	require.NotEmpty(t, logs)
+
+	logs = observedLogs.FilterMessage("request").All()
+	require.NotEmpty(t, logs)
+
+	fields, ok := logs[0].ContextMap()["httpRequest"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, expectedClientAddr.IP.String(), fields["remoteIp"])
+}
+
 func createSelfSignedCertificateFile(t *testing.T, hostname string) (certFile *os.File, keyFile *os.File, certificatePEM []byte, privateKeyPEM []byte) {
 	certificatePEM, privateKeyPEM = createSelfSignedCertificate(t, hostname)
 
@@ -256,6 +353,7 @@ func createSelfSignedCertificate(t *testing.T, hostname string) (certificatePEM 
 			CommonName: hostname,
 		},
 		DNSNames:              []string{hostname},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1)},
 		SerialNumber:          big.NewInt(1337),
 		BasicConstraintsValid: false,
 		IsCA:                  true,
