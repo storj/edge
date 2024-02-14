@@ -13,9 +13,9 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/http/requestid"
+	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/trustedip"
-	"storj.io/private/process/gcloudlogging"
 )
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {

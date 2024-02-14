@@ -15,11 +15,11 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/grant"
+	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/trustedip"
-	"storj.io/private/process/gcloudlogging"
 )
 
 // LogRequests logs requests.

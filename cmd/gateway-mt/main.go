@@ -17,13 +17,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
+	"storj.io/common/process"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
 	"storj.io/edge/pkg/trustedip"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 )
 
 var (

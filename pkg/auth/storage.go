@@ -9,11 +9,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/dbutil"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthmigration"
-	"storj.io/private/dbutil"
 )
 
 // OpenStorage opens the underlying storage for Auth Service's database,

@@ -15,15 +15,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/process"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 	"storj.io/uplink"
 )
 

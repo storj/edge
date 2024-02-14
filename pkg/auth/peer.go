@@ -23,6 +23,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/process/gcloudlogging"
 	"storj.io/common/sync2"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
@@ -32,7 +33,6 @@ import (
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/nodelist"
 	"storj.io/edge/pkg/trustedip"
-	"storj.io/private/process/gcloudlogging"
 )
 
 var mon = monkit.Package()

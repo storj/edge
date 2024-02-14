@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/version"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/minio"
@@ -28,7 +29,6 @@ import (
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/gateway/miniogw"
 	"storj.io/minio/cmd"
-	"storj.io/private/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 )

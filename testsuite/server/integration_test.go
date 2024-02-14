@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
@@ -41,11 +42,9 @@ import (
 	"storj.io/edge/pkg/server"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/pkg/bucket/versioning"
-	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/nodeselection"
 )
 
 var counter int64
@@ -57,9 +56,7 @@ func TestUploadDownload(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				s := fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
-					nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
-				require.NoError(t, config.Placement.Set(s))
+				require.NoError(t, config.Placement.Set("config_test.yaml"))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -281,14 +278,14 @@ func TestUploadDownload(t *testing.T) {
 
 			location, err := client.GetBucketLocation(ctx, "bucket-without-location-set")
 			require.NoError(t, err)
-			require.Equal(t, "us-east-1", location) // MinIO's SDK swaps empty location for "us-east-1"…
+			require.Equal(t, "global", location)
 
 			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket-with-location-set"))
 
 			_, err = planet.Satellites[0].DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      "bucket-with-location-set",
-				Placement: storj.PlacementConstraint(40),
+				Placement: storj.PlacementConstraint(44),
 			})
 			require.NoError(t, err)
 

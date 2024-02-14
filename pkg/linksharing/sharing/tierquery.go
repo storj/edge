@@ -17,7 +17,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/uplink"
 	"storj.io/uplink/private/access"
 )

@@ -85,6 +85,11 @@ endif
 	clang-format -i pkg/auth/badgerauth/pb/badgerauth.proto
 	clang-format -i pkg/auth/badgerauth/pb/badgerauth_admin.proto
 
+.PHONY: bump-code-dependencies
+bump-code-dependencies:
+	go get storj.io/gateway@main && go mod tidy && cd testsuite && go mod tidy && \
+	go get storj.io/storj@latest && go mod tidy
+
 .PHONY: install-hooks
 install-hooks: ## Install helpful Git hooks
 	ln -s ../../githooks/pre-commit .git/hooks/pre-commit
