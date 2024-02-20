@@ -394,7 +394,7 @@ integration-checkout:
 .PHONY: integration-image-build
 integration-image-build:
 	for C in gateway-mt authservice; do \
-		./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
+		CGO_ENABLED=0 ./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
 	storj-up init minimal,db && \

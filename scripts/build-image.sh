@@ -4,6 +4,7 @@ set -euo pipefail
 COMPONENT=${1:-}
 BUILD_NUMBER=${2:-}
 GO_VERSION=${3:-}
+CGO_ENABLED=${CGO_ENABLED:-1}
 
 if [ -z "$COMPONENT" ]; then
 	echo "Missing first arg component, e.g. gateway-mt"
@@ -38,7 +39,7 @@ docker run \
 	-u "$(id -u)":"$(id -g)" \
 	-v "$PWD":/go/build \
 	-v "$PKG_CACHE_PATH":/go/pkg \
-	-e GOARM=6 -e GOOS=linux -e GOARCH="$GOARCH" -e GOPROXY \
+	-e GOARM=6 -e GOOS=linux -e GOARCH="$GOARCH" -e GOPROXY -e CGO_ENABLED \
 	-w /go/build \
 	--rm storjlabs/golang:"$GO_VERSION" \
 	go build -o release/"$BUILD_NUMBER"/"$COMPONENT"_linux_"$GOARCH" \
