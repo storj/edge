@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/http/requestid"
 	"storj.io/common/identity"
 	"storj.io/edge/pkg/certstorage"
 	"storj.io/edge/pkg/gpublicca"
@@ -234,7 +233,7 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 
 	// logging
 	if config.TrafficLogging {
-		handler = requestid.AddToContext(logResponses(log, logRequests(log, handler)))
+		handler = logResponses(log, logRequests(log, handler))
 	}
 
 	server := &http.Server{

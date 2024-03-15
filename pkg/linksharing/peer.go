@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/http/requestid"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing/objectmap"
@@ -100,6 +101,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	credsHandle := handle.CredentialsHandler(eventHandle)
 	traceHandle := http.TraceHandler(credsHandle, mon)
 	metricsHandle := middleware.Metrics("linksharing", traceHandle)
+	reqIDHandle := requestid.AddToContext(metricsHandle)
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
@@ -109,7 +111,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	peer.Server, err = httpserver.New(log, metricsHandle, decisionFunc, config.Server)
+	peer.Server, err = httpserver.New(log, reqIDHandle, decisionFunc, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}
