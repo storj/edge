@@ -95,6 +95,7 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("error", gl.TagValue("error")),
 				eventkit.String("request-id", requestid.FromContext(r.Context())),
 				eventkit.String("amz-request-id", gl.RequestID),
+				eventkit.String("trace-id", rw.Header().Get("trace-id")),
 				eventkit.String("api-operation", gl.API),
 				eventkit.String("query", queryJSON),
 				eventkit.String("request-headers", requestHeadersJSON),

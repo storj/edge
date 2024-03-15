@@ -141,6 +141,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("encryption-key-hash", accessKeyHash),
 		zap.String("macaroon-head", macaroonHead),
 		zap.String("satellite-address", satelliteAddress),
+		zap.String("trace-id", rw.Header().Get("trace-id")),
 		zap.Object("query", &httplog.RequestQueryLogObject{
 			Query:                                   r.URL.Query(),
 			InsecureDisableConfidentialSanitization: insecureLogAll,

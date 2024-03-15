@@ -93,6 +93,7 @@ func EventHandler(h http.Handler) http.Handler {
 				eventkit.String("satellite-address", satelliteAddress),
 				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
 				eventkit.String("request-id", requestid.FromContext(r.Context())),
+				eventkit.String("trace-id", rw.Header().Get("trace-id")),
 				eventkit.String("query", queryJSON),
 				eventkit.String("request-headers", requestHeadersJSON),
 				eventkit.String("response-headers", responseHeadersJSON))
