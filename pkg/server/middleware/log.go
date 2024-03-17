@@ -15,6 +15,7 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/grant"
+	"storj.io/common/http/requestid"
 	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
@@ -137,7 +138,8 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		}),
 		zap.String("host", r.Host),
 		zap.String("error", gl.TagValue("error")),
-		zap.String("request-id", gl.RequestID),
+		zap.String("request-id", requestid.FromContext(r.Context())),
+		zap.String("amz-request-id", gl.RequestID),
 		zap.String("encryption-key-hash", accessKeyHash),
 		zap.String("macaroon-head", macaroonHead),
 		zap.String("satellite-address", satelliteAddress),
