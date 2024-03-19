@@ -147,6 +147,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 			CertMagicStaging:                          config.CertMagic.Staging,
 			CertMagicBucket:                           config.CertMagic.Bucket,
 			CertMagicPublicURLs:                       strings.Split(config.DomainName, ","),
+			CertMagicAsyncPublicURLs:                  strings.Split(config.OptionalDomainName, ","),
 		}
 	}
 

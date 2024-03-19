@@ -129,7 +129,7 @@ func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecord
 		bases = append(bases, parsed)
 	}
 
-	return func(name string) error {
+	return func(ctx context.Context, name string) error {
 		// allow configured urls
 		for _, url := range bases {
 			if name == url.Host {

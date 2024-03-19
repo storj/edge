@@ -24,6 +24,7 @@ type Config struct {
 	CertDir              string        `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
 	InsecureDisableTLS   bool          `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
 	DomainName           string        `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost"`
+	OptionalDomainName   string        `help:"comma-separated optional domain suffixes to serve on, certificate errors are not fatal"`
 	CorsOrigins          string        `help:"list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway" default:"*"`
 	EncodeInMemory       bool          `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true"`
 	ClientTrustedIPSList []string      `help:"list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`

@@ -142,6 +142,9 @@ cert-magic.staging: false
 # how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
 
+# comma-separated optional domain suffixes to serve on, certificate errors are not fatal
+# optional-domain-name: ""
+
 # The default number of iterations for each check
 # quickchecks: 100
 

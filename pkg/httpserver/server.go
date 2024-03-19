@@ -139,6 +139,12 @@ type TLSConfig struct {
 	// through, like link.storjshare.io or *.gateway.storjshare.io, etc.
 	CertMagicPublicURLs []string
 
+	// CertMagicAsyncPublicURLs is a list of URLs to always issue certificates for.
+	//
+	// the same as CertMagicPublicURLS, except that ACME operations are performed
+	// asynchronously (in the background) and cert errors are not fatal.
+	CertMagicAsyncPublicURLs []string
+
 	// ConfigDir is a path for storing certificate cache data for Let's Encrypt.
 	ConfigDir string
 
@@ -185,7 +191,7 @@ type Server struct {
 
 // CertMagicOnDemandDecisionFunc is a concrete type for
 // OnDemandConfig.DecisionFunc in the certmagic package.
-type CertMagicOnDemandDecisionFunc func(name string) error
+type CertMagicOnDemandDecisionFunc func(ctx context.Context, name string) error
 
 // New creates a new URL Service Server.
 func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDecisionFunc, config Config) (*Server, error) {
@@ -570,7 +576,13 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 
 	// TODO(artur): figure out if we want to ManageSync here or somewhere else
 	// to use the process's context. certmagic.TLS uses context.Background...
-	return tlsConfig, magic.ManageSync(context.TODO(), config.TLSConfig.CertMagicPublicURLs)
+	if err := magic.ManageSync(context.TODO(), config.TLSConfig.CertMagicPublicURLs); err != nil {
+		return tlsConfig, err
+	}
+	if len(config.TLSConfig.CertMagicAsyncPublicURLs) > 0 && len(config.TLSConfig.CertMagicAsyncPublicURLs[0]) > 0 {
+		return tlsConfig, magic.ManageAsync(context.TODO(), config.TLSConfig.CertMagicAsyncPublicURLs)
+	}
+	return tlsConfig, nil
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {
