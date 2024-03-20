@@ -73,6 +73,7 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				// sensitive information in it.
 				zap.String("host", host),
 				zap.String("request-id", requestid.FromContext(r.Context())),
+				zap.String("trace-id", rw.Header().Get("trace-id")),
 				zap.Object("request-headers", &httplog.HeadersLogObject{
 					Headers: r.Header,
 				}),

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
@@ -91,6 +92,8 @@ func EventHandler(h http.Handler) http.Handler {
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
 				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
+				eventkit.String("request-id", requestid.FromContext(r.Context())),
+				eventkit.String("trace-id", rw.Header().Get("trace-id")),
 				eventkit.String("query", queryJSON),
 				eventkit.String("request-headers", requestHeadersJSON),
 				eventkit.String("response-headers", responseHeadersJSON))

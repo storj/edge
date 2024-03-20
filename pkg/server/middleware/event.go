@@ -13,6 +13,7 @@ import (
 	"gopkg.in/webhelp.v1/whroute"
 
 	"storj.io/common/grant"
+	"storj.io/common/http/requestid"
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
@@ -92,7 +93,9 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("satellite-address", satelliteAddress),
 				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
 				eventkit.String("error", gl.TagValue("error")),
-				eventkit.String("request-id", gl.RequestID),
+				eventkit.String("request-id", requestid.FromContext(r.Context())),
+				eventkit.String("amz-request-id", gl.RequestID),
+				eventkit.String("trace-id", rw.Header().Get("trace-id")),
 				eventkit.String("api-operation", gl.API),
 				eventkit.String("query", queryJSON),
 				eventkit.String("request-headers", requestHeadersJSON),

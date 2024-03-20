@@ -19,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/version"
 	"storj.io/edge/pkg/authclient"
@@ -114,6 +115,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
 
+	r.Use(requestid.AddToContext)
 	r.Use(func(handler http.Handler) http.Handler {
 		return mhttp.TraceHandler(handler, mon)
 	})

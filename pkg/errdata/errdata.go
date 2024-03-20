@@ -25,7 +25,7 @@ func (e errWrap) Unwrap() error { return e.error }
 
 func (e errWrap) Name() (string, bool) {
 	for i := e.error; i != nil; i = errors.Unwrap(i) {
-		if u, ok := i.(errs.Namer); ok { //nolint: errorlint // custom unwrap loop.
+		if u, ok := i.(errs.Namer); ok {
 			if name, ok := u.Name(); ok {
 				return name, true
 			}
@@ -44,7 +44,7 @@ func (e errWrap) Value(key interface{}) interface{} {
 // Value returns the most recent annotation by key on this error.
 func Value(err error, key interface{}) interface{} {
 	for e := err; e != nil; e = errors.Unwrap(e) {
-		if u, ok := e.(errWithValue); ok { //nolint: errorlint // custom unwrap loop.
+		if u, ok := e.(errWithValue); ok {
 			return u.Value(key)
 		}
 	}
