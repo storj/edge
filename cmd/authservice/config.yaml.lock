@@ -92,7 +92,7 @@ listen-addr-tls: :20001
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
-# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=...)
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
 # metrics.event-addr: eventkitd.datasci.storj.io:9002
 
 # size of the internal eventkit queue for UDP sending
