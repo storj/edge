@@ -38,6 +38,7 @@ install-dev-dependencies: badgerauth-install-dependencies ## install-dev-depende
 	go install github.com/storj/ci/check-errs@latest
 	go install github.com/storj/ci/check-deferloop@latest
 	go install github.com/storj/ci/check-downgrades@latest
+	go install github.com/storj/ci/storj-release@latest
 
 	# staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
