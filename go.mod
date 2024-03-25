@@ -30,13 +30,13 @@ require (
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20240312163747-de28b7045716
+	storj.io/common v0.0.0-20240325183111-3a1a80390ccd
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
 	storj.io/gateway v1.9.1-0.20240320174756-07e9a12ecd11
 	storj.io/minio v0.0.0-20240305214730-e70e32900cff
-	storj.io/uplink v1.12.3-0.20240319101516-597c3fbb1421
+	storj.io/uplink v1.12.3-0.20240325204957-7e1a1e616922
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -107,7 +107,7 @@ require (
 	github.com/jtolio/crawlspace v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
 	github.com/jtolio/crawlspace/tools v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
