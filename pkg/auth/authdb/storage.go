@@ -42,7 +42,7 @@ func (f FullRecord) IsInvalid() bool {
 }
 
 // EqualWithinDuration checks if this FullRecord is equal to another,
-// comparing time.Time fields (CreatedAt, InvalidatedAt) using a given margin of error.
+// comparing time.Time fields (CreatedAt, ExpiresAt, InvalidatedAt) using a given margin of error.
 func (f FullRecord) EqualWithinDuration(other FullRecord, dur time.Duration) bool {
 	if f.SatelliteAddress != other.SatelliteAddress || f.InvalidationReason != other.InvalidationReason {
 		return false
@@ -58,11 +58,21 @@ func (f FullRecord) EqualWithinDuration(other FullRecord, dur time.Duration) boo
 		if other.ExpiresAt != nil {
 			return false
 		}
-	} else if other.ExpiresAt == nil || !f.ExpiresAt.Equal(*other.ExpiresAt) {
+	} else if other.ExpiresAt == nil {
 		return false
 	}
 
-	if !withinDuration(f.CreatedAt, other.CreatedAt, dur) || !withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
+	if f.InvalidatedAt.IsZero() {
+		if !other.InvalidatedAt.IsZero() {
+			return false
+		}
+	} else if other.InvalidatedAt.IsZero() {
+		return false
+	}
+
+	if !withinDuration(*f.ExpiresAt, *other.ExpiresAt, dur) ||
+		!withinDuration(f.CreatedAt, other.CreatedAt, dur) ||
+		!withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
 		return false
 	}
 
