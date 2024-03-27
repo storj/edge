@@ -70,9 +70,11 @@ func (f FullRecord) EqualWithinDuration(other FullRecord, dur time.Duration) boo
 		return false
 	}
 
-	if !withinDuration(*f.ExpiresAt, *other.ExpiresAt, dur) ||
-		!withinDuration(f.CreatedAt, other.CreatedAt, dur) ||
-		!withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
+	if f.ExpiresAt != nil && other.ExpiresAt != nil && !withinDuration(*f.ExpiresAt, *other.ExpiresAt, dur) {
+		return false
+	}
+
+	if !withinDuration(f.CreatedAt, other.CreatedAt, dur) || !withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
 		return false
 	}
 
