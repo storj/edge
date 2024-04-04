@@ -82,6 +82,7 @@ func CollectEvent(h http.Handler) http.Handler {
 
 			ek.Event("gmt",
 				eventkit.String("protocol", r.Proto),
+				eventkit.String("host", r.Host),
 				eventkit.String("method", r.Method),
 				eventkit.String("user-agent", product),
 				eventkit.Int64("status", int64(rw.StatusCode())),
