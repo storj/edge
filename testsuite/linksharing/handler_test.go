@@ -271,7 +271,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"foo"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET missing bucket",
@@ -287,7 +287,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
 			body:             []string{"Object not found"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET success",
@@ -295,7 +295,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{"foo"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET download",
@@ -303,7 +303,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?download=1"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "GET map only",
@@ -311,7 +311,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
 			body:             []string{"circle"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET map only raw",
@@ -319,7 +319,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
 			body:             []string{"circle"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET view",
@@ -327,7 +327,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?view=1"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "GET wrap",
@@ -335,7 +335,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
 			body:             []string{"You’re getting this file from all over the world"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET wrap raw",
@@ -343,7 +343,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
 			body:             []string{"You’re getting this file from all over the world"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET no wrap",
@@ -351,14 +351,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=no"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "GET download success",
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download with range",
@@ -369,7 +369,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusPartialContent,
 			body:             []string{"FOOBAR"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download with range partial content",
@@ -380,7 +380,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusPartialContent,
 			body:             []string{"FO"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download with suffix-byte-range",
@@ -391,7 +391,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusPartialContent,
 			body:             []string{"BAR"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download with too large range",
@@ -402,7 +402,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusPartialContent,
 			body:             []string{"FOO"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download not modified modtime",
@@ -412,7 +412,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"If-Modified-Since": "Wed, 25 Jun 2100 17:12:18 GMT",
 			},
 			status:           http.StatusNotModified,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download with range no overlap",
@@ -422,7 +422,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"Range": "bytes=10-20",
 			},
 			status:           http.StatusRequestedRangeNotSatisfiable,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "GET download range with modtime mismatch",
@@ -433,7 +433,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"If-Range": "Wed, 25 Jun 2014 17:12:18 GMT",
 			},
 			status:           http.StatusOK,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:       "GET download with trailing slash",
@@ -443,10 +443,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:       []string{"FOO"},
 			authserver: validAuthServer.URL,
 			// todo(sean): sometimes this responds with different results. For example:
-			// * []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"}
-			// * []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/Batch" /* GetObject */}
+			// * []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */}
+			// * []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */}
 			//
-			// expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			// expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo1/", []byte("FOO"))
 			},
@@ -460,7 +460,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket") + "/",
 			status:           http.StatusOK,
 			body:             []string{"test/"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success",
@@ -468,7 +468,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			status:           http.StatusOK,
 			body:             []string{"foo"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 1 limit 1",
@@ -477,7 +477,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"test0", "Next", "?cursor=test0"},
 			notContains:      []string{"test1", "test2", sharing.FilePlaceholder, "Back To Page 1", "history.back()"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 1",
@@ -486,7 +486,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"test2", "Next", "?cursor=test2", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test0", "test1", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 3 limit 1; is final page since next page would only contain FilePlaceholder.",
@@ -495,7 +495,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"test1", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test2", "test0", "Next", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 3 limit 1; is not final page since next page contains more than just FilePlaceholder.",
@@ -504,7 +504,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"test1", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test2", "test0", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("%s/%s", testListPrefix, ".foo"), []byte("FOO"))
 			},
@@ -516,7 +516,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{".foo", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test1", "test2", "test0", "Next", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 1 limit 2",
@@ -526,7 +526,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			listPageLimit:    &listPageLimit{v: 2},
 			body:             []string{"test0", "test2", "Next", "?cursor=test2"},
 			notContains:      []string{"test1", ".foo", "Back To Page 1", "history.back()", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 2",
@@ -536,7 +536,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			listPageLimit:    &listPageLimit{v: 2},
 			body:             []string{"test1", ".foo", "Back To Page 1", "history.back()"},
 			notContains:      []string{"test0", "test2", "Next", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:   "GET directory listing shows link to parent directory",
@@ -558,7 +558,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=.foo"),
 			status:           http.StatusNotFound,
 			notContains:      []string{"test0", "test1", "test2", ".foo", sharing.FilePlaceholder},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:          "List page limit of 0 should error",
@@ -575,7 +575,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
 			status:           http.StatusNotFound,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix redirect",
@@ -583,14 +583,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test"),
 			status:           http.StatusSeeOther,
 			redirectLocation: "/" + path.Join("s", serializedAccess, "testbucket", "test") + "/",
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET list-only access grant",
 			method:           "GET",
 			path:             path.Join("s", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET download list-only access grant",
@@ -598,7 +598,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Access denied"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "HEAD missing access",
@@ -642,7 +642,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{""},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "HEAD missing bucket",
@@ -658,7 +658,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
 			body:             []string{"Object not found"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "HEAD success",
@@ -666,7 +666,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{""},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET download when exceeded bandwidth limit",
@@ -674,7 +674,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Bandwidth limit exceeded"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
@@ -690,14 +690,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix containing index.html",
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar") + "/",
 			status:           http.StatusOK,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html", []byte("HELLO!"))
 			},
@@ -711,7 +711,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusOK,
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/bar/index.html", []byte("HELLO!"))
 			},
@@ -791,7 +791,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "hosting GET prefix download-only access",
@@ -808,7 +808,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:   "hosting GET root index.html download-only access",
@@ -825,7 +825,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
 			},
@@ -848,7 +848,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "index.html", []byte("HELLO!"))
 			},
@@ -871,7 +871,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"HELLO!"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix/index.html", []byte("HELLO!"))
 			},
@@ -895,7 +895,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusOK,
 			body:             []string{"FOO"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "hosting GET root 404 default page",
@@ -913,7 +913,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusNotFound,
 			body:             []string{"Object not found"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:   "hosting GET root 404.html",
@@ -931,7 +931,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			status:           http.StatusNotFound,
 			body:             []string{"NOT FOUND!"},
 			authserver:       validAuthServer.URL,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/DownloadObject", "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* ListObjects */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "404.html", []byte("NOT FOUND!"))
 			},

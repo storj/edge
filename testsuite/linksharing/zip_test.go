@@ -94,7 +94,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			archivePath:      "/",
 			status:           http.StatusOK,
 			body:             []string{"View Contents"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "ZIP list",
@@ -103,7 +103,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			archivePath:      "/",
 			status:           http.StatusOK,
 			body:             []string{"...", "?path=foo%26bar.txt"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "ZIP download store.txt",
@@ -111,7 +111,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&download=1",
 			status:           http.StatusOK,
 			body:             []string{"Saved as store"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "ZIP download deflate.txt",
@@ -119,7 +119,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
 			status:           http.StatusOK,
 			body:             []string{"Saved as deflate"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			expectGzip:       true,
 		},
 		{
@@ -128,7 +128,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&download=1",
 			status:           http.StatusOK,
 			body:             []string{"Saved as store"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			gzipPreference:   acceptGzip,
 		},
 		{
@@ -137,7 +137,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
 			status:           http.StatusOK,
 			body:             []string{"Saved as deflate"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			gzipPreference:   acceptGzip,
 			expectGzip:       true,
 		},
@@ -147,7 +147,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&download=1",
 			status:           http.StatusOK,
 			body:             []string{"Saved as deflate"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			gzipPreference:   rejectGzip,
 		},
 		{
@@ -156,7 +156,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&wrap=1",
 			status:           http.StatusOK,
 			body:             []string{"14 B"}, // the wrapper page shows the file size
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "ZIP wrap deflate.txt",
@@ -164,7 +164,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&wrap=1",
 			status:           http.StatusOK,
 			body:             []string{"16 B"}, // the wrapper page shows the file size
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "ZIP map store.txt",
@@ -172,7 +172,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=store.txt&map=1",
 			status:           http.StatusOK,
 			body:             []string{"Files under 4k are stored as metadata with strong encryption."},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "ZIP map deflate.txt",
@@ -180,14 +180,14 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=deflate.txt&map=1",
 			status:           http.StatusOK,
 			body:             []string{"Files under 4k are stored as metadata with strong encryption."},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "ZIP wrap nonexistent path",
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=nonexistent.txt&wrap=1",
 			status:           http.StatusNotFound,
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs", "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
 			name:             "ZIP list when exceeded bandwidth limit",
@@ -196,7 +196,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			archivePath:      "/",
 			status:           http.StatusForbidden,
 			body:             []string{"Bandwidth limit exceeded"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/Batch" /* GetObject */, "/metainfo.Metainfo/DownloadObject"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 			prepFunc: func() error {
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
