@@ -42,8 +42,6 @@ type LinkSharing struct {
 	TXTRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
 	AuthService            authclient.Config
 	DNSServer              string        `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
-	StaticSourcesPath      string        `user:"true" help:"the path to where web assets are located" default:"./pkg/linksharing/web/static"`
-	Templates              string        `user:"true" help:"the path to where renderable templates are located" default:"./pkg/linksharing/web"`
 	LandingRedirectTarget  string        `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
 	RedirectHTTPS          bool          `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
 	DialTimeout            time.Duration `help:"timeout for dials" default:"10s"`
@@ -174,8 +172,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		},
 		Handler: sharing.Config{
 			URLBases:                publicURLs,
-			Templates:               runCfg.Templates,
-			StaticSourcesPath:       runCfg.StaticSourcesPath,
 			RedirectHTTPS:           runCfg.RedirectHTTPS,
 			LandingRedirectTarget:   runCfg.LandingRedirectTarget,
 			TXTRecordTTL:            runCfg.TXTRecordTTL,

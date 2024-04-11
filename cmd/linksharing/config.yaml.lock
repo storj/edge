@@ -188,12 +188,6 @@ startup-check.satellites:
 # maximum time to spend on checks
 startup-check.timeout: 30s
 
-# the path to where web assets are located
-static-sources-path: ./pkg/linksharing/web/static
-
-# the path to where renderable templates are located
-templates: ./pkg/linksharing/web
-
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

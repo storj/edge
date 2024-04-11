@@ -54,7 +54,6 @@ func TestHandler_CORS(t *testing.T) {
 		cfg := Config{
 			ListPageLimit: 1,
 			URLBases:      []string{"http://test.test"},
-			Templates:     "../../../pkg/linksharing/web/",
 		}
 
 		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
@@ -92,7 +91,6 @@ func TestHandler_Shutdown(t *testing.T) {
 		cfg := Config{
 			ListPageLimit: 1,
 			URLBases:      []string{"http://test.test"},
-			Templates:     "../../../pkg/linksharing/web/",
 		}
 
 		handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, inShutdown, cfg)

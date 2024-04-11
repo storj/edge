@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/linksharing/objectmap"
+	"storj.io/edge/pkg/linksharing/sharing/internal/assets"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -92,13 +92,6 @@ type Config struct {
 	// handler. The first one in the list is used to construct URLs returned
 	// to clients. All should be a fully formed URL.
 	URLBases []string
-
-	// Templates location with html templates.
-	Templates string
-
-	// StaticSourcesPath is the path to where the web assets are located
-	// on disk.
-	StaticSourcesPath string
 
 	// TXTRecordTTL is the duration for which an entry in the txtRecordCache is valid.
 	TXTRecordTTL time.Duration
@@ -200,7 +193,12 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		return nil, errors.New("requires at least one url base")
 	}
 
-	templates, err := template.ParseGlob(filepath.Join(config.Templates, "*.html"))
+	assetsFS, err := assets.GetFS()
+	if err != nil {
+		return nil, err
+	}
+
+	templates, err := template.ParseFS(assetsFS.Templates, "*")
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +265,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
 		tierQuerying:           tqs,
-		static:                 cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.Dir(config.StaticSourcesPath)))),
+		static:                 cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.FS(assetsFS.Static)))),
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,

@@ -48,7 +48,6 @@ func TestServer(t *testing.T) {
 	handlerConfig := sharing.Config{
 		ListPageLimit: 1,
 		URLBases:      []string{"https://localhost:15001"},
-		Templates:     "../../pkg/linksharing/web/",
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
 	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, handlerConfig)

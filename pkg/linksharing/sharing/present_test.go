@@ -54,7 +54,6 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 			cfg := Config{
 				ListPageLimit: 1,
 				URLBases:      []string{"http://test.test"},
-				Templates:     "../../../pkg/linksharing/web/",
 			}
 
 			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
@@ -218,7 +217,6 @@ func TestContentDisposition(t *testing.T) {
 			cfg := Config{
 				ListPageLimit:          1,
 				URLBases:               []string{"http://test.test"},
-				Templates:              "../../../pkg/linksharing/web/",
 				StandardRendersContent: tc.standardRendersContent,
 			}
 
@@ -388,7 +386,6 @@ func TestZipArchiveContentType(t *testing.T) {
 	cfg := Config{
 		ListPageLimit: 1,
 		URLBases:      []string{"http://test.test"},
-		Templates:     "../../../pkg/linksharing/web/",
 	}
 	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
 	require.NoError(t, err)
@@ -509,7 +506,6 @@ func TestIsDownloadAllowed(t *testing.T) {
 	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, Config{
 		ListPageLimit: 1,
 		URLBases:      []string{"http://test.test"},
-		Templates:     "../../../pkg/linksharing/web/",
 	})
 	require.NoError(t, err)
 

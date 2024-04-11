@@ -21,7 +21,6 @@ func TestNewPeerMinimalConfig(t *testing.T) {
 		Handler: sharing.Config{
 			ListPageLimit: 1,
 			URLBases:      []string{"http://localhost:20020"},
-			Templates:     "./web",
 		},
 	})
 	require.NoError(t, err)

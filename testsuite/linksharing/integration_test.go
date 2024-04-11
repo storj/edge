@@ -549,7 +549,6 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 				BaseURL: authServer.URL,
 				Token:   authToken,
 			},
-			Templates:             "./../../pkg/linksharing/web/",
 			DNSServer:             dnsSrv.LocalAddr().String(),
 			RedirectHTTPS:         config.redirectHTTPS,
 			LandingRedirectTarget: config.landingRedirectTarget,

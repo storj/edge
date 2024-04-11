@@ -106,7 +106,6 @@ func TestNewHandler(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			testCase.config.Templates = "./../../pkg/linksharing/web"
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, testCase.config)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
@@ -987,7 +986,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
 				URLBases:          []string{"http://localhost"},
-				Templates:         "./../../pkg/linksharing/web/",
 				AuthServiceConfig: authConfig,
 				DNSServer:         dnsSrv.LocalAddr().String(),
 				ListPageLimit:     listPageLimit,
