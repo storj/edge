@@ -99,7 +99,12 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		return nil, errs.New("DomainName required but not given")
 	}
 
-	dedupedDomains := deduplicateDomains(config.DomainName)
+	domains := config.DomainName
+	if config.OptionalDomainName != "" {
+		domains = domains + "," + config.OptionalDomainName
+	}
+
+	dedupedDomains := deduplicateDomains(domains)
 
 	set := func(value, envName string) {
 		err = errs.Combine(err, os.Setenv(envName, value))
