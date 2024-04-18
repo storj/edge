@@ -254,7 +254,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.34 // indirect
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892 // indirect
-	storj.io/gateway v1.9.1-0.20240320174756-07e9a12ecd11 // indirect
+	storj.io/gateway v1.9.1-0.20240419023530-bfcc1af771fa // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
