@@ -24,6 +24,7 @@ import (
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 	"storj.io/uplink"
 )
 
@@ -130,6 +131,10 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, cancel := process.Ctx(cmd)
 	defer cancel()
+
+	if err := assets.Load(); err != nil {
+		return err
+	}
 
 	log := zap.L()
 

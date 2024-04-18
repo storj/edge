@@ -25,6 +25,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -57,6 +58,7 @@ func CreateZip(t *testing.T) []byte {
 
 // TestZipRequests tests ZIP archive listing, file download (including GZIP), file wrapping, and file mapping.
 func TestZipRequests(t *testing.T) {
+	require.NoError(t, assets.Load())
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1}, testZipRequests)
 }
 

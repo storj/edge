@@ -32,6 +32,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 )
 
 var (
@@ -44,6 +45,8 @@ eAOcuTgWmgqXRnHVwKJl2g1pCb2hRANCAARWxVAPyT1BRs2hqiDuHlPXr1kVDXuw
 )
 
 func TestServer(t *testing.T) {
+	require.NoError(t, assets.Load())
+
 	address := "localhost:15001"
 	handlerConfig := sharing.Config{
 		ListPageLimit: 1,

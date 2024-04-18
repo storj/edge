@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"html/template"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -25,7 +26,6 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/linksharing/objectmap"
-	"storj.io/edge/pkg/linksharing/sharing/internal/assets"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
@@ -42,7 +42,16 @@ var (
 
 	// ErrInvalidListPageLimit is an error returned when list page limit is not greater than zero.
 	ErrInvalidListPageLimit = errs.New("list page limit must be greater than zero")
+
+	// Assets contains filesystems for HTML templates and static web assets.
+	Assets = AssetsFS{}
 )
+
+// AssetsFS contains filesystems for HTML templates and static web assets.
+type AssetsFS struct {
+	Templates fs.FS
+	Static    fs.FS
+}
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {
@@ -193,14 +202,13 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		return nil, errors.New("requires at least one url base")
 	}
 
-	assetsFS, err := assets.GetFS()
-	if err != nil {
-		return nil, err
-	}
-
-	templates, err := template.ParseFS(assetsFS.Templates, "*")
-	if err != nil {
-		return nil, err
+	var templates *template.Template
+	if Assets.Templates != nil {
+		var err error
+		templates, err = template.ParseFS(Assets.Templates, "*")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	uplinkConfig := config.Uplink
@@ -208,7 +216,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		uplinkConfig = &uplink.Config{}
 	}
 
-	err = transport.SetConnectionPool(context.TODO(), uplinkConfig,
+	err := transport.SetConnectionPool(context.TODO(), uplinkConfig,
 		rpcpool.New(rpcpool.Options{
 			Name:           "default",
 			Capacity:       config.ConnectionPool.Capacity,
@@ -257,6 +265,11 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		txtRecords = NewTXTRecords(config.TXTRecordTTL, dns, authClient)
 	}
 
+	var static http.Handler
+	if Assets.Static != nil {
+		static = cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.FS(Assets.Static))))
+	}
+
 	return &Handler{
 		log:                    log,
 		urlBases:               bases,
@@ -265,7 +278,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
 		tierQuerying:           tqs,
-		static:                 cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.FS(assetsFS.Static)))),
+		static:                 static,
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,
@@ -380,6 +393,10 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, data pageData) {
+	if handler.templates == nil {
+		handler.log.Error("template filesystem not initialized")
+		return
+	}
 	data.Base = strings.TrimSuffix(handler.urlBases[0].String(), "/")
 	data.VersionHash = version.Build.CommitHash
 	err := handler.templates.ExecuteTemplate(w, template, data)
@@ -415,6 +432,9 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/static/"):
+		if handler.static == nil {
+			return errdata.WithStatus(errs.New("static asset filesystem not initialized"), http.StatusInternalServerError)
+		}
 		handler.static.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	case strings.HasPrefix(r.URL.Path, "/health/process"):

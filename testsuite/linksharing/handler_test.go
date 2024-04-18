@@ -32,6 +32,7 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 	"storj.io/storj/private/testplanet"
 	"storj.io/uplink"
 )
@@ -118,6 +119,7 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestHandlerRequests(t *testing.T) {
+	require.NoError(t, assets.Load())
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
