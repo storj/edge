@@ -59,7 +59,6 @@ build-tagged-image:
     COPY +linksharing-bin/binaries /var/lib/storj/go/bin/
     COPY +authservice-bin/binaries /var/lib/storj/go/bin/
     COPY +build-storjup/binaries  /var/lib/storj/go/bin/
-    COPY pkg/linksharing/web /var/lib/storj/pkg/linksharing/web
     SAVE IMAGE --push $IMAGE:$TAG $IMAGE:latest
 
 run:

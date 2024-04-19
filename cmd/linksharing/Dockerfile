@@ -14,7 +14,6 @@ VOLUME /root/.local/share/storj/linksharing
 # of files automatically.
 RUN apk --no-cache --update add mailcap
 COPY release/${TAG}/linksharing_linux_${GOARCH:-amd64} /app/linksharing
-COPY pkg/linksharing/web/ /app/pkg/linksharing/web/
 COPY cmd/linksharing/entrypoint /entrypoint
 
 ENTRYPOINT ["/entrypoint"]
