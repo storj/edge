@@ -179,6 +179,11 @@ pipeline {
                                     sh 'make integration-splunk-tests'
                                 }
                             }
+                            tests['ceph-tests'] = {
+                                stage('ceph-tests') {
+                                    sh 'make integration-ceph-tests'
+                                }
+                            }
                             ['awscli', 'awscli_multipart', 'duplicity', 'duplicati', 'https', 'rclone', 's3fs'].each { test ->
                                 tests["gateway-st-test ${test}"] = {
                                     stage("gateway-st-test ${test}") {
@@ -216,6 +221,8 @@ pipeline {
             }
             post {
                 always {
+                    junit 'gateway-st/.build/ceph.xml'
+
                     catchError {
                         script {
                             if(fileExists('gateway-st/.build/rclone-integration-tests')) {

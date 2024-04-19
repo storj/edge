@@ -374,6 +374,22 @@ integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to
 	--rm storjlabs/ci:latest \
 	-c "umask 0000; scripts/integration_tests_run.sh $$TEST" \
 
+.PHONY: integration-ceph-tests
+integration-ceph-tests: ## (environment needs to be started first)
+	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
+	docker run \
+	--network integration-network-${BUILD_NUMBER} \
+	-e GATEWAY_0_ADDR=gateway:20010 \
+	-e "GATEWAY_0_ACCESS_KEY=$$AWS_ACCESS_KEY_ID" \
+	-e "GATEWAY_0_SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	-v $$PWD:/build \
+	-w /build \
+	--name integration-ceph-tests-${BUILD_NUMBER}-$$TEST \
+	--entrypoint /bin/bash \
+	--user "$$(id -u):$$(id -g)" \
+	--rm storjlabs/ci:latest \
+	-c "gateway-st/testsuite/ceph-s3-tests/run.sh"
+
 .PHONY: integration-mint-tests
 integration-mint-tests: ## Run mint test suite (environment needs to be started first)
 	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
@@ -398,6 +414,7 @@ integration-checkout:
 	cd gateway-st && \
 		git config core.sparsecheckout true && \
 		echo "testsuite/integration" >> .git/info/sparse-checkout && \
+		echo "testsuite/ceph-s3-tests" >> .git/info/sparse-checkout && \
 		git checkout
 
 .PHONY: integration-image-build
