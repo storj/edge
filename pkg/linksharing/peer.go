@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/miekg/dns"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spacemonkeygo/monkit/v3/http"
@@ -160,7 +159,7 @@ func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecord
 		}
 
 		// check the CNAME for the domain is pointing to here so challenges from the CA don't fail.
-		if err := validateCNAME(tlsConfig.Ctx, dnsClient, name, bases); err != nil {
+		if err := dnsClient.ValidateCNAME(tlsConfig.Ctx, name, bases); err != nil {
 			return err
 		}
 
@@ -195,31 +194,4 @@ func (peer *Peer) Close() error {
 	}
 
 	return errlist.Err()
-}
-
-// validateCNAME checks name has a CNAME record with a value of one of the public URL bases.
-// todo(sean): DNS lookup may be better put into TXTRecords but refactored to handle DNS records
-// in a generic way, then we won't need to be using DNSClient here directly.
-func validateCNAME(ctx context.Context, dnsClient *sharing.DNSClient, name string, bases []*url.URL) error {
-	msg, err := dnsClient.Lookup(ctx, name, dns.TypeCNAME)
-	if err != nil {
-		return err
-	}
-
-	for _, url := range bases {
-		for _, answer := range msg.Answer {
-			rec, ok := answer.(*dns.CNAME)
-			if !ok {
-				continue
-			}
-
-			// rec.Target should always have a suffixed dot as it's an alias value
-			// but we'll check both anyway.
-			if rec.Target == url.Host || rec.Target == url.Host+"." {
-				return nil
-			}
-		}
-	}
-
-	return errs.New("domain %q does not contain a CNAME with any public host", name)
 }

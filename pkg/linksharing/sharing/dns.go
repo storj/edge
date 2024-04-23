@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/miekg/dns"
@@ -39,6 +40,31 @@ func (cli *DNSClient) Lookup(ctx context.Context, host string, recordType uint16
 	m.SetQuestion(dns.Fqdn(host), recordType)
 	r, _, err := cli.c.ExchangeContext(ctx, &m, cli.dnsServer)
 	return r, errDNS.Wrap(err)
+}
+
+// ValidateCNAME checks name has a CNAME record with a value of one of the public URL bases.
+func (cli *DNSClient) ValidateCNAME(ctx context.Context, name string, bases []*url.URL) (err error) {
+	msg, err := cli.Lookup(ctx, name, dns.TypeCNAME)
+	if err != nil {
+		return err
+	}
+
+	for _, url := range bases {
+		for _, answer := range msg.Answer {
+			rec, ok := answer.(*dns.CNAME)
+			if !ok {
+				continue
+			}
+
+			// rec.Target should always have a suffixed dot as it's an alias value
+			// but we'll check both anyway.
+			if rec.Target == url.Host || rec.Target == url.Host+"." {
+				return nil
+			}
+		}
+	}
+
+	return errs.New("domain %q does not contain a CNAME with any public host", name)
 }
 
 // ResponseToTXTRecordSet returns a TXTRecordSet from a dns Lookup response.
