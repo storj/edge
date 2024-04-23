@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
 	"github.com/zeebo/errs"
 
 	"storj.io/edge/pkg/authclient"
@@ -148,11 +147,10 @@ func (records *TXTRecords) updateCache(ctx context.Context, hostname string, all
 func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname string, allowAccessGrant bool, clientIP string) (record *txtRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	r, err := records.dns.Lookup(ctx, "txt-"+hostname, dns.TypeTXT)
+	set, err := records.dns.LookupTXTRecordSet(ctx, "txt-"+hostname)
 	if err != nil {
 		return nil, errs.New("failure with hostname %q: %w", hostname, err)
 	}
-	set := ResponseToTXTRecordSet(r)
 
 	serializedAccess := set.Lookup("storj-access")
 	if serializedAccess == "" {

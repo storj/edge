@@ -60,6 +60,7 @@ $ linksharing run
 ```
 
 ## Standard Linksharing with Uplink
+
 Anything shared with `--url` will be readonly and available publicly (no secret key needed).
 
 `uplink share --url sj://<path>`
@@ -122,6 +123,45 @@ or [S3 gateway](https://docs.storj.io/api-reference/s3-gateway). Download the [U
 7. That's it! You should be all set to access your website e.g. `http://www.example.test`
 
 [Maxmind]: https://dev.maxmind.com/geoip/geoipupdate/
+
+## Testing DNS related configuration locally
+
+When testing different DNS configuration and options it can be annoying to
+configure a public DNS and later debug what is misconfigured when it doesn't
+work. The following approach also uses access grants instead of authservice,
+which avoids the need to having a separate service running.
+
+It's possible to specify a zone file to use instead of a DNS service:
+
+```
+linksharing run --dns-server file:local.zone --public-url http://linksharing.local:20020 --landing-redirect-target ""
+```
+
+Where the `local.zone` contains:
+
+```
+txt-alpha.linksharing.local.   IN  CNAME linksharing.local.
+txt-alpha.linksharing.local.   IN  TXT storj-tls:false
+txt-alpha.linksharing.local.   IN  TXT storj-access-1:<access grant>
+txt-alpha.linksharing.local.   IN  TXT storj-access-2:<access grant continued>
+txt-alpha.linksharing.local.   IN  TXT storj-root:<bucket>
+
+txt-beta.linksharing.local. IN  CNAME linksharing.local.
+txt-beta.linksharing.local. IN  TXT storj-tls:false
+txt-beta.linksharing.local. IN  TXT storj-access-1:<access grant>
+txt-beta.linksharing.local. IN  TXT storj-access-2:<access grant continued>
+txt-beta.linksharing.local. IN  TXT storj-root:<bucket>
+```
+
+The access grant has to be split across multiple TXT entries, because there's a
+per entry limit due to packet sizes. Also, remember to adjust your `etc/hosts`
+with:
+
+```
+127.0.0.1 linksharing.local
+127.0.0.1 alpha.linksharing.local
+127.0.0.1 beta.linksharing.local
+```
 
 ## Custom response metadata
 
