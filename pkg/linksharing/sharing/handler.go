@@ -6,7 +6,6 @@ package sharing
 import (
 	"context"
 	"errors"
-	"html/template"
 	"io/fs"
 	"net"
 	"net/http"
@@ -42,16 +41,7 @@ var (
 
 	// ErrInvalidListPageLimit is an error returned when list page limit is not greater than zero.
 	ErrInvalidListPageLimit = errs.New("list page limit must be greater than zero")
-
-	// Assets contains filesystems for HTML templates and static web assets.
-	Assets = AssetsFS{}
 )
-
-// AssetsFS contains filesystems for HTML templates and static web assets.
-type AssetsFS struct {
-	Templates fs.FS
-	Static    fs.FS
-}
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {
@@ -97,6 +87,11 @@ type pageData struct {
 
 // Config specifies the handler configuration.
 type Config struct {
+	// Assets should contain two folders one for static assets and the other for templates.
+	Assets fs.FS
+	// DynamicAssets determines whether the assets may change during linksharing operation.
+	DynamicAssets bool
+
 	// URLBases is the collection of potential base URLs of the link sharing
 	// handler. The first one in the list is used to construct URLs returned
 	// to clients. All should be a fully formed URL.
@@ -168,7 +163,7 @@ type ConnectionPoolConfig struct {
 type Handler struct {
 	log                    *zap.Logger
 	urlBases               []*url.URL
-	templates              *template.Template
+	templates              *Templates
 	mapper                 *objectmap.IPDB
 	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
@@ -202,12 +197,22 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		return nil, errors.New("requires at least one url base")
 	}
 
-	var templates *template.Template
-	if Assets.Templates != nil {
-		var err error
-		templates, err = template.ParseFS(Assets.Templates, "*")
+	var templates *Templates
+	if config.Assets != nil {
+		fs, err := fs.Sub(config.Assets, "templates")
 		if err != nil {
 			return nil, err
+		}
+		if config.DynamicAssets {
+			templates, err = NewDynamicTemplates(fs)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			templates, err = NewStaticTemplates(fs)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -266,8 +271,16 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	}
 
 	var static http.Handler
-	if Assets.Static != nil {
-		static = cacheControlStatic(http.StripPrefix("/static/", http.FileServer(http.FS(Assets.Static))))
+	if config.Assets != nil {
+		fs, err := fs.Sub(config.Assets, "static")
+		if err != nil {
+			return nil, err
+		}
+
+		static = http.StripPrefix("/static/", http.FileServer(http.FS(fs)))
+		if !config.DynamicAssets {
+			static = cacheControlStatic(static)
+		}
 	}
 
 	return &Handler{

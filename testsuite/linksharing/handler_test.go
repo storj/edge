@@ -119,7 +119,6 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestHandlerRequests(t *testing.T) {
-	require.NoError(t, assets.Load())
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -987,6 +986,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			}
 
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
+				Assets:            assets.FS(),
 				URLBases:          []string{"http://localhost"},
 				AuthServiceConfig: authConfig,
 				DNSServer:         dnsSrv.LocalAddr().String(),

@@ -11,6 +11,7 @@ import (
 
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 )
 
 func TestNewPeerMinimalConfig(t *testing.T) {
@@ -19,6 +20,7 @@ func TestNewPeerMinimalConfig(t *testing.T) {
 			Address: "127.0.0.1:0",
 		},
 		Handler: sharing.Config{
+			Assets:        assets.FS(),
 			ListPageLimit: 1,
 			URLBases:      []string{"http://localhost:20020"},
 		},

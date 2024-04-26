@@ -88,6 +88,9 @@ connection-pool.key-capacity: 5
 # dns server address to use for TXT resolution
 dns-server: 1.1.1.1:53
 
+# use a assets dir that is reparsed for every request
+# dynamic-assets-dir: ""
+
 # maxmind database file path
 geo-location-db: ""
 

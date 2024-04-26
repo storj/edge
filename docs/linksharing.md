@@ -134,7 +134,7 @@ which avoids the need to having a separate service running.
 It's possible to specify a zone file to use instead of a DNS service:
 
 ```
-linksharing run --dns-server file:local.zone --public-url http://linksharing.local:20020 --landing-redirect-target ""
+linksharing run --dns-server file:local.zone --public-url http://linksharing.local:20020 --dynamic-assets-dir <repo>/pkg/linksharing/sharing/assets --landing-redirect-target ""
 ```
 
 Where the `local.zone` contains:

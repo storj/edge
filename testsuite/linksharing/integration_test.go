@@ -50,6 +50,7 @@ import (
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
+	"storj.io/edge/pkg/linksharing/sharing/assets"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -543,6 +544,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 			ShutdownTimeout: -1,
 		},
 		Handler: sharing.Config{
+			Assets:       assets.FS(),
 			URLBases:     publicURLs,
 			TXTRecordTTL: 1 * time.Second,
 			AuthServiceConfig: authclient.Config{

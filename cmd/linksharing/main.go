@@ -51,6 +51,7 @@ type LinkSharing struct {
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ListPageLimit          int           `help:"maximum number of paths to list on a single page" default:"100"`
+	DynamicAssetsDir       string        `help:"use a assets dir that is reparsed for every request" default:""`
 
 	SatelliteConnectionPool satelliteConnectionPoolConfig
 	ConnectionPool          connectionPoolConfig
@@ -132,10 +133,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, cancel := process.Ctx(cmd)
 	defer cancel()
 
-	if err := assets.Load(); err != nil {
-		return err
-	}
-
 	log := zap.L()
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
@@ -143,6 +140,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
+
+	assets := assets.FS()
+	dynamicAssets := false
+	if runCfg.DynamicAssetsDir != "" {
+		assets = os.DirFS(runCfg.DynamicAssetsDir)
+		dynamicAssets = true
+	}
 
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
@@ -176,6 +180,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			StartupCheckConfig: httpserver.StartupCheckConfig(runCfg.StartupCheck),
 		},
 		Handler: sharing.Config{
+			Assets:                  assets,
+			DynamicAssets:           dynamicAssets,
 			URLBases:                publicURLs,
 			RedirectHTTPS:           runCfg.RedirectHTTPS,
 			LandingRedirectTarget:   runCfg.LandingRedirectTarget,

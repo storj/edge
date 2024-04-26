@@ -58,7 +58,6 @@ func CreateZip(t *testing.T) []byte {
 
 // TestZipRequests tests ZIP archive listing, file download (including GZIP), file wrapping, and file mapping.
 func TestZipRequests(t *testing.T) {
-	require.NoError(t, assets.Load())
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1}, testZipRequests)
 }
 
@@ -230,6 +229,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			}
 
 			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, nil, sharing.Config{
+				Assets:        assets.FS(),
 				ListPageLimit: 1,
 				URLBases:      []string{"http://localhost"},
 			})

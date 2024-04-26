@@ -47,10 +47,9 @@ eAOcuTgWmgqXRnHVwKJl2g1pCb2hRANCAARWxVAPyT1BRs2hqiDuHlPXr1kVDXuw
 )
 
 func TestServer(t *testing.T) {
-	require.NoError(t, assets.Load())
-
 	address := "localhost:15001"
 	handlerConfig := sharing.Config{
+		Assets:        assets.FS(),
 		ListPageLimit: 1,
 		URLBases:      []string{"https://localhost:15001"},
 	}
