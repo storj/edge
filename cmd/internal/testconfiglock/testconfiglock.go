@@ -89,6 +89,9 @@ func normalizeConfig(ctx *testcontext.Context, t *testing.T, configIn, configOut
 		line = strings.Replace(line, ".exe", "", 1)
 		// fix cert-dir
 		line = strings.Replace(line, tempDir, "testdata", 1)
+		// fix slash on identity
+		line = strings.Replace(line, "\\identity.", "/identity.", 1)
+
 		_, err = writer.WriteString(line + "\n")
 		require.NoErrorf(t, err, "Error writing to %s", configOut)
 	}
