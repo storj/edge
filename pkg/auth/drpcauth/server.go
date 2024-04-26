@@ -12,7 +12,6 @@ package drpcauth
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/url"
 
@@ -85,8 +84,7 @@ func (g *Server) RegisterAccess(
 	response, err := g.registerAccessImpl(ctx, request)
 	if err != nil {
 		if errs2.IsCanceled(err) {
-			m := fmt.Sprintf("%s will never be used: %s", response.AccessKeyId, err)
-			return nil, g.wrapError(m, "DRPC/RegisterAccess", rpcstatus.Canceled)
+			return nil, g.wrapError(err.Error(), "DRPC/RegisterAccess", rpcstatus.Canceled)
 		}
 		return nil, g.wrapError(err.Error(), "DRPC/RegisterAccess", rpcstatus.Internal)
 	}
