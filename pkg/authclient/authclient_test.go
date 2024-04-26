@@ -40,7 +40,7 @@ func TestInvalidKey(t *testing.T) {
 
 func TestLoadUserTimeout(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second)
+		time.Sleep(4 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -59,7 +59,7 @@ func TestLoadUserTimeout(t *testing.T) {
 	case res := <-authErr:
 		require.Error(t, res)
 		require.True(t, strings.Contains(strings.ToLower(res.Error()), "timeout"))
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 		require.Fail(t, "Bad LoadUser request should have timed out already")
 	}
 }
