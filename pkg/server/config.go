@@ -32,6 +32,7 @@ type Config struct {
 	InsecureLogAll       bool          `help:"insecurely log all errors, paths, and headers" default:"false"`
 	ConcurrentAllowed    uint          `help:"number of allowed concurrent uploads or downloads per macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 	ShutdownDelay        time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
+	DisableHTTP2         bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
 
 	Auth                    authclient.Config
 	S3Compatibility         miniogw.S3CompatibilityConfig

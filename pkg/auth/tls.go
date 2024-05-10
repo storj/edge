@@ -13,6 +13,7 @@ import (
 	"github.com/caddyserver/certmagic"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
 
 	"storj.io/edge/pkg/certstorage"
 )
@@ -112,6 +113,6 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
+	tlsConfig.NextProtos = append([]string{http2.NextProtoTLS, "http/1.1"}, tlsConfig.NextProtos...)
 	return tlsConfig, nil
 }

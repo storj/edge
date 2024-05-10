@@ -161,6 +161,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		AddressTLS:         config.Server.AddressTLS,
 		ProxyAddressTLS:    config.Server.ProxyAddressTLS,
 		TLSConfig:          tlsConfig,
+		DisableHTTP2:       config.DisableHTTP2,
 		TrafficLogging:     false, // gateway-mt has its own logging middleware for this
 		StartupCheckConfig: httpserver.StartupCheckConfig(config.StartupCheck),
 	})

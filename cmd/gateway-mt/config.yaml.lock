@@ -88,6 +88,9 @@ cert-magic.staging: false
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# whether support for HTTP/2 should be disabled
+# disable-http2: false
+
 # comma-separated domain suffixes to serve on
 # domain-name: ""
 

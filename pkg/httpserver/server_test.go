@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package httpserver
+package httpserver_test
 
 import (
 	"context"
@@ -27,9 +27,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/net/http2"
 
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/edge/pkg/linksharing/sharing/assets"
@@ -66,14 +68,14 @@ func TestServer(t *testing.T) {
 	err = os.WriteFile(certPath, pkcrypto.CertToPEM(testCert), 0644)
 	require.NoError(t, err)
 
-	tlsConfig := &TLSConfig{
+	tlsConfig := &httpserver.TLSConfig{
 		CertFile:            certPath,
 		KeyFile:             keyPath,
 		ConfigDir:           tempdir,
 		CertMagicPublicURLs: []string{address},
 	}
 
-	noTLSConfig := &TLSConfig{
+	noTLSConfig := &httpserver.TLSConfig{
 		CertFile:            "",
 		KeyFile:             "",
 		ConfigDir:           tempdir,
@@ -170,12 +172,12 @@ func TestProxyProtocol(t *testing.T) {
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 	observedLogger := zap.New(observedZapCore)
 
-	server, err := New(observedLogger, mux, nil, Config{
+	server, err := httpserver.New(observedLogger, mux, nil, httpserver.Config{
 		Name:            "test",
 		Address:         "127.0.0.1:0",
 		AddressTLS:      "127.0.0.1:0",
 		ProxyAddressTLS: "127.0.0.1:0",
-		TLSConfig: &TLSConfig{
+		TLSConfig: &httpserver.TLSConfig{
 			CertFile:  certPath,
 			KeyFile:   keyPath,
 			ConfigDir: tempDir,
@@ -196,28 +198,10 @@ func TestProxyProtocol(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: certPoolFromCert(testCert),
-			},
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				d := &net.Dialer{}
-				conn, err := d.DialContext(ctx, network, addr)
-				if err != nil {
-					return nil, err
-				}
-
-				tcpAddr, err := net.ResolveTCPAddr(network, addr)
-				if err != nil {
-					return nil, errs.Combine(err, conn.Close())
-				}
-
-				header := proxyproto.HeaderProxyFromAddrs(0, expectedClientAddr, tcpAddr)
-				if _, err = header.WriteTo(conn); err != nil {
-					return nil, errs.Combine(err, conn.Close())
-				}
-
-				return conn, nil
-			},
+			DialTLSContext: proxyProtocolDialContext(expectedClientAddr, &tls.Config{
+				RootCAs:    certPoolFromCert(testCert),
+				ServerName: "127.0.0.1",
+			}),
 		},
 	}
 
@@ -240,6 +224,13 @@ func TestProxyProtocol(t *testing.T) {
 	require.Equal(t, expectedClientAddr.IP.String(), fields["remoteIp"])
 }
 
+func TestBaseTLSConfig(t *testing.T) {
+	serverCfg := httpserver.Config{}
+	require.Contains(t, serverCfg.BaseTLSConfig().NextProtos, http2.NextProtoTLS)
+	serverCfg.DisableHTTP2 = true
+	require.NotContains(t, serverCfg.BaseTLSConfig().NextProtos, http2.NextProtoTLS)
+}
+
 type serverTestCase struct {
 	Mapper        *objectmap.IPDB
 	HandlerConfig sharing.Config
@@ -247,12 +238,12 @@ type serverTestCase struct {
 	Address       string
 	AddressTLS    string
 	Handler       http.Handler
-	TLSConfig     *TLSConfig
+	TLSConfig     *httpserver.TLSConfig
 	NewErr        string
 }
 
-func (testCase *serverTestCase) NewServer(tb testing.TB) (*Server, bool) {
-	s, err := New(zaptest.NewLogger(tb), testCase.Handler, nil, Config{
+func (testCase *serverTestCase) NewServer(tb testing.TB) (*httpserver.Server, bool) {
+	s, err := httpserver.New(zaptest.NewLogger(tb), testCase.Handler, nil, httpserver.Config{
 		Name:       "test",
 		Address:    testCase.Address,
 		AddressTLS: testCase.AddressTLS,
@@ -326,4 +317,33 @@ func certPoolFromCert(cert *x509.Certificate) *x509.CertPool {
 	pool := x509.NewCertPool()
 	pool.AddCert(cert)
 	return pool
+}
+
+func proxyProtocolDialContext(clientAddr net.Addr, tlsConfig *tls.Config) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+		conn, err = (&net.Dialer{}).DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+
+		tcpAddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, errs.Combine(err, conn.Close())
+		}
+
+		header := proxyproto.HeaderProxyFromAddrs(0, clientAddr, tcpAddr)
+		if _, err = header.WriteTo(conn); err != nil {
+			return nil, errs.Combine(err, conn.Close())
+		}
+
+		if tlsConfig != nil {
+			tlsConn := tls.Client(conn, tlsConfig)
+			if err := tlsConn.HandshakeContext(ctx); err != nil {
+				return nil, errs.Combine(err, conn.Close())
+			}
+			conn = tlsConn
+		}
+
+		return conn, nil
+	}
 }

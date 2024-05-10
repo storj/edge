@@ -22,6 +22,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
@@ -58,6 +59,9 @@ type Config struct {
 
 	// TLSConfig is the TLS configuration for the server. It is optional.
 	TLSConfig *TLSConfig
+
+	// Whether HTTP/2 support should be disabled.
+	DisableHTTP2 bool
 
 	// ShutdownTimeout controls how long to wait for requests to finish before
 	// returning from Run() after the context is canceled. It defaults to
@@ -242,21 +246,28 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		handler = logResponses(log, logRequests(log, handler))
 	}
 
+	var nextProto map[string]func(*http.Server, *tls.Conn, http.Handler)
+	if config.DisableHTTP2 {
+		nextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
+	}
+
 	server := &http.Server{
 		Handler:  handler,
 		ErrorLog: zap.NewStdLog(log),
 	}
 
 	serverTLS := &http.Server{
-		Handler:   handler,
-		TLSConfig: tlsConfig,
-		ErrorLog:  zap.NewStdLog(log),
+		Handler:      handler,
+		TLSConfig:    tlsConfig,
+		ErrorLog:     zap.NewStdLog(log),
+		TLSNextProto: nextProto,
 	}
 
 	proxyServerTLS := &http.Server{
-		Handler:   handler,
-		TLSConfig: tlsConfig.Clone(),
-		ErrorLog:  zap.NewStdLog(log),
+		Handler:      handler,
+		TLSConfig:    tlsConfig.Clone(),
+		ErrorLog:     zap.NewStdLog(log),
+		TLSNextProto: nextProto,
 	}
 
 	if config.ShutdownTimeout == 0 {
@@ -380,10 +391,16 @@ func (server *Server) ProxyAddrTLS() string {
 }
 
 // BaseTLSConfig returns a tls.Config with some good default settings for security.
-func BaseTLSConfig() *tls.Config {
+func (c Config) BaseTLSConfig() *tls.Config {
+	var protos []string
+	if c.DisableHTTP2 {
+		protos = []string{"http/1.1"}
+	} else {
+		protos = []string{http2.NextProtoTLS, "http/1.1"}
+	}
 	// these settings give us a score of A on https://www.ssllabs.com/ssltest/index.html
 	return &tls.Config{
-		NextProtos:             []string{"h2", "http/1.1"},
+		NextProtos:             protos,
 		MinVersion:             tls.VersionTLS12,
 		SessionTicketsDisabled: true, // thanks, jeff hodges! https://groups.google.com/g/golang-nuts/c/m3l0AesTdog/m/8CeLeVVyWw4J
 	}
@@ -401,7 +418,7 @@ func configureTLS(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionFunc, c
 		return configureCertMagic(log, decisionFunc, config)
 	}
 
-	tlsConfig := BaseTLSConfig()
+	tlsConfig := config.BaseTLSConfig()
 
 	if config.TLSConfig.CertDir != "" {
 		certs, err := loadCertsFromDir(config.TLSConfig.CertDir)
@@ -525,7 +542,7 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 		Agreed:               true,
 	})
 
-	tlsConfig := BaseTLSConfig()
+	tlsConfig := config.BaseTLSConfig()
 	tlsConfig.GetCertificate = magic.GetCertificate
 
 	if config.TLSConfig.CertMagicDNSChallengeWithGCloudDNS {
