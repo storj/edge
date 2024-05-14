@@ -530,7 +530,7 @@ jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3
 				"Content-Type": {"multipart/form-data; boundary=abc123"},
 			},
 			body:                "------abc123",
-			expectedErrorCode:   "MalformedPOSTRequest",
+			expectedErrorCode:   "MissingFields",
 			expectedErrorStatus: http.StatusBadRequest,
 		},
 	}

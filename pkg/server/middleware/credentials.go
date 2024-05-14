@@ -4,7 +4,9 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -361,7 +363,7 @@ func ParseV2FromFormValues(formValues http.Header) (_ *V2, err error) {
 	return &V2{AccessKeyID: AccessKeyID[0], Signature: Signature[0]}, nil
 }
 
-func getMultipartReader(r *http.Request) (*multipart.Reader, error) {
+func getMultipartReader(r *http.Request, n int64) (*multipart.Reader, error) {
 	if r.MultipartForm != nil {
 		return nil, ParseV4FromMPartError.New("http: multipart already processed")
 	}
@@ -377,7 +379,7 @@ func getMultipartReader(r *http.Request) (*multipart.Reader, error) {
 	if !ok {
 		return nil, ParseV4FromMPartError.New("Missing boundary")
 	}
-	return multipart.NewReader(r.Body, boundary), nil
+	return multipart.NewReader(io.LimitReader(r.Body, n), boundary), nil
 }
 
 // ParseV4FromQuery parses a V4 signature from the query parameters.
@@ -491,16 +493,39 @@ func ParseFromForm(r *http.Request) (string, error) {
 		err = errs.Combine(err, seekErr)
 	}()
 
-	// now read the body
-	reader, err := getMultipartReader(r)
+	// now read the body, but don't overrun the buffer
+	reader, err := getMultipartReader(r, bodyBufferSize)
 	if err != nil {
 		return "", errMalformedPOSTRequest.Wrap(err)
 	}
-	// Read multipart data, limiting to 5 mibyte, as Minio doees
-	form, err := reader.ReadForm(bodyBufferSize)
-	if err != nil {
-		return "", errMalformedPOSTRequest.Wrap(err)
+	// Read multipart data, stop at file
+	form := &multipart.Form{Value: make(map[string][]string)}
+	for {
+		p, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", errMalformedPOSTRequest.Wrap(err)
+		}
+
+		name := p.FormName()
+		if name == "" {
+			continue
+		}
+		filename := p.FileName()
+		if name == "file" || filename != "" {
+			break
+		}
+
+		var b bytes.Buffer
+		_, err = io.Copy(&b, p)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", errMalformedPOSTRequest.Wrap(err)
+		}
+		form.Value[name] = append(form.Value[name], b.String())
 	}
+
 	// Canonicalize the form values into http.Header.
 	formValues := make(http.Header)
 	for k, v := range form.Value {
