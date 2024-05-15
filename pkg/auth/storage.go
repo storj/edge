@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
+	"storj.io/edge/internal/dbutil"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"

@@ -26,15 +26,6 @@ cert-magic.key-file: ""
 # use staging CA endpoints
 cert-magic.staging: false
 
-# Maximum Database Connection Lifetime, -1ns means the stdlib default
-# db.conn_max_lifetime: 30m0s
-
-# Maximum Amount of Idle Database connections, -1 means the stdlib default
-# db.max_idle_conns: 1
-
-# Maximum Amount of Open Database connections, -1 means the stdlib default
-# db.max_open_conns: 5
-
 # address to listen on for debug endpoints
 # debug.addr: 127.0.0.1:0
 
