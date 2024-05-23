@@ -363,7 +363,7 @@ func ParseV2FromFormValues(formValues http.Header) (_ *V2, err error) {
 	return &V2{AccessKeyID: AccessKeyID[0], Signature: Signature[0]}, nil
 }
 
-func getMultipartReader(r *http.Request, n int64) (*multipart.Reader, error) {
+func getLimitMultipartReader(r *http.Request, n int64) (*multipart.Reader, error) {
 	if r.MultipartForm != nil {
 		return nil, ParseV4FromMPartError.New("http: multipart already processed")
 	}
@@ -483,18 +483,15 @@ func ParseV2FromQuery(r *http.Request) (_ *V2, err error) {
 func ParseFromForm(r *http.Request) (string, error) {
 	// create a reset-able body so we don't drain the request body for later
 	const bodyBufferSize = int64(5 * memory.MiB)
-	bodyCache, err := NewBodyCache(r.Body, bodyBufferSize)
-	if err != nil {
-		return "", err
-	}
+	bodyCache := newBodyCache(r.Body)
 	r.Body = bodyCache
+	var err error
 	defer func() {
-		_, seekErr := bodyCache.Seek(0, io.SeekStart)
-		err = errs.Combine(err, seekErr)
+		err = errs.Combine(err, bodyCache.Reset())
 	}()
 
-	// now read the body, but don't overrun the buffer
-	reader, err := getMultipartReader(r, bodyBufferSize)
+	// now read the body
+	reader, err := getLimitMultipartReader(r, bodyBufferSize)
 	if err != nil {
 		return "", errMalformedPOSTRequest.Wrap(err)
 	}
