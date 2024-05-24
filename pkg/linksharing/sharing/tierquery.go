@@ -11,13 +11,13 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/identity"
-	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/version"
+	"storj.io/edge/internal/lrucache"
 	"storj.io/uplink"
 	"storj.io/uplink/private/access"
 )

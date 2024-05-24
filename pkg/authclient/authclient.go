@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/http/requestid"
-	"storj.io/common/lrucache"
+	"storj.io/edge/internal/lrucache"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/errdata"
 )
