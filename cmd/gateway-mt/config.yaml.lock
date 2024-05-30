@@ -55,6 +55,12 @@ cert-magic.staging: false
 # timeout for dials
 # client.dial-timeout: 10s
 
+# path to the certificate chain for this identity
+client.identity.cert-path: ""
+
+# path to the private key for this identity
+client.identity.key-path: ""
+
 # maximum buffer size for DRPC streams
 # client.maximum-buffer-size: 304.00 KB
 

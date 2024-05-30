@@ -8,6 +8,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/uplinkutil"
 	"storj.io/gateway/miniogw"
 )
 
@@ -86,6 +87,7 @@ type SatelliteConnectionPoolConfig struct {
 type ClientConfig struct {
 	DialTimeout       time.Duration `help:"timeout for dials" default:"10s"`
 	MaximumBufferSize memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
+	Identity          uplinkutil.IdentityConfig
 
 	Upload uploadConfig
 }

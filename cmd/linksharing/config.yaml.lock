@@ -64,6 +64,12 @@ cert-magic.tier-service-identity.key-path: /identity.key
 # list of clients IPs (comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
 client-trusted-ips-list: []
 
+# path to the certificate chain for this identity
+client.identity.cert-path: ""
+
+# path to the private key for this identity
+client.identity.key-path: ""
+
 # RPC connection pool capacity
 connection-pool.capacity: 100
 

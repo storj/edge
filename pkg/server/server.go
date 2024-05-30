@@ -88,7 +88,10 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		MaxLifetime:    config.ConnectionPool.MaxLifetime,
 	})
 
-	uplinkConfig := configureUplinkConfig(config.Client)
+	uplinkConfig, err := configureUplinkConfig(config.Client)
+	if err != nil {
+		return nil, err
+	}
 
 	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), satelliteConnectionPool, connectionPool, uplinkConfig, config.InsecureLogAll)
 	if err != nil {
@@ -194,10 +197,16 @@ func deduplicateDomains(domains string) (result []string) {
 }
 
 // configureUplinkConfig configures new uplink.Config using clientConfig.
-func configureUplinkConfig(clientConfig ClientConfig) gw.UplinkConfig {
+func configureUplinkConfig(clientConfig ClientConfig) (gw.UplinkConfig, error) {
+	clientCertPEM, clientKeyPEM, err := clientConfig.Identity.LoadPEMs()
+	if err != nil {
+		return gw.UplinkConfig{}, err
+	}
 	ret := gw.UplinkConfig{
 		Base: uplink.Config{
 			DialTimeout: clientConfig.DialTimeout,
+			ChainPEM:    clientCertPEM,
+			KeyPEM:      clientKeyPEM,
 		},
 		Uploads: gw.UploadConfig{
 			PieceHashAlgorithmBlake3: clientConfig.Upload.PieceHashAlgorithmBlake3,
@@ -207,7 +216,7 @@ func configureUplinkConfig(clientConfig ClientConfig) gw.UplinkConfig {
 
 	transport.SetMaximumBufferSize(&ret.Base, clientConfig.MaximumBufferSize.Int())
 
-	return ret
+	return ret, nil
 }
 
 func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {

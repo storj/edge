@@ -25,6 +25,7 @@ import (
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/edge/pkg/linksharing/sharing/assets"
+	"storj.io/edge/pkg/uplinkutil"
 	"storj.io/uplink"
 )
 
@@ -52,6 +53,10 @@ type LinkSharing struct {
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
 	ListPageLimit          int           `help:"maximum number of paths to list on a single page" default:"100"`
 	DynamicAssetsDir       string        `help:"use a assets dir that is reparsed for every request" default:""`
+
+	Client struct {
+		Identity uplinkutil.IdentityConfig
+	}
 
 	SatelliteConnectionPool satelliteConnectionPoolConfig
 	ConnectionPool          connectionPoolConfig
@@ -148,6 +153,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		dynamicAssets = true
 	}
 
+	clientCertPEM, clientKeyPEM, err := runCfg.Client.Identity.LoadPEMs()
+	if err != nil {
+		return err
+	}
+
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
@@ -197,6 +207,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			Uplink: &uplink.Config{
 				UserAgent:   "linksharing",
 				DialTimeout: runCfg.DialTimeout,
+				ChainPEM:    clientCertPEM,
+				KeyPEM:      clientKeyPEM,
 			},
 			ListPageLimit: runCfg.ListPageLimit,
 		},
