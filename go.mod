@@ -31,10 +31,10 @@ require (
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20240514094109-2737de81d21e
+	storj.io/common v0.0.0-20240530004007-0608f3092c42
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
-	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
+	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/gateway v1.9.1-0.20240517132048-2aaa6fd6d33e
 	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a
 	storj.io/uplink v1.13.0
@@ -201,7 +201,7 @@ require (
 	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
