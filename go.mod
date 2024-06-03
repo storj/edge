@@ -37,7 +37,7 @@ require (
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/gateway v1.9.1-0.20240517132048-2aaa6fd6d33e
 	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a
-	storj.io/uplink v1.13.1-0.20240522144333-931e862e9315
+	storj.io/uplink v1.13.1-0.20240603182509-b9030dfb1269
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
