@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/process"
+	"storj.io/common/process/eventkitbq"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing"
@@ -140,7 +142,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	log := zap.L()
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), eventkitbq.BQDestination); err != nil {
 		return errs.New("failed to initialize telemetry batcher: %w", err)
 	}
 
