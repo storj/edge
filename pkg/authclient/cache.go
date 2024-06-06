@@ -16,10 +16,11 @@ var (
 )
 
 type cachedAuthServiceResponse struct {
-	accessGrant []byte
-	secretKey   []byte
-	public      bool
-	err         error
+	accessGrant     []byte
+	secretKey       []byte
+	public          bool
+	publicProjectID string
+	err             error
 }
 
 func encryptResponse(accessKeyID string, resp AuthServiceResponse, respErr error) (cachedAuthServiceResponse, error) {
@@ -39,10 +40,11 @@ func encryptResponse(accessKeyID string, resp AuthServiceResponse, respErr error
 	}
 
 	return cachedAuthServiceResponse{
-		accessGrant: accessGrant,
-		secretKey:   secretKey,
-		public:      resp.Public,
-		err:         respErr,
+		accessGrant:     accessGrant,
+		secretKey:       secretKey,
+		public:          resp.Public,
+		publicProjectID: resp.PublicProjectID,
+		err:             respErr,
 	}, nil
 }
 
@@ -63,8 +65,9 @@ func (resp *cachedAuthServiceResponse) decrypt(accessKeyID string) (AuthServiceR
 	}
 
 	return AuthServiceResponse{
-		AccessGrant: string(accessGrant),
-		SecretKey:   string(secretKey),
-		Public:      resp.public,
+		AccessGrant:     string(accessGrant),
+		SecretKey:       string(secretKey),
+		Public:          resp.public,
+		PublicProjectID: resp.publicProjectID,
 	}, nil
 }

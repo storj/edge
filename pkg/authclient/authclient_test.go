@@ -71,7 +71,7 @@ func TestLoadUserRetry(t *testing.T) {
 			firstAttempt = false
 			return // writing nothing will cause an http.Client error
 		}
-		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag"}`))
+		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag", "public_project_id":"11111111-2222-3333-4444-555555555555"}`))
 		require.NoError(t, err)
 	}))
 	defer ts.Close()
@@ -82,23 +82,53 @@ func TestLoadUserRetry(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, firstAttempt)
 	require.Equal(t, "ag", asr.AccessGrant)
+	require.Equal(t, "11111111-2222-3333-4444-555555555555", asr.PublicProjectID)
 }
 
 func TestLoadUserResponse(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(`{"public":true, "secret_key":"mysecretkey", "access_grant":"myaccessgrant"}`))
-		require.NoError(t, err)
-	}))
-	defer ts.Close()
+	tests := []struct {
+		name                    string
+		authResponse            string
+		expectedPublic          bool
+		expectedAccessGrant     string
+		expectedSecretKey       string
+		expectedPublicProjectID string
+	}{
+		{
+			name:                    "public project id in response",
+			authResponse:            `{"public":true,"secret_key":"mysecretkey","access_grant":"myaccessgrant","public_project_id":"11111111-2222-3333-4444-555555555555"}`,
+			expectedPublic:          true,
+			expectedAccessGrant:     "myaccessgrant",
+			expectedSecretKey:       "mysecretkey",
+			expectedPublicProjectID: "11111111-2222-3333-4444-555555555555",
+		},
+		{
+			name:                "no public project id in response",
+			authResponse:        `{"public":false,"secret_key":"mysecretkey","access_grant":"myaccessgrant"}`,
+			expectedAccessGrant: "myaccessgrant",
+			expectedSecretKey:   "mysecretkey",
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, err := w.Write([]byte(tc.authResponse))
+				require.NoError(t, err)
+			}))
+			defer ts.Close()
 
-	client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
-	require.NoError(t, err)
-	access, err := client.Resolve(context.Background(), testKey, "127.0.0.1")
-	require.NoError(t, err)
+			client, err := GetTestAuthClient(t, ts.URL, "token", 2*time.Second)
+			require.NoError(t, err)
+			access, err := client.Resolve(context.Background(), testKey, "127.0.0.1")
+			require.NoError(t, err)
 
-	require.Equal(t, true, access.Public)
-	require.Equal(t, "myaccessgrant", access.AccessGrant)
-	require.Equal(t, "mysecretkey", access.SecretKey)
+			require.Equal(t, tc.expectedPublic, access.Public)
+			require.Equal(t, tc.expectedAccessGrant, access.AccessGrant)
+			require.Equal(t, tc.expectedSecretKey, access.SecretKey)
+			require.Equal(t, tc.expectedPublicProjectID, access.PublicProjectID)
+		})
+	}
 }
 
 func TestBadStatusPassedThrough(t *testing.T) {
