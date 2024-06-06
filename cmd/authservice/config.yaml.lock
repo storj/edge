@@ -161,6 +161,9 @@ node.replication-limit: 1000
 # comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)
 public-url: []
 
+# retrieve and store public project ID when registering access grant
+retrieve-public-project-id: true
+
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 

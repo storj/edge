@@ -21,6 +21,7 @@ var KeyHashError = errs.Class("key hash")
 // Record holds encrypted credentials alongside metadata.
 type Record struct {
 	SatelliteAddress     string
+	PublicProjectID      []byte
 	MacaroonHead         []byte // 32 bytes probably
 	EncryptedSecretKey   []byte
 	EncryptedAccessGrant []byte

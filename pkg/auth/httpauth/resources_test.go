@@ -116,7 +116,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Availability after startup", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		const path = "/v1/health/startup"
 
@@ -135,7 +135,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("CRUD", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -155,7 +155,7 @@ func TestResources_CRUD(t *testing.T) {
 		var unknownSatelliteID storj.NodeURL
 		unknownSatelliteID.ID[4] = 7
 		allowed := map[storj.NodeURL]struct{}{unknownSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -169,7 +169,7 @@ func TestResources_CRUD(t *testing.T) {
 		require.False(t, ok)
 
 		allowed = map[storj.NodeURL]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -178,7 +178,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowed, _, err := nodelist.Resolve(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res = newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -198,7 +198,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Public", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -216,7 +216,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalidated", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
 		createResult, ok := exec(res, "POST", "/v1/access", createRequest)
@@ -240,7 +240,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	t.Run("Invalid request", func(t *testing.T) {
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 		check := func(body string, expectedCode int) {
 			rec := httptest.NewRecorder()
@@ -273,7 +273,7 @@ func TestResources_Authorization(t *testing.T) {
 	require.NoError(t, err)
 
 	allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-	res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+	res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -391,7 +391,7 @@ func TestResources_Shutdown(t *testing.T) {
 		req := httptest.NewRequest("GET", "/v1/health/live", nil)
 
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(storage, allowed), endpoint)
+		res := newResource(t, logger, authdb.NewDatabase(storage, allowed, false), endpoint)
 		res.SetStartupDone()
 		if inShutdown {
 			res.SetShutdown()

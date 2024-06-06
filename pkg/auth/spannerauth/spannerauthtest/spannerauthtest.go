@@ -44,6 +44,7 @@ func ConfigureTestServer(ctx context.Context, logger *zap.Logger) (*spannertest.
 				encryption_key_hash    BYTES(32)   NOT NULL,
 				created_at             TIMESTAMP   NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
 				public                 BOOL        NOT NULL,
+				public_project_id      BYTES(16),
 				satellite_address      STRING(MAX) NOT NULL,
 				macaroon_head          BYTES(MAX)  NOT NULL,
 				expires_at             TIMESTAMP,

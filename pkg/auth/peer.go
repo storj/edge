@@ -59,9 +59,10 @@ type Config struct {
 
 	ProxyAddrTLS string `help:"TLS address to listen on for PROXY protocol requests" default:":20005"`
 
-	CertFile  string   `user:"true" help:"server certificate file" default:""`
-	KeyFile   string   `user:"true" help:"server key file" default:""`
-	PublicURL []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
+	CertFile                string   `user:"true" help:"server certificate file" default:""`
+	KeyFile                 string   `user:"true" help:"server key file" default:""`
+	PublicURL               []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
+	RetrievePublicProjectID bool     `user:"true" help:"retrieve and store public project ID when registering access grant" default:"true"`
 
 	CertMagic certMagic
 
@@ -151,7 +152,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	adb := authdb.NewDatabase(storage, allowedSats)
+	adb := authdb.NewDatabase(storage, allowedSats, config.RetrievePublicProjectID)
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{

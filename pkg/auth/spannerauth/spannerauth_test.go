@@ -237,6 +237,7 @@ func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *au
 
 	r := authdb.Record{
 		SatelliteAddress:     testrand.NodeID().String(),
+		PublicProjectID:      testrand.UUID().Bytes(),
 		MacaroonHead:         testrand.Bytes(32 * memory.B),
 		EncryptedSecretKey:   encSecretKey,
 		EncryptedAccessGrant: testrand.Bytes(4 * memory.KiB),

@@ -185,6 +185,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		CreatedAtUnix:        now.Unix(),
 		Public:               record.Public,
 		SatelliteAddress:     record.SatelliteAddress,
+		PublicProjectId:      record.PublicProjectID,
 		MacaroonHead:         record.MacaroonHead,
 		ExpiresAtUnix:        timeToTimestamp(record.ExpiresAt),
 		EncryptedSecretKey:   record.EncryptedSecretKey,
@@ -218,6 +219,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 
 		record = &authdb.Record{
 			SatelliteAddress:     r.SatelliteAddress,
+			PublicProjectID:      r.PublicProjectId,
 			MacaroonHead:         r.MacaroonHead,
 			EncryptedSecretKey:   r.EncryptedSecretKey,
 			EncryptedAccessGrant: r.EncryptedAccessGrant,

@@ -44,7 +44,7 @@ func createBackend(t *testing.T, sizeLimit memory.Size) (_ *Server, _ *authdb.Da
 	storage, err := badgerauth.New(logger, badgerauth.Config{FirstStart: true})
 	require.NoError(t, err)
 
-	db := authdb.NewDatabase(storage, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}})
+	db := authdb.NewDatabase(storage, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}, false)
 
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)
@@ -78,15 +78,12 @@ func TestRegisterAccess(t *testing.T) {
 	err = accessKeyID.FromBase32(response.AccessKeyId)
 	require.NoError(t, err)
 
-	storedAccessGrant, storedPublic, storedSecretKey, err := db.Get(
-		ctx,
-		accessKeyID,
-	)
+	result, err := db.Get(ctx, accessKeyID)
 
 	require.NoError(t, err)
-	require.Equal(t, false, storedPublic)
-	require.Equal(t, minimalAccess, storedAccessGrant)
-	require.Equal(t, response.SecretKey, storedSecretKey.ToBase32())
+	require.Equal(t, false, result.Public)
+	require.Equal(t, minimalAccess, result.AccessGrant)
+	require.Equal(t, response.SecretKey, result.SecretKey.ToBase32())
 }
 
 func TestRegisterAccessContextCanceled(t *testing.T) {
@@ -109,7 +106,7 @@ func TestRegisterAccessContextCanceled(t *testing.T) {
 
 	require.NoError(t, storage.HealthCheck(ctx))
 
-	db := authdb.NewDatabase(storage, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}})
+	db := authdb.NewDatabase(storage, map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}, false)
 
 	endpoint, err := url.Parse("http://gateway.test")
 	require.NoError(t, err)

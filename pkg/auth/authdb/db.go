@@ -16,10 +16,14 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
-	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
+	"storj.io/common/version"
 	"storj.io/edge/pkg/nodelist"
+	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
+	privateProject "storj.io/uplink/private/project"
 )
 
 var (
@@ -32,6 +36,8 @@ var (
 	ErrAccessGrant = errs.Class("access grant")
 
 	base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+
+	userAgent = "authservice/" + version.Build.Version.String()
 )
 
 // EncKeySizeEncoded is size in base32 bytes + magic byte.
@@ -45,6 +51,13 @@ type EncryptionKey [16]byte
 
 // SecretKey is the secret key used to sign requests.
 type SecretKey [32]byte
+
+// ResultRecord is returned when retrieving a record.
+type ResultRecord struct {
+	AccessGrant string
+	SecretKey   SecretKey
+	*Record
+}
 
 // NewEncryptionKey returns a new random EncryptionKey with initial version byte.
 func NewEncryptionKey() (EncryptionKey, error) {
@@ -118,17 +131,23 @@ func toBase32(k []byte) string {
 type Database struct {
 	storage Storage
 
-	mu                   sync.Mutex
-	allowedSatelliteURLs map[storj.NodeURL]struct{}
+	mu                      sync.Mutex
+	allowedSatelliteURLs    map[storj.NodeURL]struct{}
+	retrievePublicProjectID bool
+	uplinkConfig            uplink.Config
 }
 
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (with a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}) *Database {
+func NewDatabase(storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}, retrievePublicProjectID bool) *Database {
 	return &Database{
-		storage:              storage,
-		allowedSatelliteURLs: allowedSatelliteURLs,
+		storage:                 storage,
+		allowedSatelliteURLs:    allowedSatelliteURLs,
+		retrievePublicProjectID: retrievePublicProjectID,
+		uplinkConfig: uplink.Config{
+			UserAgent: userAgent,
+		},
 	}
 }
 
@@ -145,14 +164,14 @@ func (db *Database) SetAllowedSatellites(allowedSatelliteURLs map[storj.NodeURL]
 func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (secretKey SecretKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	access, err := grant.ParseAccess(accessGrant)
+	access, err := uplink.ParseAccess(accessGrant)
 	if err != nil {
 		return secretKey, ErrAccessGrant.Wrap(err)
 	}
 
 	// Check that the satellite address embedded in the access grant is on the
 	// allowed list.
-	satelliteAddr := access.SatelliteAddress
+	satelliteAddr := access.SatelliteAddress()
 	nodeURL, err := nodelist.ParseNodeURL(satelliteAddr)
 	if err != nil {
 		return secretKey, ErrAccessGrant.Wrap(err)
@@ -181,14 +200,25 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return secretKey, errs.Wrap(err)
 	}
 
-	expiration, err := apiKeyExpiration(access.APIKey)
+	apiKey := privateAccess.APIKey(access)
+
+	expiration, err := apiKeyExpiration(apiKey)
 	if err != nil {
 		return secretKey, ErrAccessGrant.Wrap(err)
 	}
 
+	var publicProjectID uuid.UUID
+	if db.retrievePublicProjectID {
+		publicProjectID, err = privateProject.GetPublicID(ctx, db.uplinkConfig, access)
+		if err != nil {
+			return secretKey, errs.Wrap(err)
+		}
+	}
+
 	record := &Record{
 		SatelliteAddress:     satelliteAddr,
-		MacaroonHead:         access.APIKey.Head(),
+		PublicProjectID:      publicProjectID.Bytes(),
+		MacaroonHead:         apiKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,
 		Public:               public,
@@ -200,30 +230,37 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 
 // Get retrieves an access grant and secret key, looked up by the hash of the
 // access key, and then decrypted.
-func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (accessGrant string, public bool, secretKey SecretKey, err error) {
+func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (result ResultRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	record, err := db.storage.Get(ctx, accessKeyID.Hash())
+	dbRecord, err := db.storage.Get(ctx, accessKeyID.Hash())
 	if err != nil {
-		return "", false, secretKey, errs.Wrap(err)
-	} else if record == nil {
-		return "", false, secretKey, NotFound.New("key hash: %x", accessKeyID.Hash())
+		return result, errs.Wrap(err)
+	} else if dbRecord == nil {
+		return result, NotFound.New("key hash: %x", accessKeyID.Hash())
 	}
 
 	storjKey := accessKeyID.ToStorjKey()
 	// note that we currently always use the same nonce here - all zero's for secret keys
-	sk, err := encryption.Decrypt(record.EncryptedSecretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
+	sk, err := encryption.Decrypt(dbRecord.EncryptedSecretKey, storj.EncAESGCM, &storjKey, &storj.Nonce{})
 	if err != nil {
-		return "", false, secretKey, errs.Wrap(err)
-	}
-	copy(secretKey[:], sk)
-	// note that we currently always use the same nonce here - one then all zero's for access grants
-	ag, err := encryption.Decrypt(record.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, &storj.Nonce{1})
-	if err != nil {
-		return "", false, secretKey, errs.Wrap(err)
+		return result, errs.Wrap(err)
 	}
 
-	return string(ag), record.Public, secretKey, nil
+	var secretKey SecretKey
+
+	copy(secretKey[:], sk)
+	// note that we currently always use the same nonce here - one then all zero's for access grants
+	ag, err := encryption.Decrypt(dbRecord.EncryptedAccessGrant, storj.EncAESGCM, &storjKey, &storj.Nonce{1})
+	if err != nil {
+		return result, errs.Wrap(err)
+	}
+
+	return ResultRecord{
+		AccessGrant: string(ag),
+		SecretKey:   secretKey,
+		Record:      dbRecord,
+	}, nil
 }
 
 // HealthCheck ensures the underlying storage backend works and returns an error

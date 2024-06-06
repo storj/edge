@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
 )
 
@@ -243,7 +244,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	accessGrant, public, secretKey, err := res.db.Get(req.Context(), key)
+	result, err := res.db.Get(req.Context(), key)
 	if err != nil {
 		if authdb.NotFound.Has(err) || authdb.Invalid.Has(err) {
 			res.writeError(w, "getAccess", err.Error(), http.StatusUnauthorized)
@@ -258,14 +259,25 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var response struct {
-		AccessGrant string `json:"access_grant"`
-		SecretKey   string `json:"secret_key"`
-		Public      bool   `json:"public"`
+		AccessGrant     string `json:"access_grant"`
+		SecretKey       string `json:"secret_key"`
+		Public          bool   `json:"public"`
+		PublicProjectID string `json:"public_project_id,omitempty"`
 	}
 
-	response.AccessGrant = accessGrant
-	response.SecretKey = secretKey.ToBase32()
-	response.Public = public
+	var publicProjectID uuid.UUID
+	if len(result.PublicProjectID) > 0 {
+		publicProjectID, err = uuid.FromBytes(result.PublicProjectID)
+		if err != nil {
+			res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	response.AccessGrant = result.AccessGrant
+	response.SecretKey = result.SecretKey.ToBase32()
+	response.Public = result.Public
+	response.PublicProjectID = publicProjectID.String()
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)

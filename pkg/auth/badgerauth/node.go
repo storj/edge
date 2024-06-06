@@ -278,6 +278,7 @@ func (node *Node) Get(ctx context.Context, keyHash authdb.KeyHash) (record *auth
 			case result <- recordInfo{
 				record: &authdb.Record{
 					SatelliteAddress:     r.SatelliteAddress,
+					PublicProjectID:      r.PublicProjectId,
 					MacaroonHead:         r.MacaroonHead,
 					EncryptedSecretKey:   r.EncryptedSecretKey,
 					EncryptedAccessGrant: r.EncryptedAccessGrant,

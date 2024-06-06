@@ -96,6 +96,7 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 	in := map[string]interface{}{
 		"encryption_key_hash":    keyHash.Bytes(),
 		"public":                 record.Public,
+		"public_project_id":      record.PublicProjectID,
 		"satellite_address":      record.SatelliteAddress,
 		"macaroon_head":          record.MacaroonHead,
 		"encrypted_secret_key":   record.EncryptedSecretKey,
@@ -156,6 +157,7 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 	key := spanner.Key{keyHash.Bytes()}
 	col := []string{
 		"public",
+		"public_project_id",
 		"satellite_address",
 		"macaroon_head",
 		"created_at",
@@ -195,6 +197,9 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 
 	record := new(authdb.FullRecord)
 	if err := row.ColumnByName("public", &record.Public); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("public_project_id", &record.PublicProjectID); err != nil {
 		return nil, Error.Wrap(err)
 	}
 	if err := row.ColumnByName("satellite_address", &record.SatelliteAddress); err != nil {
