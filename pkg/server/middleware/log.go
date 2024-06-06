@@ -114,20 +114,22 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		httpRequestLog.RequestURL = r.RequestURI
 	}
 
-	var accessKeyHash, macaroonHead, satelliteAddress string
-
+	var macHead, encKeyHash, satelliteAddress, publicProjectID string
 	credentials := GetAccess(r.Context())
-	if credentials != nil && credentials.AccessKey != "" {
-		var key authdb.EncryptionKey
-		if err := key.FromBase32(credentials.AccessKey); err == nil {
-			accessKeyHash = key.Hash().ToHex()
+	if credentials != nil {
+		if credentials.AccessGrant != "" {
+			if access, err := grant.ParseAccess(credentials.AccessGrant); err == nil {
+				macHead = hex.EncodeToString(access.APIKey.Head())
+				satelliteAddress = access.SatelliteAddress
+			}
 		}
-	}
-	if credentials != nil && credentials.AccessGrant != "" {
-		if access, err := grant.ParseAccess(credentials.AccessGrant); err == nil {
-			macaroonHead = hex.EncodeToString(access.APIKey.Head())
-			satelliteAddress = access.SatelliteAddress
+		if credentials.AccessKey != "" {
+			var key authdb.EncryptionKey
+			if err := key.FromBase32(credentials.AccessKey); err == nil {
+				encKeyHash = key.Hash().ToHex()
+			}
 		}
+		publicProjectID = credentials.PublicProjectID
 	}
 
 	fields := []zapcore.Field{
@@ -140,8 +142,9 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		zap.String("error", gl.TagValue("error")),
 		zap.String("request-id", requestid.FromContext(r.Context())),
 		zap.String("amz-request-id", gl.RequestID),
-		zap.String("encryption-key-hash", accessKeyHash),
-		zap.String("macaroon-head", macaroonHead),
+		zap.String("public-project-id", publicProjectID),
+		zap.String("encryption-key-hash", encKeyHash),
+		zap.String("macaroon-head", macHead),
 		zap.String("satellite-address", satelliteAddress),
 		zap.String("trace-id", rw.Header().Get("trace-id")),
 		zap.Object("query", &httplog.RequestQueryLogObject{

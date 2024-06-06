@@ -40,7 +40,7 @@ func CollectEvent(h http.Handler) http.Handler {
 				}
 			}
 
-			var macHead, encKeyHash, satelliteAddress string
+			var macHead, encKeyHash, satelliteAddress, publicProjectID string
 			credentials := GetAccess(r.Context())
 			if credentials != nil {
 				if credentials.AccessGrant != "" {
@@ -55,6 +55,7 @@ func CollectEvent(h http.Handler) http.Handler {
 						encKeyHash = key.Hash().ToHex()
 					}
 				}
+				publicProjectID = credentials.PublicProjectID
 			}
 
 			gl, ok := gwlog.FromContext(r.Context())
@@ -89,6 +90,7 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.Int64("request-size", r.ContentLength),
 				eventkit.Int64("response-size", rw.Written()),
 				eventkit.Duration("duration", time.Since(start)),
+				eventkit.String("public-project-id", publicProjectID),
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),

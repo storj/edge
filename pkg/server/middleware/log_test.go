@@ -130,7 +130,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 	observedLogger := zap.New(observedZapCore)
 
 	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(fmt.Sprintf(`{"public":true,"secret_key":"SecretKey","access_grant":"%s"}`, testAccessGrant)))
+		_, err := w.Write([]byte(fmt.Sprintf(`{"public":true,"secret_key":"SecretKey","access_grant":"%s","public_project_id":"11111111-2222-3333-4444-555555555555"}`, testAccessGrant)))
 		require.NoError(t, err)
 	}))
 	defer authService.Close()
@@ -146,6 +146,9 @@ func TestAccessDetailsLogged(t *testing.T) {
 	require.Len(t, filteredLogs.All(), 1)
 
 	filteredLogs = observedLogs.FilterField(zap.String("satellite-address", "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"))
+	require.Len(t, filteredLogs.All(), 1)
+
+	filteredLogs = observedLogs.FilterField(zap.String("public-project-id", "11111111-2222-3333-4444-555555555555"))
 	require.Len(t, filteredLogs.All(), 1)
 }
 
