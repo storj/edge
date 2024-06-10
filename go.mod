@@ -31,11 +31,11 @@ require (
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20240530004007-0608f3092c42
+	storj.io/common v0.0.0-20240610190553-b81b7c826f57
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
-	storj.io/gateway v1.9.1-0.20240517132048-2aaa6fd6d33e
+	storj.io/gateway v1.9.1-0.20240610202413-d0bf605d6b84
 	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a
 	storj.io/uplink v1.13.1-0.20240603182509-b9030dfb1269
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
