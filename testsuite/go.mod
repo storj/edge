@@ -16,7 +16,7 @@ require (
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a
 	storj.io/storj v1.106.1
-	storj.io/uplink v1.13.1-0.20240603182509-b9030dfb1269
+	storj.io/uplink v1.13.1-0.20240605011603-26d3158333db
 )
 
 require (
@@ -266,7 +266,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.34 // indirect
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
-	storj.io/gateway v1.9.1-0.20240610202413-d0bf605d6b84 // indirect
+	storj.io/gateway v1.9.1-0.20240610224606-6122649b478f // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
