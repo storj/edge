@@ -29,6 +29,7 @@ type TXTRecords struct {
 type Result struct {
 	SerializedAccess string
 	Access           *uplink.Access
+	PublicProjectID  string
 	Root             string
 	TLS              bool
 }
@@ -172,7 +173,7 @@ func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 	// valid signed request could update the cache for all other clients. One
 	// way to circumvent this would be to guess the signed request before and
 	// disable cache in that path. However, this requires major refactoring.
-	access, err := parseAccess(ctx, nil, serializedAccess, 0, records.auth, clientIP)
+	result, err := parseAccess(ctx, nil, serializedAccess, 0, records.auth, clientIP)
 	if err != nil {
 		return nil, errs.New("failure with hostname %q: %w", hostname, err)
 	}
@@ -185,7 +186,8 @@ func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 	return &txtRecord{
 		queryResult: Result{
 			SerializedAccess: serializedAccess,
-			Access:           access,
+			Access:           result.Access,
+			PublicProjectID:  result.PublicProjectID,
 			Root:             root,
 			TLS:              tls,
 		},

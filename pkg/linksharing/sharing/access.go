@@ -17,6 +17,11 @@ import (
 	"storj.io/uplink"
 )
 
+type parseResult struct {
+	Access          *uplink.Access
+	PublicProjectID string
+}
+
 // parseAccess guesses whether access is an access grant or Access Key ID. If
 // latter, it contacts authservice to resolve it. If the resolved access grant
 // isn't public, it will assume r is AWS Signature Version 4-signed if it
@@ -30,19 +35,23 @@ func parseAccess(
 	signedAccessValidityTolerance time.Duration,
 	cfg *authclient.AuthClient,
 	clientIP string,
-) (_ *uplink.Access, err error) {
+) (_ *parseResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	wrappedParse := func(access string) (*uplink.Access, error) {
+	wrappedResult := func(access, publicProjectID string) (*parseResult, error) {
 		parsed, err := uplink.ParseAccess(access)
 		if err != nil {
 			return nil, errdata.WithStatus(err, http.StatusBadRequest)
 		}
-		return parsed, nil
+
+		return &parseResult{
+			Access:          parsed,
+			PublicProjectID: publicProjectID,
+		}, nil
 	}
 
 	if isProductionAccessGrant(access) {
-		return wrappedParse(access)
+		return wrappedResult(access, "")
 	}
 
 	// otherwise, assume an access key.
@@ -59,7 +68,7 @@ func parseAccess(
 		}
 	}
 
-	return wrappedParse(authResp.AccessGrant)
+	return wrappedResult(authResp.AccessGrant, authResp.PublicProjectID)
 }
 
 func isProductionAccessGrant(s string) bool {

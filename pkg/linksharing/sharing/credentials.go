@@ -24,6 +24,7 @@ type credentialsCV struct{}
 type credentials struct {
 	serializedAccess string
 	access           *uplink.Access
+	publicProjectID  string
 	hostingRoot      string
 	hostingTLS       bool
 	hostingHost      string
@@ -129,6 +130,7 @@ func (h *Handler) hostingCredentials(ctx context.Context, r *http.Request) (cred
 	return credentials{
 		serializedAccess: result.SerializedAccess,
 		access:           result.Access,
+		publicProjectID:  result.PublicProjectID,
 		hostingRoot:      result.Root,
 		hostingTLS:       result.TLS,
 		hostingHost:      host,
@@ -156,13 +158,14 @@ func (h *Handler) standardCredentials(ctx context.Context, r *http.Request) (cre
 	}
 
 	// TODO(artur): make signedAccessValidityTolerance a configuration attribute.
-	access, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, h.authClient, trustedip.GetClientIP(h.trustedClientIPsList, r))
+	result, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, h.authClient, trustedip.GetClientIP(h.trustedClientIPsList, r))
 	if err != nil {
 		return creds, err
 	}
 
 	return credentials{
 		serializedAccess: serializedAccess,
-		access:           access,
+		access:           result.Access,
+		publicProjectID:  result.PublicProjectID,
 	}, nil
 }

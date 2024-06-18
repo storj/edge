@@ -39,7 +39,7 @@ func EventHandler(h http.Handler) http.Handler {
 				}
 			}
 
-			var macHead, encKeyHash, satelliteAddress, hostingRoot string
+			var macHead, encKeyHash, satelliteAddress, hostingRoot, publicProjectID string
 			var hostingTLS bool
 			creds := credentialsFromContext(r.Context())
 			if creds != nil {
@@ -58,6 +58,7 @@ func EventHandler(h http.Handler) http.Handler {
 
 				hostingRoot = creds.hostingRoot
 				hostingTLS = creds.hostingTLS
+				publicProjectID = creds.publicProjectID
 			}
 
 			h.ServeHTTP(w, r)
@@ -88,6 +89,7 @@ func EventHandler(h http.Handler) http.Handler {
 				eventkit.Int64("request-size", r.ContentLength),
 				eventkit.Int64("response-size", rw.Written()),
 				eventkit.Duration("duration", time.Since(start)),
+				eventkit.String("public-project-id", publicProjectID),
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
