@@ -42,14 +42,12 @@ type inMemoryStorage struct {
 	buckets map[string]map[string][]byte
 }
 
-//lint:ignore U1000, will be used in next commits
 func newInMemoryStorage() *inMemoryStorage {
 	return &inMemoryStorage{
 		buckets: make(map[string]map[string][]byte),
 	}
 }
 
-//lint:ignore U1000, will be used in next commits
 func (s *inMemoryStorage) getBucketContents(bucket string) map[string][]byte {
 	return s.buckets[bucket]
 }
