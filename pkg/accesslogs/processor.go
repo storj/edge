@@ -201,7 +201,7 @@ func (p *parcel) add(upload uploader, size int, s string) (shipped int, err erro
 		return 0, nil
 	}
 	// slow…
-	k, err := randomKey(p.prefix)
+	k, err := randomKey(p.prefix, time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -223,7 +223,7 @@ func (p *parcel) flush(upload uploader) error {
 	// NOTE(artur): here we need to queue upload without limits because when we
 	// flush before close, we really want to drain all parcels as we won't have
 	// the chance to trigger shipment later on.
-	k, err := randomKey(p.prefix)
+	k, err := randomKey(p.prefix, time.Now())
 	if err != nil {
 		return err
 	}
@@ -245,13 +245,13 @@ func (p *parcel) close(upload uploader) error {
 	return nil
 }
 
-func randomKey(prefix string) (string, error) {
+func randomKey(prefix string, t time.Time) (string, error) {
 	// TODO(artur): let's return something like
 	// [DestinationPrefix][YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString]
 	// for now. We can make randomKey take a custom format later.
 	key := new(strings.Builder)
 	key.WriteString(prefix)
-	key.WriteString(time.Now().UTC().Format("2006-01-02-15-04-05-"))
+	key.WriteString(t.UTC().Format("2006-01-02-15-04-05-"))
 
 	u, err := uniqueString()
 	if err != nil {

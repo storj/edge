@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -144,6 +145,18 @@ func TestProcessorWithShipment(t *testing.T) {
 	}
 }
 
+func TestRandomKey(t *testing.T) {
+	now := time.Date(2019, time.February, 6, 0, 0, 38, 0, time.UTC)
+	for _, p := range []string{
+		"prefix",
+		"prefix/",
+	} {
+		k, err := randomKey(p, now)
+		require.NoError(t, err)
+		require.Regexp(t, "^"+p+"2019-02-06-00-00-38-[0-9A-F]{16}$", k)
+	}
+}
+
 var exampleAmazonS3ServerAccessLogLine = func() func() string {
 	i := int64(-1)
 	exampleLogLines := []string{
@@ -234,7 +247,7 @@ func BenchmarkRandomKey(b *testing.B) {
 		err error
 	)
 	for i := 0; i < b.N; i++ {
-		r, err = randomKey("prefix")
+		r, err = randomKey("prefix", time.Now())
 		require.NoError(b, err)
 	}
 	benchmarkRandomKeyResult = r
