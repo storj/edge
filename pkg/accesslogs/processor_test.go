@@ -6,6 +6,7 @@ package accesslogs
 import (
 	"bytes"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -141,4 +142,112 @@ func TestProcessorWithShipment(t *testing.T) {
 		bucketContents = strings.Replace(bucketContents, entry2.String()+"\n", "", 10)
 		require.Empty(t, bucketContents)
 	}
+}
+
+var exampleAmazonS3ServerAccessLogLine = func() func() string {
+	i := int64(-1)
+	exampleLogLines := []string{
+		`79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DOC-EXAMPLE-BUCKET1 [06/Feb/2019:00:00:38 +0000] 192.0.2.3 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be 3E57427F3EXAMPLE REST.GET.VERSIONING - "GET /DOC-EXAMPLE-BUCKET1?versioning HTTP/1.1" 200 - 113 - 7 - "-" "S3Console/0.4" - s9lzHYrFp76ZVxRcpX9+5cjAnEH2ROuNkd2BHfIa6UkFVdtjf5mKR3/eTPFvsiP/XV/VLi31234= SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader DOC-EXAMPLE-BUCKET1.s3.us-west-1.amazonaws.com TLSV1.2 arn:aws:s3:us-west-1:123456789012:accesspoint/example-AP Yes`,
+		`79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DOC-EXAMPLE-BUCKET1 [06/Feb/2019:00:00:38 +0000] 192.0.2.3 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be 891CE47D2EXAMPLE REST.GET.LOGGING_STATUS - "GET /DOC-EXAMPLE-BUCKET1?logging HTTP/1.1" 200 - 242 - 11 - "-" "S3Console/0.4" - 9vKBE6vMhrNiWHZmb2L0mXOcqPGzQOI5XLnCtZNPxev+Hf+7tpT6sxDwDty4LHBUOZJG96N1234= SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader DOC-EXAMPLE-BUCKET1.s3.us-west-1.amazonaws.com TLSV1.2 - -`,
+		`79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DOC-EXAMPLE-BUCKET1 [06/Feb/2019:00:00:38 +0000] 192.0.2.3 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be A1206F460EXAMPLE REST.GET.BUCKETPOLICY - "GET /DOC-EXAMPLE-BUCKET1?policy HTTP/1.1" 404 NoSuchBucketPolicy 297 - 38 - "-" "S3Console/0.4" - BNaBsXZQQDbssi6xMBdBU2sLt+Yf5kZDmeBUP35sFoKa3sLLeMC78iwEIWxs99CRUrbS4n11234= SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader DOC-EXAMPLE-BUCKET1.s3.us-west-1.amazonaws.com TLSV1.2 - Yes `,
+		`79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DOC-EXAMPLE-BUCKET1 [06/Feb/2019:00:01:00 +0000] 192.0.2.3 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be 7B4A0FABBEXAMPLE REST.GET.VERSIONING - "GET /DOC-EXAMPLE-BUCKET1?versioning HTTP/1.1" 200 - 113 - 33 - "-" "S3Console/0.4" - Ke1bUcazaN1jWuUlPJaxF64cQVpUEhoZKEG/hmy/gijN/I1DeWqDfFvnpybfEseEME/u7ME1234= SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader DOC-EXAMPLE-BUCKET1.s3.us-west-1.amazonaws.com TLSV1.2 - -`,
+		`79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DOC-EXAMPLE-BUCKET1 [06/Feb/2019:00:01:57 +0000] 192.0.2.3 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be DD6CC733AEXAMPLE REST.PUT.OBJECT s3-dg.pdf "PUT /DOC-EXAMPLE-BUCKET1/s3-dg.pdf HTTP/1.1" 200 - - 4406583 41754 28 "-" "S3Console/0.4" - 10S62Zv81kBW7BB6SX4XJ48o6kpcl6LPwEoizZQQxJd5qDSCTLX0TgS37kYUBKQW3+bPdrg1234= SigV4 ECDHE-RSA-AES128-SHA AuthHeader DOC-EXAMPLE-BUCKET1.s3.us-west-1.amazonaws.com TLSV1.2 - Yes `,
+	}
+	return func() string {
+		n := atomic.AddInt64(&i, 1)
+		return exampleLogLines[n%int64(len(exampleLogLines))]
+	}
+}()
+
+func BenchmarkParallelQueueEntry(b *testing.B) {
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(b)
+	defer ctx.Check(log.Sync)
+
+	s := newInMemoryStorage()
+	p := NewProcessor(log, s, Options{})
+	defer ctx.Check(p.Close)
+
+	ctx.Go(func() error {
+		return p.Run(ctx)
+	})
+
+	id, err := uuid.New()
+	require.NoError(b, err)
+
+	key := Key{
+		PublicProjectID: id,
+		Bucket:          "bucket",
+		Prefix:          "prefix",
+	}
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			require.NoError(b, p.QueueEntry(nil, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
+		}
+	})
+}
+
+func BenchmarkQueueEntry(b *testing.B) {
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(b)
+	defer ctx.Check(log.Sync)
+
+	s := newInMemoryStorage()
+	p := NewProcessor(log, s, Options{})
+	defer ctx.Check(p.Close)
+
+	ctx.Go(func() error {
+		return p.Run(ctx)
+	})
+
+	id, err := uuid.New()
+	require.NoError(b, err)
+
+	key := Key{
+		PublicProjectID: id,
+		Bucket:          "bucket",
+		Prefix:          "prefix",
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, p.QueueEntry(nil, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
+	}
+}
+
+var (
+	benchmarkRandomKeyResult    string
+	benchmarkUniqueStringResult string
+)
+
+func BenchmarkRandomKey(b *testing.B) {
+	var (
+		r   string
+		err error
+	)
+	for i := 0; i < b.N; i++ {
+		r, err = randomKey("prefix")
+		require.NoError(b, err)
+	}
+	benchmarkRandomKeyResult = r
+}
+
+func BenchmarkUniqueString(b *testing.B) {
+	var (
+		r   string
+		err error
+	)
+	for i := 0; i < b.N; i++ {
+		r, err = uniqueString()
+		require.NoError(b, err)
+	}
+	benchmarkUniqueStringResult = r
 }
