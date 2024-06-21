@@ -68,6 +68,8 @@ type StorjStorage struct{}
 
 // Put saves body under bucket/key to Storj.
 func (s StorjStorage) Put(ctx context.Context, access *uplink.Access, bucket, key string, body []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	p, err := uplink.OpenProject(ctx, access)
 	if err != nil {
 		return err
@@ -135,6 +137,8 @@ func newSequentialUploader(log *zap.Logger, store Storage, opts sequentialUpload
 	}
 }
 
+var monQueueLength = mon.IntVal("queue_length")
+
 func (u *sequentialUploader) queueUpload(access *uplink.Access, bucket, key string, body []byte) error {
 	u.mu.Lock()
 	if u.closed {
@@ -146,9 +150,12 @@ func (u *sequentialUploader) queueUpload(access *uplink.Access, bucket, key stri
 		return ErrTooLarge
 	} else if u.queueLen >= u.queueLimit {
 		u.mu.Unlock()
+		mon.Event("queue_limit_reached")
+		u.log.Info("queue limit reached", zap.Int("limit", u.queueLimit))
 		return ErrQueueLimit
 	}
 	u.queueLen++
+	monQueueLength.Observe(int64(u.queueLen))
 	u.mu.Unlock()
 
 	u.queue <- upload{
@@ -173,6 +180,7 @@ func (u *sequentialUploader) queueUploadWithoutQueueLimit(access *uplink.Access,
 		return ErrTooLarge
 	}
 	u.queueLen++
+	monQueueLength.Observe(int64(u.queueLen))
 	u.mu.Unlock()
 
 	u.queue <- upload{
@@ -211,22 +219,27 @@ func (u *sequentialUploader) run(ctx context.Context) error {
 	for up := range u.queue {
 		if err := u.store.Put(ctx, up.access, up.bucket, up.key, up.body); err != nil {
 			if up.retries == u.retryLimit {
+				u.mu.Lock()
+				u.queueLen--
+				monQueueLength.Observe(int64(u.queueLen))
+				u.mu.Unlock()
+				mon.Event("upload_dropped")
 				u.log.Error("retry limit reached",
 					zap.String("bucket", up.bucket),
 					zap.String("prefix", up.key),
 					zap.Error(err),
 				)
-				u.mu.Lock()
-				u.queueLen--
-				u.mu.Unlock()
 				continue // NOTE(artur): here we could spill to disk or something
 			}
 			up.retries++
 			u.queue <- up // failure; don't decrement u.queueLen
+			mon.Event("upload_failed")
 		}
 		u.mu.Lock()
 		u.queueLen--
+		monQueueLength.Observe(int64(u.queueLen))
 		u.mu.Unlock()
+		mon.Event("upload_successful")
 	}
 	u.queueDrained.Signal()
 	return nil

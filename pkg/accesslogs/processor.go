@@ -24,8 +24,10 @@ import (
 )
 
 const (
-	defaultEntryLimit    = 2 * memory.KiB
-	defaultShipmentLimit = 63 * memory.MiB
+	defaultEntryLimit         = 2 * memory.KiB
+	defaultShipmentLimit      = 63 * memory.MiB
+	defaultUploaderQueueLimit = 100
+	defaultUploaderRetryLimit = 3
 )
 
 var mon = monkit.Package()
@@ -58,7 +60,7 @@ type Processor struct {
 	globalLimit memory.Size
 
 	parcels    sync.Map
-	globalSize uint64
+	globalSize int64
 }
 
 // Options define how Processor should be configured when initialized.
@@ -76,19 +78,19 @@ type Options struct {
 func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
 	log = log.Named("access logs processor")
 
-	if opts.DefaultEntryLimit == 0 {
+	if opts.DefaultEntryLimit <= 0 {
 		opts.DefaultEntryLimit = defaultEntryLimit
 	}
-	if opts.DefaultShipmentLimit == 0 {
+	if opts.DefaultShipmentLimit <= 0 {
 		opts.DefaultShipmentLimit = defaultShipmentLimit
 	}
-	if opts.UploadingOptions.QueueLimit == 0 {
-		opts.UploadingOptions.QueueLimit = 100
+	if opts.UploadingOptions.QueueLimit <= 0 {
+		opts.UploadingOptions.QueueLimit = defaultUploaderQueueLimit
 	}
-	if opts.UploadingOptions.RetryLimit == 0 {
-		opts.UploadingOptions.RetryLimit = 3
+	if opts.UploadingOptions.RetryLimit <= 0 {
+		opts.UploadingOptions.RetryLimit = defaultUploaderRetryLimit
 	}
-	if opts.UploadingOptions.ShutdownTimeout == 0 {
+	if opts.UploadingOptions.ShutdownTimeout <= 0 {
 		opts.UploadingOptions.ShutdownTimeout = time.Minute
 	}
 
@@ -102,6 +104,7 @@ func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
 		}),
 		defaultEntryLimit:    opts.DefaultEntryLimit,
 		defaultShipmentLimit: opts.DefaultShipmentLimit,
+		globalLimit:          opts.DefaultShipmentLimit * 100,
 	}
 }
 
@@ -113,12 +116,15 @@ func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
 // configured with Storage and the destination store can be specified
 // per parcel.
 func (p *Processor) QueueEntry(access *uplink.Access, key Key, entry Entry) (err error) {
+	defer mon.Task()(nil)(&err)
+
 	entrySize := entry.Size().Int()
 
-	if g := atomic.LoadUint64(&p.globalSize); g+uint64(entrySize) > uint64(p.globalLimit.Int()) {
+	if g := atomic.LoadInt64(&p.globalSize); g+int64(entrySize) > p.globalLimit.Int64() {
 		// NOTE(artur): we could return an error here, but we would have
 		// to flush immediately afterward.
-		mon.Event("global_size_exceeded")
+		mon.Event("global_limit_exceeded")
+		p.log.Warn("globalLimit exceeded", zap.Int64("limit", p.globalLimit.Int64()), zap.Int64("size", g))
 	}
 
 	loaded, _ := p.parcels.LoadOrStore(key, &parcel{
@@ -142,11 +148,7 @@ func (p *Processor) QueueEntry(access *uplink.Access, key Key, entry Entry) (err
 		return Error.Wrap(err)
 	}
 
-	if shipped > 0 {
-		atomic.StoreUint64(&p.globalSize, -uint64(shipped-entrySize))
-	} else {
-		atomic.StoreUint64(&p.globalSize, uint64(entrySize))
-	}
+	mon.IntVal("globalLimit").Observe(atomic.AddInt64(&p.globalSize, int64(-shipped+entrySize)))
 
 	return nil
 }
@@ -158,7 +160,9 @@ func (p *Processor) Run(ctx context.Context) error {
 
 // Close stops Processor. Upon call to Close, all buffers are flushed,
 // and the call is blocked until all flushing and uploading is done.
-func (p *Processor) Close() error {
+func (p *Processor) Close() (err error) {
+	defer mon.Task()(nil)(&err)
+
 	p.parcels.Range(func(k, v any) bool {
 		key, parcel := k.(Key), v.(*parcel)
 		if err := parcel.close(p.upload); err != nil {
