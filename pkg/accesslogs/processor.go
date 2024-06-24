@@ -20,7 +20,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/uplink"
 )
 
 const (
@@ -75,7 +74,7 @@ type Options struct {
 }
 
 // NewProcessor returns initialized Processor.
-func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
+func NewProcessor(log *zap.Logger, opts Options) *Processor {
 	log = log.Named("access logs processor")
 
 	if opts.DefaultEntryLimit <= 0 {
@@ -96,7 +95,7 @@ func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
 
 	return &Processor{
 		log: log,
-		upload: newSequentialUploader(log, store, sequentialUploaderOptions{
+		upload: newSequentialUploader(log, sequentialUploaderOptions{
 			entryLimit:      opts.DefaultShipmentLimit,
 			queueLimit:      opts.UploadingOptions.QueueLimit,
 			retryLimit:      opts.UploadingOptions.RetryLimit,
@@ -110,12 +109,7 @@ func NewProcessor(log *zap.Logger, store Storage, opts Options) *Processor {
 
 // QueueEntry saves another entry under key for packaging and upload.
 // Provided access will be used for upload.
-//
-// TODO(artur): I think we should pass Storage here instead of
-// uplink.Access. Then Processor and uploader doesn't have to be
-// configured with Storage and the destination store can be specified
-// per parcel.
-func (p *Processor) QueueEntry(access *uplink.Access, key Key, entry Entry) (err error) {
+func (p *Processor) QueueEntry(store Storage, key Key, entry Entry) (err error) {
 	defer mon.Task()(nil)(&err)
 
 	entrySize := entry.Size().Int()
@@ -132,7 +126,7 @@ func (p *Processor) QueueEntry(access *uplink.Access, key Key, entry Entry) (err
 		// Entry.
 		entryLimit:    p.defaultEntryLimit.Int(),
 		shipmentLimit: p.defaultShipmentLimit.Int(),
-		access:        access,
+		store:         store,
 		bucket:        key.Bucket,
 		prefix:        key.Prefix,
 	})
@@ -181,7 +175,7 @@ func (p *Processor) Close() (err error) {
 type parcel struct {
 	entryLimit, shipmentLimit int
 
-	access         *uplink.Access
+	store          Storage
 	bucket, prefix string
 
 	mu      sync.Mutex
@@ -213,7 +207,7 @@ func (p *parcel) add(upload uploader, size int, s string) (shipped int, err erro
 	if _, err = p.current.WriteTo(c); err != nil {
 		return 0, err
 	}
-	if err = upload.queueUpload(p.access, p.bucket, k, c.Bytes()); err != nil {
+	if err = upload.queueUpload(p.store, p.bucket, k, c.Bytes()); err != nil {
 		return 0, err
 	}
 	shipped = currentSize
@@ -235,7 +229,7 @@ func (p *parcel) flush(upload uploader) error {
 	if _, err = p.current.WriteTo(c); err != nil {
 		return err
 	}
-	return upload.queueUploadWithoutQueueLimit(p.access, p.bucket, k, c.Bytes())
+	return upload.queueUploadWithoutQueueLimit(p.store, p.bucket, k, c.Bytes())
 }
 
 func (p *parcel) close(upload uploader) error {

@@ -18,11 +18,8 @@ import (
 )
 
 // Storage wraps the Put method that allows uploading to object storage.
-//
-// Storage is quite specific to libuplink at the moment. It could be
-// made generic if there's enough reason to make it so.
 type Storage interface {
-	Put(ctx context.Context, access *uplink.Access, bucket, key string, body []byte) error
+	Put(ctx context.Context, bucket, key string, body []byte) error
 }
 
 var (
@@ -33,7 +30,7 @@ var (
 
 type noopStorage struct{} // useful in tests
 
-func (noopStorage) Put(context.Context, *uplink.Access, string, string, []byte) error {
+func (noopStorage) Put(context.Context, string, string, []byte) error {
 	return nil
 }
 
@@ -52,7 +49,7 @@ func (s *inMemoryStorage) getBucketContents(bucket string) map[string][]byte {
 	return s.buckets[bucket]
 }
 
-func (s *inMemoryStorage) Put(_ context.Context, _ *uplink.Access, bucket, key string, body []byte) error {
+func (s *inMemoryStorage) Put(_ context.Context, bucket, key string, body []byte) error {
 	if _, ok := s.buckets[bucket]; !ok {
 		s.buckets[bucket] = make(map[string][]byte)
 	}
@@ -64,13 +61,15 @@ func (s *inMemoryStorage) Put(_ context.Context, _ *uplink.Access, bucket, key s
 
 // StorjStorage is an implementation of Storage that allows uploading to
 // Storj via libuplink.
-type StorjStorage struct{}
+type StorjStorage struct {
+	access *uplink.Access
+}
 
 // Put saves body under bucket/key to Storj.
-func (s StorjStorage) Put(ctx context.Context, access *uplink.Access, bucket, key string, body []byte) (err error) {
+func (s StorjStorage) Put(ctx context.Context, bucket, key string, body []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	p, err := uplink.OpenProject(ctx, access)
+	p, err := uplink.OpenProject(ctx, s.access)
 	if err != nil {
 		return err
 	}
@@ -86,8 +85,8 @@ func (s StorjStorage) Put(ctx context.Context, access *uplink.Access, bucket, ke
 }
 
 type uploader interface {
-	queueUpload(access *uplink.Access, bucket, key string, body []byte) error
-	queueUploadWithoutQueueLimit(access *uplink.Access, bucket, key string, body []byte) error
+	queueUpload(store Storage, bucket, key string, body []byte) error
+	queueUploadWithoutQueueLimit(store Storage, bucket, key string, body []byte) error
 	run(ctx context.Context) error
 	close() error
 }
@@ -95,7 +94,7 @@ type uploader interface {
 var _ uploader = (*sequentialUploader)(nil)
 
 type upload struct {
-	access  *uplink.Access
+	store   Storage
 	bucket  string
 	key     string
 	body    []byte
@@ -103,8 +102,7 @@ type upload struct {
 }
 
 type sequentialUploader struct {
-	log   *zap.Logger
-	store Storage
+	log *zap.Logger
 
 	entryLimit      memory.Size
 	queueLimit      int
@@ -125,10 +123,9 @@ type sequentialUploaderOptions struct {
 	shutdownTimeout time.Duration
 }
 
-func newSequentialUploader(log *zap.Logger, store Storage, opts sequentialUploaderOptions) *sequentialUploader {
+func newSequentialUploader(log *zap.Logger, opts sequentialUploaderOptions) *sequentialUploader {
 	return &sequentialUploader{
 		log:             log.Named("sequential uploader"),
-		store:           store,
 		entryLimit:      opts.entryLimit,
 		queueLimit:      opts.queueLimit,
 		retryLimit:      opts.retryLimit,
@@ -139,7 +136,7 @@ func newSequentialUploader(log *zap.Logger, store Storage, opts sequentialUpload
 
 var monQueueLength = mon.IntVal("queue_length")
 
-func (u *sequentialUploader) queueUpload(access *uplink.Access, bucket, key string, body []byte) error {
+func (u *sequentialUploader) queueUpload(store Storage, bucket, key string, body []byte) error {
 	u.mu.Lock()
 	if u.closed {
 		u.mu.Unlock()
@@ -159,7 +156,7 @@ func (u *sequentialUploader) queueUpload(access *uplink.Access, bucket, key stri
 	u.mu.Unlock()
 
 	u.queue <- upload{
-		access:  access,
+		store:   store,
 		bucket:  bucket,
 		key:     key,
 		body:    body,
@@ -169,7 +166,7 @@ func (u *sequentialUploader) queueUpload(access *uplink.Access, bucket, key stri
 	return nil
 }
 
-func (u *sequentialUploader) queueUploadWithoutQueueLimit(access *uplink.Access, bucket, key string, body []byte) error {
+func (u *sequentialUploader) queueUploadWithoutQueueLimit(store Storage, bucket, key string, body []byte) error {
 	u.mu.Lock()
 	if u.closed {
 		u.mu.Unlock()
@@ -184,7 +181,7 @@ func (u *sequentialUploader) queueUploadWithoutQueueLimit(access *uplink.Access,
 	u.mu.Unlock()
 
 	u.queue <- upload{
-		access:  access,
+		store:   store,
 		bucket:  bucket,
 		key:     key,
 		body:    body,
@@ -217,7 +214,7 @@ func (u *sequentialUploader) close() error {
 
 func (u *sequentialUploader) run(ctx context.Context) error {
 	for up := range u.queue {
-		if err := u.store.Put(ctx, up.access, up.bucket, up.key, up.body); err != nil {
+		if err := up.store.Put(ctx, up.bucket, up.key, up.body); err != nil {
 			if up.retries == u.retryLimit {
 				u.mu.Lock()
 				u.queueLen--

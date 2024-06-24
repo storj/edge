@@ -45,7 +45,8 @@ func TestProcessor(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	defer ctx.Check(log.Sync)
 
-	p := NewProcessor(log, noopStorage{}, Options{})
+	s := noopStorage{}
+	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
 	ctx.Go(func() error {
@@ -70,12 +71,12 @@ func TestProcessor(t *testing.T) {
 	entry2 := newTestEntry("entry2")
 	entry3 := newTestEntry("entry3")
 
-	require.NoError(t, p.QueueEntry(nil, key1, entry1))
-	require.NoError(t, p.QueueEntry(nil, key2, entry1))
-	require.NoError(t, p.QueueEntry(nil, key1, entry2))
-	require.NoError(t, p.QueueEntry(nil, key2, entry2))
-	require.NoError(t, p.QueueEntry(nil, key1, entry3))
-	require.NoError(t, p.QueueEntry(nil, key2, entry3))
+	require.NoError(t, p.QueueEntry(s, key1, entry1))
+	require.NoError(t, p.QueueEntry(s, key2, entry1))
+	require.NoError(t, p.QueueEntry(s, key1, entry2))
+	require.NoError(t, p.QueueEntry(s, key2, entry2))
+	require.NoError(t, p.QueueEntry(s, key1, entry3))
+	require.NoError(t, p.QueueEntry(s, key2, entry3))
 
 	for _, key := range []any{key1, key2} {
 		v, ok := p.parcels.Load(key)
@@ -95,7 +96,7 @@ func TestProcessorWithShipment(t *testing.T) {
 	defer ctx.Check(log.Sync)
 
 	s := newInMemoryStorage()
-	p := NewProcessor(log, s, Options{
+	p := NewProcessor(log, Options{
 		DefaultShipmentLimit: 20 * memory.B,
 	})
 	defer ctx.Check(p.Close)
@@ -122,10 +123,10 @@ func TestProcessorWithShipment(t *testing.T) {
 	entry2 := newTestEntry("entry2")
 
 	for i := 0; i < 10; i++ {
-		require.NoError(t, p.QueueEntry(nil, key1, entry1))
-		require.NoError(t, p.QueueEntry(nil, key2, entry1))
-		require.NoError(t, p.QueueEntry(nil, key1, entry2))
-		require.NoError(t, p.QueueEntry(nil, key2, entry2))
+		require.NoError(t, p.QueueEntry(s, key1, entry1))
+		require.NoError(t, p.QueueEntry(s, key2, entry1))
+		require.NoError(t, p.QueueEntry(s, key1, entry2))
+		require.NoError(t, p.QueueEntry(s, key2, entry2))
 	}
 
 	require.NoError(t, p.Close()) // sync, don't wait until the deferred call
@@ -180,7 +181,7 @@ func BenchmarkParallelQueueEntry(b *testing.B) {
 	defer ctx.Check(log.Sync)
 
 	s := newInMemoryStorage()
-	p := NewProcessor(log, s, Options{})
+	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
 	ctx.Go(func() error {
@@ -200,7 +201,7 @@ func BenchmarkParallelQueueEntry(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			require.NoError(b, p.QueueEntry(nil, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
+			require.NoError(b, p.QueueEntry(s, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
 		}
 	})
 }
@@ -213,7 +214,7 @@ func BenchmarkQueueEntry(b *testing.B) {
 	defer ctx.Check(log.Sync)
 
 	s := newInMemoryStorage()
-	p := NewProcessor(log, s, Options{})
+	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
 	ctx.Go(func() error {
@@ -232,7 +233,7 @@ func BenchmarkQueueEntry(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		require.NoError(b, p.QueueEntry(nil, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
+		require.NoError(b, p.QueueEntry(s, key, newTestEntry(exampleAmazonS3ServerAccessLogLine())))
 	}
 }
 
