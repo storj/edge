@@ -49,9 +49,7 @@ func TestProcessor(t *testing.T) {
 	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
-	ctx.Go(func() error {
-		return p.Run(ctx)
-	})
+	ctx.Go(p.Run)
 
 	uuid1, err := uuid.New()
 	require.NoError(t, err)
@@ -101,9 +99,7 @@ func TestProcessorWithShipment(t *testing.T) {
 	})
 	defer ctx.Check(p.Close)
 
-	ctx.Go(func() error {
-		return p.Run(ctx)
-	})
+	ctx.Go(p.Run)
 
 	uuid1, err := uuid.New()
 	require.NoError(t, err)
@@ -184,9 +180,7 @@ func BenchmarkParallelQueueEntry(b *testing.B) {
 	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
-	ctx.Go(func() error {
-		return p.Run(ctx)
-	})
+	ctx.Go(p.Run)
 
 	id, err := uuid.New()
 	require.NoError(b, err)
@@ -217,9 +211,7 @@ func BenchmarkQueueEntry(b *testing.B) {
 	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
-	ctx.Go(func() error {
-		return p.Run(ctx)
-	})
+	ctx.Go(p.Run)
 
 	id, err := uuid.New()
 	require.NoError(b, err)

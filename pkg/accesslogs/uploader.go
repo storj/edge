@@ -87,7 +87,7 @@ func (s StorjStorage) Put(ctx context.Context, bucket, key string, body []byte) 
 type uploader interface {
 	queueUpload(store Storage, bucket, key string, body []byte) error
 	queueUploadWithoutQueueLimit(store Storage, bucket, key string, body []byte) error
-	run(ctx context.Context) error
+	run() error
 	close() error
 }
 
@@ -200,26 +200,25 @@ func (u *sequentialUploader) close() error {
 	u.closed = true
 	u.mu.Unlock()
 
-	close(u.queue)
-
 	ctx, cancel := context.WithTimeout(context.Background(), u.shutdownTimeout)
 	defer cancel()
 
 	if !u.queueDrained.Wait(ctx) {
 		return ctx.Err()
+	} else {
+		close(u.queue)
 	}
 
 	return nil
 }
 
-func (u *sequentialUploader) run(ctx context.Context) error {
+func (u *sequentialUploader) run() error {
 	for up := range u.queue {
-		if err := up.store.Put(ctx, up.bucket, up.key, up.body); err != nil {
+		// TODO(artur): we need to figure out what context we want to
+		// pass here. Most likely a context with configurable timeout.
+		if err := up.store.Put(context.TODO(), up.bucket, up.key, up.body); err != nil {
 			if up.retries == u.retryLimit {
-				u.mu.Lock()
-				u.queueLen--
-				monQueueLength.Observe(int64(u.queueLen))
-				u.mu.Unlock()
+				u.decrementQueueLen()
 				mon.Event("upload_dropped")
 				u.log.Error("retry limit reached",
 					zap.String("bucket", up.bucket),
@@ -231,13 +230,20 @@ func (u *sequentialUploader) run(ctx context.Context) error {
 			up.retries++
 			u.queue <- up // failure; don't decrement u.queueLen
 			mon.Event("upload_failed")
+			continue
 		}
-		u.mu.Lock()
-		u.queueLen--
-		monQueueLength.Observe(int64(u.queueLen))
-		u.mu.Unlock()
+		u.decrementQueueLen()
 		mon.Event("upload_successful")
 	}
-	u.queueDrained.Signal()
 	return nil
+}
+
+func (u *sequentialUploader) decrementQueueLen() {
+	u.mu.Lock()
+	u.queueLen--
+	monQueueLength.Observe(int64(u.queueLen))
+	if u.queueLen == 0 && u.closed {
+		u.queueDrained.Signal()
+	}
+	u.mu.Unlock()
 }

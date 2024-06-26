@@ -8,7 +8,6 @@ package accesslogs
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"strings"
 	"sync"
@@ -148,12 +147,18 @@ func (p *Processor) QueueEntry(store Storage, key Key, entry Entry) (err error) 
 }
 
 // Run starts Processor.
-func (p *Processor) Run(ctx context.Context) error {
-	return Error.Wrap(p.upload.run(ctx))
+func (p *Processor) Run() error {
+	return Error.Wrap(p.upload.run())
 }
 
 // Close stops Processor. Upon call to Close, all buffers are flushed,
 // and the call is blocked until all flushing and uploading is done.
+//
+// Close is like http.Server's Shutdown, which means it must be called
+// while Processor is still Run-ning to gracefully shut it down.
+//
+// TODO(artur): rename to Shutdown?
+// TODO(artur): make it take context.Context instead of exposing just the shutdown timer?
 func (p *Processor) Close() (err error) {
 	defer mon.Task()(nil)(&err)
 
