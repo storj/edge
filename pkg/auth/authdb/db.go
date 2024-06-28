@@ -211,7 +211,10 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	if db.retrievePublicProjectID {
 		publicProjectID, err = privateProject.GetPublicID(ctx, db.uplinkConfig, access)
 		if err != nil {
-			return secretKey, errs.Wrap(err)
+			// TODO(artur, sean): we should probably log why we couldn't
+			// fetch the public project ID.
+			publicProjectID = uuid.UUID{} // just in case, zero it
+			mon.Event("retrieve_public_project_id_failed")
 		}
 	}
 
