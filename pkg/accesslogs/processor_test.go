@@ -176,7 +176,7 @@ func BenchmarkParallelQueueEntry(b *testing.B) {
 	log := zaptest.NewLogger(b)
 	defer ctx.Check(log.Sync)
 
-	s := newInMemoryStorage()
+	s := noopStorage{}
 	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 
@@ -207,7 +207,7 @@ func BenchmarkQueueEntry(b *testing.B) {
 	log := zaptest.NewLogger(b)
 	defer ctx.Check(log.Sync)
 
-	s := newInMemoryStorage()
+	s := noopStorage{}
 	p := NewProcessor(log, Options{})
 	defer ctx.Check(p.Close)
 

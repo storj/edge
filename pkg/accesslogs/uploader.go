@@ -109,11 +109,13 @@ type sequentialUploader struct {
 	retryLimit      int
 	shutdownTimeout time.Duration
 
-	mu           sync.Mutex
-	queue        chan upload
-	queueLen     int
+	mu          sync.Mutex
+	queue       chan upload
+	queueLen    int
+	queueClosed bool
+
+	closing      sync2.Event
 	queueDrained sync2.Event
-	closed       bool
 }
 
 type sequentialUploaderOptions struct {
@@ -138,7 +140,7 @@ var monQueueLength = mon.IntVal("queue_length")
 
 func (u *sequentialUploader) queueUpload(store Storage, bucket, key string, body []byte) error {
 	u.mu.Lock()
-	if u.closed {
+	if u.queueClosed {
 		u.mu.Unlock()
 		return ErrClosed
 	}
@@ -168,7 +170,7 @@ func (u *sequentialUploader) queueUpload(store Storage, bucket, key string, body
 
 func (u *sequentialUploader) queueUploadWithoutQueueLimit(store Storage, bucket, key string, body []byte) error {
 	u.mu.Lock()
-	if u.closed {
+	if u.queueClosed {
 		u.mu.Unlock()
 		return ErrClosed
 	}
@@ -193,12 +195,14 @@ func (u *sequentialUploader) queueUploadWithoutQueueLimit(store Storage, bucket,
 
 func (u *sequentialUploader) close() error {
 	u.mu.Lock()
-	if u.closed {
+	if u.queueClosed {
 		u.mu.Unlock()
 		return nil
 	}
-	u.closed = true
+	u.queueClosed = true
 	u.mu.Unlock()
+
+	u.closing.Signal()
 
 	ctx, cancel := context.WithTimeout(context.Background(), u.shutdownTimeout)
 	defer cancel()
@@ -213,37 +217,57 @@ func (u *sequentialUploader) close() error {
 }
 
 func (u *sequentialUploader) run() error {
-	for up := range u.queue {
-		// TODO(artur): we need to figure out what context we want to
-		// pass here. Most likely a context with configurable timeout.
-		if err := up.store.Put(context.TODO(), up.bucket, up.key, up.body); err != nil {
-			if up.retries == u.retryLimit {
-				u.decrementQueueLen()
-				mon.Event("upload_dropped")
-				u.log.Error("retry limit reached",
-					zap.String("bucket", up.bucket),
-					zap.String("prefix", up.key),
-					zap.Error(err),
-				)
-				continue // NOTE(artur): here we could spill to disk or something
+	var closing bool
+	for {
+		select {
+		case up := <-u.queue:
+			// TODO(artur): we need to figure out what context we want
+			// to pass here. WithTimeout(Background, …)?
+			if err := up.store.Put(context.TODO(), up.bucket, up.key, up.body); err != nil {
+				if up.retries == u.retryLimit {
+					mon.Event("upload_dropped")
+					u.log.Error("retry limit reached",
+						zap.String("bucket", up.bucket),
+						zap.String("prefix", up.key),
+						zap.Error(err),
+					)
+					if done := u.decrementQueueLen(closing); done {
+						return nil
+					}
+					continue // NOTE(artur): here we could spill to disk or something
+				}
+				up.retries++
+				u.queue <- up // failure; don't decrement u.queueLen
+				mon.Event("upload_failed")
+				continue
 			}
-			up.retries++
-			u.queue <- up // failure; don't decrement u.queueLen
-			mon.Event("upload_failed")
-			continue
+			mon.Event("upload_successful")
+			if done := u.decrementQueueLen(closing); done {
+				return nil
+			}
+		case <-u.closing.Signaled():
+			u.mu.Lock()
+			if u.queueLen == 0 {
+				u.mu.Unlock()
+				u.queueDrained.Signal()
+				return nil
+			} else {
+				u.mu.Unlock()
+				closing = true
+			}
 		}
-		u.decrementQueueLen()
-		mon.Event("upload_successful")
 	}
-	return nil
 }
 
-func (u *sequentialUploader) decrementQueueLen() {
+func (u *sequentialUploader) decrementQueueLen(closing bool) bool {
 	u.mu.Lock()
 	u.queueLen--
 	monQueueLength.Observe(int64(u.queueLen))
-	if u.queueLen == 0 && u.closed {
+	if u.queueLen == 0 && closing {
+		u.mu.Unlock()
 		u.queueDrained.Signal()
+		return true
 	}
 	u.mu.Unlock()
+	return false
 }
