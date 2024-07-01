@@ -35,9 +35,9 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.33
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
-	storj.io/gateway v1.9.1-0.20240610224606-6122649b478f
-	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a
-	storj.io/uplink v1.13.1-0.20240605011603-26d3158333db
+	storj.io/gateway v1.9.1-0.20240701175656-4e1bb787b406
+	storj.io/minio v0.0.0-20240620235917-ab8893f67859
+	storj.io/uplink v1.13.1-0.20240626151312-43808c01b2f4
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
