@@ -510,8 +510,7 @@ func ParseFromForm(r *http.Request) (string, error) {
 		if name == "" {
 			continue
 		}
-		filename := p.FileName()
-		if name == "file" || filename != "" {
+		if name == "file" {
 			break
 		}
 
