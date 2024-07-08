@@ -8,12 +8,10 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
+	"os"
 	"strings"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -23,7 +21,6 @@ import (
 	"github.com/minio/minio-go/v7/pkg/tags"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -32,104 +29,149 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/edge/internal/minioclient"
 	"storj.io/edge/internal/register"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/auth"
-	"storj.io/edge/pkg/auth/badgerauth"
+	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
+	"storj.io/edge/pkg/server/middleware"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/uplink"
 )
 
-var counter int64
+func TestAccessLogs(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config) {
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "watchedbucket"))
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "destbucket"))
+
+		logsAccess, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Share(uplink.Permission{
+			AllowUpload: true,
+		}, uplink.SharePrefix{
+			Bucket: "destbucket",
+			Prefix: "logs",
+		})
+		require.NoError(t, err)
+
+		accessLogConfig, err := middleware.SerializeAccessLogConfig(middleware.AccessLogConfig{
+			middleware.WatchedBucket{
+				ProjectID:  planet.Uplinks[0].Projects[0].PublicID,
+				BucketName: "watchedbucket",
+			}: middleware.DestinationLogBucket{
+				BucketName: "destbucket",
+				Storage:    accesslogs.NewStorjStorage(logsAccess),
+				Prefix:     "logs/",
+			},
+		})
+		require.NoError(t, err)
+		gwConfig.ServerAccessLogging = accessLogConfig
+	}, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, creds register.Credentials) {
+		sess, err := session.NewSession(&aws.Config{
+			Region:           aws.String("global"),
+			Credentials:      credentials.NewStaticCredentials(creds.AccessKeyID, creds.SecretKey, ""),
+			Endpoint:         aws.String("http://" + gateway.Address()),
+			S3ForcePathStyle: aws.Bool(true),
+		})
+		require.NoError(t, err)
+
+		client := s3.New(sess)
+
+		_, err = client.ListObjects(&s3.ListObjectsInput{Bucket: aws.String("watchedbucket")})
+		require.NoError(t, err)
+
+		testFilePath := ctx.File("random1.dat")
+		require.NoError(t, os.WriteFile(testFilePath, testrand.Bytes(123), 0600))
+
+		testFile, err := os.Open(testFilePath)
+		require.NoError(t, err)
+
+		_, err = client.PutObject(&s3.PutObjectInput{
+			Bucket: aws.String("watchedbucket"),
+			Key:    aws.String("testfile/random1.dat"),
+			Body:   testFile,
+		})
+		require.NoError(t, err)
+
+		_, err = client.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("watchedbucket"),
+			Key:    aws.String("testfile/random1.dat"),
+		})
+		require.NoError(t, err)
+
+		// force the gateway to close so we flush out all logs
+		ctx.Check(gateway.Close)
+
+		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		iter := project.ListObjects(ctx, "destbucket", &uplink.ListObjectsOptions{
+			Prefix: "logs/",
+		})
+
+		var logs []string
+
+		for iter.Next() {
+			download, err := project.DownloadObject(ctx, "destbucket", iter.Item().Key, nil)
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			_, err = sync2.Copy(ctx, &buf, download)
+			require.NoError(t, err)
+			ctx.Check(download.Close)
+
+			entries := strings.Split(buf.String(), "\n")
+
+			// remove the last entry as it's always empty due to trailing newline
+			logs = append(logs, entries[:len(entries)-1]...)
+		}
+
+		// todo: reverse parse of string back into struct in s3.go?
+		require.Len(t, logs, 3)
+		require.Contains(t, logs[0], "GET /watchedbucket HTTP/1.1")
+		require.Contains(t, logs[1], "PUT /watchedbucket/testfile/random1.dat HTTP/1.1")
+		require.Contains(t, logs[2], "GET /watchedbucket/testfile/random1.dat HTTP/1.1")
+		require.Contains(t, logs[2], "123")
+	})
+}
 
 func TestUploadDownload(t *testing.T) {
 	t.Parallel()
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	runTest(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				require.NoError(t, config.Placement.Set("config_test.yaml"))
 			},
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
-
-		// TODO: make address not hardcoded the address selection here may
-		// conflict with some automatically bound address.
-		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		authSvcAddrTLS := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-
-		gwConfig := server.Config{}
-
-		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
-
-		gwConfig.Server.Address = "127.0.0.1:0"
-		gwConfig.Auth.BaseURL = "http://" + authSvcAddr
-		gwConfig.InsecureLogAll = true
-		authClient := authclient.New(gwConfig.Auth)
-
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, 10)
-		require.NoError(t, err)
-
-		defer ctx.Check(gateway.Close)
-
-		authConfig := auth.Config{
-			Endpoint:          "http://" + gateway.Address(),
-			AuthToken:         []string{"super-secret"},
-			POSTSizeLimit:     4 * memory.KiB,
-			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
-			KVBackend:         "badger://",
-			ListenAddr:        authSvcAddr,
-			ListenAddrTLS:     authSvcAddrTLS,
-			Node: badgerauth.Config{
-				FirstStart:          true,
-				ReplicationInterval: 5 * time.Second,
-			},
-		}
-
-		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
-		require.NoError(t, err)
-
-		// auth peer needs to be canceled to shut the servers down.
-		cancelCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		ctx.Go(func() error {
-			defer ctx.Check(auth.Close)
-			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
-		})
-
-		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
-
-		serialized, err := access.Serialize()
-		require.NoError(t, err)
-
-		s3Credentials, err := register.Access(ctx, "http://"+authSvcAddr, serialized, false)
-		require.NoError(t, err)
-
+	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, creds register.Credentials) {
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
-			AccessKey: s3Credentials.AccessKeyID,
-			SecretKey: s3Credentials.SecretKey,
+			AccessKey: creds.AccessKeyID,
+			SecretKey: creds.SecretKey,
 			APIKey:    planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
 			NoSSL:     true,
 		})
 		require.NoError(t, err)
-
-		ctx.Go(func() error {
-			return gateway.Run(ctx)
-		})
-
-		require.NoError(t, waitForGatewayStart(ctx, client, 5*time.Second))
 
 		{ // normal upload
 			bucket := "bucket"
@@ -222,7 +264,7 @@ func TestUploadDownload(t *testing.T) {
 			// operating with aws-ask-go that has a default user-agent string
 			// set for aws
 			newSession, err := session.NewSession(&aws.Config{
-				Credentials:      credentials.NewStaticCredentials(s3Credentials.AccessKeyID, s3Credentials.SecretKey, ""),
+				Credentials:      credentials.NewStaticCredentials(creds.AccessKeyID, creds.SecretKey, ""),
 				Endpoint:         aws.String("http://" + gateway.Address()),
 				Region:           aws.String("us-east-1"),
 				S3ForcePathStyle: aws.Bool(true),
@@ -296,119 +338,28 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
-// waitForAuthSvcStart checks if authservice is ready using constant backoff.
-func waitForAuthSvcStart(ctx context.Context, authClient *authclient.AuthClient, maxStartupWait time.Duration) error {
-	for start := time.Now(); ; {
-		_, err := authClient.GetHealthLive(ctx)
-		if err == nil {
-			return nil
-		}
-
-		// wait a bit before retrying to reduce load
-		time.Sleep(50 * time.Millisecond)
-		if time.Since(start) > maxStartupWait {
-			return errs.New("exceeded maxStartupWait duration")
-		}
-	}
-}
-
-// waitForGatewayStart checks if Gateway-MT is ready using constant backoff.
-func waitForGatewayStart(ctx context.Context, client minioclient.Client, maxStartupWait time.Duration) error {
-	for start := time.Now(); ; {
-		_, err := client.ListBuckets(ctx)
-		if err == nil {
-			return nil
-		}
-
-		// wait a bit before retrying to reduce load
-		time.Sleep(50 * time.Millisecond)
-		if time.Since(start) > maxStartupWait {
-			return errs.New("exceeded maxStartupWait duration")
-		}
-	}
-}
-
 func TestVersioning(t *testing.T) {
-	var counter int64
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	t.Parallel()
+
+	runTest(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
-		NonParallel: true,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
-
-		// TODO: make address not hardcoded the address selection here may
-		// conflict with some automatically bound address.
-		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		authSvcAddrTLS := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-
-		gwConfig := server.Config{}
-
-		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
-
-		gwConfig.Server.Address = "127.0.0.1:0"
-		gwConfig.Auth.BaseURL = "http://" + authSvcAddr
-		gwConfig.InsecureLogAll = true
-		authClient := authclient.New(gwConfig.Auth)
-
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, 10)
-		require.NoError(t, err)
-
-		defer ctx.Check(gateway.Close)
-
-		authConfig := auth.Config{
-			Endpoint:          "http://" + gateway.Address(),
-			AuthToken:         []string{"super-secret"},
-			POSTSizeLimit:     4 * memory.KiB,
-			AllowedSatellites: []string{planet.Satellites[0].NodeURL().String()},
-			KVBackend:         "badger://",
-			ListenAddr:        authSvcAddr,
-			ListenAddrTLS:     authSvcAddrTLS,
-			Node: badgerauth.Config{
-				FirstStart:          true,
-				ReplicationInterval: 5 * time.Second,
-			},
-		}
-
-		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
-		require.NoError(t, err)
-
-		// auth peer needs to be canceled to shut the servers down.
-		cancelCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		ctx.Go(func() error {
-			defer ctx.Check(auth.Close)
-			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
-		})
-
-		require.NoError(t, waitForAuthSvcStart(ctx, authClient, time.Second))
-
-		serialized, err := access.Serialize()
-		require.NoError(t, err)
-
-		s3Credentials, err := register.Access(ctx, "http://"+authSvcAddr, serialized, false)
-		require.NoError(t, err)
-
+	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, creds register.Credentials) {
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
-			AccessKey: s3Credentials.AccessKeyID,
-			SecretKey: s3Credentials.SecretKey,
+			AccessKey: creds.AccessKeyID,
+			SecretKey: creds.SecretKey,
 			APIKey:    planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
 			NoSSL:     true,
 		})
 		require.NoError(t, err)
-
-		ctx.Go(func() error {
-			return gateway.Run(ctx)
-		})
-
-		require.NoError(t, waitForGatewayStart(ctx, client, 5*time.Second))
 
 		rawClient, ok := client.(*minioclient.Minio)
 		require.True(t, ok)
@@ -618,5 +569,88 @@ func TestVersioning(t *testing.T) {
 
 			// TODO(ver): add tests to check listing order when will be fixed on satellite side: https://github.com/storj/storj/issues/6550
 		})
+	})
+}
+
+func runTest(
+	t *testing.T,
+	planetConfig testplanet.Config,
+	prepare func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config),
+	test func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, creds register.Credentials),
+) {
+	testplanet.Run(t, planetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var gwConfig server.Config
+		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
+
+		var authConfig auth.Config
+		cfgstruct.Bind(&pflag.FlagSet{}, &authConfig, cfgstruct.UseTestDefaults())
+
+		if prepare != nil {
+			prepare(ctx, planet, &gwConfig)
+		}
+
+		logger := zaptest.NewLogger(t)
+		defer ctx.Check(logger.Sync)
+
+		spanner, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+		require.NoError(t, err)
+		defer spanner.Close()
+
+		// Set a dummy endpoint so we don't have to hardcode port numbers.
+		// Endpoint is only used by authservice to indicate to clients where
+		// the gateway is, so we don't really care, and would rather have
+		// auto-assigned port numbers.
+		authConfig.Endpoint = "http://127.0.0.1:12345"
+		authConfig.AuthToken = []string{"super-secret"}
+		authConfig.AllowedSatellites = []string{planet.Satellites[0].NodeURL().String()}
+		authConfig.KVBackend = "spanner://"
+		authConfig.ListenAddr = "127.0.0.1:0"
+		authConfig.DRPCListenAddr = "127.0.0.1:0"
+		authConfig.Spanner = spannerauth.Config{
+			DatabaseName: "projects/P/instances/I/databases/D",
+			Address:      spanner.Addr,
+		}
+		authConfig.RetrievePublicProjectID = true
+
+		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
+		require.NoError(t, err)
+
+		// auth peer needs to be canceled to shut the servers down.
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		ctx.Go(func() error {
+			defer ctx.Check(auth.Close)
+			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
+		})
+
+		gwConfig.Server.Address = "127.0.0.1:0"
+		gwConfig.Auth = authclient.Config{
+			BaseURL: "http://" + auth.Address(),
+			Token:   "super-secret",
+		}
+		gwConfig.InsecureLogAll = true
+
+		authClient := authclient.New(gwConfig.Auth)
+
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, 10)
+		require.NoError(t, err)
+
+		defer ctx.Check(gateway.Close)
+
+		serialized, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Serialize()
+		require.NoError(t, err)
+
+		creds, err := register.Access(ctx, "http://"+auth.Address(), serialized, false)
+		require.NoError(t, err)
+
+		// Set the correct endpoint now that we know where gateway is.
+		creds.Endpoint = "http://" + gateway.Address()
+
+		ctx.Go(func() error {
+			return gateway.Run(ctx)
+		})
+
+		test(ctx, planet, gateway, creds)
 	})
 }
