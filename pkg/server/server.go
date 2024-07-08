@@ -19,9 +19,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/http/requestid"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/version"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/minio"
@@ -49,10 +51,14 @@ var (
 // Once Peer.Run() has been called, new instances of a Peer will not update any configuration used
 // by Minio.
 type Peer struct {
-	server     *httpserver.Server
-	log        *zap.Logger
-	config     Config
+	log       *zap.Logger
+	processor *accesslogs.Processor
+	server    *httpserver.Server
+
+	config Config
+
 	closeLayer func(context.Context) error
+
 	inShutdown int32
 }
 
@@ -159,6 +165,9 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		}
 	}
 
+	// TODO: accesslogs.Options need to be exposed through config.
+	processor := accesslogs.NewProcessor(log, accesslogs.Options{})
+
 	server, err := httpserver.New(log, handler, nil, httpserver.Config{
 		Address:            config.Server.Address,
 		AddressTLS:         config.Server.AddressTLS,
@@ -174,6 +183,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	peer := Peer{
 		log:        log,
+		processor:  processor,
 		server:     server,
 		config:     config,
 		closeLayer: layer.Shutdown,
@@ -244,22 +254,30 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 		minio.StartMinio(!s.config.InsecureDisableTLS)
 	})
 
-	return s.server.Run(ctx)
+	var g errs2.Group
+
+	g.Go(s.processor.Run)
+	g.Go(func() error {
+		return s.server.Run(ctx)
+	})
+
+	return errs.Combine(g.Wait()...)
 }
 
 // Close shuts down the server and all underlying resources.
 func (s *Peer) Close() error {
 	atomic.StoreInt32(&s.inShutdown, 1)
 	if s.config.ShutdownDelay > 0 {
-		s.log.Info("Waiting before server shutdown:", zap.Duration("Delay", s.config.ShutdownDelay))
+		s.log.Info("Waiting before server shutdown", zap.Duration("Delay", s.config.ShutdownDelay))
 		time.Sleep(s.config.ShutdownDelay)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// note: httpserver.Shutdown has its own configured timeout
-	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.server.Shutdown()))
+	// NOTE: httpserver.Shutdown and accesslogs.Processor has its own
+	// configured timeout.
+	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.server.Shutdown(), s.processor.Close()))
 }
 
 // Address returns the web address the peer is listening on.
