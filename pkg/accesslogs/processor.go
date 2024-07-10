@@ -63,12 +63,12 @@ type Processor struct {
 
 // Options define how Processor should be configured when initialized.
 type Options struct {
-	DefaultEntryLimit    memory.Size
-	DefaultShipmentLimit memory.Size
+	DefaultEntryLimit    memory.Size `user:"true" help:"log entry size limit" default:"2KiB"`
+	DefaultShipmentLimit memory.Size `user:"true" help:"log file size limit" default:"63MiB"`
 	UploadingOptions     struct {
-		QueueLimit      int
-		RetryLimit      int
-		ShutdownTimeout time.Duration
+		QueueLimit      int           `user:"true" help:"log file upload queue limit" default:"100"`
+		RetryLimit      int           `user:"true" help:"maximum number of retries for log file uploads" default:"3"`
+		ShutdownTimeout time.Duration `user:"true" help:"time limit waiting for queued logs to finish uploading when gateway is shutting down" default:"1m"`
 	}
 }
 

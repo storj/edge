@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/uplinkutil"
 	"storj.io/gateway/miniogw"
@@ -42,6 +43,7 @@ type Config struct {
 	ConnectionPool          ConnectionPoolConfig
 	CertMagic               certMagic
 	StartupCheck            startupCheck
+	AccessLogsProcessor     accesslogs.Options
 }
 
 type certMagic struct {

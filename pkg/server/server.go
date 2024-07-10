@@ -165,8 +165,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		}
 	}
 
-	// TODO: accesslogs.Options need to be exposed through config.
-	processor := accesslogs.NewProcessor(log, accesslogs.Options{})
+	processor := accesslogs.NewProcessor(log, config.AccessLogsProcessor)
 
 	server, err := httpserver.New(log, handler, nil, httpserver.Config{
 		Address:            config.Server.Address,
