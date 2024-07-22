@@ -42,23 +42,22 @@ func credentialsFromContext(ctx context.Context) *credentials {
 // CredentialsHandler retrieves and saves credentials as a context value.
 func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/")
-
-		// don't try and get credentials for requests that don't need them.
-		if strings.HasPrefix(path, "static/") || strings.HasPrefix(path, "health/process") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		var err error
-		var creds credentials
 		ctx := r.Context()
 		defer mon.TaskNamed("CredentialsHandler")(&ctx)(&err)
 
+		var creds credentials
 		ourDomain, err := isDomainOurs(r.Host, h.urlBases)
 		if err != nil {
 			creds.err = err
 			next.ServeHTTP(w, reqWithCredentials(ctx, r, &creds))
+			return
+		}
+
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		// don't try and get credentials for requests that don't need them.
+		if ourDomain && (strings.HasPrefix(path, "static/") || strings.HasPrefix(path, "health/process")) {
+			next.ServeHTTP(w, r)
 			return
 		}
 
