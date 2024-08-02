@@ -94,7 +94,7 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			path:             path.Join("s", serializedAccess, "testbucket", "test.zip"),
 			archivePath:      "/",
 			status:           http.StatusOK,
-			body:             []string{"View Contents"},
+			body:             []string{"Open Archive"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
