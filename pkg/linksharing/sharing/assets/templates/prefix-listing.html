@@ -1,16 +1,20 @@
 {{template "header.html" .}}
+<div class="gradient-bar"></div>
 
-<nav class="navbar navbar-light">
-  <a class="navbar-brand" href="javascript:location.reload()">
-    <img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" alt="Storj Logo" loading="lazy" class="navbar-logo">
-  </a>
-  <div class="d-none">
-    <a href="https://storj.io/login" class="btn btn-outline-secondary">Sign In</a>
-    <a href="https://storj.io/signup" class="btn btn-outline-primary">Sign Up</a>
-  </div>
-</nav>
+<div class="bg-grey full-height">
 
-<div class="bg-grey">
+  <nav class="navbar navbar-light">
+    <div class="d-flex row align-items-center justify-content-start">
+      <a class="navbar-brand" href="javascript:location.reload()">
+        <img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" alt="Storj Logo" loading="lazy" class="logo mb-1">
+      </a>
+    </div>
+    <div class="row">
+      <a href="https://storj.io/signup" class="btn btn-primary btn-lg">Sign Up</a>
+      <a href="https://www.storj.io/" class="btn btn-outline-primary btn-lg ml-3 px-4 d-none d-sm-inline-block">Learn More</a>
+    </div>
+  </nav>
+
   <div class="container-lg">
     <div class="row justify-content-center">
 
@@ -21,18 +25,18 @@
 
             <div class="row">
               <div class="col">
-                <h2 class="directory-heading">{{.Data.Title}}</h2>
+                <h3 class="directory-heading mb-3">{{.Data.Title}}</h3>
               </div>
             </div>
 
             <div class="row">
               <div class="col">
-                <h4 class="breadcrumbs">
+                <h5 class="breadcrumbs">
                   {{range .Data.Breadcrumbs}}
                   <a href="{{.URL}}">{{.Prefix}}</a>
                   <span class="separator">/</span>
                   {{end}}
-                </h4>
+                </h5>
               </div>
             </div>
 
@@ -107,5 +111,3 @@
     </div>
   </div>
 </div>
-
-{{template "footer.html" .}}
