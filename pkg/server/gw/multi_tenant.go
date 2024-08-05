@@ -26,6 +26,7 @@ import (
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
+	objectlock "storj.io/minio/pkg/bucket/object/lock"
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
@@ -306,6 +307,19 @@ func (l *MultiTenancyLayer) DeleteBucket(ctx context.Context, bucket string, for
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	return l.log(ctx, l.layer.DeleteBucket(miniogw.WithUplinkProject(ctx, project), bucket, forceDelete))
+}
+
+// GetObjectLockConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLockConfig.
+func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket string) (objectLockConfig *objectlock.Config, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return &objectlock.Config{}, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	objectLockConfig, err = l.layer.GetObjectLockConfig(miniogw.WithUplinkProject(ctx, project), bucket)
+	return objectLockConfig, l.log(ctx, err)
 }
 
 // ListObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjects.

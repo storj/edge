@@ -17,6 +17,7 @@ import (
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/minio/pkg/auth"
+	objectlock "storj.io/minio/pkg/bucket/object/lock"
 )
 
 var mon = monkit.Package()
@@ -119,6 +120,11 @@ func (iamOS *NotImplementedObjectStore) DeleteObjects(ctx context.Context, bucke
 // GetBucketInfo is unimplemented, but required to meet the ObjectLayer interface.
 func (iamOS *NotImplementedObjectStore) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
 	return minio.BucketInfo{}, minio.NotImplemented{}
+}
+
+// GetObjectLockConfig is unimplemented, but required to meet the ObjectLayer interface.
+func (iamOS *NotImplementedObjectStore) GetObjectLockConfig(ctx context.Context, bucket string) (objectLockConfig *objectlock.Config, err error) {
+	return &objectlock.Config{}, minio.NotImplemented{}
 }
 
 // GetObjectInfo is unimplemented, but required to meet the ObjectLayer interface.
