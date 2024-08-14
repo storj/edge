@@ -1,3 +1,18 @@
+# log entry size limit
+access-logs-processor.default-entry-limit: 2.0 KiB
+
+# log file size limit
+access-logs-processor.default-shipment-limit: 63.0 MiB
+
+# log file upload queue limit
+access-logs-processor.uploading-options.queue-limit: 100
+
+# maximum number of retries for log file uploads
+access-logs-processor.uploading-options.retry-limit: 3
+
+# time limit waiting for queued logs to finish uploading when gateway is shutting down
+access-logs-processor.uploading-options.shutdown-timeout: 1m0s
+
 # if used in with -h, print advanced flags help
 # advanced: false
 
