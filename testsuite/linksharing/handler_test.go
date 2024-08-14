@@ -334,7 +334,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
-			body:             []string{"You’re getting this file from all over the world"},
+			body:             []string{"You are getting this file from all over the world"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
@@ -342,7 +342,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
-			body:             []string{"You’re getting this file from all over the world"},
+			body:             []string{"You are getting this file from all over the world"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{

@@ -1,22 +1,65 @@
 {{template "header.html" .}}
+<div class="gradient-bar"></div>
 
 <div class="container-fluid">
   <div class="row">
 
-    <div class="col-lg-8 col-xl-9 bg-grey px-lg-4 px-xl-5 content">
+    <div class="col-lg-4 col-xl-3 px-4 pb-4 sidebar active d-block order-2 order-lg-1">
+      <div class="row mb-2 mt-2 d-none d-lg-block">
+        <div class="col">
+          <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo mt-4" alt="Storj Logo"></a>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col">
+          <div class="row justify-content-center">
+            <div class="col py-3 py-lg-4">
+
+              <h3 class="mt-2 mt-lg-0 mb-2">You are getting this file from all over the world.</h3>
+              <p>Storj cloud storage splits files into smaller pieces, then distributes them over a global network of nodes, and recompiles them securely on download. The map below shows the real-time locations of this file’s pieces.</p>
+
+              <a href="https://www.storj.io/" class="btn btn-outline-secondary btn-lg d-block">Learn more about Storj</a>
+              <p class="nodes-count w-100 mt-2 mb-2 text-center">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file</p>
+
+              <div id="map-img" class="map mb-2">
+                <img src="?map=1&width=800" class="w-100" />
+              </div>
+
+              <p class="nodes-count w-100 mb-2 text-center">Sign up now to get 25GB free for 30 days.</p>
+              <a href="https://storj.io/signup" class="btn btn-secondary btn-lg d-block">Sign Up</a>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <img class="collapser" src="{{.Base}}/static/img/collapse.svg?v={{.VersionHash}}" onclick="toggleSideBar()" alt="collapse icon" title="Toggle Sidebar" />
+      </div>
+    </div>
+
+    <div class="col-lg-8 col-xl-9 px-4 content order-1 order-lg-2">
 
       <div class="row pt-4 pb-2">
-        <div class="col-12 col-md-5 text-center text-md-left">
-            <div class="file">
-              <img src="{{.Base}}/static/img/icon-file.svg?v={{.VersionHash}}" class="d-block d-md-inline-block mx-auto" alt="File icon">
-              <p class="file-title-sidebar font-weight-bold mt-3 mt-md-0 ml-0 ml-md-1">{{.Data.Key}}</p>
+        <div class="col-12 col-md-4">
+
+          <div class="row mb-2d-block d-lg-none">
+            <div class="col">
+              <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo" alt="Storj Logo"></a>
             </div>
-            <p class="mt-3">{{.Data.Size}}</p>
+
+          </div>
+            <div class="file">
+              <img src="{{.Base}}/static/img/icon-file.svg?v={{.VersionHash}}" class="d-inline-block pt-1 mr-0 mr-md-1" alt="File icon">
+              <p class="file-title font-weight-bold mt-3 mt-lg-0">{{.Data.Key}}</p>
+            </div>
+            <p class="mt-3 mb-2">{{.Data.Size}}</p>
         </div>
-        <div class="col-12 col-md-7 text-center text-md-right">
-          {{ if .ShowViewContents }}<a href="?wrap=1&path=/" class="btn btn-primary btn-lg mb-3 mx-1 mx-md-2 mt-1" contents>View Contents</a>{{ end }}
-            <a href="?download=1{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}" class="{{ if not .AllowDownload }}disabled {{ end }}btn btn-primary btn-lg mb-3 mx-1 mx-md-2 mt-1" download>Download <img src="{{.Base}}/static/img/icon-download-white.svg?v={{.VersionHash}}" alt="Download" class="ml-2"></a>
-            <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg mb-3 mt-1 btn-share">Share <img src="{{.Base}}/static/img/icon-share.svg?v={{.VersionHash}}" alt="Share" class="ml-2"></button>
+        <div class="col-12 col-md-8 text-left text-md-right">
+            <a href="?download=1{{if (gt (len .ArchivePath) 0)}}&path={{.ArchivePath}}{{ end }}" class="{{ if not .AllowDownload }}disabled {{ end }}btn btn-primary btn-lg mb-3 mr-2 mx-md-2 mt-1" download><img src="{{.Base}}/static/img/icon-download-white.svg?v={{.VersionHash}}" alt="Download" class="mr-2">Download</a>
+            {{ if .ShowViewContents }}<a href="?wrap=1&path=/" class="btn btn-outline-primary btn-lg mb-3 mt-1 mr-2" contents>Open Archive</a>{{ end }}
+            <button type="button" onclick="openModal()" class="btn btn-outline-primary btn-lg mb-3 mt-1 btn-share">Share</button>
         </div>
       </div>
 
@@ -26,38 +69,29 @@
           <img class="embed-responsive embed-responsive-4by3" id="imgTag" alt="preview image">
           <video class="embed-responsive embed-responsive-4by3" id="videoTag" controls></video>
           <audio class="embed-responsive embed-responsive-4by3" id="audioTag" controls></audio>
-          <img class="embed-responsive embed-responsive-4by3 d-none" id="placeholderImage" src="{{.Base}}/static/img/file-drop.svg?v={{.VersionHash}}" alt="placeholder image">
+          <!-- <img class="embed-responsive embed-responsive-4by3 d-none" id="placeholderImage" src="{{.Base}}/static/img/file-drop-v4.png?v={{.VersionHash}}" alt="placeholder image"> -->
+          <div class="d-none" id="placeholderImage" alt="Placeholder image">
+            <div class="placeholder-container">
+              <div class="placeholder-bg"></div>
+              <div class="placeholder-file-icon">
+                <div class="placeholder-file-body"></div>
+                <div class="placeholder-file-lines">
+                  <div class="placeholder-file-line"></div>
+                  <div class="placeholder-file-line"></div>
+                  <div class="placeholder-file-line"></div>
+                  <div class="placeholder-file-line"></div>
+                </div>
+              </div>
+              <div class="placeholder-no-preview">No preview available</div>
+            </div>
+            </div>
         </div>
       </div>
 
     </div>
-
-    <div class="col-lg-4 col-xl-3 px-lg-4 px-xl-5 sidebar active d-block">
-      <div class="row mb-3 mt-3">
-        <div class="col text-center text-md-left">
-          <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo mt-4" alt="Storj Logo"></a>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <div class="row justify-content-center">
-            <div class="col py-3 py-lg-4 text-center text-md-left">
-              <h3 class="mb-3">You’re getting this file from all over the world.</h3>
-              <p>Storj splits files into smaller pieces, then distributes those pieces over a global network of nodes and recompiles them securely on download. This map shows the real-time locations of this file’s pieces.</p>
-              <p class="nodes-count w-100 mt-2 text-center">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file</p>
-            </div>
-          </div>
-          <div class="row">
-            <div id="map-img" class="col-12 col-lg-12 text-center map mt-4 mb-5">
-              <img src="?map=1&width=800" style="width:100%;" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <p><img class="collapser" src="{{.Base}}/static/img/collapse.svg?v={{.VersionHash}}" onclick="toggleSideBar()" alt="collapse icon"></p>
-    </div>
+    
   </div>
-  <p><img class="expander" src="{{.Base}}/static/img/expand.svg?v={{.VersionHash}}" onclick="toggleSideBar()" alt="expand icon"></p>
+  <img class="expander" src="{{.Base}}/static/img/expand.svg?v={{.VersionHash}}" onclick="toggleSideBar()" alt="expand icon">
 </div>
 
 <!-- Share Modal -->
@@ -190,5 +224,3 @@
       }
   }
 </script>
-
-{{template "footer.html" .}}
