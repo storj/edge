@@ -125,7 +125,7 @@ func TestInvalidateRecord(t *testing.T) {
 		for _, node := range env.BadgerCluster.Nodes {
 			badgerauthtest.Get{
 				KeyHash: keys[0],
-				Error:   badgerauth.Error.Wrap(authdb.Invalid.New(reason)),
+				Error:   badgerauth.Error.Wrap(authdb.Invalid.New("%v", reason)),
 			}.Check(ctx, t, node)
 		}
 		_, err = env.SpannerClient.Get(ctx, invalidatedKey)

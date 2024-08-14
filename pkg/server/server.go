@@ -240,7 +240,7 @@ func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {
 
 func versionInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprint(w, version.Build.Version.String())
+	_, _ = fmt.Fprint(w, version.Build.Version.String())
 }
 
 // Run starts the S3 compatible http server.

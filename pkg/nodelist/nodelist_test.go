@@ -32,7 +32,7 @@ func TestLoadNodeAddresses(t *testing.T) {
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, line := range withIds {
-			fmt.Fprintln(w, line)
+			_, _ = fmt.Fprintln(w, line)
 		}
 	}))
 	defer testServer.Close()
@@ -201,7 +201,7 @@ func TestGetHTTPList(t *testing.T) {
 	const test = "This is a test."
 
 	ts1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, test)
+		_, _ = fmt.Fprint(w, test)
 	}))
 	defer ts1.Close()
 
