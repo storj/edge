@@ -65,6 +65,19 @@ type StorjStorage struct {
 	access *uplink.Access
 }
 
+// NewStorjStorage creates a new instance of StorjStorage with the given access grant.
+// It initializes and returns a pointer to the StorjStorage struct.
+func NewStorjStorage(access *uplink.Access) *StorjStorage {
+	return &StorjStorage{
+		access: access,
+	}
+}
+
+// SerializedAccessGrant returns a serialized form of the access grant used for this storage.
+func (s StorjStorage) SerializedAccessGrant() (string, error) {
+	return s.access.Serialize()
+}
+
 // Put saves body under bucket/key to Storj.
 func (s StorjStorage) Put(ctx context.Context, bucket, key string, body []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
