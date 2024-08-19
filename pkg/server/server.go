@@ -129,6 +129,12 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 
 	minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
 
+	processor := accesslogs.NewProcessor(log, config.AccessLogsProcessor)
+	accessLogsConfigs, err := middleware.ParseAccessLogConfig(log, config.ServerAccessLogging)
+	if err != nil {
+		return nil, err
+	}
+
 	r.Use(requestid.AddToContext)
 	r.Use(func(handler http.Handler) http.Handler {
 		return mhttp.TraceHandler(handler, mon)
@@ -136,6 +142,8 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, trustedIPs, log))
 	r.Use(middleware.CollectEvent)
+	r.Use(middleware.AccessLog(log, processor, accessLogsConfigs))
+
 	for i, m := range cmd.GlobalHandlers {
 		r.Use(middleware.MonitorMinioGlobalHandler(i, m))
 	}
@@ -164,8 +172,6 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 			CertMagicAsyncPublicURLs:                  strings.Split(config.OptionalDomainName, ","),
 		}
 	}
-
-	processor := accesslogs.NewProcessor(log, config.AccessLogsProcessor)
 
 	server, err := httpserver.New(log, handler, nil, httpserver.Config{
 		Address:            config.Server.Address,

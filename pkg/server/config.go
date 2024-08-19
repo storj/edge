@@ -35,6 +35,7 @@ type Config struct {
 	ConcurrentAllowed    uint          `help:"number of allowed concurrent uploads or downloads per macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 	ShutdownDelay        time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 	DisableHTTP2         bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
+	ServerAccessLogging  []string      `help:"list of project IDs and buckets which have access logging enabled. Usage (colon-delimited): watched_project_id:watched_bucket:destination_bucket:destination_access_grant:destination_prefix. destination_prefix can be empty"`
 
 	Auth                    authclient.Config
 	S3Compatibility         miniogw.S3CompatibilityConfig

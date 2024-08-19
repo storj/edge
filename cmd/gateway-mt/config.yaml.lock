@@ -208,6 +208,9 @@ client.identity.key-path: ""
 # RPC connection pool max lifetime of a connection
 # satellite-connection-pool.max-lifetime: 10m0s
 
+# list of project IDs and buckets which have access logging enabled. Usage (colon-delimited): watched_project_id:watched_bucket:destination_bucket:destination_access_grant:destination_prefix. destination_prefix can be empty
+# server-access-logging: []
+
 # Address to serve gateway on
 # server.address: :20010
 
