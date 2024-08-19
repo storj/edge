@@ -24,8 +24,8 @@ type S3AccessLogEntryOptions struct {
 	RequestURI         string        // example: "GET /DOC-EXAMPLE-BUCKET1/photos/2019/08/puppy.jpg?x-foo=bar HTTP/1.1"
 	HTTPStatus         int           // example: 200
 	ErrorCode          string        // example: NoSuchBucket
-	BytesSent          int           // example: 2662992
-	ObjectSize         *int          // example: 3462992
+	BytesSent          int64         // example: 2662992
+	ObjectSize         *int64        // example: 3462992
 	TotalTime          time.Duration // example: 70
 	TurnAroundTime     time.Duration // example: 10
 	Referer            string        // example: "http://www.example.com/webservices"
@@ -73,10 +73,10 @@ func NewS3AccessLogEntry(o S3AccessLogEntryOptions) *S3AccessLogEntry {
 	e.writeQuotedString(o.RequestURI)
 	e.writeInt(o.HTTPStatus)
 	e.writeString(o.ErrorCode)
-	e.writeInt(o.BytesSent)
+	e.writeInt64(o.BytesSent)
 
 	if o.ObjectSize != nil {
-		e.b.WriteString(strconv.Itoa(*o.ObjectSize))
+		e.b.WriteString(strconv.FormatInt(*o.ObjectSize, 10))
 	} else {
 		e.b.WriteRune('-')
 	}

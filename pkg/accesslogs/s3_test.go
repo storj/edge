@@ -13,7 +13,7 @@ func TestS3AccessLogEntry(t *testing.T) {
 	testTime, err := time.Parse(time.RFC3339, "2024-12-21T13:45:10Z")
 	require.NoError(t, err)
 
-	objectSize := 0
+	objectSize := int64(0)
 
 	o := S3AccessLogEntryOptions{
 		BucketOwner:        "bucketOwner",
