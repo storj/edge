@@ -65,14 +65,17 @@ func AccessLog(log *zap.Logger, p *accesslogs.Processor, config AccessLogConfig)
 
 			h.ServeHTTP(w, r)
 
-			logEntry := extractLogEntry(r, rw, startTime, gl)
-			credentials := GetAccess(r.Context())
 			var publicProjectID string
-			if credentials == nil {
-				publicProjectID = "-"
-			} else {
+			credentials := GetAccess(r.Context())
+			if credentials != nil {
 				publicProjectID = credentials.PublicProjectID
 			}
+
+			if publicProjectID == "" {
+				return
+			}
+
+			logEntry := extractLogEntry(r, rw, startTime, gl)
 			processLogEntry(log, p, config, publicProjectID, gl.BucketName, &logEntry)
 		}))
 	}
@@ -215,7 +218,9 @@ func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Ti
 func processLogEntry(log *zap.Logger, p *accesslogs.Processor, config AccessLogConfig, publicProjectID, bucketName string, logEntry *accesslogs.S3AccessLogEntry) {
 	parsedPublicProjectID, err := uuid.FromString(publicProjectID)
 	if err != nil {
-		log.Error("Error parsing public project ID from authservice", zap.Error(err))
+		log.Error("Error parsing public project ID from authservice",
+			zap.Error(err),
+			zap.String("publicProjectID", publicProjectID))
 		return
 	}
 
