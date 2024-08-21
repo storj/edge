@@ -71,12 +71,33 @@ func AccessLog(log *zap.Logger, p *accesslogs.Processor, config AccessLogConfig)
 				publicProjectID = credentials.PublicProjectID
 			}
 
-			if publicProjectID == "" {
+			// we need both project ID and bucket name to log anything.
+			if publicProjectID == "" || gl.BucketName == "" {
 				return
 			}
 
-			logEntry := extractLogEntry(r, rw, startTime, gl)
-			processLogEntry(log, p, config, publicProjectID, gl.BucketName, &logEntry)
+			parsedPublicProjectID, err := uuid.FromString(publicProjectID)
+			if err != nil {
+				log.Error("Error parsing public project ID from authservice",
+					zap.Error(err),
+					zap.String("publicProjectID", publicProjectID))
+				return
+			}
+
+			if dest, ok := config[WatchedBucket{
+				ProjectID:  parsedPublicProjectID,
+				BucketName: gl.BucketName,
+			}]; ok {
+				logEntry := extractLogEntry(r, rw, startTime, gl)
+
+				if err := p.QueueEntry(dest.Storage, accesslogs.Key{
+					PublicProjectID: parsedPublicProjectID,
+					Bucket:          dest.BucketName,
+					Prefix:          dest.Prefix,
+				}, logEntry); err != nil {
+					log.Error("Error queuing access log entry", zap.Error(err))
+				}
+			}
 		}))
 	}
 }
@@ -213,28 +234,4 @@ func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.T
 
 func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) accesslogs.S3AccessLogEntry {
 	return *accesslogs.NewS3AccessLogEntry(populateLogEntry(r, rw, startTime, gl))
-}
-
-func processLogEntry(log *zap.Logger, p *accesslogs.Processor, config AccessLogConfig, publicProjectID, bucketName string, logEntry *accesslogs.S3AccessLogEntry) {
-	parsedPublicProjectID, err := uuid.FromString(publicProjectID)
-	if err != nil {
-		log.Error("Error parsing public project ID from authservice",
-			zap.Error(err),
-			zap.String("publicProjectID", publicProjectID))
-		return
-	}
-
-	if c, ok := config[WatchedBucket{
-		ProjectID:  parsedPublicProjectID,
-		BucketName: bucketName,
-	}]; ok {
-		err = p.QueueEntry(c.Storage, accesslogs.Key{
-			PublicProjectID: parsedPublicProjectID,
-			Bucket:          c.BucketName,
-			Prefix:          c.Prefix,
-		}, logEntry)
-		if err != nil {
-			log.Error("Error queuing access log entry", zap.Error(err))
-		}
-	}
 }

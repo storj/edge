@@ -5,15 +5,19 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/webhelp.v1/whmon"
 
 	"storj.io/common/testcontext"
@@ -21,6 +25,7 @@ import (
 	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd/logger"
 	"storj.io/uplink"
 )
@@ -209,7 +214,8 @@ func (s *inMemoryStorage) Put(_ context.Context, bucket, key string, body []byte
 func TestProcessLogEntry(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	log := zaptest.NewLogger(t)
+	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+	log := zap.New(observedZapCore)
 	defer ctx.Check(log.Sync)
 
 	p := accesslogs.NewProcessor(log, accesslogs.Options{})
@@ -249,45 +255,82 @@ func TestProcessLogEntry(t *testing.T) {
 		},
 	}
 
-	randomTime, _ := time.Parse("2006-01-02T15:04:05", "2024-12-21T13:45:10")
-	entry := accesslogs.NewS3AccessLogEntry(accesslogs.S3AccessLogEntryOptions{
-		BucketOwner:        "bucketOwner",
-		Bucket:             "bucketName",
-		Time:               randomTime,
-		RemoteIP:           "8.8.8.8",
-		Requester:          "publicProjectId",
-		RequestID:          "requestId",
-		Operation:          "REST.GET.VERSIONING",
-		Key:                "/test/puppy.jpg",
-		RequestURI:         "GET /DOC-EXAMPLE-BUCKET1/photos/2019/08/puppy.jpg?x-foo=bar HTTP/1.1",
-		HTTPStatus:         200,
-		ErrorCode:          "NoSuchBucket",
-		BytesSent:          1234,
-		ObjectSize:         nil,
-		TotalTime:          123 * time.Millisecond,
-		TurnAroundTime:     0,
-		Referer:            "https://example.com",
-		UserAgent:          "curl 8.8",
-		VersionID:          "versionId",
-		HostID:             "hostId",
-		SignatureVersion:   "SigV4",
-		CipherSuite:        "TLS_AES_128_GCM_SHA256",
-		AuthenticationType: "AuthHeader",
-		HostHeader:         "gateway.storjshare.io",
-		TLSVersion:         "TLSv1.2",
-		AccessPointARN:     "-",
-		ACLRequired:        "-",
-	})
+	project1Key := "jwaohtj3dhixxfpzhwj522x7z3pa"
+	project2Key := "jwaohtj3dhixxfpzhwj522x7z3pb"
+	project3Key := "jwaohtj3dhixxfpzhwj522x7z3pc"
+	missingProjectIDKey := "jwaohtj3dhixxfpzhwj522x7z3pd"
+	malformedProjectIDKey := "jwaohtj3dhixxfpzhwj522x7z3pe"
 
-	processLogEntry(log, p, config, project1.String(), "bucket1", entry)
-	processLogEntry(log, p, config, project2.String(), "bucket2", entry)
-	processLogEntry(log, p, config, project3.String(), "bucket3", entry)
+	projectIDMap := map[string]string{
+		project1Key:           project1.String(),
+		project2Key:           project2.String(),
+		project3Key:           project3.String(),
+		missingProjectIDKey:   "",
+		malformedProjectIDKey: "malformed",
+	}
+
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accessKey := strings.TrimPrefix(r.URL.Path, "/v1/access/")
+		if projectID, ok := projectIDMap[accessKey]; ok {
+			require.NoError(t, json.NewEncoder(w).Encode(struct {
+				AccessGrant     string `json:"access_grant"`
+				Public          bool   `json:"public"`
+				PublicProjectID string `json:"public_project_id"`
+			}{
+				AccessGrant:     "abc",
+				Public:          true,
+				PublicProjectID: projectID,
+			}))
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+	}))
+	defer authServer.Close()
+
+	accessKeyHandler := AccessKey(authclient.New(authclient.Config{
+		BaseURL: authServer.URL,
+	}), trustedip.NewListTrustAll(), log)
+
+	accessLogHandler := AccessLog(log, p, config)
+
+	testHandler := accessKeyHandler(accessLogHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gl, ok := gwlog.FromContext(r.Context())
+		if !ok {
+			gl = gwlog.New()
+		}
+
+		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) >= 1 {
+			gl.BucketName = parts[0]
+		}
+	})))
+
+	doReq := func(accessKey, target string) {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential="+accessKey+"/20211026/us-east-1/s3/aws4_request, Signature=test")
+		req.Header.Set("X-Amz-Date", "20211026T233405Z")
+		testHandler.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	doReq(project1Key, "/bucket1/test")
+	doReq(project1Key, "/")
+	doReq(project2Key, "/bucket2/test")
+	doReq(project2Key, "/dontlogme/test")
+	doReq(project3Key, "/bucket3/test")
+	doReq(missingProjectIDKey, "/abc/test")
+	doReq(malformedProjectIDKey, "/xyz/test")
 
 	ctx.Check(p.Close)
 
 	assert.Len(t, project1Storage.buckets["destination_bucket1"], 1)
 	assert.Len(t, project2Storage.buckets["destination_bucket2"], 1)
 	assert.Len(t, project3Storage.buckets["destination_bucket3"], 1)
+
+	filteredLogs := observedLogs.FilterMessage("Error parsing public project ID from authservice")
+	require.Len(t, filteredLogs.All(), 1)
+	publicProjectID, ok := filteredLogs.All()[0].ContextMap()["publicProjectID"].(string)
+	require.True(t, ok)
+	require.Equal(t, "malformed", publicProjectID)
 }
 
 func TestPopulateLogEntry(t *testing.T) {
