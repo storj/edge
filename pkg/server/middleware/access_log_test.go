@@ -337,7 +337,7 @@ func TestPopulateLogEntry(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ts := httptest.NewServer(whmon.MonitorResponse(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testHandler := whmon.MonitorResponse(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := w.(whmon.ResponseWriter)
 
 		rw.WriteHeader(http.StatusForbidden)
@@ -376,16 +376,12 @@ func TestPopulateLogEntry(t *testing.T) {
 		assert.Equal(t, int64(6), entry.BytesSent)
 		assert.Equal(t, "/foo", entry.Referer)
 		assert.Equal(t, "AuthHeader", entry.AuthenticationType)
-	})))
-	defer ts.Close()
+	}))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL, nil)
-	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Referer", "/foo")
 	req.Header.Set("Authentication", "bar")
 	req.Header.Set("User-Agent", "myapp")
 
-	resp, err := http.DefaultClient.Do(req) //nolint:bodyclose
-	require.NoError(t, err)
-	ctx.Check(resp.Body.Close)
+	testHandler.ServeHTTP(httptest.NewRecorder(), req)
 }
