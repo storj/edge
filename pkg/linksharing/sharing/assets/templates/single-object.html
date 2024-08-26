@@ -10,7 +10,7 @@
           <a href="https://www.storj.io/"><img src="{{.Base}}/static/img/logo.svg?v={{.VersionHash}}" class="logo mt-4" alt="Storj Logo"></a>
         </div>
       </div>
-      
+
       <div class="row">
         <div class="col">
           <div class="row justify-content-center">
@@ -51,7 +51,7 @@
 
           </div>
             <div class="file">
-              <img src="{{.Base}}/static/img/icon-file.svg?v={{.VersionHash}}" class="d-inline-block pt-1 mr-0 mr-md-1" alt="File icon">
+              <img id="file-{{.Data.Key}}" src="{{.Base}}/static/img/icon-file.svg?v={{.VersionHash}}" class="d-inline-block pt-1 mr-0 mr-md-1" alt="File icon">
               <p class="file-title font-weight-bold mt-3 mt-lg-0">{{.Data.Key}}</p>
             </div>
             <p class="mt-3 mb-2">{{.Data.Size}}</p>
@@ -88,7 +88,7 @@
       </div>
 
     </div>
-    
+
   </div>
   <img class="expander" src="{{.Base}}/static/img/expand.svg?v={{.VersionHash}}" onclick="toggleSideBar()" alt="expand icon">
 </div>
@@ -119,6 +119,7 @@
 </div>
 <div class="modal-backdrop fade show" id="backdrop" style="display: none;"></div>
 
+<script src="{{.Base}}/static/js/common.js?v={{.VersionHash}}" type="text/javascript"></script>
 <script type="text/javascript">
   const pdfExtensions = 'pdf'
   const imageExtensions = ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif']
@@ -159,11 +160,11 @@
       }
   }
 
-  let modal = document.getElementById('shareModal');
-  let input = document.getElementById('url');
+  const modal = document.getElementById('shareModal');
+  const input = document.getElementById('url');
 
   window.onclick = function (event) {
-      if (event.target == modal) {
+      if (event.target === modal) {
           closeModal()
       }
   }
@@ -203,6 +204,7 @@
       let fileExtension = {{.Data.Key}}.split('.').pop();
       if (fileExtension) {
         fileExtension = fileExtension.toLowerCase();
+        setFileIconSource("{{.Base}}", "{{.VersionHash}}", "{{.Data.Key}}", fileExtension);
       }
 
       switch (true) {

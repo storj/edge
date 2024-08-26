@@ -40,6 +40,8 @@
               </div>
             </div>
 
+            <script src="{{.Base}}/static/js/common.js?v={{.VersionHash}}" type="text/javascript"></script>
+
             {{range .Data.Objects}}
             {{if .Prefix}}
             <a class="directory-link" href="{{.URL}}">
@@ -54,7 +56,10 @@
             <a class="directory-link" href="{{.URL}}">
               <div class="row">
                 <div class="col-9 col-sm-10">
-                  <img src="{{$.Base}}/static/img/file.svg" alt="Object" />
+                  <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
+                  <script type="text/javascript" async>
+                    setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
+                  </script>
                   <span class="directory-name">{{.Key}}</span>
                 </div>
                 <div class="col-3 col-sm-2 text-right">
