@@ -14,9 +14,9 @@ require (
 	go.uber.org/zap v1.27.0
 	storj.io/common v0.0.0-20240821205240-79830b9841af
 	storj.io/edge v0.0.0-00010101000000-000000000000
-	storj.io/minio v0.0.0-20240821054648-fc1f7cdcd541
-	storj.io/storj v1.111.5
-	storj.io/uplink v1.13.2-0.20240821111301-f296d41bedbb
+	storj.io/minio v0.0.0-20240823173748-8475cdc6096f
+	storj.io/storj v1.91.0-alpha.0.20240826165145-06ff49e25f90
+	storj.io/uplink v1.13.2-0.20240826160422-a98008006b25
 )
 
 require (
@@ -96,7 +96,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
-	github.com/googleapis/go-sql-spanner v1.6.0 // indirect
+	github.com/googleapis/go-sql-spanner v1.6.1-0.20240816093805-21f8b75ae3fc // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
@@ -270,7 +270,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
-	storj.io/gateway v1.9.1-0.20240822212712-0b9c9b73f381 // indirect
+	storj.io/gateway v1.9.1-0.20240826193317-e42435ea9b27 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
