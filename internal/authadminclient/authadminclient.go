@@ -15,6 +15,7 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/spannerauth"
@@ -34,9 +35,10 @@ type Client struct {
 // Record is a representation of pb.Record for display purposes.
 type Record struct {
 	*authdb.FullRecord
-	DecryptedAccessGrant string `json:"decrypted_access_grant,omitempty"`
-	MacaroonHeadHex      string `json:"macaroon_head_hex,omitempty"`
-	APIKey               string `json:"api_key,omitempty"`
+	DecryptedAccessGrant string    `json:"decrypted_access_grant,omitempty"`
+	PublicProjectUUID    uuid.UUID `json:"public_project_id,omitempty"`
+	MacaroonHeadHex      string    `json:"macaroon_head_hex,omitempty"`
+	APIKey               string    `json:"api_key,omitempty"`
 }
 
 func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.EncryptionKey) error {
@@ -55,6 +57,17 @@ func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.Enc
 		}
 		r.APIKey = ag.APIKey.Serialize()
 	}
+
+	var publicProjectUUID uuid.UUID
+	if r.PublicProjectID != nil {
+		var err error
+		publicProjectUUID, err = uuid.FromBytes(r.PublicProjectID)
+		if err != nil {
+			return errs.New("parse public project id: %w", err)
+		}
+	}
+
+	r.PublicProjectUUID = publicProjectUUID
 	r.MacaroonHeadHex = hex.EncodeToString(r.MacaroonHead)
 	return nil
 }

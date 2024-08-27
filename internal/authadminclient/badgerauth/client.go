@@ -128,6 +128,7 @@ func (c *Client) GetFullRecord(ctx context.Context, keyHash authdb.KeyHash) (*au
 	record := &authdb.FullRecord{
 		Record: authdb.Record{
 			SatelliteAddress:     r.Record.SatelliteAddress,
+			PublicProjectID:      r.Record.PublicProjectId,
 			MacaroonHead:         r.Record.MacaroonHead,
 			EncryptedSecretKey:   r.Record.EncryptedSecretKey,
 			EncryptedAccessGrant: r.Record.EncryptedAccessGrant,

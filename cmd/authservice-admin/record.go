@@ -195,6 +195,9 @@ func printRecord(r record) {
 		if r.AuthRecord.SatelliteAddress != "" {
 			printFixed("Satellite address:", r.AuthRecord.SatelliteAddress)
 		}
+		if !r.AuthRecord.PublicProjectUUID.IsZero() {
+			printFixed("Public project ID:", r.AuthRecord.PublicProjectUUID.String())
+		}
 		if r.AuthRecord.MacaroonHeadHex != "" {
 			printFixed("Macaroon head:", r.AuthRecord.MacaroonHeadHex)
 		}
