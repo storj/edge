@@ -322,6 +322,32 @@ func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket stri
 	return objectLockConfig, l.log(ctx, err)
 }
 
+// GetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectRetention.
+func (l *MultiTenancyLayer) GetObjectRetention(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectRetention, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	retention, err := l.layer.GetObjectRetention(miniogw.WithUplinkProject(ctx, project), bucket, object, version)
+
+	return retention, l.log(ctx, err)
+}
+
+// SetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectRetention.
+func (l *MultiTenancyLayer) SetObjectRetention(ctx context.Context, bucket, object, version string, r *objectlock.ObjectRetention) (err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	return l.log(ctx, l.layer.SetObjectRetention(miniogw.WithUplinkProject(ctx, project), bucket, object, version, r))
+}
+
 // ListObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjects.
 func (l *MultiTenancyLayer) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
