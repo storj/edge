@@ -322,6 +322,32 @@ func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket stri
 	return objectLockConfig, l.log(ctx, err)
 }
 
+// GetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLegalHold.
+func (l *MultiTenancyLayer) GetObjectLegalHold(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectLegalHold, err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	lh, err := l.layer.GetObjectLegalHold(miniogw.WithUplinkProject(ctx, project), bucket, object, version)
+
+	return lh, l.log(ctx, err)
+}
+
+// SetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectLegalHold.
+func (l *MultiTenancyLayer) SetObjectLegalHold(ctx context.Context, bucket, object, version string, lh *objectlock.ObjectLegalHold) (err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	return l.log(ctx, l.layer.SetObjectLegalHold(miniogw.WithUplinkProject(ctx, project), bucket, object, version, lh))
+}
+
 // GetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectRetention.
 func (l *MultiTenancyLayer) GetObjectRetention(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectRetention, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))

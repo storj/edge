@@ -268,11 +268,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, deleteObject(ctx, client, bucket2, "testobject1", ""))
 
 			_, err = getObjectRetention(ctx, client, bucket2, "testobject1", "")
-			// TODO: use a different error?
-			// Us: HTTP 400: "NoSuchObjectLockConfiguration: Object is missing retention configuration"
-			// S3: HTTP 405: "MethodNotAllowed: "The specified method is not allowed against this resource."
-			// requireErrorWithCode(t, err, "MethodNotAllowed")
-			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
+			requireErrorWithCode(t, err, "MethodNotAllowed")
 		})
 
 		t.Run("invalid retention mode", func(t *testing.T) {
@@ -294,22 +290,35 @@ func TestObjectLock(t *testing.T) {
 			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
-		// TODO: expand this test case when legal hold is supported.
 		t.Run("legal hold", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, true))
 
-			_, err := putObjectWithLegalHold(ctx, client, bucket, "testobject", "ON")
-			require.NoError(t, err)
-			// TODO: specifying ObjectLockLegalHoldStatus maybe should have returned an error.
-			// require.Error(t, err)
-			// requireErrorWithCode(t, err, "InvalidRequest")
-
-			_, err = putObject(ctx, client, bucket, "testobject")
+			objKey := "testobject"
+			_, err := putObjectWithLegalHold(ctx, client, bucket, objKey, "ON")
 			require.NoError(t, err)
 
-			_, err = putObjectLegalHold(ctx, client, bucket, "testobject", "ON")
-			requireErrorWithCode(t, err, "NotImplemented")
+			_, err = putObject(ctx, client, bucket, objKey)
+			require.NoError(t, err)
+
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "ON")
+			require.NoError(t, err)
+
+			response, err := getObjectLegalHold(ctx, client, bucket, objKey, "")
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			require.Equal(t, "ON", *response.LegalHold.Status)
+
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "OFF")
+			require.NoError(t, err)
+
+			response, err = getObjectLegalHold(ctx, client, bucket, objKey, "")
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			require.Equal(t, "OFF", *response.LegalHold.Status)
+
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "INVALID")
+			requireErrorWithCode(t, err, "MalformedXML")
 		})
 
 		t.Run("extending retention time allowed but shortening is not", func(t *testing.T) {
@@ -1097,6 +1106,14 @@ func putObjectLegalHold(ctx context.Context, client *s3.S3, bucket, key, status 
 		LegalHold: &s3.ObjectLockLegalHold{
 			Status: aws.String(status),
 		},
+	})
+}
+
+func getObjectLegalHold(ctx context.Context, client *s3.S3, bucket, key, versionID string) (*s3.GetObjectLegalHoldOutput, error) {
+	return client.GetObjectLegalHoldWithContext(ctx, &s3.GetObjectLegalHoldInput{
+		Bucket:    aws.String(bucket),
+		Key:       aws.String(key),
+		VersionId: aws.String(versionID),
 	})
 }
 
