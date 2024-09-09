@@ -55,8 +55,8 @@ import (
 )
 
 const (
-	lockModeCompliance = "COMPLIANCE"
-	lockModeGovernance = "GOVERNANCE"
+	lockModeCompliance = s3.ObjectLockModeCompliance
+	lockModeGovernance = s3.ObjectLockModeGovernance
 )
 
 func TestObjectLockRestrictedPermissions(t *testing.T) {
@@ -98,9 +98,7 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 			creds := registerAccess(ctx, t, encAccess, apiKey, satellite.URL(), auth.Address())
 			client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
-			err = createBucket(ctx, client, "testbucket", true, true)
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, createBucket(ctx, client, "testbucket", true, true), "AccessDenied")
 		})
 
 		t.Run("allow get retention disallow put retention", func(t *testing.T) {
@@ -114,24 +112,21 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 
 			bucket := testrand.BucketName()
 
-			err = createBucket(ctx, restrictedClient, bucket, true, true)
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, createBucket(ctx, restrictedClient, bucket, true, true), "AccessDenied")
 
 			require.NoError(t, createBucket(ctx, allowedClient, bucket, true, true))
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
 			_, err = putObjectWithRetention(ctx, restrictedClient, bucket, "testobject", lockModeCompliance, retainUntil)
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, err, "AccessDenied")
 
 			putResp, err := putObjectWithRetention(ctx, allowedClient, bucket, "testobject", lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
 			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, "testobject", *putResp.VersionId)
 			require.NoError(t, err)
-			require.Equal(t, aws.String(lockModeCompliance), retResp.Retention.Mode)
+			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
 		})
 
@@ -155,7 +150,7 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 
 			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, "testobject", *putResp.VersionId)
 			require.NoError(t, err)
-			require.Equal(t, aws.String(lockModeCompliance), retResp.Retention.Mode)
+			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
 		})
 
@@ -183,25 +178,22 @@ func TestObjectLock(t *testing.T) {
 	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
-		// todo: expand this test case when PutObjectLockConfiguration is supported.
+		// TODO: expand this test case when PutObjectLockConfiguration is supported.
 		t.Run("enable and disable object lock on bucket", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
 			_, err := getObjectLockConfiguration(ctx, client, bucket)
-			require.Error(t, err)
 			// TODO: use a different error?
 			// Us: HTTP 400: "InvalidRequest: Bucket is missing Object Lock Configuration"
 			// S3: HTTP 404: "ObjectLockConfigurationNotFoundError: Object Lock configuration does not exist for this bucket"
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			requireErrorWithCode(t, err, "InvalidRequest")
 
 			_, err = putObjectLockConfiguration(ctx, client, bucket, "Enabled", nil)
-			require.Error(t, err)
-			require.Equal(t, "NotImplemented", errorCode(err))
+			requireErrorWithCode(t, err, "NotImplemented")
 
 			_, err = putObjectLockConfiguration(ctx, client, bucket, "Disabled", nil)
-			require.Error(t, err)
-			require.Equal(t, "NotImplemented", errorCode(err))
+			requireErrorWithCode(t, err, "NotImplemented")
 
 			bucket2 := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket2, true, true))
@@ -220,7 +212,7 @@ func TestObjectLock(t *testing.T) {
 			// TODO: fix unmapped error.
 			// Us: "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled"
 			// S3: HTTP 400: "InvalidRequest: Bucket is missing ObjectLockConfiguration"
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		t.Run("put object with lock enables versioning implicitly", func(t *testing.T) {
@@ -228,8 +220,8 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, bucket, false, true))
 
 			resp, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
-			require.NotEmpty(t, resp.VersionId)
 			require.NoError(t, err)
+			require.NotEmpty(t, resp.VersionId)
 		})
 
 		t.Run("put object with lock not allowed when bucket lock disabled", func(t *testing.T) {
@@ -255,8 +247,7 @@ func TestObjectLock(t *testing.T) {
 				},
 			})
 			// TODO: AccessDenied here doesn't seem like the right error code.
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, err, "AccessDenied")
 		})
 
 		t.Run("get object retention error handling", func(t *testing.T) {
@@ -267,10 +258,9 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = getObjectRetention(ctx, client, bucket, "testobject", "")
-			require.Error(t, err)
+			requireErrorWithCode(t, err, "InvalidRequest")
 			// Note: S3 returns 400 InvalidRequest for GetObjectRetention when the bucket has no lock configuration.
 			// If the bucket does have lock configuration it instead returns 404 NoSuchObjectLockConfiguration.
-			require.Equal(t, "InvalidRequest", errorCode(err))
 
 			bucket2 := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket2, true, true))
@@ -279,12 +269,11 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = getObjectRetention(ctx, client, bucket2, "testobject", "")
-			require.Error(t, err)
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			requireErrorWithCode(t, err, "InvalidRequest")
 			// TODO: use a different error.
 			// S3: HTTP 404: "NoSuchObjectLockConfiguration: The specified object does not have a ObjectLock configuration"
 			// Us: HTTP 400: "InvalidRequest: Object is missing retention configuration"
-			// require.Equal(t, "NoSuchObjectLockConfiguration", errorCode(err))
+			// requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
@@ -294,12 +283,11 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, deleteObject(ctx, client, bucket2, "testobject1", ""))
 
 			_, err = getObjectRetention(ctx, client, bucket2, "testobject1", "")
-			require.Error(t, err)
 			// TODO: use a different error?
 			// Us: HTTP 400: "InvalidRequest: Object is missing retention configuration"
 			// S3: HTTP 405: "MethodNotAllowed: "The specified method is not allowed against this resource."
-			// require.Equal(t, "MethodNotAllowed", errorCode(err))
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "MethodNotAllowed")
+			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		t.Run("invalid retention mode", func(t *testing.T) {
@@ -312,11 +300,10 @@ func TestObjectLock(t *testing.T) {
 			require.Error(t, err)
 			// TODO: fix unmapped error "invalid retention mode 0, expected 1 (compliance)"
 			// TODO: this governance test can be removed once governance mode is supported
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "InvalidRequest")
 
 			_, err = putObjectWithRetention(ctx, client, bucket, "testobject", "invalidmode", retainUntil)
-			require.Error(t, err)
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		// TODO: expand this test case when legal hold is supported.
@@ -328,16 +315,15 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 			// TODO: specifying ObjectLockLegalHoldStatus maybe should have returned an error.
 			// require.Error(t, err)
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "InvalidRequest")
 
 			_, err = putObject(ctx, client, bucket, "testobject")
 			require.NoError(t, err)
 
 			_, err = putObjectLegalHold(ctx, client, bucket, "testobject", "ON")
-			require.Error(t, err)
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			requireErrorWithCode(t, err, "InvalidRequest")
 			// TODO: NotImplemented would probably be more accurate.
-			// require.Equal(t, "NotImplemented", errorCode(err))
+			// requireErrorWithCode(t, err, "NotImplemented")
 		})
 
 		t.Run("extending retention time allowed but shortening is not", func(t *testing.T) {
@@ -352,8 +338,7 @@ func TestObjectLock(t *testing.T) {
 			extendedRetainUntil := retainUntil.Add(10 * time.Minute)
 
 			_, err = putObjectRetention(ctx, client, bucket, "doesntexist", lockModeCompliance, extendedRetainUntil)
-			require.Error(t, err)
-			require.Equal(t, "NoSuchKey", errorCode(err))
+			requireErrorWithCode(t, err, "NoSuchKey")
 
 			_, err = putObjectRetention(ctx, client, bucket, "testobject", lockModeCompliance, extendedRetainUntil)
 			require.NoError(t, err)
@@ -366,7 +351,7 @@ func TestObjectLock(t *testing.T) {
 			require.Error(t, err)
 			// TODO: MalformedXML is returned here instead of "InvalidRequest" or "InvalidArgument"
 			// S3: HTTP 400: "InvalidArgument: The retain until date must be in the future!"
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		t.Run("object lock settings returned in object info", func(t *testing.T) {
@@ -381,16 +366,15 @@ func TestObjectLock(t *testing.T) {
 			objInfo, err := getObject(ctx, client, bucket, "testobject", "")
 			require.NoError(t, err)
 			require.Equal(t, putResp.VersionId, objInfo.VersionId)
-			require.Equal(t, aws.String(lockModeCompliance), objInfo.ObjectLockMode)
+			require.Equal(t, lockModeCompliance, *objInfo.ObjectLockMode)
 			require.WithinDuration(t, retainUntil, *objInfo.ObjectLockRetainUntilDate, time.Minute)
 
 			_, err = getObjectRetention(ctx, client, bucket, "nonexistent", "")
-			require.Error(t, err)
-			require.Equal(t, "NoSuchKey", errorCode(err))
+			requireErrorWithCode(t, err, "NoSuchKey")
 
 			retResp, err := getObjectRetention(ctx, client, bucket, "testobject", *putResp.VersionId)
 			require.NoError(t, err)
-			require.Equal(t, aws.String(lockModeCompliance), retResp.Retention.Mode)
+			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
 		})
 
@@ -403,9 +387,7 @@ func TestObjectLock(t *testing.T) {
 			putResp, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			err = deleteObject(ctx, client, bucket, "testobject", *putResp.VersionId)
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject", *putResp.VersionId), "AccessDenied")
 		})
 
 		t.Run("copy object", func(t *testing.T) {
@@ -425,14 +407,13 @@ func TestObjectLock(t *testing.T) {
 			// TODO: fix unmapped error.
 			// Us: "destination bucket has no object lock configuration"
 			// S3: HTTP 400: "InvalidRequest: Bucket is missing ObjectLockConfiguration"
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			// requireErrorWithCode(t, err, "InvalidRequest")
 
 			copyResp, err := copyObject(ctx, client, bucket, "testobject1", *putResp.VersionId, bucket, "testobject2")
 			require.NoError(t, err)
 
 			_, err = getObjectRetention(ctx, client, bucket, "testobject2", *copyResp.VersionId)
-			require.Error(t, err)
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			requireErrorWithCode(t, err, "InvalidRequest")
 
 			objInfo, err := getObject(ctx, client, bucket, "testobject2", "")
 			require.NoError(t, err)
@@ -440,19 +421,16 @@ func TestObjectLock(t *testing.T) {
 			require.Nil(t, objInfo.ObjectLockRetainUntilDate)
 
 			require.NoError(t, deleteObject(ctx, client, bucket, "testobject2", *copyResp.VersionId))
-			require.NoError(t, err)
 
 			copyResp, err = copyObjectWithRetention(ctx, client, bucket, "testobject1", *putResp.VersionId, bucket, "testobject2", lockModeCompliance, &retainUntil)
 			require.NoError(t, err)
 
 			retResp, err := getObjectRetention(ctx, client, bucket, "testobject2", *copyResp.VersionId)
 			require.NoError(t, err)
-			require.Equal(t, aws.String(lockModeCompliance), retResp.Retention.Mode)
+			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
 
-			err = deleteObject(ctx, client, bucket, "testobject2", *copyResp.VersionId)
-			require.Error(t, err)
-			require.Equal(t, "AccessDenied", errorCode(err))
+			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject2", *copyResp.VersionId), "AccessDenied")
 		})
 	})
 }
@@ -1209,4 +1187,9 @@ func errorCode(err error) string {
 		return awsErr.Code()
 	}
 	return ""
+}
+
+func requireErrorWithCode(t *testing.T, err error, code string) {
+	require.Error(t, err)
+	require.Equal(t, code, errorCode(err))
 }
