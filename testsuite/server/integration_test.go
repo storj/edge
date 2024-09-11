@@ -289,6 +289,9 @@ func TestObjectLock(t *testing.T) {
 
 			_, err = putObjectWithRetention(ctx, client, bucket, "testobject", "invalidmode", retainUntil)
 			requireErrorWithCode(t, err, "InvalidRequest")
+
+			_, err = putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", "invalidmode", retainUntil)
+			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		// TODO: expand this test case when legal hold is supported.
@@ -335,6 +338,9 @@ func TestObjectLock(t *testing.T) {
 			// TODO: MalformedXML is returned here instead of "InvalidRequest" or "InvalidArgument"
 			// S3: HTTP 400: "InvalidArgument: The retain until date must be in the future!"
 			// requireErrorWithCode(t, err, "InvalidRequest")
+
+			_, err = putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", lockModeCompliance, extendedRetainUntil.Add(-1*time.Hour))
+			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		t.Run("object lock settings returned in object info", func(t *testing.T) {
@@ -371,6 +377,11 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject", *putResp.VersionId), "AccessDenied")
+
+			mpResp, err := putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", lockModeCompliance, retainUntil)
+			require.NoError(t, err)
+
+			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject1", *mpResp.VersionId), "AccessDenied")
 		})
 
 		t.Run("copy object", func(t *testing.T) {
@@ -1082,7 +1093,7 @@ func putObject(ctx context.Context, client *s3.S3, bucket, key string) (*s3.PutO
 func putObjectLegalHold(ctx context.Context, client *s3.S3, bucket, key, status string) (*s3.PutObjectLegalHoldOutput, error) {
 	return client.PutObjectLegalHoldWithContext(ctx, &s3.PutObjectLegalHoldInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String("testobject"),
+		Key:    aws.String(key),
 		LegalHold: &s3.ObjectLockLegalHold{
 			Status: aws.String(status),
 		},
@@ -1095,6 +1106,43 @@ func putObjectWithRetention(ctx context.Context, client *s3.S3, bucket, key, mod
 		Key:                       aws.String(key),
 		ObjectLockMode:            aws.String(mode),
 		ObjectLockRetainUntilDate: aws.Time(retainUntil),
+	})
+}
+
+func putObjectMultipartWithRetention(ctx context.Context, client *s3.S3, bucket, key, mode string, retainUntil time.Time) (*s3.CompleteMultipartUploadOutput, error) {
+	upload, err := client.CreateMultipartUploadWithContext(ctx, &s3.CreateMultipartUploadInput{
+		Bucket:                    aws.String(bucket),
+		Key:                       aws.String(key),
+		ObjectLockMode:            aws.String(mode),
+		ObjectLockRetainUntilDate: aws.Time(retainUntil),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	part, err := client.UploadPartWithContext(ctx, &s3.UploadPartInput{
+		Bucket:     aws.String(bucket),
+		Key:        aws.String(key),
+		UploadId:   upload.UploadId,
+		PartNumber: aws.Int64(1),
+		Body:       bytes.NewReader(testrand.Bytes(memory.KiB)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client.CompleteMultipartUploadWithContext(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String(bucket),
+		Key:      aws.String(key),
+		UploadId: upload.UploadId,
+		MultipartUpload: &s3.CompletedMultipartUpload{
+			Parts: []*s3.CompletedPart{
+				{
+					ETag:       part.ETag,
+					PartNumber: aws.Int64(1),
+				},
+			},
+		},
 	})
 }
 
