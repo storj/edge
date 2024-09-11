@@ -184,10 +184,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
 			_, err := getObjectLockConfiguration(ctx, client, bucket)
-			// TODO: use a different error?
-			// Us: HTTP 400: "InvalidRequest: Bucket is missing Object Lock Configuration"
-			// S3: HTTP 404: "ObjectLockConfigurationNotFoundError: Object Lock configuration does not exist for this bucket"
-			requireErrorWithCode(t, err, "InvalidRequest")
+			requireErrorWithCode(t, err, "ObjectLockConfigurationNotFoundError")
 
 			_, err = putObjectLockConfiguration(ctx, client, bucket, "Enabled", nil)
 			requireErrorWithCode(t, err, "NotImplemented")
@@ -208,11 +205,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, bucket, false, false))
 
 			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
-			require.Error(t, err)
-			// TODO: fix unmapped error.
-			// Us: "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled"
-			// S3: HTTP 400: "InvalidRequest: Bucket is missing ObjectLockConfiguration"
-			// requireErrorWithCode(t, err, "InvalidRequest")
+			requireErrorWithCode(t, err, "InvalidRequest")
 		})
 
 		t.Run("put object with lock enables versioning implicitly", func(t *testing.T) {
@@ -229,11 +222,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
 			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
-			require.Error(t, err)
-			// TODO: fix unmapped error.
-			// Us: "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled"
-			// S3: HTTP 400: "InvalidRequest: Bucket is missing ObjectLockConfiguration"
-			// require.Equal(t, "InvalidRequest", errorCode(err))
+			require.Equal(t, "InvalidRequest", errorCode(err))
 		})
 
 		t.Run("suspending versioning is not allowed when object lock enabled on bucket", func(t *testing.T) {
@@ -269,11 +258,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = getObjectRetention(ctx, client, bucket2, "testobject", "")
-			requireErrorWithCode(t, err, "InvalidRequest")
-			// TODO: use a different error.
-			// S3: HTTP 404: "NoSuchObjectLockConfiguration: The specified object does not have a ObjectLock configuration"
-			// Us: HTTP 400: "InvalidRequest: Object is missing retention configuration"
-			// requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
+			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
@@ -284,10 +269,10 @@ func TestObjectLock(t *testing.T) {
 
 			_, err = getObjectRetention(ctx, client, bucket2, "testobject1", "")
 			// TODO: use a different error?
-			// Us: HTTP 400: "InvalidRequest: Object is missing retention configuration"
+			// Us: HTTP 400: "NoSuchObjectLockConfiguration: Object is missing retention configuration"
 			// S3: HTTP 405: "MethodNotAllowed: "The specified method is not allowed against this resource."
 			// requireErrorWithCode(t, err, "MethodNotAllowed")
-			requireErrorWithCode(t, err, "InvalidRequest")
+			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
 		})
 
 		t.Run("invalid retention mode", func(t *testing.T) {
@@ -321,9 +306,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = putObjectLegalHold(ctx, client, bucket, "testobject", "ON")
-			requireErrorWithCode(t, err, "InvalidRequest")
-			// TODO: NotImplemented would probably be more accurate.
-			// requireErrorWithCode(t, err, "NotImplemented")
+			requireErrorWithCode(t, err, "NotImplemented")
 		})
 
 		t.Run("extending retention time allowed but shortening is not", func(t *testing.T) {
@@ -403,17 +386,13 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = copyObjectWithRetention(ctx, client, bucket, "testobject1", *putResp.VersionId, noLockBucket, "testobject2", lockModeCompliance, &retainUntil)
-			require.Error(t, err)
-			// TODO: fix unmapped error.
-			// Us: "destination bucket has no object lock configuration"
-			// S3: HTTP 400: "InvalidRequest: Bucket is missing ObjectLockConfiguration"
-			// requireErrorWithCode(t, err, "InvalidRequest")
+			requireErrorWithCode(t, err, "InvalidRequest")
 
 			copyResp, err := copyObject(ctx, client, bucket, "testobject1", *putResp.VersionId, bucket, "testobject2")
 			require.NoError(t, err)
 
 			_, err = getObjectRetention(ctx, client, bucket, "testobject2", *copyResp.VersionId)
-			requireErrorWithCode(t, err, "InvalidRequest")
+			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
 
 			objInfo, err := getObject(ctx, client, bucket, "testobject2", "")
 			require.NoError(t, err)
