@@ -446,7 +446,6 @@ func TestAccessLogs(t *testing.T) {
 		StorageNodeCount: 1,
 		UplinkCount:      1,
 	}, func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config) {
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "watchedbucket"))
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "destbucket"))
 
 		logsAccess, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Share(uplink.Permission{
@@ -472,7 +471,9 @@ func TestAccessLogs(t *testing.T) {
 	}, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
-		_, err := client.ListObjects(&s3.ListObjectsInput{Bucket: aws.String("watchedbucket")})
+		require.NoError(t, createBucket(ctx, client, "watchedbucket", false, false))
+
+		_, err := client.ListObjectsWithContext(ctx, &s3.ListObjectsInput{Bucket: aws.String("watchedbucket")})
 		require.NoError(t, err)
 
 		testFilePath := ctx.File("random1.dat")
@@ -481,17 +482,15 @@ func TestAccessLogs(t *testing.T) {
 		testFile, err := os.Open(testFilePath)
 		require.NoError(t, err)
 
-		_, err = client.PutObject(&s3.PutObjectInput{
-			Bucket: aws.String("watchedbucket"),
-			Key:    aws.String("testfile/random1.dat"),
-			Body:   testFile,
-		})
+		_, err = putObject(ctx, client, "watchedbucket", "testfile/random1.dat", testFile)
 		require.NoError(t, err)
 
-		_, err = client.GetObject(&s3.GetObjectInput{
-			Bucket: aws.String("watchedbucket"),
-			Key:    aws.String("testfile/random1.dat"),
-		})
+		_, err = getObject(ctx, client, "watchedbucket", "testfile/random1.dat", "")
+		require.NoError(t, err)
+
+		require.NoError(t, deleteObject(ctx, client, "watchedbucket", "testfile/random1.dat", ""))
+
+		_, err = client.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String("watchedbucket")})
 		require.NoError(t, err)
 
 		// force the gateway to close so we flush out all logs
@@ -523,11 +522,15 @@ func TestAccessLogs(t *testing.T) {
 		}
 
 		// todo: reverse parse of string back into struct in s3.go?
-		require.Len(t, logs, 3)
-		require.Contains(t, logs[0], "GET /watchedbucket HTTP/1.1")
-		require.Contains(t, logs[1], "PUT /watchedbucket/testfile/random1.dat HTTP/1.1")
-		require.Contains(t, logs[2], "GET /watchedbucket/testfile/random1.dat HTTP/1.1")
-		require.Contains(t, logs[2], "123")
+		require.Len(t, logs, 6)
+
+		require.Contains(t, logs[0], "PUT /watchedbucket HTTP/1.1")
+		require.Contains(t, logs[1], "GET /watchedbucket HTTP/1.1")
+		require.Contains(t, logs[2], "PUT /watchedbucket/testfile/random1.dat HTTP/1.1")
+		require.Contains(t, logs[3], "GET /watchedbucket/testfile/random1.dat HTTP/1.1")
+		require.Contains(t, logs[3], "123")
+		require.Contains(t, logs[4], "DELETE /watchedbucket/testfile/random1.dat HTTP/1.1")
+		require.Contains(t, logs[5], "DELETE /watchedbucket HTTP/1.1")
 	})
 }
 
