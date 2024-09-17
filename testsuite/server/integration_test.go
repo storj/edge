@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -88,6 +89,8 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 		allowedCreds := registerAccess(ctx, t, encAccess, apiKey, satellite.URL(), auth.Address())
 		allowedClient := createS3Client(t, gateway.Address(), allowedCreds.AccessKeyID, allowedCreds.SecretKey)
 
+		objKey1 := "testobject1"
+
 		t.Run("api key version disallows object lock", func(t *testing.T) {
 			userCtx, err := satellite.UserContext(ctx, ownerID)
 			require.NoError(t, err)
@@ -98,7 +101,7 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 			creds := registerAccess(ctx, t, encAccess, apiKey, satellite.URL(), auth.Address())
 			client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
-			requireErrorWithCode(t, createBucket(ctx, client, "testbucket", true, true), "AccessDenied")
+			requireS3Error(t, createBucket(ctx, client, testrand.BucketName(), true, true), http.StatusForbidden, "AccessDenied")
 		})
 
 		t.Run("allow get retention disallow put retention", func(t *testing.T) {
@@ -112,19 +115,19 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 
 			bucket := testrand.BucketName()
 
-			requireErrorWithCode(t, createBucket(ctx, restrictedClient, bucket, true, true), "AccessDenied")
+			requireS3Error(t, createBucket(ctx, restrictedClient, bucket, true, true), http.StatusForbidden, "AccessDenied")
 
 			require.NoError(t, createBucket(ctx, allowedClient, bucket, true, true))
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			_, err = putObjectWithRetention(ctx, restrictedClient, bucket, "testobject", lockModeCompliance, retainUntil)
-			requireErrorWithCode(t, err, "AccessDenied")
+			_, err = putObjectWithRetention(ctx, restrictedClient, bucket, objKey1, lockModeCompliance, retainUntil)
+			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
 
-			putResp, err := putObjectWithRetention(ctx, allowedClient, bucket, "testobject", lockModeCompliance, retainUntil)
+			putResp, err := putObjectWithRetention(ctx, allowedClient, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, "testobject", *putResp.VersionId)
+			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, objKey1, *putResp.VersionId)
 			require.NoError(t, err)
 			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
@@ -145,10 +148,10 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			putResp, err := putObjectWithRetention(ctx, restrictedClient, bucket, "testobject", lockModeCompliance, retainUntil)
+			putResp, err := putObjectWithRetention(ctx, restrictedClient, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, "testobject", *putResp.VersionId)
+			retResp, err := getObjectRetention(ctx, restrictedClient, bucket, objKey1, *putResp.VersionId)
 			require.NoError(t, err)
 			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
@@ -178,19 +181,21 @@ func TestObjectLock(t *testing.T) {
 	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
+		objKey1, objKey2, objKey3 := "testobject1", "testobject2", "testobject3"
+
 		// TODO: expand this test case when PutObjectLockConfiguration is supported.
 		t.Run("enable and disable object lock on bucket", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
 			_, err := getObjectLockConfiguration(ctx, client, bucket)
-			requireErrorWithCode(t, err, "ObjectLockConfigurationNotFoundError")
+			requireS3Error(t, err, http.StatusNotFound, "ObjectLockConfigurationNotFoundError")
 
 			_, err = putObjectLockConfiguration(ctx, client, bucket, "Enabled", nil)
-			requireErrorWithCode(t, err, "NotImplemented")
+			requireS3Error(t, err, http.StatusNotImplemented, "NotImplemented")
 
 			_, err = putObjectLockConfiguration(ctx, client, bucket, "Disabled", nil)
-			requireErrorWithCode(t, err, "NotImplemented")
+			requireS3Error(t, err, http.StatusNotImplemented, "NotImplemented")
 
 			bucket2 := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket2, true, true))
@@ -204,15 +209,15 @@ func TestObjectLock(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, false, false))
 
-			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, time.Now().Add(5*time.Minute))
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 		})
 
 		t.Run("put object with lock enables versioning implicitly", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, false, true))
 
-			resp, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
+			resp, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, time.Now().Add(5*time.Minute))
 			require.NoError(t, err)
 			require.NotEmpty(t, resp.VersionId)
 		})
@@ -221,8 +226,8 @@ func TestObjectLock(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
-			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, time.Now().Add(5*time.Minute))
-			require.Equal(t, "InvalidRequest", errorCode(err))
+			_, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, time.Now().Add(5*time.Minute))
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 		})
 
 		t.Run("suspending versioning is not allowed when object lock enabled on bucket", func(t *testing.T) {
@@ -236,39 +241,39 @@ func TestObjectLock(t *testing.T) {
 				},
 			})
 			// TODO: AccessDenied here doesn't seem like the right error code.
-			requireErrorWithCode(t, err, "AccessDenied")
+			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
 		})
 
 		t.Run("get object retention error handling", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, false))
 
-			_, err := putObject(ctx, client, bucket, "testobject")
+			_, err := putObject(ctx, client, bucket, objKey1, nil)
 			require.NoError(t, err)
 
-			_, err = getObjectRetention(ctx, client, bucket, "testobject", "")
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err = getObjectRetention(ctx, client, bucket, objKey1, "")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 			// Note: S3 returns 400 InvalidRequest for GetObjectRetention when the bucket has no lock configuration.
 			// If the bucket does have lock configuration it instead returns 404 NoSuchObjectLockConfiguration.
 
 			bucket2 := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket2, true, true))
 
-			_, err = putObject(ctx, client, bucket2, "testobject")
+			_, err = putObject(ctx, client, bucket2, objKey1, nil)
 			require.NoError(t, err)
 
-			_, err = getObjectRetention(ctx, client, bucket2, "testobject", "")
-			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
+			_, err = getObjectRetention(ctx, client, bucket2, objKey1, "")
+			requireS3Error(t, err, http.StatusNotFound, "NoSuchObjectLockConfiguration")
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			_, err = putObjectWithRetention(ctx, client, bucket2, "testobject1", lockModeCompliance, retainUntil)
+			_, err = putObjectWithRetention(ctx, client, bucket2, objKey2, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			require.NoError(t, deleteObject(ctx, client, bucket2, "testobject1", ""))
+			require.NoError(t, deleteObject(ctx, client, bucket2, objKey2, ""))
 
-			_, err = getObjectRetention(ctx, client, bucket2, "testobject1", "")
-			requireErrorWithCode(t, err, "MethodNotAllowed")
+			_, err = getObjectRetention(ctx, client, bucket2, objKey2, "")
+			requireS3Error(t, err, http.StatusMethodNotAllowed, "MethodNotAllowed")
 		})
 
 		t.Run("invalid retention mode", func(t *testing.T) {
@@ -277,48 +282,47 @@ func TestObjectLock(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeGovernance, retainUntil)
+			_, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeGovernance, retainUntil)
 			require.Error(t, err)
 			// TODO: fix unmapped error "invalid retention mode 0, expected 1 (compliance)"
 			// TODO: this governance test can be removed once governance mode is supported
 			// requireErrorWithCode(t, err, "InvalidRequest")
 
-			_, err = putObjectWithRetention(ctx, client, bucket, "testobject", "invalidmode", retainUntil)
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err = putObjectWithRetention(ctx, client, bucket, objKey1, "invalidmode", retainUntil)
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 
-			_, err = putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", "invalidmode", retainUntil)
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err = putObjectMultipartWithRetention(ctx, client, bucket, objKey2, "invalidmode", retainUntil)
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 		})
 
 		t.Run("legal hold", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, true, true))
 
-			objKey := "testobject"
-			_, err := putObjectWithLegalHold(ctx, client, bucket, objKey, "ON")
+			_, err := putObjectWithLegalHold(ctx, client, bucket, objKey1, "ON")
 			require.NoError(t, err)
 
-			_, err = putObject(ctx, client, bucket, objKey)
+			_, err = putObject(ctx, client, bucket, objKey1, nil)
 			require.NoError(t, err)
 
-			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "ON")
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey1, "ON")
 			require.NoError(t, err)
 
-			response, err := getObjectLegalHold(ctx, client, bucket, objKey, "")
+			response, err := getObjectLegalHold(ctx, client, bucket, objKey1, "")
 			require.NoError(t, err)
 			require.NotNil(t, response)
 			require.Equal(t, "ON", *response.LegalHold.Status)
 
-			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "OFF")
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey1, "OFF")
 			require.NoError(t, err)
 
-			response, err = getObjectLegalHold(ctx, client, bucket, objKey, "")
+			response, err = getObjectLegalHold(ctx, client, bucket, objKey1, "")
 			require.NoError(t, err)
 			require.NotNil(t, response)
 			require.Equal(t, "OFF", *response.LegalHold.Status)
 
-			_, err = putObjectLegalHold(ctx, client, bucket, objKey, "INVALID")
-			requireErrorWithCode(t, err, "MalformedXML")
+			_, err = putObjectLegalHold(ctx, client, bucket, objKey1, "INVALID")
+			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
 		})
 
 		t.Run("extending retention time allowed but shortening is not", func(t *testing.T) {
@@ -327,29 +331,29 @@ func TestObjectLock(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			_, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, retainUntil)
+			_, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
 			extendedRetainUntil := retainUntil.Add(10 * time.Minute)
 
 			_, err = putObjectRetention(ctx, client, bucket, "doesntexist", lockModeCompliance, extendedRetainUntil)
-			requireErrorWithCode(t, err, "NoSuchKey")
+			requireS3Error(t, err, http.StatusNotFound, "NoSuchKey")
 
-			_, err = putObjectRetention(ctx, client, bucket, "testobject", lockModeCompliance, extendedRetainUntil)
+			_, err = putObjectRetention(ctx, client, bucket, objKey1, lockModeCompliance, extendedRetainUntil)
 			require.NoError(t, err)
 
-			objInfo, err := getObject(ctx, client, bucket, "testobject", "")
+			objInfo, err := getObject(ctx, client, bucket, objKey1, "")
 			require.NoError(t, err)
 			require.WithinDuration(t, extendedRetainUntil, *objInfo.ObjectLockRetainUntilDate, time.Minute)
 
-			_, err = putObjectRetention(ctx, client, bucket, "testobject", lockModeCompliance, extendedRetainUntil.Add(-1*time.Hour))
+			_, err = putObjectRetention(ctx, client, bucket, objKey1, lockModeCompliance, extendedRetainUntil.Add(-1*time.Hour))
 			require.Error(t, err)
 			// TODO: MalformedXML is returned here instead of "InvalidRequest" or "InvalidArgument"
 			// S3: HTTP 400: "InvalidArgument: The retain until date must be in the future!"
-			// requireErrorWithCode(t, err, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
 
-			_, err = putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", lockModeCompliance, extendedRetainUntil.Add(-1*time.Hour))
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err = putObjectMultipartWithRetention(ctx, client, bucket, objKey2, lockModeCompliance, extendedRetainUntil.Add(-1*time.Hour))
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 		})
 
 		t.Run("object lock settings returned in object info", func(t *testing.T) {
@@ -358,19 +362,19 @@ func TestObjectLock(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			putResp, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, retainUntil)
+			putResp, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			objInfo, err := getObject(ctx, client, bucket, "testobject", "")
+			objInfo, err := getObject(ctx, client, bucket, objKey1, "")
 			require.NoError(t, err)
 			require.Equal(t, putResp.VersionId, objInfo.VersionId)
 			require.Equal(t, lockModeCompliance, *objInfo.ObjectLockMode)
 			require.WithinDuration(t, retainUntil, *objInfo.ObjectLockRetainUntilDate, time.Minute)
 
 			_, err = getObjectRetention(ctx, client, bucket, "nonexistent", "")
-			requireErrorWithCode(t, err, "NoSuchKey")
+			requireS3Error(t, err, http.StatusNotFound, "NoSuchKey")
 
-			retResp, err := getObjectRetention(ctx, client, bucket, "testobject", *putResp.VersionId)
+			retResp, err := getObjectRetention(ctx, client, bucket, objKey1, *putResp.VersionId)
 			require.NoError(t, err)
 			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
@@ -382,15 +386,15 @@ func TestObjectLock(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			putResp, err := putObjectWithRetention(ctx, client, bucket, "testobject", lockModeCompliance, retainUntil)
+			putResp, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject", *putResp.VersionId), "AccessDenied")
+			requireS3Error(t, deleteObject(ctx, client, bucket, objKey1, *putResp.VersionId), http.StatusForbidden, "AccessDenied")
 
-			mpResp, err := putObjectMultipartWithRetention(ctx, client, bucket, "testobject1", lockModeCompliance, retainUntil)
+			mpResp, err := putObjectMultipartWithRetention(ctx, client, bucket, objKey2, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject1", *mpResp.VersionId), "AccessDenied")
+			requireS3Error(t, deleteObject(ctx, client, bucket, objKey2, *mpResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
 
 		t.Run("copy object", func(t *testing.T) {
@@ -402,34 +406,34 @@ func TestObjectLock(t *testing.T) {
 
 			retainUntil := time.Now().Add(10 * time.Minute)
 
-			putResp, err := putObjectWithRetention(ctx, client, bucket, "testobject1", lockModeCompliance, retainUntil)
+			putResp, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, retainUntil)
 			require.NoError(t, err)
 
-			_, err = copyObjectWithRetention(ctx, client, bucket, "testobject1", *putResp.VersionId, noLockBucket, "testobject2", lockModeCompliance, &retainUntil)
-			requireErrorWithCode(t, err, "InvalidRequest")
+			_, err = copyObjectWithRetention(ctx, client, bucket, objKey1, *putResp.VersionId, noLockBucket, objKey2, lockModeCompliance, &retainUntil)
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 
-			copyResp, err := copyObject(ctx, client, bucket, "testobject1", *putResp.VersionId, bucket, "testobject2")
+			copyResp, err := copyObject(ctx, client, bucket, objKey1, *putResp.VersionId, bucket, objKey2)
 			require.NoError(t, err)
 
-			_, err = getObjectRetention(ctx, client, bucket, "testobject2", *copyResp.VersionId)
-			requireErrorWithCode(t, err, "NoSuchObjectLockConfiguration")
+			_, err = getObjectRetention(ctx, client, bucket, objKey2, *copyResp.VersionId)
+			requireS3Error(t, err, http.StatusNotFound, "NoSuchObjectLockConfiguration")
 
-			objInfo, err := getObject(ctx, client, bucket, "testobject2", "")
+			objInfo, err := getObject(ctx, client, bucket, objKey2, "")
 			require.NoError(t, err)
 			require.Nil(t, objInfo.ObjectLockMode)
 			require.Nil(t, objInfo.ObjectLockRetainUntilDate)
 
-			require.NoError(t, deleteObject(ctx, client, bucket, "testobject2", *copyResp.VersionId))
+			require.NoError(t, deleteObject(ctx, client, bucket, objKey2, *copyResp.VersionId))
 
-			copyResp, err = copyObjectWithRetention(ctx, client, bucket, "testobject1", *putResp.VersionId, bucket, "testobject2", lockModeCompliance, &retainUntil)
+			copyResp, err = copyObjectWithRetention(ctx, client, bucket, objKey1, *putResp.VersionId, bucket, objKey3, lockModeCompliance, &retainUntil)
 			require.NoError(t, err)
 
-			retResp, err := getObjectRetention(ctx, client, bucket, "testobject2", *copyResp.VersionId)
+			retResp, err := getObjectRetention(ctx, client, bucket, objKey3, *copyResp.VersionId)
 			require.NoError(t, err)
 			require.Equal(t, lockModeCompliance, *retResp.Retention.Mode)
 			require.WithinDuration(t, retainUntil, *retResp.Retention.RetainUntilDate, time.Minute)
 
-			requireErrorWithCode(t, deleteObject(ctx, client, bucket, "testobject2", *copyResp.VersionId), "AccessDenied")
+			requireS3Error(t, deleteObject(ctx, client, bucket, objKey3, *copyResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
 	})
 }
@@ -1092,10 +1096,11 @@ func putObjectLockConfiguration(ctx context.Context, client *s3.S3, bucket, enab
 	})
 }
 
-func putObject(ctx context.Context, client *s3.S3, bucket, key string) (*s3.PutObjectOutput, error) {
+func putObject(ctx context.Context, client *s3.S3, bucket, key string, body io.ReadSeeker) (*s3.PutObjectOutput, error) {
 	return client.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
+		Body:   body,
 	})
 }
 
@@ -1172,11 +1177,14 @@ func putObjectWithLegalHold(ctx context.Context, client *s3.S3, bucket, key, leg
 }
 
 func getObjectRetention(ctx context.Context, client *s3.S3, bucket, key, versionID string) (*s3.GetObjectRetentionOutput, error) {
-	return client.GetObjectRetentionWithContext(ctx, &s3.GetObjectRetentionInput{
-		Bucket:    aws.String(bucket),
-		Key:       aws.String(key),
-		VersionId: aws.String(versionID),
-	})
+	input := s3.GetObjectRetentionInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}
+	if versionID != "" {
+		input.VersionId = aws.String(versionID)
+	}
+	return client.GetObjectRetentionWithContext(ctx, &input)
 }
 
 func putObjectRetention(ctx context.Context, client *s3.S3, bucket, key, lockMode string, retainUntil time.Time) (*s3.PutObjectRetentionOutput, error) {
@@ -1191,11 +1199,14 @@ func putObjectRetention(ctx context.Context, client *s3.S3, bucket, key, lockMod
 }
 
 func getObject(ctx context.Context, client *s3.S3, bucket, key, versionID string) (*s3.GetObjectOutput, error) {
-	return client.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Bucket:    aws.String(bucket),
-		Key:       aws.String(key),
-		VersionId: aws.String(versionID),
-	})
+	input := s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}
+	if versionID != "" {
+		input.VersionId = aws.String(versionID)
+	}
+	return client.GetObjectWithContext(ctx, &input)
 }
 
 func copyObject(ctx context.Context, client *s3.S3, sourceBucket, sourceKey, sourceVersionID, destBucket, destKey string) (*s3.CopyObjectOutput, error) {
@@ -1217,11 +1228,14 @@ func copyObjectWithRetention(ctx context.Context, client *s3.S3, sourceBucket, s
 }
 
 func deleteObject(ctx context.Context, client *s3.S3, bucket, key, versionID string) error {
-	_, err := client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
-		Bucket:    aws.String(bucket),
-		Key:       aws.String(key),
-		VersionId: aws.String(versionID),
-	})
+	input := s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}
+	if versionID != "" {
+		input.VersionId = aws.String(versionID)
+	}
+	_, err := client.DeleteObjectWithContext(ctx, &input)
 	return err
 }
 
@@ -1233,7 +1247,16 @@ func errorCode(err error) string {
 	return ""
 }
 
-func requireErrorWithCode(t *testing.T, err error, code string) {
+func statusCode(err error) int {
+	var reqErr awserr.RequestFailure
+	if errors.As(err, &reqErr) {
+		return reqErr.StatusCode()
+	}
+	return 0
+}
+
+func requireS3Error(t *testing.T, err error, status int, code string) {
 	require.Error(t, err)
+	require.Equal(t, status, statusCode(err))
 	require.Equal(t, code, errorCode(err))
 }
