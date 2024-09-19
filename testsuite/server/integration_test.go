@@ -210,7 +210,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, bucket, false, false))
 
 			_, err := putObjectWithRetention(ctx, client, bucket, objKey1, lockModeCompliance, time.Now().Add(5*time.Minute))
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusConflict, "InvalidBucketState")
 		})
 
 		t.Run("put object with lock enables versioning implicitly", func(t *testing.T) {
@@ -240,8 +240,7 @@ func TestObjectLock(t *testing.T) {
 					Status: aws.String(s3.BucketVersioningStatusSuspended),
 				},
 			})
-			// TODO: AccessDenied here doesn't seem like the right error code.
-			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
+			requireS3Error(t, err, http.StatusConflict, "InvalidBucketState")
 		})
 
 		t.Run("get object retention error handling", func(t *testing.T) {
