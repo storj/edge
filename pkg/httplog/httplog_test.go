@@ -85,6 +85,7 @@ func TestConfidentialLogFields(t *testing.T) {
 		{header: xhttp.Authorization, query: ""},
 		{header: "Cookie", query: ""},
 		{header: xhttp.AmzCopySource, query: ""},
+		{query: "delimiter", header: ""},
 	}
 	for i, test := range tests {
 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -126,6 +127,7 @@ func TestConfidentalJSONFields(t *testing.T) {
 		{header: xhttp.Authorization, query: ""},
 		{header: "Cookie", query: ""},
 		{header: xhttp.AmzCopySource, query: ""},
+		{query: "delimiter", header: ""},
 	}
 	for i, test := range tests {
 		var b []byte

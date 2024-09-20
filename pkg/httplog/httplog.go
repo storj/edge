@@ -22,6 +22,7 @@ import (
 var (
 	confidentialQueries = map[string]struct{}{
 		"prefix":             {},
+		"delimiter":          {},
 		xhttp.AmzAccessKeyID: {},
 		xhttp.AmzSignatureV2: {},
 		xhttp.AmzSignature:   {},
