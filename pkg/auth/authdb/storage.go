@@ -75,7 +75,15 @@ func (f FullRecord) EqualWithinDuration(other FullRecord, dur time.Duration) boo
 		return false
 	}
 
-	if !withinDuration(f.CreatedAt, other.CreatedAt, dur) || !withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
+	// FIXME(artur): this is here because spannertest doesn't support
+	// CURRENT_TIMESTAMP(), which makes some authadminclient tests to
+	// fail where this function is used. We need to untangle
+	// authadminclient backends and this can be soon removed.
+	if !f.CreatedAt.IsZero() && !other.CreatedAt.IsZero() && !withinDuration(f.CreatedAt, other.CreatedAt, dur) {
+		return false
+	}
+
+	if !withinDuration(f.InvalidatedAt, other.InvalidatedAt, dur) {
 		return false
 	}
 

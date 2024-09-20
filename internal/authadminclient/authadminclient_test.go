@@ -108,9 +108,8 @@ func TestInvalidateRecord(t *testing.T) {
 		for _, node := range env.BadgerCluster.Nodes {
 			node.SyncCycle.TriggerWait()
 		}
-		now := time.Now()
 		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.PutWithCreatedAt(ctx, keyHash, record, now))
+			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
 		}
 
 		invalidatedKey := keys[0]
@@ -148,9 +147,8 @@ func TestUnpublishRecord(t *testing.T) {
 		for _, node := range env.BadgerCluster.Nodes {
 			node.SyncCycle.TriggerWait()
 		}
-		now := time.Now()
 		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.PutWithCreatedAt(ctx, keyHash, record, now))
+			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
 		}
 
 		unpublishedKey := keys[0]
@@ -173,9 +171,8 @@ func TestDeleteRecord(t *testing.T) {
 		for _, node := range env.BadgerCluster.Nodes {
 			node.SyncCycle.TriggerWait()
 		}
-		now := time.Now()
 		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.PutWithCreatedAt(ctx, keyHash, record, now))
+			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
 		}
 
 		deletedKey := keys[0]

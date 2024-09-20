@@ -84,17 +84,11 @@ func EmulatorOpts(addr string) []option.ClientOption {
 // Put stores the record in the remote Cloud Spanner database.
 // It is an error if the key already exists.
 func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record) (err error) {
-	return d.PutWithCreatedAt(ctx, keyHash, record, time.Time{})
-}
-
-// PutWithCreatedAt is a temporary addition to ensure we migrate the created date
-// when used with spannerauthmigration, because authdb.Record has no way of setting
-// this directly. This should be removed once the migration has completed.
-func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, createdAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	in := map[string]interface{}{
-		"encryption_key_hash":    keyHash.Bytes(),
+		"encryption_key_hash": keyHash.Bytes(),
+		// "created_at" has default value
 		"public":                 record.Public,
 		"public_project_id":      record.PublicProjectID,
 		"satellite_address":      record.SatelliteAddress,
@@ -103,12 +97,6 @@ func (d *CloudDatabase) PutWithCreatedAt(ctx context.Context, keyHash authdb.Key
 		"encrypted_access_grant": record.EncryptedAccessGrant,
 		// "invalidation_reason"
 		// "invalidated_at"
-	}
-
-	// if a zero value createdAt is passed, we don't set anything so the
-	// the database will default to setting this to the current timestamp.
-	if !createdAt.IsZero() {
-		in["created_at"] = createdAt
 	}
 
 	// we do not set any expiry unless it's non-zero. If an empty time.Time was
