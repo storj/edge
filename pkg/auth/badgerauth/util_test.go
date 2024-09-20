@@ -8,11 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
@@ -67,38 +63,4 @@ func TestRecordsEqual(t *testing.T) {
 
 	r2.ExpiresAtUnix = time.Now().Unix()
 	assert.False(t, recordsEqual(&r1, &r2))
-}
-
-func TestMarshalLogObjectCorrectness(t *testing.T) {
-	t.Parallel()
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
-	observedLogger := zap.New(observedZapCore)
-	defer ctx.Check(observedLogger.Sync)
-
-	clocks := make(clocksLogObject)
-	clocks["app11"] = 123
-	clocks["app12"] = 456
-	clocks["app21"] = 789
-	clocks["app22"] = 999999
-	clocks["app31"] = 0
-
-	observedLogger.Info("test", zap.Object("clocks", clocks))
-
-	filter := observedLogs.FilterLevelExact(zap.InfoLevel)
-	filter = filter.FilterMessage("test")
-	filter = filter.FilterFieldKey("clocks")
-
-	require.Equal(t, 1, filter.Len())
-
-	assert.EqualValues(t, map[string]uint64{
-		"app11": 123,
-		"app12": 456,
-		"app21": 789,
-		"app22": 999999,
-		"app31": 0,
-	}, filter.All()[0].Context[0].Interface)
 }

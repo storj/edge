@@ -22,7 +22,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/edge/internal/authadminclient"
-	"storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/eventkit"
@@ -101,13 +100,6 @@ func run() (bool, error) {
 
 func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
 	return authadminclient.Config{
-		Badger: badgerauth.Config{
-			NodeAddresses: params.Flag("badger-node-addresses", "comma delimited list of badger authservice node addresses", []string{},
-				clingy.Transform(func(s string) ([]string, error) {
-					return strings.Split(s, ","), nil
-				})).([]string),
-			CertsDir: params.Flag("badger-certs-dir", "directory of certificates for authentication with badger authservice nodes", "").(string),
-		},
 		Spanner: spannerauth.Config{
 			DatabaseName:        params.Flag("spanner-db-name", "name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID", "").(string),
 			CredentialsFilename: params.Flag("spanner-creds", "credentials file with access to Cloud Spanner database", "").(string),

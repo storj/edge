@@ -28,33 +28,6 @@ message Record {
 
   enum State { CREATED = 0; }
 
-  // synchronization-related data
+  // deprecated synchronization-related data
   State state = 10;
-}
-
-message ReplicationRequestEntry {
-  bytes node_id = 1;
-  uint64 clock = 2;
-}
-
-message ReplicationRequest { repeated ReplicationRequestEntry entries = 1; }
-
-message ReplicationResponseEntry {
-  bytes node_id = 1;
-  bytes encryption_key_hash = 2;
-  Record record = 3;
-}
-
-message ReplicationResponse { repeated ReplicationResponseEntry entries = 1; }
-
-message PeekRequest { bytes encryption_key_hash = 1; }
-message PeekResponse { Record record = 1; }
-
-message PingRequest {}
-message PingResponse { bytes node_id = 1; }
-
-service ReplicationService {
-  rpc Ping(PingRequest) returns (PingResponse);
-  rpc Peek(PeekRequest) returns (PeekResponse);
-  rpc Replicate(ReplicationRequest) returns (ReplicationResponse);
 }

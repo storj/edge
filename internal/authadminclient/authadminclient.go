@@ -16,8 +16,8 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"
 )
 
@@ -88,14 +88,6 @@ func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) 
 			return nil, Error.Wrap(err)
 		}
 		client.spanner = spanner
-	}
-
-	if len(config.Badger.NodeAddresses) > 0 {
-		badger, err := badgerauth.Open(ctx, log, config.Badger)
-		if err != nil {
-			return nil, Error.Wrap(errs.Combine(err, client.Close()))
-		}
-		client.badger = badger
 	}
 
 	return client, nil

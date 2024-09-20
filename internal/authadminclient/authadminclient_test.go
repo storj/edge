@@ -18,10 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/edge/internal/authadminclient"
-	badgeradmin "storj.io/edge/internal/authadminclient/badgerauth"
 	"storj.io/edge/pkg/auth/authdb"
-	"storj.io/edge/pkg/auth/badgerauth"
-	"storj.io/edge/pkg/auth/badgerauth/badgerauthtest"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 )
@@ -33,7 +30,10 @@ const (
 )
 
 func TestGetRecord(t *testing.T) {
-	withEnvironment(t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
 		parsed, err := grant.ParseAccess(testAccessGrant)
 		require.NoError(t, err)
 
@@ -44,9 +44,6 @@ func TestGetRecord(t *testing.T) {
 			{
 				name: "Spanner",
 				db:   env.SpannerClient,
-			}, {
-				name: "Badger",
-				db:   env.BadgerCluster.Nodes[0],
 			},
 		} {
 			errMsg := "Database: " + tt.name
@@ -103,14 +100,11 @@ func TestGetRecord(t *testing.T) {
 }
 
 func TestInvalidateRecord(t *testing.T) {
-	withEnvironment(t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, env.BadgerCluster.Nodes[0], 5)
-		for _, node := range env.BadgerCluster.Nodes {
-			node.SyncCycle.TriggerWait()
-		}
-		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
-		}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
 
 		invalidatedKey := keys[0]
 		reason := "no more access"
@@ -121,17 +115,11 @@ func TestInvalidateRecord(t *testing.T) {
 
 		require.NoError(t, env.AdminClient.Invalidate(ctx, invalidatedKey.ToHex(), reason))
 
-		for _, node := range env.BadgerCluster.Nodes {
-			badgerauthtest.Get{
-				KeyHash: keys[0],
-				Error:   badgerauth.Error.Wrap(authdb.Invalid.New("%v", reason)),
-			}.Check(ctx, t, node)
-		}
 		_, err = env.SpannerClient.Get(ctx, invalidatedKey)
 		require.True(t, authdb.Invalid.Has(err))
 
 		delete(records, invalidatedKey)
-		verifyRecords(ctx, t, env, records, entries)
+		verifyRecords(ctx, t, env, records)
 
 		record, err := env.AdminClient.Get(ctx, invalidatedKey.ToHex())
 		require.NoError(t, err)
@@ -142,14 +130,11 @@ func TestInvalidateRecord(t *testing.T) {
 }
 
 func TestUnpublishRecord(t *testing.T) {
-	withEnvironment(t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, env.BadgerCluster.Nodes[0], 5)
-		for _, node := range env.BadgerCluster.Nodes {
-			node.SyncCycle.TriggerWait()
-		}
-		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
-		}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
 
 		unpublishedKey := keys[0]
 		require.True(t, records[unpublishedKey].Public)
@@ -161,19 +146,16 @@ func TestUnpublishRecord(t *testing.T) {
 		require.NoError(t, env.AdminClient.Unpublish(ctx, unpublishedKey.ToHex()))
 
 		records[unpublishedKey].Public = false
-		verifyRecords(ctx, t, env, records, entries)
+		verifyRecords(ctx, t, env, records)
 	})
 }
 
 func TestDeleteRecord(t *testing.T) {
-	withEnvironment(t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys, entries := badgerauthtest.CreateFullRecords(ctx, t, env.BadgerCluster.Nodes[0], 5)
-		for _, node := range env.BadgerCluster.Nodes {
-			node.SyncCycle.TriggerWait()
-		}
-		for keyHash, record := range records {
-			require.NoError(t, env.SpannerClient.Put(ctx, keyHash, record))
-		}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
 
 		deletedKey := keys[0]
 
@@ -184,12 +166,15 @@ func TestDeleteRecord(t *testing.T) {
 		require.NoError(t, env.AdminClient.Delete(ctx, deletedKey.ToHex()))
 
 		delete(records, deletedKey)
-		verifyRecords(ctx, t, env, records, entries[1:])
+		verifyRecords(ctx, t, env, records)
 	})
 }
 
 func TestResolveRecord(t *testing.T) {
-	withEnvironment(t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
 		parsed, err := grant.ParseAccess(testAccessGrant)
 		require.NoError(t, err)
 
@@ -200,9 +185,6 @@ func TestResolveRecord(t *testing.T) {
 			{
 				name: "Spanner",
 				db:   env.SpannerClient,
-			}, {
-				name: "Badger",
-				db:   env.BadgerCluster.Nodes[0],
 			},
 		} {
 			errMsg := "Database: " + tt.name
@@ -260,71 +242,47 @@ func verifyRecords(
 	t *testing.T,
 	env *Environment,
 	records map[authdb.KeyHash]*authdb.Record,
-	entries []badgerauthtest.ReplicationLogEntryWithTTL,
 ) {
 	for key, record := range records {
-		for _, node := range env.BadgerCluster.Nodes {
-			badgerauthtest.Get{
-				KeyHash: key,
-				Result:  record,
-			}.Check(ctx, t, node)
-		}
-
 		actual, err := env.SpannerClient.Get(ctx, key)
 		require.NoError(t, err)
 		requireRecordEqual(t, record, actual)
-	}
-
-	for _, node := range env.BadgerCluster.Nodes {
-		badgerauthtest.VerifyReplicationLog{
-			Entries: entries,
-		}.Check(ctx, t, node)
 	}
 }
 
 type Environment struct {
 	Logger        *zap.Logger
-	BadgerCluster *badgerauthtest.Cluster
 	SpannerClient *spannerauth.CloudDatabase
 	AdminClient   *authadminclient.Client
 }
 
-func withEnvironment(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, env *Environment)) {
-	badgerauthtest.RunCluster(t, badgerauthtest.ClusterConfig{
-		NodeCount: 3,
-	}, func(ctx *testcontext.Context, t *testing.T, cluster *badgerauthtest.Cluster) {
-		logger := zaptest.NewLogger(t)
-		defer ctx.Check(logger.Sync)
+func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, env *Environment)) {
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
 
-		server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
-		require.NoError(t, err)
-		defer server.Close()
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
 
-		spannerCfg := spannerauth.Config{
-			DatabaseName: "projects/P/instances/I/databases/D",
-			Address:      server.Addr,
-		}
+	spannerCfg := spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	}
 
-		client, err := spannerauth.Open(ctx, logger, spannerCfg)
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
+	client, err := spannerauth.Open(ctx, logger, spannerCfg)
+	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
-		admin, err := authadminclient.Open(ctx, authadminclient.Config{
-			Badger: badgeradmin.Config{
-				NodeAddresses:      cluster.Addresses(),
-				InsecureDisableTLS: true,
-			},
-			Spanner: spannerCfg,
-		}, logger)
-		require.NoError(t, err)
-		defer ctx.Check(admin.Close)
+	admin, err := authadminclient.Open(ctx, authadminclient.Config{
+		Spanner: spannerCfg,
+	}, logger)
+	require.NoError(t, err)
+	defer ctx.Check(admin.Close)
 
-		fn(ctx, t, &Environment{
-			Logger:        logger,
-			BadgerCluster: cluster,
-			SpannerClient: client,
-			AdminClient:   admin,
-		})
+	fn(ctx, t, &Environment{
+		Logger:        logger,
+		SpannerClient: client,
+		AdminClient:   admin,
 	})
 }
 
@@ -346,4 +304,44 @@ func requireRecordEqual(t *testing.T, expected *authdb.Record, actual *authdb.Re
 	expectedCopy, actualCopy := *expected, *actual
 	expectedCopy.ExpiresAt, actualCopy.ExpiresAt = nil, nil
 	require.Equal(t, expectedCopy, actualCopy)
+}
+
+// createFullRecords creates count of records with random data returning
+// created records.
+func createFullRecords(
+	ctx *testcontext.Context,
+	t testing.TB,
+	storage authdb.Storage,
+	count int,
+) (
+	records map[authdb.KeyHash]*authdb.Record,
+	keys []authdb.KeyHash,
+) {
+	records = make(map[authdb.KeyHash]*authdb.Record)
+
+	for i := 0; i < count; i++ {
+		marker := testrand.RandAlphaNumeric(32)
+
+		var keyHash authdb.KeyHash
+		require.NoError(t, keyHash.SetBytes(marker))
+
+		// TODO(artur): make expiresAt configurable or random per record.
+		expiresAt := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
+
+		record := &authdb.Record{
+			SatelliteAddress:     string(marker),
+			MacaroonHead:         marker,
+			EncryptedSecretKey:   marker,
+			EncryptedAccessGrant: marker,
+			ExpiresAt:            &expiresAt,
+			Public:               testrand.Intn(1) == 0,
+		}
+
+		keys = append(keys, keyHash)
+		records[keyHash] = record
+
+		require.NoError(t, storage.Put(ctx, keyHash, record))
+	}
+
+	return records, keys
 }

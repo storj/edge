@@ -5,4 +5,3 @@
 package pb
 
 //go:generate protoc --go_out=paths=source_relative:. --go-drpc_out=paths=source_relative:. badgerauth.proto
-//go:generate protoc --go_out=paths=source_relative:. --go-drpc_out=paths=source_relative:. badgerauth_admin.proto

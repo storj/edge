@@ -27,7 +27,7 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 
 	switch driver {
 	case "badger":
-		return badgerauth.New(log, config.Node)
+		return badgerauth.Open(log, config.Node)
 	case "spanner":
 		return spannerauth.Open(ctx, log, config.Spanner)
 	default:

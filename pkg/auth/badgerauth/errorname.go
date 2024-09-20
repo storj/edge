@@ -25,33 +25,10 @@ func errorName(err error) (name string, ok bool) {
 		name = "InvalidRecord"
 	case ProtoError.Has(err):
 		name = "Proto"
-	case ReplicationLogError.Has(err):
-		// We have a wrapped error, but we want to gain more insight into
-		// whether the error contains some other error we know about.
-		//
-		// We check ReplicationLogError first because it can contain ClockError
-		// and not the other way around. TODO(artur, sean): how to make sure we
-		// don't make a mistake regarding this relation in the future?
-		name = "ReplicationLog"
-		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
-			name += ":" + unwrapped
-		}
-	case ClockError.Has(err):
-		name = "Clock"
-		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
-			name += ":" + unwrapped
-		}
-	case NodeIDError.Has(err):
-		name = "NodeID"
-		if unwrapped, ok := errorName(errs.Unwrap(err)); ok {
-			name += ":" + unwrapped
-		}
 	case errs.Is(err, ErrKeyAlreadyExists):
 		name = "KeyAlreadyExists"
 	case errs.Is(err, errOperationNotSupported):
 		name = "OperationNotSupported"
-	case errs.Is(err, errKeyAlreadyExistsRecordsNotEqual):
-		name = "KeyAlreadyExistsRecordsNotEqual"
 	case errs.Is(err, badger.ErrKeyNotFound):
 		name = "KeyNotFound"
 	case errs.Is(err, badger.ErrValueLogSize):

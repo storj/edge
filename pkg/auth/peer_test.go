@@ -47,10 +47,7 @@ func TestPeer_Close(t *testing.T) {
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
 		KVBackend:         "badger://",
-		Node: badgerauth.Config{
-			FirstStart:          true,
-			ReplicationInterval: 5 * time.Second,
-		},
+		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
 	require.NoError(t, err)
 
@@ -69,10 +66,7 @@ func TestPeer_BadListenerError(t *testing.T) {
 		KVBackend:         "badger://",
 		ListenAddr:        "127.0.0.1:0",
 		DRPCListenAddr:    "127.0.0.1:0",
-		Node: badgerauth.Config{
-			FirstStart:          true,
-			ReplicationInterval: 5 * time.Second,
-		},
+		Node:              badgerauth.Config{FirstStart: true},
 	}
 
 	p, err := New(ctx, zaptest.NewLogger(t), config, "")
@@ -126,10 +120,7 @@ func TestPeer_PlainDRPC(t *testing.T) {
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
 		KVBackend:         "badger://",
-		Node: badgerauth.Config{
-			FirstStart:          true,
-			ReplicationInterval: 5 * time.Second,
-		},
+		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
 	require.NoError(t, err)
 
@@ -197,10 +188,7 @@ func TestPeer_TLSDRPC(t *testing.T) {
 		Endpoint:          "https://example.com",
 		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
 		KVBackend:         "badger://",
-		Node: badgerauth.Config{
-			FirstStart:          true,
-			ReplicationInterval: 5 * time.Second,
-		},
+		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
 	require.NoError(t, err)
 
@@ -260,10 +248,7 @@ func TestPeer_ProxyProtocol(t *testing.T) {
 		ProxyAddrTLS:      "127.0.0.1:0",
 		CertFile:          certFile.Name(),
 		KeyFile:           keyFile.Name(),
-		Node: badgerauth.Config{
-			FirstStart:          true,
-			ReplicationInterval: 5 * time.Second,
-		},
+		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
 	require.NoError(t, err)
 
