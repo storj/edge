@@ -363,7 +363,7 @@ func (l *MultiTenancyLayer) GetObjectRetention(ctx context.Context, bucket, obje
 }
 
 // SetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectRetention.
-func (l *MultiTenancyLayer) SetObjectRetention(ctx context.Context, bucket, object, version string, r *objectlock.ObjectRetention) (err error) {
+func (l *MultiTenancyLayer) SetObjectRetention(ctx context.Context, bucket, object, version string, r minio.ObjectOptions) (err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return err
