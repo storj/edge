@@ -73,7 +73,6 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.ProjectLimits.MaxBuckets = 20
 			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
@@ -209,7 +208,6 @@ func TestObjectLock(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.ProjectLimits.MaxBuckets = 100
 			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
@@ -474,6 +472,22 @@ func TestObjectLock(t *testing.T) {
 			if mode == lockModeGovernance {
 				_, err = putObjectRetentionBypassGovernance(ctx, client, bucket, objKey1, mode, extendedRetainUntil.Add(-time.Minute), *putResp.VersionId)
 				require.NoError(t, err)
+			}
+		})
+
+		runRetentionModeTest("bypass governance remove retention", func(t *testing.T, mode string) {
+			putResp, err := putObjectWithRetention(ctx, client, bucket, objKey1, mode, retainUntil)
+			require.NoError(t, err)
+
+			_, err = putObjectRetention(ctx, client, bucket, objKey1, "", time.Time{}, *putResp.VersionId)
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+
+			_, err = putObjectRetentionBypassGovernance(ctx, client, bucket, objKey1, "", time.Time{}, *putResp.VersionId)
+			if mode == lockModeGovernance {
+				require.NoError(t, err)
+				require.NoError(t, deleteObject(ctx, client, bucket, objKey1, *putResp.VersionId))
+			} else {
+				requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
 			}
 		})
 
@@ -1419,31 +1433,37 @@ func getObjectRetention(ctx context.Context, client *s3.S3, bucket, key, version
 
 func putObjectRetention(ctx context.Context, client *s3.S3, bucket, key, lockMode string, retainUntil time.Time, versionID string) (*s3.PutObjectRetentionOutput, error) {
 	input := s3.PutObjectRetentionInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Retention: &s3.ObjectLockRetention{
-			Mode:            aws.String(lockMode),
-			RetainUntilDate: aws.Time(retainUntil),
-		},
+		Bucket:    aws.String(bucket),
+		Key:       aws.String(key),
+		Retention: &s3.ObjectLockRetention{},
 	}
 	if versionID != "" {
 		input.VersionId = aws.String(versionID)
+	}
+	if lockMode != "" {
+		input.Retention.Mode = aws.String(lockMode)
+	}
+	if !retainUntil.IsZero() {
+		input.Retention.RetainUntilDate = aws.Time(retainUntil)
 	}
 	return client.PutObjectRetentionWithContext(ctx, &input)
 }
 
 func putObjectRetentionBypassGovernance(ctx context.Context, client *s3.S3, bucket, key, lockMode string, retainUntil time.Time, versionID string) (*s3.PutObjectRetentionOutput, error) {
 	input := s3.PutObjectRetentionInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Retention: &s3.ObjectLockRetention{
-			Mode:            aws.String(lockMode),
-			RetainUntilDate: aws.Time(retainUntil),
-		},
+		Bucket:                    aws.String(bucket),
+		Key:                       aws.String(key),
 		BypassGovernanceRetention: aws.Bool(true),
+		Retention:                 &s3.ObjectLockRetention{},
 	}
 	if versionID != "" {
 		input.VersionId = aws.String(versionID)
+	}
+	if lockMode != "" {
+		input.Retention.Mode = aws.String(lockMode)
+	}
+	if !retainUntil.IsZero() {
+		input.Retention.RetainUntilDate = aws.Time(retainUntil)
 	}
 	return client.PutObjectRetentionWithContext(ctx, &input)
 }
