@@ -47,6 +47,7 @@ type Config struct {
 	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
 	CacheExpiration   time.Duration `help:"length of time satellite addresses are cached for" default:"10m"`
 	ShutdownDelay     time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
+	IdleTimeout       time.Duration `help:"timeout for idle connections" default:"60s"`
 
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
@@ -367,7 +368,8 @@ func (p *Peer) Close() error {
 // ServeHTTP starts serving HTTP clients.
 func (p *Peer) ServeHTTP(ctx context.Context, listener net.Listener) (err error) {
 	server := http.Server{
-		Handler: p.handler,
+		IdleTimeout: p.config.IdleTimeout,
+		Handler:     p.handler,
 	}
 
 	serverErr := make(chan error, 1)

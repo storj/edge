@@ -69,6 +69,10 @@ type Config struct {
 	// closed immediately.
 	ShutdownTimeout time.Duration
 
+	// IdleTimeout is the maximum amount of time to wait for the
+	// next request when keep-alives are enabled.
+	IdleTimeout time.Duration
+
 	// StartupCheckConfig configures a startup check that must pass in order for
 	// servers to start listening.
 	StartupCheckConfig StartupCheckConfig
@@ -252,11 +256,13 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 	}
 
 	server := &http.Server{
-		Handler:  handler,
-		ErrorLog: zap.NewStdLog(log),
+		IdleTimeout: config.IdleTimeout,
+		Handler:     handler,
+		ErrorLog:    zap.NewStdLog(log),
 	}
 
 	serverTLS := &http.Server{
+		IdleTimeout:  config.IdleTimeout,
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 		ErrorLog:     zap.NewStdLog(log),
@@ -264,6 +270,7 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 	}
 
 	proxyServerTLS := &http.Server{
+		IdleTimeout:  config.IdleTimeout,
 		Handler:      handler,
 		TLSConfig:    tlsConfig.Clone(),
 		ErrorLog:     zap.NewStdLog(log),

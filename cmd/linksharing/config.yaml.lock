@@ -100,6 +100,9 @@ dns-server: 1.1.1.1:53
 # maxmind database file path
 geo-location-db: ""
 
+# timeout for idle connections
+# idle-timeout: 1m0s
+
 # listen using insecure connections only
 insecure-disable-tls: false
 

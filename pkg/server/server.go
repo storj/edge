@@ -181,6 +181,7 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		DisableHTTP2:       config.DisableHTTP2,
 		TrafficLogging:     false, // gateway-mt has its own logging middleware for this
 		StartupCheckConfig: httpserver.StartupCheckConfig(config.StartupCheck),
+		IdleTimeout:        config.IdleTimeout,
 	})
 	if err != nil {
 		return nil, err

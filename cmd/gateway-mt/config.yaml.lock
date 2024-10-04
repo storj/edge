@@ -118,6 +118,9 @@ client.identity.key-path: ""
 # tells libuplink to perform in-memory encoding on file upload
 # encode-in-memory: true
 
+# maximum time to wait for the next request
+# idle-timeout: 1m0s
+
 # listen using insecure connections
 # insecure-disable-tls: false
 

@@ -41,6 +41,9 @@ drpc-listen-addr-tls: :20003
 # Gateway endpoint URL to return to clients
 # endpoint: ""
 
+# timeout for idle connections
+# idle-timeout: 1m0s
+
 # server key file
 key-file: ""
 
