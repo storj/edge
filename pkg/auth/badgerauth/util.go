@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
-	"storj.io/edge/pkg/auth/badgerauth/pb"
 )
 
 // timestampToTime converts Unix time to *time.Time. It checks whether the
@@ -28,10 +26,6 @@ func timeToTimestamp(t *time.Time) int64 {
 		return t.Unix()
 	}
 	return 0
-}
-
-func recordsEqual(a, b *pb.Record) bool {
-	return pb.Equal(a, b)
 }
 
 // badgerLogger wraps zap's SugaredLogger, so it's possible to use it as badger's Logger.

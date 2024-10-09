@@ -24,20 +24,17 @@ import (
 const firstStartKey = "first_start"
 
 var (
+	_ authdb.Storage = (*DB)(nil)
+
+	// Error is the default error class for the badgerauth package.
+	Error = errs.Class("badgerauth")
 	// ProtoError is a class of proto errors.
 	ProtoError = errs.Class("proto")
-
 	// ErrKeyAlreadyExists is an error returned when putting a key that exists.
 	ErrKeyAlreadyExists = Error.New("key already exists")
 
 	errOperationNotSupported = Error.New("operation not supported")
-)
-
-var (
-	mon = monkit.Package()
-
-	// Error is the default error class for the badgerauth package.
-	Error = errs.Class("badgerauth")
+	mon                      = monkit.Package()
 )
 
 // Config provides options for creating DB.
@@ -49,7 +46,7 @@ type Config struct {
 	Path string `user:"true" help:"path where to store data" default:""`
 
 	// ConflictBackoff configures retries for conflicting transactions that may
-	// occur when Node's underlying storage engine is under heavy load.
+	// occur when the underlying storage engine is under heavy load.
 	ConflictBackoff backoff.ExponentialBackoff
 }
 
@@ -115,30 +112,6 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
-// gcValueLog garbage collects value log. It always returns a nil error.
-func (db *DB) gcValueLog(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(nil)
-
-gcLoop:
-	for err == nil {
-		gcFinished := mon.TaskNamed("gc")(&ctx)
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-		default:
-			// Run GC and optionally silence ErrNoRewrite errors:
-			if err = db.db.RunValueLogGC(.5); errs.Is(err, badger.ErrNoRewrite) {
-				gcFinished(nil)
-				err = nil
-				break gcLoop
-			}
-		}
-		gcFinished(&err)
-	}
-	db.log.Info("value log garbage collection finished", zap.Error(err))
-	return nil
-}
-
 func (db *DB) checkFirstStart() (err error) {
 	defer mon.Task()(nil)(&err)
 
@@ -186,13 +159,47 @@ func (db *DB) prepare() (err error) {
 	})
 }
 
-// Close closes the underlying storage engine (BadgerDB).
-func (db *DB) Close() error {
-	if !atomic.CompareAndSwapUint32(&db.closed, 0, 1) {
+// gcValueLog garbage collects value log. It always returns a nil error.
+func (db *DB) gcValueLog(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(nil)
+
+gcLoop:
+	for err == nil {
+		gcFinished := mon.TaskNamed("gc")(&ctx)
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+		default:
+			// Run GC and optionally silence ErrNoRewrite errors:
+			if err = db.db.RunValueLogGC(.5); errs.Is(err, badger.ErrNoRewrite) {
+				gcFinished(nil)
+				err = nil
+				break gcLoop
+			}
+		}
+		gcFinished(&err)
+	}
+	db.log.Info("value log garbage collection finished", zap.Error(err))
+	return nil
+}
+
+func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
+	// db.config.ConflictBackoff needs to be copied. Otherwise, we are using one
+	// for all queries.
+	conflictBackoff := db.config.ConflictBackoff
+	for {
+		if err := db.db.Update(f); err != nil {
+			if errs.Is(err, badger.ErrConflict) && !conflictBackoff.Maxed() {
+				mon.Event("as_badgerauth_txn_backoff")
+				if err := conflictBackoff.Wait(ctx); err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
 		return nil
 	}
-	db.gcCycle.Close()
-	return Error.Wrap(errs.Combine(db.gcErrGroup.Wait(), db.db.Close()))
 }
 
 // Put is like PutAtTime, but it uses current time to store the record.
@@ -278,23 +285,18 @@ func (db *DB) HealthCheck(ctx context.Context) (err error) {
 	return nil
 }
 
-func (db *DB) txnWithBackoff(ctx context.Context, f func(txn *badger.Txn) error) error {
-	// db.config.ConflictBackoff needs to be copied. Otherwise, we are using one
-	// for all queries.
-	conflictBackoff := db.config.ConflictBackoff
-	for {
-		if err := db.db.Update(f); err != nil {
-			if errs.Is(err, badger.ErrConflict) && !conflictBackoff.Maxed() {
-				mon.Event("as_badgerauth_txn_backoff")
-				if err := conflictBackoff.Wait(ctx); err != nil {
-					return err
-				}
-				continue
-			}
-			return err
-		}
+// Run implements Storage.
+func (db *DB) Run(context.Context) error {
+	return nil
+}
+
+// Close closes the underlying storage engine (BadgerDB).
+func (db *DB) Close() error {
+	if !atomic.CompareAndSwapUint32(&db.closed, 0, 1) {
 		return nil
 	}
+	db.gcCycle.Close()
+	return Error.Wrap(errs.Combine(db.gcErrGroup.Wait(), db.db.Close()))
 }
 
 // insertRecord inserts a record.
@@ -307,12 +309,12 @@ func insertRecord(txn *badger.Txn, keyHash authdb.KeyHash, record *pb.Record) er
 		mon.Event("as_badgerauth_duplicate_key")
 		return ErrKeyAlreadyExists
 	} else if !errs.Is(err, badger.ErrKeyNotFound) {
-		return Error.Wrap(err)
+		return err
 	}
 
 	marshaled, err := pb.Marshal(record)
 	if err != nil {
-		return Error.Wrap(ProtoError.Wrap(err))
+		return ProtoError.Wrap(err)
 	}
 
 	entry := badger.NewEntry(keyHash.Bytes(), marshaled)
@@ -326,7 +328,7 @@ func insertRecord(txn *badger.Txn, keyHash authdb.KeyHash, record *pb.Record) er
 		mon.Event("as_badgerauth_insert")
 	}
 
-	return Error.Wrap(txn.SetEntry(entry))
+	return txn.SetEntry(entry)
 }
 
 func lookupRecordWithTxn(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, error) {
@@ -340,9 +342,4 @@ func lookupRecordWithTxn(txn *badger.Txn, keyHash authdb.KeyHash) (*pb.Record, e
 	return &record, item.Value(func(val []byte) error {
 		return ProtoError.Wrap(pb.Unmarshal(val, &record))
 	})
-}
-
-// Run implements Storage.
-func (db *DB) Run(context.Context) error {
-	return nil
 }
