@@ -313,10 +313,6 @@ func (p *Peer) Run(ctx context.Context) (err error) {
 		return p.ServeDRPC(groupCtx, p.drpcListener)
 	})
 
-	group.Go(func() error {
-		return p.storage.Run(groupCtx)
-	})
-
 	if p.tlsConfig == nil {
 		p.log.Info("not starting DRPC+TLS and HTTPS because of missing TLS configuration")
 	} else {

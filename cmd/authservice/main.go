@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
@@ -117,20 +116,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	migrationCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	storage, err := auth.OpenStorage(migrationCtx, zap.L().Named("migration"), runCfg)
+	storage, err := auth.OpenStorage(ctx, zap.L().Named("migration"), runCfg)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, storage.Close()) }()
-
-	var g errgroup.Group
-
-	g.Go(func() error {
-		return errs2.IgnoreCanceled(storage.Run(migrationCtx))
-	})
 
 	migrator, ok := storage.(interface {
 		MigrateToLatest(ctx context.Context) error
@@ -139,13 +129,7 @@ func cmdMigrationRun(cmd *cobra.Command, _ []string) (err error) {
 		return errs.New("storage backend (%T) does not support migrations", storage)
 	}
 
-	if err = migrator.MigrateToLatest(migrationCtx); err != nil {
-		return errs.Wrap(err)
-	}
-
-	cancel()
-
-	return g.Wait()
+	return errs.Wrap(migrator.MigrateToLatest(ctx))
 }
 
 func cmdSetup(cmd *cobra.Command, _ []string) error {

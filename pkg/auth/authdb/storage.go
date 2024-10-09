@@ -152,9 +152,6 @@ type Storage interface {
 	// otherwise.
 	HealthCheck(ctx context.Context) error
 
-	// Run runs the storage backend.
-	Run(ctx context.Context) error
-
 	// Close closes the storage backend.
 	Close() error
 }

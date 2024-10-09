@@ -247,11 +247,6 @@ func (d *CloudDatabase) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// Run is a no-op.
-func (d *CloudDatabase) Run(ctx context.Context) error {
-	return nil
-}
-
 // Close closes the remote Cloud Spanner database.
 func (d *CloudDatabase) Close() error {
 	d.client.Close()

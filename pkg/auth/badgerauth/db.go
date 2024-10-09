@@ -285,11 +285,6 @@ func (db *DB) HealthCheck(ctx context.Context) (err error) {
 	return nil
 }
 
-// Run implements Storage.
-func (db *DB) Run(context.Context) error {
-	return nil
-}
-
 // Close closes the underlying storage engine (BadgerDB).
 func (db *DB) Close() error {
 	if !atomic.CompareAndSwapUint32(&db.closed, 0, 1) {
