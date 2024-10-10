@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
@@ -163,7 +164,7 @@ func TestPutSatelliteValidation(t *testing.T) {
 
 	url, err := storj.ParseNodeURL(validURL)
 	require.NoError(t, err)
-	db := NewDatabase(mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false)
+	db := NewDatabase(zaptest.NewLogger(t), mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false)
 
 	key, err := NewEncryptionKey()
 	require.NoError(t, err)
@@ -194,7 +195,7 @@ func TestPutShortExpiration(t *testing.T) {
 	s, err := g.Serialize()
 	require.NoError(t, err)
 
-	_, err = NewDatabase(mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false).Put(context.TODO(), enc, s, true)
+	_, err = NewDatabase(zaptest.NewLogger(t), mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false).Put(context.TODO(), enc, s, true)
 	t.Log(err)
 	require.Error(t, err)
 	require.True(t, ErrAccessGrant.Has(err))

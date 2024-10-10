@@ -153,7 +153,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	adb := authdb.NewDatabase(storage, allowedSats, config.RetrievePublicProjectID)
+	adb := authdb.NewDatabase(log.Named("authdb"), storage, allowedSats, config.RetrievePublicProjectID)
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{

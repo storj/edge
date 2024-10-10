@@ -14,6 +14,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
@@ -130,6 +131,7 @@ func toBase32(k []byte) string {
 // and secrets.
 type Database struct {
 	storage Storage
+	logger  *zap.Logger
 
 	mu                      sync.Mutex
 	allowedSatelliteURLs    map[storj.NodeURL]struct{}
@@ -140,9 +142,10 @@ type Database struct {
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (with a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}, retrievePublicProjectID bool) *Database {
+func NewDatabase(logger *zap.Logger, storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}, retrievePublicProjectID bool) *Database {
 	return &Database{
 		storage:                 storage,
+		logger:                  logger,
 		allowedSatelliteURLs:    allowedSatelliteURLs,
 		retrievePublicProjectID: retrievePublicProjectID,
 		uplinkConfig: uplink.Config{
@@ -211,8 +214,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	if db.retrievePublicProjectID {
 		publicProjectID, err = privateProject.GetPublicID(ctx, db.uplinkConfig, access)
 		if err != nil {
-			// TODO(artur, sean): we should probably log why we couldn't
-			// fetch the public project ID.
+			db.logger.Warn("retrieve public project id failed", zap.Error(err))
 			publicProjectID = uuid.UUID{} // just in case, zero it
 			mon.Event("retrieve_public_project_id_failed")
 		}
