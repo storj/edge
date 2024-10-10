@@ -6,7 +6,6 @@ package authadminclient
 import (
 	"context"
 	"encoding/hex"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,7 +16,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
-	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"
 )
 
@@ -26,10 +24,9 @@ var Error = errs.Class("auth admin client")
 
 // Client is a client for managing auth records.
 type Client struct {
-	log     *zap.Logger
-	spanner authdb.StorageAdmin
-	badger  authdb.StorageAdmin
-	config  Config
+	log    *zap.Logger
+	config Config
+	admins []authdb.StorageAdmin
 }
 
 // Record is a representation of pb.Record for display purposes.
@@ -75,7 +72,6 @@ func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.Enc
 // Config configures Client.
 type Config struct {
 	Spanner spannerauth.Config
-	Badger  badgerauth.Config
 }
 
 // Open returns an initialized Client connected to the configured databases.
@@ -87,8 +83,13 @@ func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) 
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		client.spanner = spanner
+		client.admins = append(client.admins, spanner)
 	}
+
+	// NOTE(artur): if needed, add more StorageAdmin implementations
+	// here! like this:
+	//
+	// client.admins = append(client.admins, …)
 
 	return client, nil
 }
@@ -96,18 +97,17 @@ func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) 
 // Close closes the client's database connections.
 func (c *Client) Close() error {
 	var errGroup errs.Group
-	if c.spanner != nil {
-		errGroup.Add(c.spanner.Close())
+
+	for _, a := range c.admins {
+		errGroup.Add(a.Close())
 	}
-	if c.badger != nil {
-		errGroup.Add(c.badger.Close())
-	}
+
 	return Error.Wrap(errGroup.Err())
 }
 
 // Get returns a record.
 func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err error) {
-	if c.spanner == nil && c.badger == nil {
+	if len(c.admins) == 0 {
 		return record, Error.New("no databases configured")
 	}
 
@@ -116,43 +116,24 @@ func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err
 		return record, Error.New("key from input: %w", err)
 	}
 
-	var spannerResp *authdb.FullRecord
-	if c.spanner != nil {
-		spannerResp, err = c.spanner.GetFullRecord(ctx, key.hash)
-		if err != nil {
-			return record, Error.New("get record: %w", err)
-		}
-		if spannerResp == nil {
-			c.log.Warn("record not found", zap.String("key", encodedKey), zap.String("backend", "spanner"))
-		}
-	}
-
-	var badgerResp *authdb.FullRecord
-	if c.badger != nil {
-		badgerResp, err = c.badger.GetFullRecord(ctx, key.hash)
-		if err != nil {
-			return record, Error.New("get record: %w", err)
-		}
-		if badgerResp == nil {
-			c.log.Warn("record not found", zap.String("key", encodedKey), zap.String("backend", "badger"))
-		}
-	}
-
 	var resp *authdb.FullRecord
-	if spannerResp != nil {
-		if badgerResp != nil && !spannerResp.EqualWithinDuration(*badgerResp, time.Minute) {
-			return record, Error.New("mismatch between spanner and badger records")
+	for i, a := range c.admins {
+		resp, err = a.GetFullRecord(ctx, key.hash)
+		if err != nil || resp == nil {
+			c.log.Warn("Get", zap.String("key", encodedKey), zap.Int("backend (index)", i), zap.Error(err))
+		} else {
+			break
 		}
-		resp = spannerResp
-	} else if badgerResp != nil {
-		resp = badgerResp
-	} else {
+	}
+
+	if resp == nil {
 		return record, Error.New("key %q does not exist", key)
 	}
 
 	if err = record.updateFromAuthDB(resp, key.encKey); err != nil {
 		return record, Error.New("update from auth db: %w", err)
 	}
+
 	return record, nil
 }
 
@@ -183,7 +164,7 @@ func (c *Client) withDBs(
 	encodedKey string,
 	fn func(ctx context.Context, key parsedKey, db authdb.StorageAdmin) error,
 ) error {
-	if c.spanner == nil && c.badger == nil {
+	if len(c.admins) == 0 {
 		return Error.New("no databases configured")
 	}
 
@@ -193,11 +174,10 @@ func (c *Client) withDBs(
 	}
 
 	var errGroup errs.Group
-	if c.spanner != nil {
-		errGroup.Add(fn(ctx, keyInfo, c.spanner))
-	}
-	if c.badger != nil {
-		errGroup.Add(fn(ctx, keyInfo, c.badger))
+	for i, a := range c.admins {
+		if err := fn(ctx, keyInfo, a); err != nil {
+			errGroup.Add(errs.New("%d: %w", i, err))
+		}
 	}
 	if err := errGroup.Err(); err != nil {
 		return Error.New("%s record: %w", action, err)

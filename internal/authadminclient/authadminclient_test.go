@@ -33,66 +33,54 @@ func TestGetRecord(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *environment) {
 		parsed, err := grant.ParseAccess(testAccessGrant)
 		require.NoError(t, err)
 
-		for _, tt := range []struct {
-			name string
-			db   authdb.Storage
-		}{
-			{
-				name: "Spanner",
-				db:   env.SpannerClient,
-			},
-		} {
-			errMsg := "Database: " + tt.name
+		var keyHash authdb.KeyHash
+		testrand.Read(keyHash[:])
 
-			var keyHash authdb.KeyHash
-			testrand.Read(keyHash[:])
-
-			expected := &authdb.Record{
-				SatelliteAddress:     string(testrand.RandAlphaNumeric(32)),
-				MacaroonHead:         testrand.Bytes(32),
-				EncryptedSecretKey:   testrand.Bytes(32),
-				EncryptedAccessGrant: testrand.Bytes(32),
-				Public:               testrand.Intn(1) == 0,
-			}
-
-			require.NoError(t, tt.db.Put(ctx, keyHash, expected), errMsg)
-			actual, err := env.AdminClient.Get(ctx, keyHash.ToHex())
-			require.NoError(t, err, errMsg)
-			requireRecordEqual(t, expected, &actual.Record, errMsg)
-			require.Equal(t, "", actual.DecryptedAccessGrant, errMsg)
-
-			encKey, err := authdb.NewEncryptionKey()
-			require.NoError(t, err)
-			storjKey := encKey.ToStorjKey()
-			encAccessGrant, err := encryption.Encrypt([]byte(testAccessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
-			require.NoError(t, err)
-			require.NotEqual(t, testAccessGrant, encAccessGrant)
-
-			expected = &authdb.Record{
-				SatelliteAddress:     testSatelliteURL,
-				MacaroonHead:         parsed.APIKey.Head(),
-				EncryptedSecretKey:   testrand.Bytes(32),
-				EncryptedAccessGrant: encAccessGrant,
-				Public:               true,
-			}
-			require.NoError(t, tt.db.Put(ctx, encKey.Hash(), expected))
-
-			actual, err = env.AdminClient.Get(ctx, encKey.ToBase32())
-			require.NoError(t, err, errMsg)
-			requireRecordEqual(t, expected, &actual.Record)
-			require.Equal(t, testAccessGrant, actual.DecryptedAccessGrant, errMsg)
-			require.Equal(t, testAPIKey, actual.APIKey, errMsg)
-			require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex, errMsg)
+		expected := &authdb.Record{
+			SatelliteAddress:     string(testrand.RandAlphaNumeric(32)),
+			MacaroonHead:         testrand.Bytes(32),
+			EncryptedSecretKey:   testrand.Bytes(32),
+			EncryptedAccessGrant: testrand.Bytes(32),
+			Public:               testrand.Intn(1) == 0,
 		}
+		require.NoError(t, env.storage.Put(ctx, keyHash, expected))
+
+		actual, err := env.adminClient.Get(ctx, keyHash.ToHex())
+		require.NoError(t, err)
+		requireRecordEqual(t, expected, &actual.Record)
+		require.Equal(t, "", actual.DecryptedAccessGrant)
+
+		encKey, err := authdb.NewEncryptionKey()
+		require.NoError(t, err)
+		storjKey := encKey.ToStorjKey()
+		encAccessGrant, err := encryption.Encrypt([]byte(testAccessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
+		require.NoError(t, err)
+		require.NotEqual(t, testAccessGrant, encAccessGrant)
+
+		expected = &authdb.Record{
+			SatelliteAddress:     testSatelliteURL,
+			MacaroonHead:         parsed.APIKey.Head(),
+			EncryptedSecretKey:   testrand.Bytes(32),
+			EncryptedAccessGrant: encAccessGrant,
+			Public:               true,
+		}
+		require.NoError(t, env.storage.Put(ctx, encKey.Hash(), expected))
+
+		actual, err = env.adminClient.Get(ctx, encKey.ToBase32())
+		require.NoError(t, err)
+		requireRecordEqual(t, expected, &actual.Record)
+		require.Equal(t, testAccessGrant, actual.DecryptedAccessGrant)
+		require.Equal(t, testAPIKey, actual.APIKey)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex)
 
 		noAddrClient, err := authadminclient.Open(ctx, authadminclient.Config{}, zap.NewNop())
 		require.NoError(t, err)
 
-		encKey, err := authdb.NewEncryptionKey()
+		encKey, err = authdb.NewEncryptionKey()
 		require.NoError(t, err)
 		_, err = noAddrClient.Get(ctx, encKey.ToBase32())
 		require.Error(t, err)
@@ -103,8 +91,8 @@ func TestInvalidateRecord(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *environment) {
+		records, keys := createFullRecords(ctx, t, env.storage, 5)
 
 		invalidatedKey := keys[0]
 		reason := "no more access"
@@ -113,15 +101,15 @@ func TestInvalidateRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.Error(t, noAddrClient.Invalidate(ctx, invalidatedKey.ToHex(), ""))
 
-		require.NoError(t, env.AdminClient.Invalidate(ctx, invalidatedKey.ToHex(), reason))
+		require.NoError(t, env.adminClient.Invalidate(ctx, invalidatedKey.ToHex(), reason))
 
-		_, err = env.SpannerClient.Get(ctx, invalidatedKey)
+		_, err = env.storage.Get(ctx, invalidatedKey)
 		require.True(t, authdb.Invalid.Has(err))
 
 		delete(records, invalidatedKey)
 		verifyRecords(ctx, t, env, records)
 
-		record, err := env.AdminClient.Get(ctx, invalidatedKey.ToHex())
+		record, err := env.adminClient.Get(ctx, invalidatedKey.ToHex())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 		require.NotZero(t, record.InvalidatedAt)
@@ -133,8 +121,8 @@ func TestUnpublishRecord(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *environment) {
+		records, keys := createFullRecords(ctx, t, env.storage, 5)
 
 		unpublishedKey := keys[0]
 		require.True(t, records[unpublishedKey].Public)
@@ -143,7 +131,7 @@ func TestUnpublishRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.Error(t, noAddrClient.Unpublish(ctx, unpublishedKey.ToHex()))
 
-		require.NoError(t, env.AdminClient.Unpublish(ctx, unpublishedKey.ToHex()))
+		require.NoError(t, env.adminClient.Unpublish(ctx, unpublishedKey.ToHex()))
 
 		records[unpublishedKey].Public = false
 		verifyRecords(ctx, t, env, records)
@@ -154,8 +142,8 @@ func TestDeleteRecord(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
-		records, keys := createFullRecords(ctx, t, env.SpannerClient, 5)
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *environment) {
+		records, keys := createFullRecords(ctx, t, env.storage, 5)
 
 		deletedKey := keys[0]
 
@@ -163,7 +151,7 @@ func TestDeleteRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.Error(t, noAddrClient.Delete(ctx, deletedKey.ToHex()))
 
-		require.NoError(t, env.AdminClient.Delete(ctx, deletedKey.ToHex()))
+		require.NoError(t, env.adminClient.Delete(ctx, deletedKey.ToHex()))
 
 		delete(records, deletedKey)
 		verifyRecords(ctx, t, env, records)
@@ -174,53 +162,41 @@ func TestResolveRecord(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *Environment) {
+	withEnvironment(ctx, t, func(ctx *testcontext.Context, t *testing.T, env *environment) {
 		parsed, err := grant.ParseAccess(testAccessGrant)
 		require.NoError(t, err)
 
-		for _, tt := range []struct {
-			name string
-			db   authdb.Storage
-		}{
-			{
-				name: "Spanner",
-				db:   env.SpannerClient,
-			},
-		} {
-			errMsg := "Database: " + tt.name
+		encKey, err := authdb.NewEncryptionKey()
+		require.NoError(t, err)
+		sk := encKey.ToStorjKey()
+		encAccessGrant, err := encryption.Encrypt([]byte(testAccessGrant), storj.EncAESGCM, &sk, &storj.Nonce{1})
+		require.NoError(t, err)
+		require.NotEqual(t, testAccessGrant, encAccessGrant)
 
-			encKey, err := authdb.NewEncryptionKey()
-			require.NoError(t, err)
-			sk := encKey.ToStorjKey()
-			encAccessGrant, err := encryption.Encrypt([]byte(testAccessGrant), storj.EncAESGCM, &sk, &storj.Nonce{1})
-			require.NoError(t, err)
-			require.NotEqual(t, testAccessGrant, encAccessGrant)
-
-			expiresAt := time.Unix(time.Now().Unix(), 0).Add(time.Hour).UTC()
-			expected := &authdb.Record{
-				SatelliteAddress:     testSatelliteURL,
-				MacaroonHead:         parsed.APIKey.Head(),
-				EncryptedSecretKey:   testrand.Bytes(32),
-				EncryptedAccessGrant: encAccessGrant,
-				ExpiresAt:            &expiresAt,
-				Public:               true,
-			}
-			require.NoError(t, tt.db.Put(ctx, encKey.Hash(), expected), errMsg)
-
-			actual, err := env.AdminClient.Resolve(ctx, encKey.Hash().ToHex())
-			require.NoError(t, err, errMsg)
-			requireRecordEqual(t, expected, &actual.Record, errMsg)
-			require.Equal(t, "", actual.DecryptedAccessGrant, errMsg)
-			require.Equal(t, "", actual.APIKey, errMsg)
-			require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex, errMsg)
-
-			actual, err = env.AdminClient.Resolve(ctx, encKey.ToBase32())
-			require.NoError(t, err, errMsg)
-			requireRecordEqual(t, expected, &actual.Record, errMsg)
-			require.Equal(t, testAccessGrant, actual.DecryptedAccessGrant, errMsg)
-			require.Equal(t, testAPIKey, actual.APIKey, errMsg)
-			require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex, errMsg)
+		expiresAt := time.Unix(time.Now().Unix(), 0).Add(time.Hour).UTC()
+		expected := &authdb.Record{
+			SatelliteAddress:     testSatelliteURL,
+			MacaroonHead:         parsed.APIKey.Head(),
+			EncryptedSecretKey:   testrand.Bytes(32),
+			EncryptedAccessGrant: encAccessGrant,
+			ExpiresAt:            &expiresAt,
+			Public:               true,
 		}
+		require.NoError(t, env.storage.Put(ctx, encKey.Hash(), expected))
+
+		actual, err := env.adminClient.Resolve(ctx, encKey.Hash().ToHex())
+		require.NoError(t, err)
+		requireRecordEqual(t, expected, &actual.Record)
+		require.Equal(t, "", actual.DecryptedAccessGrant)
+		require.Equal(t, "", actual.APIKey)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex)
+
+		actual, err = env.adminClient.Resolve(ctx, encKey.ToBase32())
+		require.NoError(t, err)
+		requireRecordEqual(t, expected, &actual.Record)
+		require.Equal(t, testAccessGrant, actual.DecryptedAccessGrant)
+		require.Equal(t, testAPIKey, actual.APIKey)
+		require.Equal(t, hex.EncodeToString(parsed.APIKey.Head()), actual.MacaroonHeadHex)
 
 		noAddrClient, err := authadminclient.Open(ctx, authadminclient.Config{}, zap.NewNop())
 		require.NoError(t, err)
@@ -240,23 +216,23 @@ func TestResolveRecord(t *testing.T) {
 func verifyRecords(
 	ctx *testcontext.Context,
 	t *testing.T,
-	env *Environment,
+	env *environment,
 	records map[authdb.KeyHash]*authdb.Record,
 ) {
 	for key, record := range records {
-		actual, err := env.SpannerClient.Get(ctx, key)
+		actual, err := env.storage.Get(ctx, key)
 		require.NoError(t, err)
 		requireRecordEqual(t, record, actual)
 	}
 }
 
-type Environment struct {
-	Logger        *zap.Logger
-	SpannerClient *spannerauth.CloudDatabase
-	AdminClient   *authadminclient.Client
+type environment struct {
+	logger      *zap.Logger
+	storage     authdb.Storage
+	adminClient *authadminclient.Client
 }
 
-func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, env *Environment)) {
+func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, env *environment)) {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
@@ -279,14 +255,15 @@ func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testco
 	require.NoError(t, err)
 	defer ctx.Check(admin.Close)
 
-	fn(ctx, t, &Environment{
-		Logger:        logger,
-		SpannerClient: client,
-		AdminClient:   admin,
+	fn(ctx, t, &environment{
+		logger:      logger,
+		storage:     client,
+		adminClient: admin,
 	})
 }
 
-// requireRecordEqual asserts that two records are equal, ignoring the timezones of the records' time.Time fields.
+// requireRecordEqual asserts that two records are equal, ignoring the
+// timezones of the records' time.Time fields.
 func requireRecordEqual(t *testing.T, expected *authdb.Record, actual *authdb.Record, msgAndArgs ...interface{}) {
 	if expected == nil {
 		require.Nil(t, actual, msgAndArgs)
