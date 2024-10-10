@@ -250,7 +250,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		return handler.servePrefix(ctx, w, project, pr, archivePath, "")
 	}
 
-	locations, pieces, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
+	locations, pieces, placementConstraint, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
 	if err != nil {
 		return errdata.WithAction(err, "get locations")
 	}
@@ -260,9 +260,11 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	var input struct {
-		Key        string
-		Size       string
-		NodesCount int
+		Key          string
+		Size         string
+		NodesCount   int
+		HasPlacement bool
+		IsInline     bool
 	}
 
 	input.NodesCount = len(locations)
@@ -288,6 +290,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			}
 			return err
 		}
+
 		input.Key = archivePath
 		input.Size = memory.Size(f.Size).Base10String()
 		data.ArchivePath = archivePath
@@ -296,6 +299,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		input.Size = memory.Size(o.System.ContentLength).Base10String()
 		data.ShowViewContents = strings.HasSuffix(input.Key, ".zip")
 	}
+
+	input.HasPlacement = placementConstraint != 0
+	input.IsInline = input.NodesCount == 0
 
 	data.Data = input
 	data.Title = input.Key

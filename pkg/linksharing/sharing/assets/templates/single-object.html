@@ -15,16 +15,31 @@
         <div class="col">
           <div class="row justify-content-center">
             <div class="col py-3 py-lg-4">
+              {{ if .Data.IsInline }}
+                <h3 class="mt-2 mt-lg-0 mb-2">This file is ready for download.</h3>
+                <p>This file is securely stored and ready for you to download. Click the button to start your download.</p>
 
-              <h3 class="mt-2 mt-lg-0 mb-2">You are getting this file from all over the world.</h3>
-              <p>Storj cloud storage splits files into smaller pieces, then distributes them over a global network of nodes, and recompiles them securely on download. The map below shows the real-time locations of this file’s pieces.</p>
-
-              <a href="https://www.storj.io/" class="btn btn-outline-secondary btn-lg d-block">Learn more about Storj</a>
-              <p class="nodes-count w-100 mt-2 mb-2 text-center">{{ .Data.NodesCount }} Storj nodes are storing a piece of this file</p>
-
-              <div id="map-img" class="map mb-2">
-                <img src="?map=1&width=800" class="w-100" />
-              </div>
+                <a href="https://www.storj.io/" class="btn btn-outline-secondary btn-lg d-block">Learn more about Storj</a>
+              {{ else }}
+                <h3 class="mt-2 mt-lg-0 mb-2">
+                  {{ if .Data.HasPlacement }}
+                    You are downloading this file from the Storj network.
+                  {{ else }}
+                    You are downloading this file from all over the world.
+                  {{ end }}
+                </h3>
+                <p>
+                  Storj splits your file into secure pieces, distributing them across a global network of storage suppliers.
+                  When you download, the pieces are securely put back together for you. The map below shows where your file's pieces are currently being stored.
+                </p>
+                <a href="https://www.storj.io/" class="btn btn-outline-secondary btn-lg d-block">Learn more about Storj</a>
+                <p class="nodes-count w-100 mt-2 mb-2 text-center">
+                  Stored by {{ .Data.NodesCount }} Storj storage suppliers{{ if not .Data.HasPlacement }} worldwide{{ end }}.
+                </p>
+                <div id="map-img" class="map mb-2">
+                  <img src="?map=1&width=800" class="w-100" alt="map" />
+                </div>
+              {{ end }}
 
               <p class="nodes-count w-100 mb-2 text-center">Sign up now to get 25GB free for 30 days.</p>
               <a href="https://storj.io/signup" class="btn btn-secondary btn-lg d-block">Sign Up</a>

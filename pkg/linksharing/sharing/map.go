@@ -25,7 +25,7 @@ type location struct {
 	Longitude float64
 }
 
-func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access, bucket, key string) (locs []location, pieceCount int64, err error) {
+func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access, bucket, key string) (locs []location, pieceCount int64, placementConstraint uint32, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// we explicitly don't want locations to be nil, so it doesn't render as
@@ -33,12 +33,12 @@ func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access,
 	locations := make([]location, 0)
 
 	if handler.mapper == nil { // fast path
-		return locations, 0, nil
+		return locations, 0, 0, nil
 	}
 
 	ipSummary, err := object.GetObjectIPSummary(ctx, *handler.uplink, access, bucket, key)
 	if err != nil {
-		return nil, 0, errdata.WithAction(err, "get locations")
+		return nil, 0, 0, errdata.WithAction(err, "get locations")
 	}
 
 	for _, ip := range ipSummary.IPPorts {
@@ -54,7 +54,7 @@ func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access,
 		})
 	}
 
-	return locations, ipSummary.PieceCount, nil
+	return locations, ipSummary.PieceCount, ipSummary.PlacementConstraint, nil
 }
 
 func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, locations []location, pieces int64, o *uplink.Object, q url.Values) (err error) {
