@@ -31,13 +31,13 @@ require (
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20240913104706-8fd6fa0286a3
+	storj.io/common v0.0.0-20241014122736-47dfa836934a
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/gateway v1.9.1-0.20240927102357-3a38715221e2
 	storj.io/minio v0.0.0-20240926235222-007af8f083b1
-	storj.io/uplink v1.13.2-0.20240925113347-39440b097385
+	storj.io/uplink v1.13.2-0.20241016142454-8f0faf7f7f39
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -95,6 +95,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gomodule/redigo v1.8.3 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
+	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
