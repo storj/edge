@@ -101,8 +101,8 @@ func run() (bool, error) {
 func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
 	return authadminclient.Config{
 		Spanner: spannerauth.Config{
-			DatabaseName:        params.Flag("spanner-db-name", "name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID", "").(string),
-			CredentialsFilename: params.Flag("spanner-creds", "credentials file with access to Cloud Spanner database", "").(string),
+			DatabaseName:        params.Flag("storage.spanner.db-name", "name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID", "").(string),
+			CredentialsFilename: params.Flag("storage.spanner.creds", "credentials file with access to Cloud Spanner database", "").(string),
 		},
 	}
 }
