@@ -10,7 +10,6 @@ WORKDIR /app
 
 VOLUME /root/.local/share/storj/authservice
 
-COPY cmd/authservice/etc/nsswitch.conf /etc/nsswitch.conf
 COPY release/${TAG}/authservice_linux_${GOARCH:-amd64} /app/authservice
 COPY cmd/authservice/entrypoint /entrypoint
 
