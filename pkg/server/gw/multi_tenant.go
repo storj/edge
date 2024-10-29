@@ -322,6 +322,18 @@ func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket stri
 	return objectLockConfig, l.log(ctx, err)
 }
 
+// SetObjectLockConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectLockConfig.
+func (l *MultiTenancyLayer) SetObjectLockConfig(ctx context.Context, bucket string, config *objectlock.Config) (err error) {
+	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithUplinkProject(ctx, project), bucket, config))
+}
+
 // GetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLegalHold.
 func (l *MultiTenancyLayer) GetObjectLegalHold(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectLegalHold, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))

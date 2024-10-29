@@ -127,6 +127,11 @@ func (iamOS *NotImplementedObjectStore) GetObjectLockConfig(ctx context.Context,
 	return &objectlock.Config{}, minio.NotImplemented{}
 }
 
+// SetObjectLockConfig is unimplemented, but required to meet the ObjectLayer interface.
+func (*NotImplementedObjectStore) SetObjectLockConfig(context.Context, string, *objectlock.Config) error {
+	return minio.NotImplemented{}
+}
+
 // GetObjectInfo is unimplemented, but required to meet the ObjectLayer interface.
 func (iamOS *NotImplementedObjectStore) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	return minio.ObjectInfo{Bucket: bucket, Name: object}, minio.NotImplemented{}
