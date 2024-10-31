@@ -232,7 +232,6 @@ func TestObjectLock(t *testing.T) {
 			})
 		}
 
-		// TODO: expand this test case when PutObjectLockConfiguration is supported.
 		t.Run("enable and disable object lock on bucket", func(t *testing.T) {
 			noLockBucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, noLockBucket, true, false))
@@ -240,18 +239,47 @@ func TestObjectLock(t *testing.T) {
 			_, err := getObjectLockConfiguration(ctx, client, noLockBucket)
 			requireS3Error(t, err, http.StatusNotFound, "ObjectLockConfigurationNotFoundError")
 
-			_, err = putObjectLockConfiguration(ctx, client, noLockBucket, "Enabled", nil)
-			requireS3Error(t, err, http.StatusNotImplemented, "NotImplemented")
-
 			_, err = putObjectLockConfiguration(ctx, client, noLockBucket, "Disabled", nil)
-			requireS3Error(t, err, http.StatusNotImplemented, "NotImplemented")
+			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
 
 			lockBucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, lockBucket, true, true))
 
+			retDays := int64(5)
+			retMode := s3.ObjectLockRetentionModeCompliance
+
+			_, err = putObjectLockConfiguration(ctx, client, lockBucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Days: &retDays,
+					Mode: &retMode,
+				},
+			})
+			require.NoError(t, err)
+
 			resp, err := getObjectLockConfiguration(ctx, client, lockBucket)
 			require.NoError(t, err)
 			require.Equal(t, "Enabled", *resp.ObjectLockConfiguration.ObjectLockEnabled)
+			require.Equal(t, retMode, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Mode)
+			require.Equal(t, retDays, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Days)
+			require.Nil(t, resp.ObjectLockConfiguration.Rule.DefaultRetention.Years)
+
+			retMode = s3.ObjectLockRetentionModeGovernance
+			retYears := int64(1)
+
+			_, err = putObjectLockConfiguration(ctx, client, lockBucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Years: &retYears,
+					Mode:  &retMode,
+				},
+			})
+			require.NoError(t, err)
+
+			resp, err = getObjectLockConfiguration(ctx, client, lockBucket)
+			require.NoError(t, err)
+			require.Equal(t, "Enabled", *resp.ObjectLockConfiguration.ObjectLockEnabled)
+			require.Equal(t, retMode, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Mode)
+			require.Equal(t, retYears, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Years)
+			require.Nil(t, resp.ObjectLockConfiguration.Rule.DefaultRetention.Days)
 		})
 
 		t.Run("put object with lock not allowed on unversioned bucket", func(t *testing.T) {
@@ -1283,6 +1311,7 @@ func putObjectLockConfiguration(ctx context.Context, client *s3.S3, bucket, enab
 		Bucket: aws.String(bucket),
 		ObjectLockConfiguration: &s3.ObjectLockConfiguration{
 			ObjectLockEnabled: aws.String(enabledStatus),
+			Rule:              rule,
 		},
 	})
 }
