@@ -28,6 +28,9 @@ auth-service.timeout: 10s
 # auth token for giving access to the auth service
 auth-service.token: ""
 
+# a comma separated list of hosts and request uris to return unauthorized errors for. e.g. link.storjshare.io/raw/accesskey/bucket/path1
+# blocked-paths: ""
+
 # server certificate file
 cert-file: ""
 

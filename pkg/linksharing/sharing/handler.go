@@ -153,6 +153,10 @@ type Config struct {
 	ConcurrentRequestLimit int
 	// ConcurrentRequestWait if true will make requests wait for a free slot instead of returning 429 (the default, false).
 	ConcurrentRequestWait bool
+
+	// BlockedPaths are requests that will return unauthorized errors. Each entry in this slice
+	// is of the host and the URI on that host concatenated.
+	BlockedPaths []string
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -186,6 +190,7 @@ type Handler struct {
 	listPageLimit          int
 	concurrentRequests     *semaphore.Weighted
 	concurrentRequestWait  bool
+	blockedPaths           map[string]bool
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -296,6 +301,13 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		concurrentRequests = semaphore.NewWeighted(int64(config.ConcurrentRequestLimit))
 	}
 
+	blockedPaths := make(map[string]bool, len(config.BlockedPaths))
+	for _, path := range config.BlockedPaths {
+		if len(path) > 0 {
+			blockedPaths[path] = true
+		}
+	}
+
 	return &Handler{
 		log:                    log,
 		urlBases:               bases,
@@ -316,6 +328,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		listPageLimit:          config.ListPageLimit,
 		concurrentRequests:     concurrentRequests,
 		concurrentRequestWait:  config.ConcurrentRequestWait,
+		blockedPaths:           blockedPaths,
 	}, nil
 }
 
@@ -444,6 +457,10 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 		return errdata.WithStatus(errs.New("method not allowed"), http.StatusMethodNotAllowed)
 	}
 	handler.cors(ctx, w, r)
+
+	if handler.blockedPaths[r.Host+r.URL.Path] {
+		return errdata.WithStatus(errs.New("blocked url"), http.StatusUnauthorized)
+	}
 
 	done, err := handler.rateLimit(ctx)
 	if err != nil {
