@@ -17,6 +17,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
@@ -147,6 +148,11 @@ type Config struct {
 
 	// Maximum number of paths to list on a single page.
 	ListPageLimit int
+
+	// ConcurrentRequestLimit is the number of total concurrent requests a handler will serve. If <= 0, no limit.
+	ConcurrentRequestLimit int
+	// ConcurrentRequestWait if true will make requests wait for a free slot instead of returning 429 (the default, false).
+	ConcurrentRequestWait bool
 }
 
 // ConnectionPoolConfig is a config struct for configuring RPC connection pool options.
@@ -178,6 +184,8 @@ type Handler struct {
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
 	inShutdown             *int32
 	listPageLimit          int
+	concurrentRequests     *semaphore.Weighted
+	concurrentRequestWait  bool
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -283,6 +291,11 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		}
 	}
 
+	var concurrentRequests *semaphore.Weighted
+	if config.ConcurrentRequestLimit > 0 {
+		concurrentRequests = semaphore.NewWeighted(int64(config.ConcurrentRequestLimit))
+	}
+
 	return &Handler{
 		log:                    log,
 		urlBases:               bases,
@@ -301,6 +314,8 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		archiveRanger:          defaultArchiveRanger,
 		inShutdown:             inShutdown,
 		listPageLimit:          config.ListPageLimit,
+		concurrentRequests:     concurrentRequests,
+		concurrentRequestWait:  config.ConcurrentRequestWait,
 	}, nil
 }
 
@@ -430,6 +445,12 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 	handler.cors(ctx, w, r)
 
+	done, err := handler.rateLimit(ctx)
+	if err != nil {
+		return errdata.WithStatus(err, http.StatusTooManyRequests)
+	}
+	defer done()
+
 	ourDomain, err := isDomainOurs(r.Host, handler.urlBases)
 	if err != nil {
 		return err
@@ -474,6 +495,22 @@ func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter
 	}
 	_, err = w.Write([]byte("okay"))
 	return err
+}
+
+func (handler *Handler) rateLimit(ctx context.Context) (done func(), err error) {
+	if handler.concurrentRequests == nil {
+		return func() {}, nil
+	}
+	if handler.concurrentRequestWait {
+		err := handler.concurrentRequests.Acquire(ctx, 1)
+		if err != nil {
+			return nil, err
+		}
+	} else if !handler.concurrentRequests.TryAcquire(1) {
+		return nil, errs.New("too many requests")
+	}
+
+	return func() { handler.concurrentRequests.Release(1) }, nil
 }
 
 func cacheControlStatic(h http.Handler) http.Handler {
