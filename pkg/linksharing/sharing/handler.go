@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -155,7 +156,9 @@ type Config struct {
 	ConcurrentRequestWait bool
 
 	// BlockedPaths are requests that will return unauthorized errors. Each entry in this slice
-	// is of the host and the URI on that host concatenated.
+	// is of the host and the URI on that host concatenated. N.B.: if the special
+	// path "debug" is added, then allowed paths will be logged to debug level
+	// output. Paths that start with "r:" are treated as regular expressions.
 	BlockedPaths []string
 }
 
@@ -191,6 +194,7 @@ type Handler struct {
 	concurrentRequests     *semaphore.Weighted
 	concurrentRequestWait  bool
 	blockedPaths           map[string]bool
+	blockedRegexes         []*regexp.Regexp
 }
 
 // NewHandler creates a new link sharing HTTP handler.
@@ -302,9 +306,18 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	}
 
 	blockedPaths := make(map[string]bool, len(config.BlockedPaths))
+	var blockedRegexes []*regexp.Regexp
 	for _, path := range config.BlockedPaths {
 		if len(path) > 0 {
-			blockedPaths[path] = true
+			if strings.HasPrefix(path, "r:") {
+				re, err := regexp.Compile(strings.TrimPrefix(path, "r:"))
+				if err != nil {
+					return nil, errs.Wrap(err)
+				}
+				blockedRegexes = append(blockedRegexes, re)
+			} else {
+				blockedPaths[path] = true
+			}
 		}
 	}
 
@@ -329,6 +342,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		concurrentRequests:     concurrentRequests,
 		concurrentRequestWait:  config.ConcurrentRequestWait,
 		blockedPaths:           blockedPaths,
+		blockedRegexes:         blockedRegexes,
 	}, nil
 }
 
@@ -460,6 +474,15 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 
 	if handler.blockedPaths[r.Host+r.URL.Path] {
 		return errdata.WithStatus(errs.New("blocked url"), http.StatusUnauthorized)
+	}
+	for _, re := range handler.blockedRegexes {
+		if re.MatchString(r.Host + r.URL.Path) {
+			return errdata.WithStatus(errs.New("blocked url"), http.StatusUnauthorized)
+		}
+	}
+
+	if handler.blockedPaths["debug"] {
+		handler.log.Debug("serving", zap.String("path", r.Host+r.URL.Path))
 	}
 
 	done, err := handler.rateLimit(ctx)
