@@ -194,6 +194,43 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 
 			requireS3Error(t, deleteObjectBypassGovernance(ctx, client, bucket, objKey1, *putResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
+
+		t.Run("disallow put object lock configuration", func(t *testing.T) {
+			client := restrictedClient(t, macaroon.Caveat{
+				DisallowPutBucketObjectLockConfiguration: true,
+			})
+
+			retDays := int64(5)
+			retMode := s3.ObjectLockRetentionModeCompliance
+
+			_, err := putObjectLockConfiguration(ctx, client, bucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Days: &retDays,
+					Mode: &retMode,
+				},
+			})
+			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
+		})
+
+		t.Run("disallow get object lock configuration", func(t *testing.T) {
+			client := restrictedClient(t, macaroon.Caveat{
+				DisallowGetBucketObjectLockConfiguration: true,
+			})
+
+			retDays := int64(5)
+			retMode := s3.ObjectLockRetentionModeCompliance
+
+			_, err := putObjectLockConfiguration(ctx, client, bucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Days: &retDays,
+					Mode: &retMode,
+				},
+			})
+			require.NoError(t, err)
+
+			_, err = getObjectLockConfiguration(ctx, client, bucket)
+			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
+		})
 	})
 }
 
@@ -280,6 +317,17 @@ func TestObjectLock(t *testing.T) {
 			require.Equal(t, retMode, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Mode)
 			require.Equal(t, retYears, *resp.ObjectLockConfiguration.Rule.DefaultRetention.Years)
 			require.Nil(t, resp.ObjectLockConfiguration.Rule.DefaultRetention.Days)
+
+			putObjResp, err := putObject(ctx, client, lockBucket, objKey1, nil)
+			require.NoError(t, err)
+
+			objInfo, err := getObject(ctx, client, lockBucket, objKey1, *putObjResp.VersionId)
+			require.NoError(t, err)
+
+			require.Equal(t, retMode, *objInfo.ObjectLockMode)
+			require.WithinDuration(t, time.Now().AddDate(int(retYears), 0, 0), *objInfo.ObjectLockRetainUntilDate, time.Minute)
+
+			requireS3Error(t, deleteObject(ctx, client, lockBucket, objKey1, *putObjResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
 
 		t.Run("put object with lock not allowed on unversioned bucket", func(t *testing.T) {
