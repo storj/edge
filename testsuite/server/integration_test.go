@@ -699,6 +699,67 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, deleteObject(ctx, client, bucket, objKey1, *unlockedPutResp.VersionId))
 			requireS3Error(t, deleteObject(ctx, client, bucket, objKey1, *legalHoldPutResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
+
+		t.Run("multi delete with locked and unlocked versions", func(t *testing.T) {
+			putResp1, err := putObject(ctx, client, bucket, objKey1, nil)
+			require.NoError(t, err)
+
+			putResp2, err := putObject(ctx, client, bucket, objKey2, nil)
+			require.NoError(t, err)
+
+			obj1Version := putResp1.VersionId
+			obj2Version := putResp2.VersionId
+
+			_, err = putObjectRetention(ctx, client, bucket, objKey1, lockModeGovernance, retainUntil, "")
+			require.NoError(t, err)
+
+			deleteResp, err := client.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3.Delete{
+					Objects: []*s3.ObjectIdentifier{
+						{
+							Key:       aws.String(objKey1),
+							VersionId: obj1Version,
+						},
+						{
+							Key:       aws.String(objKey2),
+							VersionId: obj2Version,
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			require.Len(t, deleteResp.Deleted, 1)
+			require.Len(t, deleteResp.Errors, 1)
+
+			require.Equal(t, objKey2, *deleteResp.Deleted[0].Key)
+			require.Equal(t, obj2Version, deleteResp.Deleted[0].VersionId)
+
+			require.Equal(t, "AccessDenied", *deleteResp.Errors[0].Code)
+			require.Equal(t, objKey1, *deleteResp.Errors[0].Key)
+			require.Equal(t, obj1Version, deleteResp.Errors[0].VersionId)
+
+			deleteResp, err = client.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3.Delete{
+					Objects: []*s3.ObjectIdentifier{
+						{
+							Key:       aws.String(objKey1),
+							VersionId: obj1Version,
+						},
+					},
+				},
+				BypassGovernanceRetention: aws.Bool(true),
+			})
+			require.NoError(t, err)
+
+			require.Len(t, deleteResp.Deleted, 1)
+			require.Len(t, deleteResp.Errors, 0)
+
+			require.Equal(t, objKey1, *deleteResp.Deleted[0].Key)
+			require.Equal(t, obj1Version, deleteResp.Deleted[0].VersionId)
+		})
 	})
 }
 
