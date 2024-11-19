@@ -33,13 +33,13 @@ require (
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20241014122736-47dfa836934a
+	storj.io/common v0.0.0-20241119131735-4ff8230c41d4
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
-	storj.io/gateway v1.9.1-0.20241031140827-7668fbb4fe85
-	storj.io/minio v0.0.0-20241031140034-abf5056d405a
-	storj.io/uplink v1.13.2-0.20241029183408-ee4ba3faf620
+	storj.io/gateway v1.9.1-0.20241119191036-e7acbc482098
+	storj.io/minio v0.0.0-20241119063319-286347d1ce89
+	storj.io/uplink v1.13.2-0.20241106140533-61d511a04894
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
