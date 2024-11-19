@@ -216,13 +216,13 @@ images: gateway-mt-image authservice-image linksharing-image ## Build Docker ima
 
 .PHONY: gateway-mt-image
 gateway-mt-image: ## Build gateway-mt Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-amd64 \
+	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/gateway-mt:${TAG}-amd64 \
 		-f cmd/gateway-mt/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
+	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm \
 		--build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/gateway-mt/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway-mt:${TAG}-arm64v8 \
+	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/gateway-mt:${TAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 \
 		--build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/gateway-mt/Dockerfile .
@@ -230,13 +230,13 @@ gateway-mt-image: ## Build gateway-mt Docker image
 
 .PHONY: authservice-image
 authservice-image: ## Build authservice Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-amd64 \
+	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/authservice:${TAG}-amd64 \
 		-f cmd/authservice/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
+	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm \
 		--build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/authservice/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/authservice:${TAG}-arm64v8 \
+	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/authservice:${TAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 \
 		--build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/authservice/Dockerfile .
@@ -244,12 +244,12 @@ authservice-image: ## Build authservice Docker image
 
 .PHONY: linksharing-image
 linksharing-image: ## Build linksharing Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-amd64 \
+	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/linksharing:${TAG}-amd64 \
 		-f cmd/linksharing/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-arm32v6 \
+	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/linksharing:${TAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/linksharing/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/linksharing:${TAG}-arm64v8 \
+	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/linksharing:${TAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/linksharing/Dockerfile .
 	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
