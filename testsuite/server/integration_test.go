@@ -245,6 +245,7 @@ func TestObjectLock(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
+				config.Metainfo.ProjectLimits.MaxBuckets = 100
 			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
@@ -328,6 +329,22 @@ func TestObjectLock(t *testing.T) {
 			require.WithinDuration(t, time.Now().AddDate(int(retYears), 0, 0), *objInfo.ObjectLockRetainUntilDate, time.Minute)
 
 			requireS3Error(t, deleteObject(ctx, client, lockBucket, objKey1, *putObjResp.VersionId), http.StatusForbidden, "AccessDenied")
+		})
+
+		t.Run("put object lock config on unversioned bucket not allowed", func(t *testing.T) {
+			bucket := testrand.BucketName()
+			require.NoError(t, createBucket(ctx, client, bucket, false, false))
+
+			retDays := int64(5)
+			retMode := s3.ObjectLockRetentionModeCompliance
+
+			_, err := putObjectLockConfiguration(ctx, client, bucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Days: &retDays,
+					Mode: &retMode,
+				},
+			})
+			requireS3Error(t, err, http.StatusConflict, "InvalidBucketState")
 		})
 
 		t.Run("put object with lock not allowed on unversioned bucket", func(t *testing.T) {
