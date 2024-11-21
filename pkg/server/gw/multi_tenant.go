@@ -657,27 +657,6 @@ func (l *MultiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, ob
 	return objInfo, l.log(ctx, err)
 }
 
-// PutObjectMetadata updates user-defined metadata on the given object.
-//
-// This is only called by PutObjectRetentionHandler in minio, currently.
-//
-// minio will not call this unless STORJ_MINIO_LOCK_ENABLED has been configured and set to true.
-// STORJ_MINIO_LOCK_ENABLED will enable a shim form of object lock until we fully implement it.
-//
-// TODO(sean): replace this with calls to uplink when we have the functionality available.
-func (l *MultiTenancyLayer) PutObjectMetadata(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (minio.ObjectInfo, error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	objInfo, err := l.layer.PutObjectMetadata(miniogw.WithUplinkProject(ctx, project), bucket, object, opts)
-
-	return objInfo, l.log(ctx, err)
-}
-
 func getAccessGrant(ctx context.Context) string {
 	credentials := middleware.GetAccess(ctx)
 	if credentials == nil || credentials.AccessKey == "" {
