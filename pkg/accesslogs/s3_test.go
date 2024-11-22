@@ -10,6 +10,8 @@ import (
 )
 
 func TestS3AccessLogEntry(t *testing.T) {
+	t.Parallel()
+
 	testTime, err := time.Parse(time.RFC3339, "2024-12-21T13:45:10Z")
 	require.NoError(t, err)
 

@@ -166,6 +166,8 @@ func TestProcessorWithShipment(t *testing.T) {
 }
 
 func TestRandomKey(t *testing.T) {
+	t.Parallel()
+
 	now := time.Date(2019, time.February, 6, 0, 0, 38, 0, time.UTC)
 	for _, p := range []string{
 		"prefix",
