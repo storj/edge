@@ -416,10 +416,10 @@ func TestObjectLock(t *testing.T) {
 			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
 
 			_, err = putObjectWithRetention(ctx, client, bucket, objKey1, "invalidmode", retainUntil)
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 
 			_, err = putObjectMultipartWithRetention(ctx, client, bucket, objKey1, "invalidmode", retainUntil)
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 		})
 
 		t.Run("legal hold", func(t *testing.T) {
@@ -494,10 +494,10 @@ func TestObjectLock(t *testing.T) {
 			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
 
 			_, err = putObjectWithLegalHold(ctx, client, bucket, objKey1, "invalidstatus")
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 
 			_, err = putObjectMultipartWithLegalHold(ctx, client, bucket, objKey1, "invalidstatus")
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 		})
 
 		runRetentionModeTest("legal hold and retention", func(t *testing.T, mode string) {
@@ -560,7 +560,7 @@ func TestObjectLock(t *testing.T) {
 			requireS3Error(t, err, http.StatusForbidden, "AccessDenied")
 
 			_, err = putObjectRetentionBypassGovernance(ctx, client, bucket, "nonexistent", mode, extendedRetainUntil.Add(-time.Hour), *putResp.VersionId)
-			requireS3Error(t, err, http.StatusBadRequest, "MalformedXML")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 
 			if mode == lockModeGovernance {
 				_, err = putObjectRetentionBypassGovernance(ctx, client, bucket, objKey1, mode, extendedRetainUntil.Add(-time.Minute), *putResp.VersionId)
@@ -573,7 +573,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = putObjectRetention(ctx, client, bucket, objKey1, "", time.Time{}, *putResp.VersionId)
-			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
 
 			_, err = putObjectRetentionBypassGovernance(ctx, client, bucket, objKey1, "", time.Time{}, *putResp.VersionId)
 			if mode == lockModeGovernance {
