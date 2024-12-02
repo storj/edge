@@ -91,7 +91,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, tqs, &peer.inShutdown, config.Handler)
+	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, &peer.inShutdown, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}

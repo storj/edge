@@ -215,15 +215,6 @@ func TestIntegration(t *testing.T) {
 			wantRedirectResp: false,
 		},
 		{
-			name:      "Custom domain insecure not paid tier redirect",
-			tlsRecord: true,
-			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
-			},
-			redirectHTTPS:    true,
-			wantRedirectResp: false,
-		},
-		{
 			name:      "Custom domain TLS not paid tier",
 			tlsRecord: true,
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {

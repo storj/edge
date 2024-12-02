@@ -26,18 +26,11 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		return creds.err
 	}
 
-	// Redirect to HTTPS only custom domains that are paid-tier and with `storj-tls:true` TXT record
-	if handler.redirectHTTPS && r.TLS == nil && creds.hostingTLS && handler.tierQuerying != nil {
-		paidTier, err := handler.tierQuerying.Do(ctx, creds.access, creds.hostingHost)
-		if err != nil {
-			return errdata.WithAction(err, "query user tier")
-		}
-
-		if paidTier {
-			target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
-			http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
-			return nil
-		}
+	// Redirect to HTTPS only custom domains with `storj-tls:true` TXT record
+	if handler.redirectHTTPS && r.TLS == nil && creds.hostingTLS {
+		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
+		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
+		return nil
 	}
 
 	bucket, key := determineBucketAndObjectKey(creds.hostingRoot, r.URL.Path)

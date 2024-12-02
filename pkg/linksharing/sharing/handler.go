@@ -180,7 +180,6 @@ type Handler struct {
 	mapper                 *objectmap.IPDB
 	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
-	tierQuerying           *TierQueryingService
 	static                 http.Handler
 	redirectHTTPS          bool
 	landingRedirect        string
@@ -198,7 +197,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, tqs *TierQueryingService, inShutdown *int32, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, inShutdown *int32, config Config) (*Handler, error) {
 	if config.ListPageLimit <= 0 {
 		return nil, ErrInvalidListPageLimit
 	}
@@ -328,7 +327,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		mapper:                 mapper,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
-		tierQuerying:           tqs,
 		static:                 static,
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,

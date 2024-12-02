@@ -56,7 +56,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 				URLBases:      []string{"http://test.test"},
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
+			handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -220,7 +220,7 @@ func TestContentDisposition(t *testing.T) {
 				StandardRendersContent: tc.standardRendersContent,
 			}
 
-			handler, err := NewHandler(&zap.Logger{}, nil, nil, nil, nil, nil, cfg)
+			handler, err := NewHandler(&zap.Logger{}, nil, nil, nil, nil, cfg)
 			require.NoError(t, err)
 
 			ctx := testcontext.New(t)
@@ -387,7 +387,7 @@ func TestZipArchiveContentType(t *testing.T) {
 		ListPageLimit: 1,
 		URLBases:      []string{"http://test.test"},
 	}
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, cfg)
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, cfg)
 	require.NoError(t, err)
 	handler.archiveRanger = func(_ context.Context, _ *uplink.Project, _, _, _ string, _ bool) (ranger.Ranger, bool, error) {
 		return SimpleRanger(nil, 0), false, nil
@@ -503,7 +503,7 @@ func TestImagePreviewPath(t *testing.T) {
 }
 
 func TestIsDownloadAllowed(t *testing.T) {
-	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, nil, Config{
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, nil, Config{
 		ListPageLimit: 1,
 		URLBases:      []string{"http://test.test"},
 	})
