@@ -686,6 +686,44 @@ func TestObjectLock(t *testing.T) {
 			require.Equal(t, legalHoldOn, *getResp.ObjectLockLegalHoldStatus)
 		})
 
+		t.Run("copy object default retention", func(t *testing.T) {
+			srcBucket, dstBucket := testrand.BucketName(), testrand.BucketName()
+			require.NoError(t, createBucket(ctx, client, srcBucket, false, false))
+			require.NoError(t, createBucket(ctx, client, dstBucket, true, true))
+
+			defaultDays := int64(5)
+			defaultMode := s3.ObjectLockRetentionModeCompliance
+
+			_, err := putObjectLockConfiguration(ctx, client, dstBucket, "Enabled", &s3.ObjectLockRule{
+				DefaultRetention: &s3.DefaultRetention{
+					Days: &defaultDays,
+					Mode: &defaultMode,
+				},
+			})
+			require.NoError(t, err)
+
+			_, err = putObject(ctx, client, srcBucket, objKey1, nil)
+			require.NoError(t, err)
+
+			copyResp, err := copyObject(ctx, client, srcBucket, objKey1, "", dstBucket, objKey1)
+			require.NoError(t, err)
+
+			objInfo, err := getObject(ctx, client, dstBucket, objKey1, *copyResp.VersionId)
+			require.NoError(t, err)
+
+			require.Equal(t, defaultMode, *objInfo.ObjectLockMode)
+			require.WithinDuration(t, time.Now().AddDate(0, 0, int(defaultDays)), *objInfo.ObjectLockRetainUntilDate, time.Minute)
+
+			copyResp, err = copyObjectWithRetention(ctx, client, srcBucket, objKey1, "", dstBucket, objKey2, s3.ObjectLockModeCompliance, &retainUntil)
+			require.NoError(t, err)
+
+			objInfo, err = getObject(ctx, client, dstBucket, objKey2, *copyResp.VersionId)
+			require.NoError(t, err)
+
+			require.Equal(t, s3.ObjectLockModeCompliance, *objInfo.ObjectLockMode)
+			require.WithinDuration(t, retainUntil, *objInfo.ObjectLockRetainUntilDate, time.Minute)
+		})
+
 		runRetentionModeTest("mixed locked and unlocked versions", func(t *testing.T, mode string) {
 			lockedPutResp, err := putObjectWithRetention(ctx, client, bucket, objKey1, mode, retainUntil)
 			require.NoError(t, err)
