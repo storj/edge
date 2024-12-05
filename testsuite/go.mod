@@ -1,6 +1,6 @@
 module storj.io/edge/testsuite
 
-go 1.23.3
+go 1.23.4
 
 require (
 	github.com/aws/aws-sdk-go v1.36.15
