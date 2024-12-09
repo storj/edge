@@ -16,7 +16,7 @@ require (
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20241126095350-0039fe402364
 	storj.io/storj v1.119.0-rc
-	storj.io/uplink v1.13.2-0.20241106140533-61d511a04894
+	storj.io/uplink v1.13.2-0.20241209213014-e5f3beed1a59
 )
 
 require (
