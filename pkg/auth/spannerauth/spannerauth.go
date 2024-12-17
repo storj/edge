@@ -4,6 +4,7 @@
 package spannerauth
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
 )
 
@@ -90,13 +92,16 @@ func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record 
 		"encryption_key_hash": keyHash.Bytes(),
 		// "created_at" has default value
 		"public":                 record.Public,
-		"public_project_id":      record.PublicProjectID,
 		"satellite_address":      record.SatelliteAddress,
 		"macaroon_head":          record.MacaroonHead,
 		"encrypted_secret_key":   record.EncryptedSecretKey,
 		"encrypted_access_grant": record.EncryptedAccessGrant,
 		// "invalidation_reason"
 		// "invalidated_at"
+	}
+
+	if record.PublicProjectID != nil && !bytes.Equal(record.PublicProjectID, uuid.UUID{}.Bytes()) {
+		in["public_project_id"] = record.PublicProjectID
 	}
 
 	// we do not set any expiry unless it's non-zero. If an empty time.Time was

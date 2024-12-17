@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
@@ -220,6 +221,48 @@ func TestContextCanceledHandling(t *testing.T) {
 	_, err = db.Get(ctxWithCancel, k)
 	require.True(t, spannerauth.Error.Has(err))
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestEmptyPublicProjectID(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
+
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NoError(t, db.HealthCheck(ctx))
+
+	testUUID := testrand.UUID()
+
+	test := func(publicProjectID []byte, expected []byte) {
+		var k authdb.KeyHash
+		testrand.Read(k[:])
+
+		record := createRandomRecord(t, time.Time{}, true)
+		record.PublicProjectID = publicProjectID
+
+		require.NoError(t, db.Put(ctx, k, record))
+
+		actual, err := db.Get(ctx, k)
+		require.NoError(t, err)
+
+		require.Equal(t, expected, actual.PublicProjectID)
+	}
+
+	test(nil, nil)
+	test(uuid.UUID{}.Bytes(), nil)
+	test(testUUID.Bytes(), testUUID.Bytes())
 }
 
 func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *authdb.Record {

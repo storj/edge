@@ -265,19 +265,22 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 		PublicProjectID string `json:"public_project_id,omitempty"`
 	}
 
-	var publicProjectID uuid.UUID
+	var publicProjectID string
 	if len(result.PublicProjectID) > 0 {
-		publicProjectID, err = uuid.FromBytes(result.PublicProjectID)
+		publicProjectUUID, err := uuid.FromBytes(result.PublicProjectID)
 		if err != nil {
 			res.writeError(w, "getAccess", err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if !publicProjectUUID.IsZero() {
+			publicProjectID = publicProjectUUID.String()
 		}
 	}
 
 	response.AccessGrant = result.AccessGrant
 	response.SecretKey = result.SecretKey.ToBase32()
 	response.Public = result.Public
-	response.PublicProjectID = publicProjectID.String()
+	response.PublicProjectID = publicProjectID
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
