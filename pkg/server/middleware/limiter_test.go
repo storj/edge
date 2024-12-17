@@ -17,16 +17,17 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/edge/pkg/authclient"
 )
 
 const maxConncurrent = 3
 
-func TestNewMacaroonLimiter(t *testing.T) {
+func TestNewConcurrentRequestsLimiter(t *testing.T) {
 	var next = make(chan struct{})
-	var done = make(chan struct{}, maxConncurrent*2*3)
+	var done = make(chan struct{}, maxConncurrent*2*4)
 	var allTests = make(chan struct{})
-	rateLimiter := NewMacaroonLimiter(maxConncurrent,
+	rateLimiter := NewConcurrentRequestsLimiter(maxConncurrent,
 		func(w http.ResponseWriter, r *http.Request) {
 			next <- struct{}{} // create in-order results
 			http.Error(w, "", http.StatusTooManyRequests)
@@ -45,27 +46,31 @@ func TestNewMacaroonLimiter(t *testing.T) {
 	}))
 
 	// expect burst number of successes
-	creds1 := getCredentials(t)
-	testWithMacaroon(ctx, t, creds1, handler, next, done)
-	// expect similar results for a different apiKey / macaroon
-	creds2 := getCredentials(t)
-	testWithMacaroon(ctx, t, creds2, handler, next, done)
-	// expect similar results for a different apiKey / macaroon
-	creds3 := getCredentials(t)
-	testWithMacaroon(ctx, t, creds3, handler, next, done)
+	creds1 := getCredentials(t, true)
+	testWithCredentials(ctx, t, creds1, handler, next, done)
+	// expect similar results for a different project
+	creds2 := getCredentials(t, true)
+	testWithCredentials(ctx, t, creds2, handler, next, done)
+
+	creds3 := getCredentials(t, false)
+	testWithCredentials(ctx, t, creds3, handler, next, done)
+	// expect similar results for a different macaroon head
+	creds4 := getCredentials(t, false)
+	testWithCredentials(ctx, t, creds4, handler, next, done)
 	close(allTests)
 
 	// wait for previous responses to arrive so we can retest cred1
-	for x := 0; x < maxConncurrent*2*3; x++ {
+	for x := 0; x < maxConncurrent*2*4; x++ {
 		<-done
 	}
-	// expect burst number of successes with cred1 again
+	// expect burst number of successes again
 	allTests = make(chan struct{})
-	testWithMacaroon(ctx, t, creds1, handler, next, done)
+	testWithCredentials(ctx, t, creds1, handler, next, done)
+	testWithCredentials(ctx, t, creds3, handler, next, done)
 	close(allTests)
 }
 
-func testWithMacaroon(ctx *testcontext.Context, t *testing.T, creds *Credentials, handler http.Handler, next, done chan struct{}) {
+func testWithCredentials(ctx *testcontext.Context, t *testing.T, creds *Credentials, handler http.Handler, next, done chan struct{}) {
 	// expect maxConncurrent HTTP 200s, then maxConncurrent HTTP 429s
 	for x := 0; x < maxConncurrent*2; x++ {
 		localX := x
@@ -92,7 +97,7 @@ func doRequest(ctx context.Context, t *testing.T, creds *Credentials, handler ht
 	return rr.Code
 }
 
-func getCredentials(t *testing.T) *Credentials {
+func getCredentials(t *testing.T, includePublicProjectID bool) *Credentials {
 	apiKey, err := macaroon.NewAPIKey([]byte("secret"))
 	require.NoError(t, err)
 	ag := grant.Access{
@@ -102,7 +107,7 @@ func getCredentials(t *testing.T) *Credentials {
 	}
 	grant, err := ag.Serialize()
 	require.NoError(t, err)
-	return &Credentials{
+	credentials := Credentials{
 		AccessKey: "accessKey",
 		AuthServiceResponse: authclient.AuthServiceResponse{
 			AccessGrant: grant,
@@ -111,6 +116,10 @@ func getCredentials(t *testing.T) *Credentials {
 		},
 		Error: nil,
 	}
+	if includePublicProjectID {
+		credentials.PublicProjectID = testrand.UUID().String()
+	}
+	return &credentials
 }
 
 func simpleKeyFunc(r *http.Request) (string, error) {

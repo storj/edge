@@ -10,23 +10,30 @@ import (
 	"storj.io/common/grant"
 )
 
-// NewMacaroonLimiter constructs a Limiter that limits based on macaroon credentials.
+// NewConcurrentRequestsLimiter constructs a Limiter that limits using a key from credentials.
 // It relies on the AccessKey middleware being run to append credentials to the request context.
-func NewMacaroonLimiter(allowed uint, limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
-	return NewLimiter(allowed, getRequestMacaroonHead, limitFunc)
+func NewConcurrentRequestsLimiter(allowed uint, limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
+	return NewLimiter(allowed, getLimitKey, limitFunc)
 }
 
-// getRequestMacaroonHead gets the macaroon head corresponding to the current request.
-// Macaroon head is the best available criteria for associating a request to a user.
-func getRequestMacaroonHead(r *http.Request) (ip string, err error) {
+// getLimitKey retrieves a key used to identify the user for limiting requests.
+func getLimitKey(r *http.Request) (identifier string, err error) {
 	credentials := GetAccess(r.Context())
 	if credentials == nil || credentials.AccessGrant == "" {
 		return "", ParseV4CredentialError.New("missing access grant")
 	}
+	if credentials.PublicProjectID != "" {
+		return credentials.PublicProjectID, nil
+	}
+
+	// fallback to macaroon head if the credentials don't contain public project ID. This is likely because the
+	// authservice record is old and hasn't been backfilled with the ID yet, or the ID couldn't be resolved due
+	// to a connectivity issue between authservice and the satellite.
 	access, err := grant.ParseAccess(credentials.AccessGrant)
 	if err != nil {
 		return "", err
 	}
+
 	return string(access.APIKey.Head()), err
 }
 
@@ -40,7 +47,7 @@ type Limiter struct {
 	m      sync.RWMutex
 }
 
-// NewLimiter constructs a concurrency Limiter.  Error and Limit functions are user defined
+// NewLimiter constructs a concurrency Limiter. Error and Limit functions are user defined
 // in part because referencing the "minio" package here would cause an import loop.
 func NewLimiter(allowed uint, keyFunc func(*http.Request) (string, error), limitFunc func(w http.ResponseWriter, r *http.Request)) *Limiter {
 	return &Limiter{

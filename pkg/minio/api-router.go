@@ -22,8 +22,8 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
 	}, corsAllowedOrigins}
 
-	// limit the conccurrency of uploads and downloads per macaroon head
-	limit := middleware.NewMacaroonLimiter(concurrentAllowed,
+	// limit the conccurrency of uploads and downloads
+	limit := middleware.NewConcurrentRequestsLimiter(concurrentAllowed,
 		func(w http.ResponseWriter, r *http.Request) {
 			err := cmd.APIError{
 				Code:           "SlowDown",                 // necessary to return a RetryAfter header
