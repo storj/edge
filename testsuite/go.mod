@@ -12,11 +12,11 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20241122160459-7ebb6c97b77d
+	storj.io/common v0.0.0-20241217150018-eb3fb91616f6
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20241126095350-0039fe402364
-	storj.io/storj v1.119.0-rc
-	storj.io/uplink v1.13.2-0.20241209213014-e5f3beed1a59
+	storj.io/storj v1.119.7
+	storj.io/uplink v1.13.2-0.20241217102706-7b803eef38ce
 )
 
 require (
@@ -199,7 +199,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.21.3 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.23 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.24 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -279,7 +279,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
-	storj.io/gateway v1.9.1-0.20241202013359-a5f9583dd41f // indirect
+	storj.io/gateway v1.9.1-0.20241218171816-1d044e7b7cdd // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
