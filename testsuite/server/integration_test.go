@@ -331,6 +331,72 @@ func TestObjectLock(t *testing.T) {
 			requireS3Error(t, deleteObject(ctx, client, lockBucket, objKey1, *putObjResp.VersionId), http.StatusForbidden, "AccessDenied")
 		})
 
+		t.Run("put object with default retention encompassing leap day", func(t *testing.T) {
+			test := func(t *testing.T, defaultRetentionYears, defaultRetentionDays int, expectedRetainUntil time.Time) {
+				bucketName := testrand.BucketName()
+				require.NoError(t, createBucket(ctx, client, bucketName, true, true))
+
+				defaultRetention := s3.DefaultRetention{
+					Mode: aws.String(s3.ObjectLockModeCompliance),
+				}
+				if defaultRetentionYears != 0 {
+					defaultRetention.Years = aws.Int64(int64(defaultRetentionYears))
+				} else if defaultRetentionDays != 0 {
+					defaultRetention.Days = aws.Int64(int64(defaultRetentionDays))
+				}
+
+				_, err := client.PutObjectLockConfigurationWithContext(ctx, &s3.PutObjectLockConfigurationInput{
+					Bucket: &bucketName,
+					ObjectLockConfiguration: &s3.ObjectLockConfiguration{
+						ObjectLockEnabled: aws.String("Enabled"),
+						Rule: &s3.ObjectLockRule{
+							DefaultRetention: &defaultRetention,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				objectKey := "file.txt"
+
+				_, err = putObject(ctx, client, bucketName, objectKey, nil)
+				require.NoError(t, err)
+
+				resp, err := getObjectRetention(ctx, client, bucketName, objectKey, "")
+				require.NoError(t, err)
+
+				require.WithinDuration(t, expectedRetainUntil, *resp.Retention.RetainUntilDate, time.Minute)
+			}
+
+			// Find the nearest date N years after the current date that lies after a leap day.
+			now := time.Now()
+			leapYear := now.Year()
+			var leapDay time.Time
+			for {
+				if (leapYear%4 == 0 && leapYear%100 != 0) || (leapYear%400 == 0) {
+					leapDay = time.Date(leapYear, time.February, 29, 0, 0, 0, 0, time.UTC)
+					if leapDay.After(now) {
+						break
+					}
+				}
+				leapYear++
+			}
+			years := leapYear - now.Year()
+			if now.AddDate(years, 0, 0).Before(leapDay) {
+				years++
+			}
+
+			t.Run("Default retention as days", func(t *testing.T) {
+				// Expect 1 day to always be considered a 24-hour period, with no adjustments
+				// made to accommodate the leap day.
+				test(t, 0, 365*years, time.Now().AddDate(0, 0, 365*years))
+			})
+
+			t.Run("Default retention as years", func(t *testing.T) {
+				// Expect the retention period duration to take the leap day into account.
+				test(t, years, 0, time.Now().AddDate(0, 0, 365*years+1))
+			})
+		})
+
 		t.Run("put object lock config on unversioned bucket not allowed", func(t *testing.T) {
 			bucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, bucket, false, false))
