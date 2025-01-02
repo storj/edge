@@ -2774,8 +2774,8 @@ storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 h1:hLvEV2RMTscX3JHPd+LSQCeTt
 storj.io/drpc v0.0.35-0.20240709171858-0075ac871661/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 h1:TkytkGUI6zGtH5Qx/O0VxQCcYJqOOiwRq0oMi4uM5Tg=
 storj.io/eventkit v0.0.0-20240415002644-1d9596fee086/go.mod h1:S6p41RzIBKoeGAdrziksWkiijnZXql9YcNsc23t0u+8=
-storj.io/gateway v1.9.1-0.20241218171816-1d044e7b7cdd h1:d46mkKK47OB9LBPtyH0Ka1Da7UvedgF8Wl7o+Bh8EnQ=
-storj.io/gateway v1.9.1-0.20241218171816-1d044e7b7cdd/go.mod h1:8Ry93I4Ss9nG1RCz00vnjslV0f369q6f1WNyy7qppbM=
+storj.io/gateway v1.10.1-0.20241221181409-8841c410c790 h1:zFwzh/qSLgUfzH3SFBD8U2K/+CubZMUseu6X4OLooaw=
+storj.io/gateway v1.10.1-0.20241221181409-8841c410c790/go.mod h1:8Ry93I4Ss9nG1RCz00vnjslV0f369q6f1WNyy7qppbM=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
 storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20241126095350-0039fe402364 h1:VXxGWdfi15nXLsnQuXwtLZ1NHXdZqGdVlXYi3mIZXdE=
@@ -2784,8 +2784,8 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd h1:XkLxAvogynNQu/1gM/F
 storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu81qBfAE5cBGkVXROYSNJu9pGXLtStHE=
 storj.io/picobuf v0.0.3 h1:xAUPB5ZUGfxkqd3bnw3zp01kkWb9wlhg4vtZWUs2S9A=
 storj.io/picobuf v0.0.3/go.mod h1:4V4xelV1RSCck5GgmkL/Txw9l6IfX3XcBzegmL5Kudo=
-storj.io/storj v1.119.7 h1:uS7PlyvH0XQwIwQtrm1EFXEx1xHvnbzDF+Y3RsGwXEM=
-storj.io/storj v1.119.7/go.mod h1:VdoVKntKedZ6y1xxL897bSiuTH1aqH4mScZUBONJ2ys=
+storj.io/storj v1.119.11 h1:dyZ3L8BhQ/7RAkejKcJrbQ5IsUe9J/a4ixJ/k3eXSyo=
+storj.io/storj v1.119.11/go.mod h1:VdoVKntKedZ6y1xxL897bSiuTH1aqH4mScZUBONJ2ys=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
 storj.io/uplink v1.13.2-0.20241217102706-7b803eef38ce h1:dUdELyPL8nE11ElkvF6W1xRbKzeU51ADlyhNml3ogNk=
 storj.io/uplink v1.13.2-0.20241217102706-7b803eef38ce/go.mod h1:ifHzh4PAafMSy/adPC1Xc29F6V3U3W6FpCte9nHtngw=
