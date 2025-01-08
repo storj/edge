@@ -26,8 +26,8 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 	limit := middleware.NewConcurrentRequestsLimiter(concurrentAllowed,
 		func(w http.ResponseWriter, r *http.Request) {
 			err := cmd.APIError{
-				Code:           "SlowDown",                 // necessary to return a RetryAfter header
-				HTTPStatusCode: http.StatusTooManyRequests, // Minio's ErrSlowDown yields a 503, but 429 seems clearer
+				Code:           "SlowDown",                    // necessary to return a RetryAfter header
+				HTTPStatusCode: http.StatusServiceUnavailable, // use 503, instead of 429 for better s3 compatibility
 				Description:    fmt.Sprintf("Only %d concurrent uploads or downloads are allowed per credential", concurrentAllowed),
 			}
 			cmd.WriteErrorResponse(r.Context(), w, err, r.URL, false)
