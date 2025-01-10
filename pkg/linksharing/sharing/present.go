@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -396,10 +397,9 @@ func (handler *Handler) isPrefix(ctx context.Context, project *uplink.Project, p
 // The paths are intended to be used as previews for when linksharing URL is
 // shared on these sites.
 func imagePreviewPath(access, bucket, key string, size int64) (twitterImage, ogImage string) {
-	previewPath := "/raw/" + access + "/" + bucket + "/" + key
-
-	if access == "" { // hosting request
-		previewPath = "/raw/" + bucket + "/" + key
+	previewPath, err := url.JoinPath("raw", access, bucket, key)
+	if err != nil {
+		return "", ""
 	}
 
 	twitterLimit, facebookLimit := memory.MB.Int64(), 5*memory.MB.Int64()

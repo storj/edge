@@ -429,74 +429,52 @@ func testZipItemContentType(ctx context.Context, t *testing.T, handler *Handler,
 
 func TestImagePreviewPath(t *testing.T) {
 	for i, tt := range [...]struct {
-		access string
-		bucket string
-		key    string
-		size   int64
+		key  string
+		size int64
 
 		wantTwitterImage string
 		wantOgImage      string
 	}{
 		{
-			access:           "",
-			bucket:           "bucket",
-			key:              "key.jpg",
-			size:             100 * memory.KB.Int64(),
-			wantTwitterImage: "/raw/bucket/key.jpg",
-			wantOgImage:      "/raw/bucket/key.jpg",
-		},
-		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.jpeg",
 			size:             100 * memory.KB.Int64(),
-			wantTwitterImage: "/raw/access/bucket/key.jpeg",
-			wantOgImage:      "/raw/access/bucket/key.jpeg",
+			wantTwitterImage: "raw/access/bucket/key.jpeg",
+			wantOgImage:      "raw/access/bucket/key.jpeg",
 		},
 
 		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.webp",
 			size:             100 * memory.KB.Int64(),
-			wantTwitterImage: "/raw/access/bucket/key.webp",
+			wantTwitterImage: "raw/access/bucket/key.webp",
 			wantOgImage:      "",
 		},
 		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.jpg",
 			size:             4 * memory.MB.Int64(),
 			wantTwitterImage: "",
-			wantOgImage:      "/raw/access/bucket/key.jpg",
+			wantOgImage:      "raw/access/bucket/key.jpg",
 		},
 
 		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.webp",
 			size:             5 * memory.MB.Int64(),
 			wantTwitterImage: "",
 			wantOgImage:      "",
 		},
 		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.rar",
 			size:             6 * memory.KB.Int64(),
 			wantTwitterImage: "",
 			wantOgImage:      "",
 		},
 		{
-			access:           "access",
-			bucket:           "bucket",
 			key:              "key.jpeg",
 			size:             7 * memory.MB.Int64(),
 			wantTwitterImage: "",
 			wantOgImage:      "",
 		},
 	} {
-		twitterImage, ogImage := imagePreviewPath(tt.access, tt.bucket, tt.key, tt.size)
+		twitterImage, ogImage := imagePreviewPath("access", "bucket", tt.key, tt.size)
 		assert.Equal(t, tt.wantTwitterImage, twitterImage, i)
 		assert.Equal(t, tt.wantOgImage, ogImage, i)
 	}

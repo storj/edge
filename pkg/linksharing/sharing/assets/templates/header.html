@@ -9,7 +9,7 @@
   <meta property="og:title" content="{{.Title}} | Storj" />
   <meta property="og:description" name="description" content="Shared content - Storj" />
   {{if .OgImage}}
-  <meta property="og:image" content="{{.Base}}{{.OgImage}}?v={{.VersionHash}}" />
+  <meta property="og:image" content="{{.Base}}/{{.OgImage}}?v={{.VersionHash}}" />
   {{else}}
   <meta property="og:image" content="{{.Base}}/static/img/file.png?v={{.VersionHash}}" />
   {{end}}
@@ -19,7 +19,7 @@
   <meta name="twitter:title" content="{{.Title}} | Storj" />
   <meta name="twitter:description" content="Shared content - Storj" />
   {{if .TwitterImage}}
-  <meta name="twitter:image" content="{{.Base}}{{.TwitterImage}}?v={{.VersionHash}}" />
+  <meta name="twitter:image" content="{{.Base}}/{{.TwitterImage}}?v={{.VersionHash}}" />
   {{else}}
   <meta name="twitter:image" content="{{.Base}}/static/img/file.png?v={{.VersionHash}}" />
   {{end}}

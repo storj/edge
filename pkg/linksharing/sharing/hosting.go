@@ -53,16 +53,17 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 	}
 
 	err = handler.presentWithProject(ctx, w, r, &parsedRequest{
-		access:          creds.access,
-		bucket:          bucket,
-		realKey:         key,
-		visibleKey:      visibleKey,
-		title:           creds.hostingHost,
-		root:            breadcrumb{Prefix: creds.hostingHost, URL: "/"},
-		wrapDefault:     false,
-		downloadDefault: false,
-		hosting:         true,
-		hostingTLS:      creds.hostingTLS,
+		access:           creds.access,
+		serializedAccess: creds.serializedAccess,
+		bucket:           bucket,
+		realKey:          key,
+		visibleKey:       visibleKey,
+		title:            creds.hostingHost,
+		root:             breadcrumb{Prefix: creds.hostingHost, URL: "/"},
+		wrapDefault:      false,
+		downloadDefault:  false,
+		hosting:          true,
+		hostingTLS:       creds.hostingTLS,
 	}, project)
 
 	// if the error is anything other than ObjectNotFound, return to normal

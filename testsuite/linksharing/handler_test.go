@@ -338,12 +338,46 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
+			name:   "GET wrap (image preview)",
+			method: "GET",
+			path:   path.Join("s", serializedAccess, "testbucket", "test/mIllogh.jpg?wrap=1"),
+			status: http.StatusOK,
+			body: []string{
+				`<meta property="og:image" content="http://localhost/raw/` + serializedAccess + `/testbucket/test/mIllogh.jpg?v=" />`,
+				`<meta name="twitter:image" content="http://localhost/raw/` + serializedAccess + `/testbucket/test/mIllogh.jpg?v=" />`,
+			},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg", []byte("mIllogh"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg")
+			},
+		},
+		{
 			name:             "GET wrap raw",
 			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
 			body:             []string{"This file is ready for download"},
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+		},
+		{
+			name:   "GET wrap raw (image preview)",
+			method: "GET",
+			path:   path.Join("raw", serializedAccess, "testbucket", "test/mIllogh.jpg?wrap=1"),
+			status: http.StatusOK,
+			body: []string{
+				`<meta property="og:image" content="http://localhost/raw/` + serializedAccess + `/testbucket/test/mIllogh.jpg?v=" />`,
+				`<meta name="twitter:image" content="http://localhost/raw/` + serializedAccess + `/testbucket/test/mIllogh.jpg?v=" />`,
+			},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg", []byte("mIllogh"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg")
+			},
 		},
 		{
 			name:             "GET no wrap",
@@ -896,6 +930,33 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			body:             []string{"FOO"},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
+		},
+		{
+			name:   "hosting GET success (image preview)",
+			host:   "mydomain.com",
+			method: "GET",
+			path:   "mIllogh.jpg?wrap=1",
+			dnsRecords: map[string]mockdns.Zone{
+				"txt-mydomain.com.": {
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket/test",
+					},
+				},
+			},
+			status: http.StatusOK,
+			body: []string{
+				`<meta property="og:image" content="http://localhost/raw/` + goodAccessName + `/testbucket/test/mIllogh.jpg?v=" />`,
+				`<meta name="twitter:image" content="http://localhost/raw/` + goodAccessName + `/testbucket/test/mIllogh.jpg?v=" />`,
+			},
+			authserver:       validAuthServer.URL,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg", []byte("mIllogh"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/mIllogh.jpg")
+			},
 		},
 		{
 			name:   "hosting GET root 404 default page",
