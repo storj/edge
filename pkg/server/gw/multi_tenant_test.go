@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/edge/pkg/server/gwlog"
-	"storj.io/gateway/miniogw"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
 	"storj.io/uplink"
@@ -32,45 +31,7 @@ func TestGetUserAgent(t *testing.T) {
 	require.Equal(t, "Test/1.0 S3-Browser/9.5.5 (https://s3browser.com) Gateway-MT/v0.0.0", results)
 }
 
-func TestMinioError(t *testing.T) {
-	tests := []struct {
-		input    error
-		expected bool
-	}{
-		{errors.New("some error"), false},
-		{uplink.ErrBucketNameInvalid, false},
-		{miniogo.ErrorResponse{Message: "oops"}, true},
-		{miniogw.ErrBandwidthLimitExceeded, true},
-		{miniogw.ErrSlowDown, true},
-		{minio.BucketNotEmpty{}, true},
-	}
-	for i, tc := range tests {
-		require.Equal(t, tc.expected, minioError(tc.input), i)
-	}
-}
-
-func TestLogUnexpectedErrorsOnly(t *testing.T) {
-	tests := []struct {
-		input    error
-		expected string
-	}{
-		{context.Canceled, ""},
-		{minio.BucketNotEmpty{}, ""},
-		{miniogo.ErrorResponse{Message: "oops"}, ""},
-		{miniogw.ErrBandwidthLimitExceeded, ""},
-		{miniogw.ErrSlowDown, ""},
-		{uplink.ErrBucketNameInvalid, uplink.ErrBucketNameInvalid.Error()},
-		{errors.New("unexpected error"), "unexpected error"},
-	}
-	for i, tc := range tests {
-		log := gwlog.New()
-		ctx := log.WithContext(context.Background())
-		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, UplinkConfig{}, false}).log(ctx, tc.input))
-		require.Equal(t, tc.expected, log.TagValue("error"), i)
-	}
-}
-
-func TestLogAllErrors(t *testing.T) {
+func TestLogErrors(t *testing.T) {
 	tests := []struct {
 		input    error
 		expected string
@@ -83,13 +44,13 @@ func TestLogAllErrors(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, UplinkConfig{}, true}).log(ctx, tc.input))
+		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, UplinkConfig{}}).log(ctx, tc.input))
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
 
 func TestInvalidAccessGrant(t *testing.T) {
-	layer := &MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, UplinkConfig{}, true}
+	layer := &MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, UplinkConfig{}}
 	_, err := layer.ListBuckets(context.Background())
 	require.Error(t, err)
 	require.IsType(t, miniogo.ErrorResponse{}, err)

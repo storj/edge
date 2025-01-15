@@ -5,9 +5,7 @@ package gw
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"reflect"
 	"time"
 
 	miniogo "github.com/minio/minio-go/v7"
@@ -15,7 +13,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/useragent"
@@ -67,7 +64,7 @@ type UplinkConfig struct {
 
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
-func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig, insecureLogAll bool) (*MultiTenancyLayer, error) {
+func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig) (*MultiTenancyLayer, error) {
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
 	return &MultiTenancyLayer{
@@ -75,7 +72,6 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 		satelliteConnectionPool: satelliteConnectionPool,
 		connectionPool:          connectionPool,
 		config:                  config,
-		insecureLogAll:          insecureLogAll,
 	}, err
 }
 
@@ -88,31 +84,18 @@ type MultiTenancyLayer struct {
 	satelliteConnectionPool *rpcpool.Pool
 	connectionPool          *rpcpool.Pool
 
-	config         UplinkConfig
-	insecureLogAll bool
-}
-
-// minioError checks if the given error is a minio error.
-func minioError(err error) bool {
-	// some minio errors are not minio.GenericError, so we need to check for
-	// these specifically.
-	switch {
-	case errors.As(err, &miniogo.ErrorResponse{}):
-		return true
-	default:
-		return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
-	}
+	config UplinkConfig
 }
 
 // log all errors and relevant request information.
 func (l *MultiTenancyLayer) log(ctx context.Context, err error) error {
 	reqInfo := logger.GetReqInfo(ctx)
 	if reqInfo == nil {
+		mon.Event("multi_tenant_layer_error_not_logged")
 		return err
 	}
 
-	// log any unexpected errors, or log every error if flag set
-	if err != nil && (l.insecureLogAll || (!minioError(err) && !(errs2.IsCanceled(ctx.Err()) || errs2.IsCanceled(err)))) {
+	if err != nil {
 		reqInfo.SetTags("error", err.Error())
 	}
 
