@@ -53,20 +53,31 @@
               </div>
             </a>
             {{else}}
-            <a class="directory-link" href="{{.URL}}">
-              <div class="row">
-                <div class="col-9 col-sm-10">
-                  <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
-                  <script type="text/javascript" async>
-                    setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
-                  </script>
-                  <span class="directory-name">{{.Key}}</span>
+            <div class="d-flex align-items-center w-100">
+              <a class="directory-link directory-item-row" href="{{.URL}}">
+                <div class="row align-items-center">
+                  <div class="col-9 col-sm-10">
+                    <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
+                    <script type="text/javascript" async>
+                      setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
+                    </script>
+                    <span class="directory-name">{{.Key}}</span>
+                  </div>
+                  <div class="col-3 col-sm-2 text-right">
+                    <p class="directory-size">{{.Size}}</p>
+                  </div>
                 </div>
-                <div class="col-3 col-sm-2 text-right">
-                  <p class="directory-size">{{.Size}}</p>
-                </div>
+              </a>
+              {{ if $.AllowDownload }}
+              <div class="ml-4 mt-n1 rounded download-icon-wrapper">
+                {{if (gt (len $.ArchivePath) 0)}}
+                <a class="p-1" href="?download=1&path={{.Key}}" download><img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download"></a>
+                {{else}}
+                <a class="p-1" href="{{.Key}}?download=1" download><img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download"></a>
+                {{ end }}
               </div>
-            </a>
+              {{end}}
+            </div>
             {{end}}
             {{end}}
 

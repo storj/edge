@@ -303,6 +303,18 @@ a:hover {
   margin-bottom: 0;
   text-wrap: nowrap;
 }
+.directory-item-row {
+  width: calc(100% - 30px);
+}
+.download-icon-wrapper:hover {
+  background-color: #f9f9f9;
+}
+.download-icon {
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+}
 
 #pdfTag,
 #imgTag,

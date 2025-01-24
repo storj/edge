@@ -95,6 +95,8 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 		Data:             input,
 		Title:            pr.title,
 		ShowViewContents: len(archivePath) > 0,
+		AllowDownload:    handler.isDownloadAllowed(pr.access),
+		ArchivePath:      archivePath,
 	})
 
 	return nil
