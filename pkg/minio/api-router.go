@@ -48,6 +48,9 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 		// HeadObject
 		bucket.Methods(http.MethodHead).Path("/{object:.+}").HandlerFunc(
 			cmd.MaxClients(cmd.CollectAPIStats("headobject", cmd.HTTPTraceAll(api.HeadObjectHandler))))
+		// GetObjectAttributes
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(
+			cmd.MaxClients(cmd.CollectAPIStats("getobjectattributes", cmd.HTTPTraceAll(api.GetObjectAttributesHandler)))).Queries("attributes", "")
 		// CopyObjectPart
 		bucket.Methods(http.MethodPut).Path("/{object:.+}").
 			HeadersRegexp(xhttp.AmzCopySource, ".*?(\\/|%2F).*?").

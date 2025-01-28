@@ -23,6 +23,12 @@ func (h objectAPIHandlersWrapper) HeadObjectHandler(w http.ResponseWriter, r *ht
 	h.core.HeadObjectHandler(w, r)
 }
 
+func (h objectAPIHandlersWrapper) GetObjectAttributesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+	h.core.GetObjectAttributesHandler(w, r)
+}
+
 func (h objectAPIHandlersWrapper) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
