@@ -123,6 +123,9 @@ func TestHandlerRequests(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+		},
 	}, testHandlerRequests)
 }
 

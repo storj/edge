@@ -58,7 +58,14 @@ func CreateZip(t *testing.T) []byte {
 
 // TestZipRequests tests ZIP archive listing, file download (including GZIP), file wrapping, and file mapping.
 func TestZipRequests(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1}, testZipRequests)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+		},
+	}, testZipRequests)
 }
 
 func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
