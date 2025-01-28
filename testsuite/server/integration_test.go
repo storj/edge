@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -1395,6 +1396,89 @@ func TestVersioning(t *testing.T) {
 	})
 }
 
+func TestObjectAttributes(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
+
+		bucket := testrand.BucketName()
+		require.NoError(t, createBucket(ctx, client, bucket, true, false))
+
+		unversionedBucket := testrand.BucketName()
+		require.NoError(t, createBucket(ctx, client, unversionedBucket, false, false))
+
+		testFilePath := ctx.File("random1.dat")
+		require.NoError(t, os.WriteFile(testFilePath, testrand.Bytes(123), 0600))
+
+		testFile, err := os.Open(testFilePath)
+		require.NoError(t, err)
+
+		putResp, err := putObject(ctx, client, bucket, "object1", testFile)
+		require.NoError(t, err)
+
+		_, err = putObject(ctx, client, unversionedBucket, "object1", testFile)
+		require.NoError(t, err)
+
+		_, err = getObjectAttributes(ctx, client, bucket, "objectnonexistent", "", []*string{
+			aws.String("ETag"),
+		})
+		requireS3Error(t, err, http.StatusNotFound, "NoSuchKey")
+
+		_, err = getObjectAttributes(ctx, client, bucket, "object1", "abc123", []*string{
+			aws.String("ETag"),
+		})
+		requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
+
+		_, err = getObjectAttributes(ctx, client, bucket, "object1", "", []*string{
+			aws.String("Invalid"),
+		})
+		requireS3Error(t, err, http.StatusBadRequest, "InvalidArgument")
+
+		attrResp, err := getObjectAttributes(ctx, client, unversionedBucket, "object1", "", []*string{
+			aws.String("ObjectSize"),
+		})
+		require.NoError(t, err)
+		require.Empty(t, attrResp.VersionId)
+
+		attrResp, err = getObjectAttributes(ctx, client, bucket, "object1", "", []*string{
+			aws.String("ETag"),
+			aws.String("ObjectSize"),
+			aws.String("StorageClass"),
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, putResp.VersionId, attrResp.VersionId)
+
+		// ETag should really be double quoted everywhere by the spec, but GetObjectAttributes
+		// is inconsistent with other S3 APIs that do return it quoted.
+		require.Equal(t, regexp.MustCompile(`^"(.*)"$`).ReplaceAllString(*putResp.ETag, `$1`), *attrResp.ETag)
+		require.Equal(t, aws.Int64(123), attrResp.ObjectSize)
+		require.Equal(t, aws.String(s3.ObjectStorageClassStandard), attrResp.StorageClass)
+		require.Empty(t, attrResp.DeleteMarker)
+
+		attrResp, err = getObjectAttributes(ctx, client, bucket, "object1", *putResp.VersionId, []*string{
+			aws.String("ObjectSize"),
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, putResp.VersionId, attrResp.VersionId)
+		require.Equal(t, aws.Int64(123), attrResp.ObjectSize)
+		require.Empty(t, attrResp.ETag)
+		require.Empty(t, attrResp.StorageClass)
+		require.Empty(t, attrResp.DeleteMarker)
+	})
+}
+
 func runTest(
 	t *testing.T,
 	planetConfig testplanet.Config,
@@ -1736,6 +1820,18 @@ func getObject(ctx context.Context, client *s3.S3, bucket, key, versionID string
 		input.VersionId = aws.String(versionID)
 	}
 	return client.GetObjectWithContext(ctx, &input)
+}
+
+func getObjectAttributes(ctx context.Context, client *s3.S3, bucket, key, versionID string, attributes []*string) (*s3.GetObjectAttributesOutput, error) {
+	input := s3.GetObjectAttributesInput{
+		Bucket:           aws.String(bucket),
+		Key:              aws.String(key),
+		ObjectAttributes: attributes,
+	}
+	if versionID != "" {
+		input.VersionId = aws.String(versionID)
+	}
+	return client.GetObjectAttributesWithContext(ctx, &input)
 }
 
 func copyObject(ctx context.Context, client *s3.S3, sourceBucket, sourceKey, sourceVersionID, destBucket, destKey string) (*s3.CopyObjectOutput, error) {

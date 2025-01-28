@@ -3,7 +3,7 @@ module storj.io/edge/testsuite
 go 1.23.4
 
 require (
-	github.com/aws/aws-sdk-go v1.36.15
+	github.com/aws/aws-sdk-go v1.55.6
 	github.com/caddyserver/certmagic v0.20.0
 	github.com/foxcpp/go-mockdns v1.0.0
 	github.com/letsencrypt/pebble/v2 v2.4.0
