@@ -450,6 +450,10 @@ a:hover {
     border-top: 1px solid var(--border-color);
   }
 
+  .directory {
+    padding: 14px;
+  }
+
   .collapser {
     display: none;
   }

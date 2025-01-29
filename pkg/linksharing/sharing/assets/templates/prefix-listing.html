@@ -54,16 +54,16 @@
             </a>
             {{else}}
             <div class="d-flex align-items-center w-100">
-              <a class="directory-link directory-item-row" href="{{.URL}}">
-                <div class="row align-items-center">
-                  <div class="col-9 col-sm-10">
+              <a class="directory-link {{if $.AllowDownload}}directory-item-row{{else}}w-100{{end}}" href="{{.URL}}">
+                <div class="row align-items-center pr-2">
+                  <div class="col-9 col-sm-10 d-flex align-items-center">
                     <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
                     <script type="text/javascript" async>
                       setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
                     </script>
-                    <span class="directory-name">{{.Key}}</span>
+                    <span class="directory-name text-break">{{.Key}}</span>
                   </div>
-                  <div class="col-3 col-sm-2 text-right">
+                  <div class="col-3 col-sm-2 px-0 text-right">
                     <p class="directory-size">{{.Size}}</p>
                   </div>
                 </div>
