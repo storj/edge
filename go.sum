@@ -2531,8 +2531,8 @@ storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 h1:hLvEV2RMTscX3JHPd+LSQCeTt
 storj.io/drpc v0.0.35-0.20240709171858-0075ac871661/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 h1:TkytkGUI6zGtH5Qx/O0VxQCcYJqOOiwRq0oMi4uM5Tg=
 storj.io/eventkit v0.0.0-20240415002644-1d9596fee086/go.mod h1:S6p41RzIBKoeGAdrziksWkiijnZXql9YcNsc23t0u+8=
-storj.io/gateway v1.10.1-0.20250128190101-f32b24c04bd7 h1:mxsieexHF2t4EQVi8M88p7cqZn4knXTYmGZbXdGFe6w=
-storj.io/gateway v1.10.1-0.20250128190101-f32b24c04bd7/go.mod h1:z1SHw8WZUkMRoZQgnLYiE5Jzukrp1dDzOODmnljjRok=
+storj.io/gateway v1.10.1-0.20250129111243-d4caf26d8f04 h1:M0dvi8Y4yyhQMTOPhyInzsh/AlRdAz0G6mk+relg0FQ=
+storj.io/gateway v1.10.1-0.20250129111243-d4caf26d8f04/go.mod h1:z1SHw8WZUkMRoZQgnLYiE5Jzukrp1dDzOODmnljjRok=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
 storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20250128020148-d656679543d7 h1:ww3YwBcsL0gMva29IyrR/BL2XQ5fLKwA92ub/qWZZ5I=
@@ -2542,7 +2542,7 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu
 storj.io/picobuf v0.0.3 h1:xAUPB5ZUGfxkqd3bnw3zp01kkWb9wlhg4vtZWUs2S9A=
 storj.io/picobuf v0.0.3/go.mod h1:4V4xelV1RSCck5GgmkL/Txw9l6IfX3XcBzegmL5Kudo=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.13.2-0.20250108122335-d448a1ebeed6 h1:2rgNB8SuhIvYuwTanynqEp+R5lXHRUsWeptq2NQaFv8=
-storj.io/uplink v1.13.2-0.20250108122335-d448a1ebeed6/go.mod h1:U77xcLqje/QeZ4mIbx1RHO49hnVx5MpnbmAA/+dIxaA=
+storj.io/uplink v1.13.2-0.20250109124458-60101c8101bb h1:HzyAaV1XAD9pMAzGrEvqPFy63kuChsogh4gvgfLV2xw=
+storj.io/uplink v1.13.2-0.20250109124458-60101c8101bb/go.mod h1:U77xcLqje/QeZ4mIbx1RHO49hnVx5MpnbmAA/+dIxaA=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=
