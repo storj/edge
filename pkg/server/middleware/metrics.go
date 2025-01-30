@@ -12,17 +12,12 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/edge/pkg/server/gwlog"
-	"storj.io/eventkit"
 )
 
 var (
-	mon       = monkit.Package()
-	ekMetrics = ek.Subscope("Metrics")
-)
-
-var (
-	_ http.ResponseWriter = (*flusherDelegator)(nil)
-	_ http.Flusher        = (*flusherDelegator)(nil)
+	mon                     = monkit.Package()
+	_   http.ResponseWriter = (*flusherDelegator)(nil)
+	_   http.Flusher        = (*flusherDelegator)(nil)
 )
 
 // measureFunc is a common type for functions called at particular points of the
@@ -178,10 +173,6 @@ func Metrics(prefix string, next http.Handler) http.Handler {
 		}
 
 		mon.DurationVal(makeMetricName(prefix, "response_time"), tags...).Observe(took)
-
-		if err := log.TagValue("error"); err != "" { // Gateway-MT-specific
-			ekMetrics.Event(makeMetricName(prefix, "unmapped_error"), eventkit.String("error", err))
-		}
 	})
 }
 
