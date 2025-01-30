@@ -242,7 +242,13 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 // LogRequests logs requests.
 func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
-		log.Debug("request",
+		ce := log.Check(zap.DebugLevel, "request")
+		if ce == nil {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		ce.Write([]zapcore.Field{
 			gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
 				Protocol:      r.Proto,
 				RequestMethod: r.Method,
@@ -251,7 +257,8 @@ func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 				RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
 			}),
 			zap.String("host", r.Host),
-		)
+		}...)
+
 		h.ServeHTTP(w, r)
 	})
 }
@@ -268,23 +275,21 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			fields := []zapcore.Field{
-				gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
-					Protocol:      r.Proto,
-					RequestMethod: r.Method,
-					RequestSize:   r.ContentLength,
-					ResponseSize:  rw.Written(),
-					UserAgent:     r.UserAgent(),
-					RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
-					Latency:       time.Since(start),
-					Status:        rw.StatusCode(),
-				}),
-				zap.String("host", r.Host),
-				zap.String("request-id", requestid.FromContext(r.Context())),
-			}
-
 			if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
-				ce.Write(fields...)
+				ce.Write([]zapcore.Field{
+					gcloudlogging.LogHTTPRequest(&gcloudlogging.HTTPRequest{
+						Protocol:      r.Proto,
+						RequestMethod: r.Method,
+						RequestSize:   r.ContentLength,
+						ResponseSize:  rw.Written(),
+						UserAgent:     r.UserAgent(),
+						RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+						Latency:       time.Since(start),
+						Status:        rw.StatusCode(),
+					}),
+					zap.String("host", r.Host),
+					zap.String("request-id", requestid.FromContext(r.Context())),
+				}...)
 			}
 		}))
 }

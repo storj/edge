@@ -26,6 +26,12 @@ import (
 // LogRequests logs requests.
 func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {
+		ce := log.Check(zap.DebugLevel, "access")
+		if ce == nil {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		httpRequestLog := &gcloudlogging.HTTPRequest{
 			Protocol:      r.Proto,
 			RequestMethod: r.Method,
@@ -37,12 +43,11 @@ func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Ha
 			httpRequestLog.RequestURL = r.RequestURI
 		}
 
-		fields := []zapcore.Field{
+		ce.Write([]zapcore.Field{
 			gcloudlogging.LogHTTPRequest(httpRequestLog),
 			zap.String("host", r.Host),
-		}
+		}...)
 
-		log.Debug("access", fields...)
 		h.ServeHTTP(w, r)
 	})
 }
@@ -100,6 +105,11 @@ func NewLogResponses(log *zap.Logger, insecureLogPaths bool) mux.MiddlewareFunc 
 }
 
 func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, gl *gwlog.Log, d time.Duration, insecureLogAll bool) {
+	ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response")
+	if ce == nil {
+		return
+	}
+
 	httpRequestLog := &gcloudlogging.HTTPRequest{
 		Protocol:      r.Proto,
 		RequestMethod: r.Method,
@@ -132,7 +142,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		publicProjectID = credentials.PublicProjectID
 	}
 
-	fields := []zapcore.Field{
+	ce.Write([]zapcore.Field{
 		gcloudlogging.LogHTTPRequest(httpRequestLog),
 		gcloudlogging.LogOperation(&gcloudlogging.Operation{
 			ID:       gl.API,
@@ -159,11 +169,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 			Headers:                                 rw.Header(),
 			InsecureDisableConfidentialSanitization: true, // we don't need to hide any known response header values.
 		}),
-	}
-
-	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
-		ce.Write(fields...)
-	}
+	}...)
 }
 
 func getRemoteIP(r *http.Request) string {
@@ -171,6 +177,11 @@ func getRemoteIP(r *http.Request) string {
 }
 
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
+	ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response")
+	if ce == nil {
+		return
+	}
+
 	httpRequestLog := &gcloudlogging.HTTPRequest{
 		Protocol:      r.Proto,
 		RequestMethod: r.Method,
@@ -185,12 +196,8 @@ func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d ti
 		httpRequestLog.RequestURL = r.RequestURI
 	}
 
-	fields := []zapcore.Field{
+	ce.Write([]zapcore.Field{
 		gcloudlogging.LogHTTPRequest(httpRequestLog),
 		zap.String("host", r.Host),
-	}
-
-	if ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response"); ce != nil {
-		ce.Write(fields...)
-	}
+	}...)
 }
