@@ -25,6 +25,7 @@ import (
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/eventkit"
+	"storj.io/eventkit/bigquery"
 )
 
 var (
@@ -69,10 +70,18 @@ func run() (bool, error) {
 		addr := cmds.Flag("events.addr", "address to send events to", "").(string)
 		if addr != "" {
 			logger.Printf("sending events to %s", addr)
-			ec := eventkit.NewUDPClient("authservice-admin", "v0.0.0", "", addr)
-			eventkit.DefaultRegistry.AddDestination(ec)
+			var ed eventkit.Destination = eventkit.NewUDPClient("authservice-admin", "v0.0.0", "", addr)
+			if strings.HasPrefix(addr, "bigquery:") {
+				var err error
+				ed, err = bigquery.CreateDestination(ctx, addr)
+				if err != nil {
+					logger.Printf("create bigquery destination: %s", err)
+					return
+				}
+			}
+			eventkit.DefaultRegistry.AddDestination(ed)
 			eg.Go(func() error {
-				ec.Run(ctx)
+				ed.Run(ctx)
 				return nil
 			})
 		}
