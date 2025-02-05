@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -43,9 +44,12 @@ func TestPeer_Close(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	ts := dcsSatsTestServer()
+	defer ts.Close()
+
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
-		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
+		AllowedSatellites: []string{ts.URL + "/dcs-satellites"},
 		KVBackend:         "badger://",
 		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
@@ -60,9 +64,12 @@ func TestPeer_BadListenerError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	ts := dcsSatsTestServer()
+	defer ts.Close()
+
 	config := Config{
 		Endpoint:          "https://example.com",
-		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
+		AllowedSatellites: []string{ts.URL + "/dcs-satellites"},
 		KVBackend:         "badger://",
 		ListenAddr:        "127.0.0.1:0",
 		DRPCListenAddr:    "127.0.0.1:0",
@@ -116,9 +123,12 @@ func TestPeer_PlainDRPC(t *testing.T) {
 
 	defer ctx.Check(httpServer.Close)
 
+	ts := dcsSatsTestServer()
+	defer ts.Close()
+
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
-		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
+		AllowedSatellites: []string{ts.URL + "/dcs-satellites"},
 		KVBackend:         "badger://",
 		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
@@ -184,9 +194,12 @@ func TestPeer_TLSDRPC(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
+	ts := dcsSatsTestServer()
+	defer ts.Close()
+
 	p, err := New(ctx, zaptest.NewLogger(t), Config{
 		Endpoint:          "https://example.com",
-		AllowedSatellites: []string{"https://www.storj.io/dcs-satellites"},
+		AllowedSatellites: []string{ts.URL + "/dcs-satellites"},
 		KVBackend:         "badger://",
 		Node:              badgerauth.Config{FirstStart: true},
 	}, "")
@@ -364,4 +377,14 @@ func createSelfSignedCertificate(t *testing.T, hostname string) (certificatePEM 
 	privateKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyBytes})
 
 	return certificatePEM, privateKeyPEM
+}
+
+func dcsSatsTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/dcs-satellites" {
+			_, _ = fmt.Fprintf(w, "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777\n12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777\n121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:7777\n1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake.tardigrade.io:7777")
+		} else {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		}
+	}))
 }
