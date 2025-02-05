@@ -141,7 +141,7 @@ lint-testsuite: ## Lint testsuite
 
 .PHONY: vet
 vet: ## Vet
-	GOOS=linux   GOARCH=amd64 go vet ./...
+	GOOS=linux GOARCH=amd64 go vet ./...
 
 ##@ Local development/Public Jenkins/Test
 
@@ -176,14 +176,18 @@ verify: lint cross-vet test ## Execute pre-commit verification
 
 ##@ Release/Private Jenkins/Build
 
-GO_VERSION ?= 1.23.4
+GO_VERSION ?= 1.24rc3+564197
+GO_VERSION_INTEGRATION_TESTS ?= 1.23.4
+
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 
 ifeq (${BRANCH_NAME},main)
 	TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+	TAG_INTEGRATION_TESTS := $(shell git rev-parse --short HEAD)-go${GO_VERSION_INTEGRATION_TESTS}
 	BRANCH_NAME :=
 else
 	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+	TAG_INTEGRATION_TESTS := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION_INTEGRATION_TESTS}
 	ifneq ($(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"),)
 		LATEST_STABLE_TAG := latest
 	endif
@@ -239,15 +243,8 @@ linksharing-image: ## Build linksharing Docker image
 
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
-	for C in ${COMPONENTLIST}; do \
-		# freebsd/amd64 target is currently skipped: https://github.com/storj/gateway-st/issues/62 \
-		CGO_ENABLED=0 storj-release \
-			--components "cmd/$$C" \
-			--build-tags kqueue \
-			--go-version "${GO_VERSION}" \
-			--branch "${BRANCH_NAME}" \
-			--skip-osarches "freebsd/amd64" || exit $$? \
-	; done
+	# TODO(artur): we could use a bit of caching here, but that's not strictly necessary for now
+	docker run --rm -v $$PWD:/usr/src/edge -w /usr/src/edge golang:latest scripts/build_components_linux_amd64.bash "${COMPONENTLIST}" ${GO_VERSION}
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub
@@ -303,7 +300,7 @@ clean-images:
 
 ##@ Local development/Public Jenkins/Integration Test
 
-BUILD_NUMBER ?= ${TAG}
+BUILD_NUMBER ?= ${TAG_INTEGRATION_TESTS}
 
 .PHONY: integration-run
 integration-run: integration-env-start integration-all-tests ## Start the integration environment and run all tests
@@ -352,7 +349,7 @@ integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to
 	--name integration-gateway-st-tests-${BUILD_NUMBER}-$$TEST \
 	--entrypoint /bin/bash \
 	--rm storjlabs/ci:latest \
-	-c "umask 0000; scripts/run-integration-tests.sh $$TEST" \
+	-c "umask 0000; scripts/integration_tests_run.sh $$TEST" \
 
 .PHONY: integration-mint-tests
 integration-mint-tests: ## Run mint test suite (environment needs to be started first)
@@ -383,7 +380,7 @@ integration-checkout:
 .PHONY: integration-image-build
 integration-image-build:
 	for C in gateway-mt authservice; do \
-		CGO_ENABLED=0 ./scripts/build-image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
+		CGO_ENABLED=0 ./scripts/integration_tests_build_image.sh $$C ${BUILD_NUMBER} ${GO_VERSION_INTEGRATION_TESTS} \
 	; done
 
 	storj-up init minimal,db && \
