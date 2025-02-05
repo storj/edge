@@ -73,9 +73,9 @@ pipeline {
                             }
                         }
 
-                        stage('Cross-Vet') {
+                        stage('Vet') {
                             steps {
-                                sh 'make cross-vet'
+                                sh 'make vet'
                             }
                         }
 
