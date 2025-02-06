@@ -13,8 +13,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/version"
 	"storj.io/edge/pkg/server/gwlog"
@@ -28,6 +31,7 @@ import (
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/piecestore"
+	"storj.io/uplink/private/project"
 	"storj.io/uplink/private/testuplink"
 	"storj.io/uplink/private/transport"
 )
@@ -64,13 +68,19 @@ type UplinkConfig struct {
 
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
-func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig) (*MultiTenancyLayer, error) {
+func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig, satelliteIdentities []*identity.FullIdentity) (*MultiTenancyLayer, error) {
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
+
+	signers := make(map[storj.NodeID]signing.Signer, len(satelliteIdentities))
+	for _, ident := range satelliteIdentities {
+		signers[ident.ID] = signing.SignerFromFullIdentity(ident)
+	}
 
 	return &MultiTenancyLayer{
 		layer:                   layer,
 		satelliteConnectionPool: satelliteConnectionPool,
 		connectionPool:          connectionPool,
+		satelliteSigners:        signers,
 		config:                  config,
 	}, err
 }
@@ -83,6 +93,7 @@ type MultiTenancyLayer struct {
 	layer                   minio.ObjectLayer
 	satelliteConnectionPool *rpcpool.Pool
 	connectionPool          *rpcpool.Pool
+	satelliteSigners        map[storj.NodeID]signing.Signer
 
 	config UplinkConfig
 }
@@ -687,7 +698,18 @@ func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Acc
 		ctx = testuplink.DisableConcurrentSegmentUploads(ctx)
 	}
 
-	return baseConfig.OpenProject(ctx, access)
+	proj, err := baseConfig.OpenProject(ctx, access)
+	if err != nil {
+		return nil, err
+	}
+
+	if url, err := storj.ParseNodeURL(access.SatelliteAddress()); err == nil && !url.ID.IsZero() {
+		if signer, exists := l.satelliteSigners[url.ID]; exists {
+			project.SetSatelliteSigner(proj, signer)
+		}
+	}
+
+	return proj, nil
 }
 
 func getUserAgent(ctx context.Context) string {

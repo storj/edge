@@ -99,7 +99,12 @@ func New(config Config, log *zap.Logger, trustedIPs trustedip.List, corsAllowedO
 		return nil, err
 	}
 
-	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), satelliteConnectionPool, connectionPool, uplinkConfig)
+	satelliteIdentities, err := config.Client.SatelliteIdentities.LoadIdentities()
+	if err != nil {
+		return nil, err
+	}
+
+	layer, err := gw.NewMultiTenantLayer(miniogw.NewStorjGateway(config.S3Compatibility), satelliteConnectionPool, connectionPool, uplinkConfig, satelliteIdentities)
 	if err != nil {
 		return nil, err
 	}

@@ -79,6 +79,12 @@ client.identity.key-path: ""
 # maximum buffer size for DRPC streams
 # client.maximum-buffer-size: 304.00 KB
 
+# a comma separated list of certificate chains. must be in the same order as the key-paths list.
+client.satellite-identities.cert-paths: ""
+
+# a comma separated list of private key files. must be in the same order as the cert-paths list.
+client.satellite-identities.key-paths: ""
+
 # use Blake3 as the piece hash algorithm
 # client.upload.piece-hash-algorithm-blake3: false
 

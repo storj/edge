@@ -5,8 +5,11 @@ package uplinkutil
 
 import (
 	"os"
+	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/identity"
 )
 
 // IdentityConfig is an intentional copy of identity.Config that has
@@ -34,4 +37,38 @@ func (c *IdentityConfig) LoadPEMs() (certPEM, keyPEM []byte, err error) {
 		return nil, nil, errs.New("failed reading key path %q: %+v", c.KeyPath, err)
 	}
 	return certPEM, keyPEM, nil
+}
+
+// IdentitiesConfig is a way of specifying multiple identities.
+type IdentitiesConfig struct {
+	CertPaths string `help:"a comma separated list of certificate chains. must be in the same order as the key-paths list." default:"" user:"true"`
+	KeyPaths  string `help:"a comma separated list of private key files. must be in the same order as the cert-paths list." default:"" user:"true"`
+}
+
+// LoadIdentities loads a list of identity.FullIdentities from a config.
+func (c *IdentitiesConfig) LoadIdentities() (identities []*identity.FullIdentity, err error) {
+	if c.CertPaths == "" && c.KeyPaths == "" {
+		return nil, nil
+	}
+	certPaths := strings.Split(c.CertPaths, ",")
+	keyPaths := strings.Split(c.KeyPaths, ",")
+	if len(keyPaths) != len(certPaths) {
+		return nil, errs.New("mismatched number of key paths and cert paths")
+	}
+	for i := range keyPaths {
+		keyPEM, err := os.ReadFile(keyPaths[i])
+		if err != nil {
+			return nil, errs.New("Failed to open %q: %w", keyPaths[i], err)
+		}
+		certPEM, err := os.ReadFile(certPaths[i])
+		if err != nil {
+			return nil, errs.New("Failed to open %q: %w", certPaths[i], err)
+		}
+		identity, err := identity.FullIdentityFromPEM(certPEM, keyPEM)
+		if err != nil {
+			return nil, errs.New("failed to use %q, %q: %w", keyPaths[i], certPaths[i], err)
+		}
+		identities = append(identities, identity)
+	}
+	return identities, nil
 }

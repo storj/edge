@@ -89,9 +89,10 @@ type SatelliteConnectionPoolConfig struct {
 // from libuplink from Gateway-MT (see https://pprof.host/0w/). Deployments
 // struggling with memory consumption problems should decrease the default.
 type ClientConfig struct {
-	DialTimeout       time.Duration `help:"timeout for dials" default:"10s"`
-	MaximumBufferSize memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
-	Identity          uplinkutil.IdentityConfig
+	DialTimeout         time.Duration `help:"timeout for dials" default:"10s"`
+	MaximumBufferSize   memory.Size   `help:"maximum buffer size for DRPC streams" default:"304kB"`
+	Identity            uplinkutil.IdentityConfig
+	SatelliteIdentities uplinkutil.IdentitiesConfig
 
 	Upload uploadConfig
 }
