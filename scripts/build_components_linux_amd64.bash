@@ -25,8 +25,10 @@ mkdir -m 777 release
 mkdir -m 777 ${OUT}
 
 for C in ${COMPONENTS//,/ }; do
-    GOOS=linux GOARCH=amd64 ${DIR}/${GOGO_VERSION}/bin/go build \
-        -o ${OUT}/${C}_linux_amd64 \
-        -ldflags "-X storj.io/common/version.buildTimestamp=$(date +%s) -X storj.io/common/version.buildCommitHash=${COM} -X storj.io/common/version.buildVersion=${TAG} -X storj.io/common/version.buildRelease=true" \
-        ./cmd/${C}
+    for GOARCH in arm arm64 amd64; do
+        GOOS=linux GOARCH=${GOARCH} ${DIR}/${GOGO_VERSION}/bin/go build \
+            -o ${OUT}/${C}_linux_${GOARCH} \
+            -ldflags "-X storj.io/common/version.buildTimestamp=$(date +%s) -X storj.io/common/version.buildCommitHash=${COM} -X storj.io/common/version.buildVersion=${TAG} -X storj.io/common/version.buildRelease=true" \
+            ./cmd/${C}
+    done
 done
