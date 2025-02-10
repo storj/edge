@@ -193,6 +193,9 @@ else
 	endif
 endif
 
+TAG := $(subst +,plus,${TAG})
+TAG_INTEGRATION_TESTS := $(subst +,plus,${TAG_INTEGRATION_TESTS})
+
 DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 
 LATEST_DEV_TAG := dev
