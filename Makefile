@@ -176,7 +176,7 @@ verify: lint cross-vet test ## Execute pre-commit verification
 
 ##@ Release/Private Jenkins/Build
 
-GO_VERSION ?= 1.24rc3+564197
+GO_VERSION ?= 1.24rc3plus564197
 GO_VERSION_INTEGRATION_TESTS ?= 1.23.4
 
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
@@ -192,9 +192,6 @@ else
 		LATEST_STABLE_TAG := latest
 	endif
 endif
-
-TAG := $(subst +,plus,${TAG})
-TAG_INTEGRATION_TESTS := $(subst +,plus,${TAG_INTEGRATION_TESTS})
 
 DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 

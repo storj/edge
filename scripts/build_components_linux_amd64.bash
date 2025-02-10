@@ -21,6 +21,9 @@ cd ${DIR}/${GOGO_VERSION}/src
 ./make.bash
 cd -
 
+mkdir -m 777 release
+mkdir -m 777 ${OUT}
+
 for C in ${COMPONENTS//,/ }; do
     GOOS=linux GOARCH=amd64 ${DIR}/${GOGO_VERSION}/bin/go build \
         -o ${OUT}/${C}_linux_amd64 \
