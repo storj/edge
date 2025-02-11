@@ -249,7 +249,12 @@ linksharing-image: ## Build linksharing Docker image
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
 	# TODO(artur): we could use a bit of caching here, but that's not strictly necessary for now
-	docker run --rm -v $$PWD:/usr/src/edge -w /usr/src/edge golang:latest scripts/build_components_linux_amd64.bash "${COMPONENTLIST}" ${GO_VERSION}
+	docker run --rm \
+		-v $$PWD:/usr/src/edge \
+		-w /usr/src/edge \
+		-e GOCACHE=/tmp/go-pkg \
+		-u $$(id -u):$$(id -g) \
+		golang:latest scripts/build_components_linux_amd64.bash "${COMPONENTLIST}" ${GO_VERSION}
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-git config --global --add safe.directory '*'
-
 COMPONENTS=${1}
 GO_VERSION=${2}
 
@@ -20,9 +18,6 @@ tar -xzf ${DIR}/${GOGO_VERSION}.tar.gz --strip-components=1 -C ${DIR}/${GOGO_VER
 cd ${DIR}/${GOGO_VERSION}/src
 ./make.bash
 cd -
-
-mkdir -m 777 release
-mkdir -m 777 ${OUT}
 
 for C in ${COMPONENTS//,/ }; do
     for GOARCH in arm arm64 amd64; do
