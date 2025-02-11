@@ -254,7 +254,7 @@ binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
 		-w /usr/src/edge \
 		-e GOCACHE=/tmp/go-pkg \
 		-u $$(id -u):$$(id -g) \
-		golang:latest scripts/build_components_linux_amd64.bash "${COMPONENTLIST}" "${GO_VERSION}" "release/${TAG}"
+		golang:latest scripts/build_components_linux.sh "${COMPONENTLIST}" "${GO_VERSION}" "release/${TAG}"
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub
