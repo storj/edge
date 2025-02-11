@@ -6,7 +6,6 @@ package middleware
 import (
 	"encoding/hex"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,7 +21,6 @@ import (
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/trustedip"
-	"storj.io/gateway/miniogw"
 )
 
 // LogRequests logs requests.
@@ -82,9 +80,6 @@ func LogResponses(log *zap.Logger, h http.Handler, insecureLogAll bool) http.Han
 			}
 
 			if gl.RequestID != "" {
-				if strings.Contains(gl.TagValue("error"), miniogw.ErrSlowDown.Error()) {
-					return
-				}
 				logGatewayResponse(log, r, rw, gl, time.Since(start), insecureLogAll)
 				return
 			}
