@@ -26,7 +26,7 @@ mkdir -m 777 ${OUT}
 
 for C in ${COMPONENTS//,/ }; do
     for GOARCH in arm arm64 amd64; do
-        GOOS=linux GOARCH=${GOARCH} ${DIR}/${GOGO_VERSION}/bin/go build \
+        CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} ${DIR}/${GOGO_VERSION}/bin/go build \
             -o ${OUT}/${C}_linux_${GOARCH} \
             -ldflags "-X storj.io/common/version.buildTimestamp=$(date +%s) -X storj.io/common/version.buildCommitHash=${COM} -X storj.io/common/version.buildVersion=${TAG} -X storj.io/common/version.buildRelease=true" \
             ./cmd/${C}
