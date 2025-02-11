@@ -1,4 +1,4 @@
-COMPONENTLIST := gateway-mt authservice linksharing
+COMPONENTLIST := gateway-mt authservice linksharing simplegateway
 
 #
 # Common
@@ -203,7 +203,7 @@ DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 LATEST_DEV_TAG := dev
 
 .PHONY: images
-images: gateway-mt-image authservice-image linksharing-image ## Build Docker images
+images: gateway-mt-image authservice-image linksharing-image simplegateway-image ## Build Docker images
 	@echo Built version: ${TAG}
 
 .PHONY: gateway-mt-image
@@ -246,8 +246,14 @@ linksharing-image: ## Build linksharing Docker image
 		-f cmd/linksharing/Dockerfile .
 	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
 
+.PHONY: simplegateway-image
+simplegateway-image: ## Build simplegateway Docker image (linux/amd64 only)
+	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/simplegateway:${TAG}-amd64 \
+		-f cmd/simplegateway/Dockerfile .
+	docker tag storjlabs/simplegateway:${TAG}-amd64 storjlabs/simplegateway:${LATEST_DEV_TAG}
+
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway-mt, authservice, and linksharing binaries
+binaries: ${BINARIES} ## Build gateway-mt, authservice, linksharing, and simplegateway binaries
 	# TODO(artur): we could use a bit of caching here, but that's not strictly necessary for now
 	docker run --rm \
 		-v $$PWD:/usr/src/edge \
@@ -307,6 +313,7 @@ clean-images:
 	-docker rmi -f $(shell docker images -q "storjlabs/gateway-mt:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/authservice:${TAG}-*")
 	-docker rmi -f $(shell docker images -q "storjlabs/linksharing:${TAG}-*")
+	-docker rmi -f $(shell docker images -q "storjlabs/simplegateway:${TAG}-*")
 
 ##@ Local development/Public Jenkins/Integration Test
 

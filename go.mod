@@ -1,8 +1,8 @@
 module storj.io/edge
 
-go 1.21
+go 1.21.0
 
-toolchain go1.21.0
+toolchain go1.23.0
 
 require (
 	cloud.google.com/go/spanner v1.70.0
@@ -14,6 +14,7 @@ require (
 	github.com/libdns/googleclouddns v1.1.0
 	github.com/mholt/acmez v1.2.0
 	github.com/miekg/dns v1.1.55
+	github.com/minio/cli v1.22.0
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d
@@ -134,7 +135,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/minio/cli v1.22.0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.1 // indirect
 	github.com/minio/selfupdate v0.3.1 // indirect

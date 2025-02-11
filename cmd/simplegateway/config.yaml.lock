@@ -1,0 +1,89 @@
+# address to listen on for debug endpoints
+# debug.addr: 127.0.0.1:0
+
+# If set, a path to write a process trace SVG to
+# debug.trace-out: ""
+
+# if true, log function filename and line number
+# log.caller: false
+
+# custom level overrides for specific loggers in the format NAME1=ERROR,NAME2=WARN,... Only level increment is supported, and only for selected loggers!
+# log.custom-level: ""
+
+# if true, set logging to development mode
+# log.development: false
+
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
+# log.encoding: ""
+
+# the minimum log level to log
+# log.level: info
+
+# can be stdout, stderr, or a filename
+# log.output: stderr
+
+# if true, log stack traces
+# log.stack: false
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.addr: collectora.storj.io:9000
+
+# application name for telemetry identification. Ignored for certain applications.
+# metrics.app: simplegateway
+
+# application suffix. Ignored for certain applications.
+# metrics.app-suffix: -release
+
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
+
+# size of the internal eventkit queue for UDP sending
+# metrics.event-queue: 10000
+
+# instance id prefix
+# metrics.instance-prefix: ""
+
+# how frequently to send up telemetry. Ignored for certain applications.
+# metrics.interval: 1m0s
+
+# Access Key to use
+# minio.access-key: ""
+
+# Minio generic server config path
+# minio.config-dir: testdata/minio
+
+# Secret Key to use
+# minio.secret-key: ""
+
+# The default number of iterations for each check
+# quickchecks: 100
+
+# Address to listen on
+# server.address: 127.0.0.1:7777
+
+# Path to data storage
+# server.data-dir: ""
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: simplegateway
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: true
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
