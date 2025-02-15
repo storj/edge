@@ -212,7 +212,9 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 
 	var publicProjectID uuid.UUID
 	if db.retrievePublicProjectID {
-		publicProjectID, err = privateProject.GetPublicID(ctx, db.uplinkConfig, access)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		publicProjectID, err = privateProject.GetPublicID(timeoutCtx, db.uplinkConfig, access)
 		if err != nil {
 			db.logger.Warn("retrieve public project id failed", zap.Error(err))
 			publicProjectID = uuid.UUID{} // just in case, zero it
