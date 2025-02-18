@@ -18,6 +18,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
+	"storj.io/edge/pkg/httplog"
 )
 
 // Resources wrap a database and expose methods over HTTP.
@@ -98,7 +99,13 @@ func (res *Resources) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (res *Resources) writeError(w http.ResponseWriter, method string, msg string, status int) {
-	res.log.Info("writing error", zap.String("method", method), zap.String("msg", msg), zap.Int("status", status))
+	if ce := res.log.Check(httplog.StatusLevel(status), "writing error"); ce != nil {
+		ce.Write(
+			zap.String("method", method),
+			zap.String("msg", msg),
+			zap.Int("status", status))
+	}
+
 	if status == 499 {
 		msg = "" // the client is long gone anyway
 	}
