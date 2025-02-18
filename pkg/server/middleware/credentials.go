@@ -111,19 +111,22 @@ func logError(log *zap.Logger, err error) {
 	// "Get \"http://localhost:20000/v1/access/12345\": dial tcp ..."
 	msg := accessRegexp.ReplaceAllString(err.Error(), "[...]\"")
 	var level zapcore.Level
-	metricName := "gmt_authservice_error"
+	var eventName string
 
 	switch errdata.GetStatus(err, http.StatusOK) {
 	case http.StatusUnauthorized, http.StatusBadRequest:
 		level = zap.DebugLevel
 	case http.StatusInternalServerError:
+		eventName = "gmt_authservice_error"
 		level = zap.ErrorLevel
 	default:
 		level = zap.ErrorLevel
-		metricName = "gmt_unmapped_error"
+		eventName = "gmt_unmapped_error"
 	}
 
-	ekCredentials.Event(metricName, eventkit.String("api", "SYSTEM"), eventkit.String("error", msg))
+	if eventName != "" {
+		ekCredentials.Event(eventName, eventkit.String("api", "SYSTEM"), eventkit.String("error", msg))
+	}
 
 	ce := log.Check(level, "system")
 	if ce != nil {
