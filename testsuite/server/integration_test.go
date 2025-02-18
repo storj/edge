@@ -419,7 +419,7 @@ func TestObjectLock(t *testing.T) {
 			require.NoError(t, createBucket(ctx, client, noVersioningBucket, false, false))
 
 			_, err := putObjectWithRetention(ctx, client, noVersioningBucket, objKey1, lockModeCompliance, retainUntil)
-			requireS3Error(t, err, http.StatusConflict, "InvalidBucketState")
+			requireS3Error(t, err, http.StatusBadRequest, "InvalidRequest")
 		})
 
 		t.Run("put object with lock enables versioning implicitly", func(t *testing.T) {

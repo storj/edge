@@ -44,13 +44,13 @@ func TestLogErrors(t *testing.T) {
 	for i, tc := range tests {
 		log := gwlog.New()
 		ctx := log.WithContext(context.Background())
-		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, nil, UplinkConfig{}}).log(ctx, tc.input))
+		require.Error(t, (&MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, nil, uplink.Config{}}).log(ctx, tc.input))
 		require.Equal(t, tc.expected, log.TagValue("error"), i)
 	}
 }
 
 func TestInvalidAccessGrant(t *testing.T) {
-	layer := &MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, nil, UplinkConfig{}}
+	layer := &MultiTenancyLayer{minio.GatewayUnsupported{}, nil, nil, nil, nil, uplink.Config{}}
 	_, err := layer.ListBuckets(context.Background())
 	require.Error(t, err)
 	require.IsType(t, miniogo.ErrorResponse{}, err)

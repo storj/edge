@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -30,9 +29,7 @@ import (
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
-	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/project"
-	"storj.io/uplink/private/testuplink"
 	"storj.io/uplink/private/transport"
 )
 
@@ -53,22 +50,9 @@ var (
 	}
 )
 
-// UploadConfig holds the configuration for libuplink specific to uploads.
-type UploadConfig struct {
-	PieceHashAlgorithmBlake3 bool
-	RefactoredCodePath       bool
-}
-
-// UplinkConfig holds a configuration for libuplink that controls how to talk to
-// the rest of the network and adjacent settings.
-type UplinkConfig struct {
-	Base    uplink.Config
-	Uploads UploadConfig
-}
-
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
-func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config UplinkConfig, satelliteIdentities []*identity.FullIdentity) (*MultiTenancyLayer, error) {
+func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config uplink.Config, satelliteIdentities []*identity.FullIdentity) (*MultiTenancyLayer, error) {
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
 	signers := make(map[storj.NodeID]signing.Signer, len(satelliteIdentities))
@@ -95,7 +79,7 @@ type MultiTenancyLayer struct {
 	connectionPool          *rpcpool.Pool
 	satelliteSigners        map[storj.NodeID]signing.Signer
 
-	config UplinkConfig
+	config uplink.Config
 }
 
 // log all errors and relevant request information.
@@ -451,10 +435,6 @@ func (l *MultiTenancyLayer) GetObjectInfo(ctx context.Context, bucket, object st
 
 // PutObject is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObject.
 func (l *MultiTenancyLayer) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	if l.config.Uploads.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
-		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
-	}
-
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
@@ -539,10 +519,6 @@ func (l *MultiTenancyLayer) NewMultipartUpload(ctx context.Context, bucket, obje
 
 // PutObjectPart is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObjectPart.
 func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
-	if l.config.Uploads.PieceHashAlgorithmBlake3 { // the default one is PieceHashAlgorithm_SHA256
-		ctx = piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3)
-	}
-
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
 		return minio.PartInfo{}, err
@@ -679,26 +655,20 @@ func (l *MultiTenancyLayer) openProject(ctx context.Context, accessKey string) (
 func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	baseConfig, uploadsConfig := l.config.Base, l.config.Uploads
-	baseConfig.UserAgent = getUserAgent(ctx)
+	config := l.config
+	config.UserAgent = getUserAgent(ctx)
 
-	err = transport.SetConnectionPool(ctx, &baseConfig, l.connectionPool)
+	err = transport.SetConnectionPool(ctx, &config, l.connectionPool)
 	if err != nil {
 		return nil, err
 	}
 
-	err = transport.SetSatelliteConnectionPool(ctx, &baseConfig, l.satelliteConnectionPool)
+	err = transport.SetSatelliteConnectionPool(ctx, &config, l.satelliteConnectionPool)
 	if err != nil {
 		return nil, err
 	}
 
-	if uploadsConfig.RefactoredCodePath {
-		ctx = testuplink.WithConcurrentSegmentUploadsDefaultConfig(ctx)
-	} else {
-		ctx = testuplink.DisableConcurrentSegmentUploads(ctx)
-	}
-
-	proj, err := baseConfig.OpenProject(ctx, access)
+	proj, err := config.OpenProject(ctx, access)
 	if err != nil {
 		return nil, err
 	}

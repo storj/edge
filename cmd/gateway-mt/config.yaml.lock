@@ -85,12 +85,6 @@ client.satellite-identities.cert-paths: ""
 # a comma separated list of private key files. must be in the same order as the cert-paths list.
 client.satellite-identities.key-paths: ""
 
-# use Blake3 as the piece hash algorithm
-# client.upload.piece-hash-algorithm-blake3: false
-
-# use the new, refactored code path
-# client.upload.refactored-code-path: false
-
 # number of allowed concurrent uploads or downloads per macaroon head
 # concurrent-allowed: "500"
 
