@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/pkg/hash"
@@ -82,7 +83,7 @@ func TestPutObject(t *testing.T) {
 	ctx := testcontext.New(t)
 
 	dataDir := t.TempDir()
-	layer := &gatewayLayer{dataDir: dataDir}
+	layer := &gatewayLayer{dataDir: dataDir, maxObjectSize: 4 * memory.B}
 
 	require.NoError(t, layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{}))
 
@@ -107,6 +108,28 @@ func TestPutObject(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dataDir, "newbucket", "testobject/something/else"))
 	require.NoError(t, err)
+}
+
+func TestPutObjectTooLarge(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	dataDir := t.TempDir()
+	layer := &gatewayLayer{dataDir: dataDir, maxObjectSize: memory.B}
+
+	require.NoError(t, layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{}))
+
+	hashReader, err := hash.NewReader(bytes.NewReader([]byte("test")),
+		int64(len("test")),
+		"098f6bcd4621d373cade4e832627b4f6",
+		"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+		int64(len("test")),
+	)
+	require.NoError(t, err)
+
+	data := minio.NewPutObjReader(hashReader)
+
+	_, err = layer.PutObject(ctx, "testbucket", "testobject", data, minio.ObjectOptions{})
+	require.ErrorIs(t, err, ErrObjectTooLarge)
 }
 
 func TestResolvePath(t *testing.T) {

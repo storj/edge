@@ -16,9 +16,11 @@ import (
 	"sync"
 	"time"
 
+	miniogo "github.com/minio/minio-go/v7"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/version"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/pkg/auth"
@@ -26,16 +28,30 @@ import (
 	"storj.io/minio/pkg/madmin"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// ErrObjectTooLarge occurs when attempting to upload an object larger than
+	// the configured maxObjectSize on gatewayLayer.
+	ErrObjectTooLarge = miniogo.ErrorResponse{
+		Code:       "ObjectTooLarge",
+		StatusCode: http.StatusBadRequest,
+		Message:    "Object is too large",
+	}
+)
 
 // Gateway is the implementation of cmd.Gateway.
 type Gateway struct {
-	dataDir string
+	dataDir       string
+	maxObjectSize memory.Size
 }
 
 // New creates a new S3 gateway.
-func New(dataDir string) *Gateway {
-	return &Gateway{dataDir: dataDir}
+func New(dataDir string, maxObjectSize memory.Size) *Gateway {
+	return &Gateway{
+		dataDir:       dataDir,
+		maxObjectSize: maxObjectSize,
+	}
 }
 
 // Name implements cmd.Gateway.
@@ -45,7 +61,10 @@ func (gateway *Gateway) Name() string {
 
 // NewGatewayLayer implements cmd.Gateway.
 func (gateway *Gateway) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) {
-	return &gatewayLayer{dataDir: gateway.dataDir}, nil
+	return &gatewayLayer{
+		dataDir:       gateway.dataDir,
+		maxObjectSize: gateway.maxObjectSize,
+	}, nil
 }
 
 // Production implements cmd.Gateway.
@@ -54,8 +73,9 @@ func (gateway *Gateway) Production() bool {
 }
 
 type gatewayLayer struct {
-	dataDir   string
-	fileLocks sync.Map
+	dataDir       string
+	fileLocks     sync.Map
+	maxObjectSize memory.Size
 
 	minio.GatewayUnsupported
 }
@@ -171,20 +191,21 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucket, object str
 func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	content, err := io.ReadAll(data)
+	written, err := layer.syncWriteFile(bucket, object, http.MaxBytesReader(nil, data, layer.maxObjectSize.Int64()))
 	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	err = layer.syncWriteFile(bucket, object, content)
-	if err != nil {
-		return minio.ObjectInfo{}, err
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case errors.As(err, &maxBytesErr):
+			return minio.ObjectInfo{}, ErrObjectTooLarge
+		default:
+			return minio.ObjectInfo{}, err
+		}
 	}
 
 	return minio.ObjectInfo{
 		Bucket:  bucket,
 		Name:    object,
-		Size:    int64(len(content)),
+		Size:    written,
 		ModTime: time.Now(),
 	}, nil
 }
@@ -260,23 +281,34 @@ func (layer *gatewayLayer) syncReadFile(bucket, object string) (fs.FileInfo, []b
 	return info, content, nil
 }
 
-func (layer *gatewayLayer) syncWriteFile(bucket, object string, content []byte) error {
+func (layer *gatewayLayer) syncWriteFile(bucket, object string, data io.ReadCloser) (int64, error) {
 	filePath, err := resolvePath(layer.dataDir, path.Join(bucket, object))
 	if err != nil {
-		return minio.InvalidArgument{Bucket: bucket, Object: object}
+		return 0, minio.InvalidArgument{Bucket: bucket, Object: object}
 	}
 
 	lock := layer.getLock(bucket, object)
 	lock.Lock()
 	defer lock.Unlock()
 
-	err = os.WriteFile(filePath, content, 0644)
-	if errors.Is(err, os.ErrNotExist) {
-		err = os.MkdirAll(path.Dir(filePath), 0755)
-		if err != nil {
-			return err
-		}
-		err = os.WriteFile(filePath, content, 0644)
+	content, err := io.ReadAll(data)
+	if err != nil {
+		return 0, err
 	}
-	return err
+
+	if err := os.WriteFile(filePath, content, 0644); err != nil {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			if err := os.MkdirAll(path.Dir(filePath), 0755); err != nil {
+				return 0, err
+			}
+			if err := os.WriteFile(filePath, content, 0644); err != nil {
+				return 0, err
+			}
+		default:
+			return 0, err
+		}
+	}
+
+	return int64(len(content)), nil
 }

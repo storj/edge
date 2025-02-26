@@ -102,7 +102,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		Name:  "storj",
 		Usage: "Storj",
 		Action: func(cliCtx *cli.Context) error {
-			minio.StartGateway(cliCtx, simplegateway.New(runCfg.Server.DataDir))
+			minio.StartGateway(cliCtx, simplegateway.New(runCfg.Server.DataDir, runCfg.Server.MaxObjectSize))
 			return errs.New("unexpected minio exit")
 		},
 		HideHelpCommand: true,

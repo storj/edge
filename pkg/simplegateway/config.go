@@ -3,10 +3,13 @@
 
 package simplegateway
 
+import "storj.io/common/memory"
+
 // Config is configuration for gateway.
 type Config struct {
-	Address string `help:"Address to listen on" default:"127.0.0.1:7777"`
-	DataDir string `help:"Path to data storage"`
+	Address       string      `help:"Address to listen on" default:"127.0.0.1:7777"`
+	DataDir       string      `help:"Path to data storage"`
+	MaxObjectSize memory.Size `help:"Maximum object size that can be uploaded" default:"1MiB"`
 }
 
 // MinioConfig is config for minio.

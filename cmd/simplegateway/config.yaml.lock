@@ -64,6 +64,9 @@
 # Path to data storage
 # server.data-dir: ""
 
+# Maximum object size that can be uploaded
+# server.max-object-size: 1.0 MiB
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
