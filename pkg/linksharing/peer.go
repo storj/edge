@@ -5,13 +5,14 @@ package linksharing
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"sync/atomic"
 	"time"
 
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/spacemonkeygo/monkit/v3/http"
+	httpmon "github.com/spacemonkeygo/monkit/v3/http"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -23,9 +24,13 @@ import (
 	"storj.io/edge/pkg/server/middleware"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+	// ErrInvalidConcurrentRequests is an error returned when concurrent requests is not greater than zero.
+	ErrInvalidConcurrentRequests = errs.New("concurrent requests limit must be greater than zero. Check config --limits.concurrent-requests.")
+)
 
-// Config contains configurable values for sno registration Peer.
+// Config contains configurable values for Linksharing Peer.
 type Config struct {
 	Server  httpserver.Config
 	Handler sharing.Config
@@ -37,6 +42,9 @@ type Config struct {
 
 	// Maxmind geolocation database path.
 	GeoLocationDB string
+
+	// ConcurrentRequestLimit is the number of concurrent requests allowed per project ID, or if unavailable, macaroon head.
+	ConcurrentRequestLimit uint
 }
 
 // Peer is the representation of a Linksharing service itself.
@@ -61,9 +69,6 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	}
 	authClient := authclient.New(config.Handler.AuthServiceConfig)
 	txtRecords := sharing.NewTXTRecords(config.Handler.TXTRecordTTL, dnsClient, authClient)
-	if err != nil {
-		return nil, err
-	}
 
 	peer := &Peer{
 		Log:           log,
@@ -96,9 +101,18 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
 
-	eventHandle := sharing.EventHandler(handle)
+	if config.ConcurrentRequestLimit <= 0 {
+		return nil, ErrInvalidConcurrentRequests
+	}
+	limitHandle := middleware.NewConcurrentRequestsLimiter(config.ConcurrentRequestLimit,
+		func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
+		},
+	).Limit(handle)
+
+	eventHandle := sharing.EventHandler(limitHandle)
 	credsHandle := handle.CredentialsHandler(eventHandle)
-	traceHandle := http.TraceHandler(credsHandle, mon)
+	traceHandle := httpmon.TraceHandler(credsHandle, mon)
 	metricsHandle := middleware.Metrics("linksharing", traceHandle)
 	reqIDHandle := requestid.AddToContext(metricsHandle)
 

@@ -64,6 +64,7 @@ type LinkSharing struct {
 
 	SatelliteConnectionPool satelliteConnectionPoolConfig
 	ConnectionPool          connectionPoolConfig
+	Limits                  limitsConfig
 
 	CertMagic     certMagic
 	ShutdownDelay time.Duration `user:"true" help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
@@ -84,6 +85,11 @@ type satelliteConnectionPoolConfig struct {
 	KeyCapacity    int           `help:"RPC connection pool limit per key (satellite connections)" default:"0"`
 	IdleExpiration time.Duration `help:"RPC connection pool idle expiration (satellite connections)" default:"10m0s"`
 	MaxLifetime    time.Duration `help:"RPC connection pool max lifetime of a connection" default:"10m0s"`
+}
+
+// limitsConfig is a config struct for configuring request limiting behavior.
+type limitsConfig struct {
+	ConcurrentRequests uint `help:"the number of concurrent requests allowed per project ID, or if unavailable, macaroon head" default:"500"`
 }
 
 // certMagic is a config struct for configuring CertMagic options.
@@ -220,8 +226,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			DownloadPrefixEnabled: runCfg.DownloadPrefixEnabled,
 			DownloadZipLimit:      runCfg.DownloadZipLimit,
 		},
-		GeoLocationDB: runCfg.GeoLocationDB,
-		ShutdownDelay: runCfg.ShutdownDelay,
+		ConcurrentRequestLimit: runCfg.Limits.ConcurrentRequests,
+		GeoLocationDB:          runCfg.GeoLocationDB,
+		ShutdownDelay:          runCfg.ShutdownDelay,
 	})
 	if err != nil {
 		return err

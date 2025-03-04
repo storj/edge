@@ -24,6 +24,22 @@ func TestNewPeerMinimalConfig(t *testing.T) {
 			ListPageLimit: 1,
 			URLBases:      []string{"http://localhost:20020"},
 		},
+		ConcurrentRequestLimit: 1,
 	})
 	require.NoError(t, err)
+}
+
+func TestInvalidConcurrentRequests(t *testing.T) {
+	_, err := New(zaptest.NewLogger(t), Config{
+		Server: httpserver.Config{
+			Address: "127.0.0.1:0",
+		},
+		Handler: sharing.Config{
+			Assets:        assets.FS(),
+			ListPageLimit: 1,
+			URLBases:      []string{"http://localhost:20020"},
+		},
+		ConcurrentRequestLimit: 0,
+	})
+	require.Equal(t, ErrInvalidConcurrentRequests, err)
 }

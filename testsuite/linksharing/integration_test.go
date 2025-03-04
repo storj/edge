@@ -66,6 +66,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	const listPageLimit = 1
+	const concurrentRequestLimit = 1000
 
 	tests := []struct {
 		name                  string
@@ -389,15 +390,16 @@ func TestIntegration(t *testing.T) {
 				}
 
 				runEnvironment(t, ctx, environmentConfig{
-					gcsKeyPath:            gcsKeyPath,
-					gcsBucketName:         gcsBucketName,
-					publicDomain:          publicDomain,
-					ident:                 ident,
-					dnsRecords:            dnsRecords,
-					authRecords:           authRecords,
-					redirectHTTPS:         tc.redirectHTTPS,
-					landingRedirectTarget: tc.landingRedirectTarget,
-					listPageLimit:         listPageLimit,
+					gcsKeyPath:             gcsKeyPath,
+					gcsBucketName:          gcsBucketName,
+					publicDomain:           publicDomain,
+					ident:                  ident,
+					dnsRecords:             dnsRecords,
+					authRecords:            authRecords,
+					redirectHTTPS:          tc.redirectHTTPS,
+					landingRedirectTarget:  tc.landingRedirectTarget,
+					listPageLimit:          listPageLimit,
+					concurrentRequestLimit: concurrentRequestLimit,
 				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
 					require.NoError(t, err)
@@ -454,15 +456,16 @@ func TestIntegration(t *testing.T) {
 }
 
 type environmentConfig struct {
-	gcsKeyPath            string
-	gcsBucketName         string
-	publicDomain          string
-	ident                 *identity.FullIdentity
-	dnsRecords            map[string]mockdns.Zone
-	authRecords           map[string]authHandlerEntry
-	redirectHTTPS         bool
-	landingRedirectTarget string
-	listPageLimit         int
+	gcsKeyPath             string
+	gcsBucketName          string
+	publicDomain           string
+	ident                  *identity.FullIdentity
+	dnsRecords             map[string]mockdns.Zone
+	authRecords            map[string]authHandlerEntry
+	redirectHTTPS          bool
+	landingRedirectTarget  string
+	listPageLimit          int
+	concurrentRequestLimit uint
 }
 
 func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
@@ -558,6 +561,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 			LandingRedirectTarget: config.landingRedirectTarget,
 			ListPageLimit:         config.listPageLimit,
 		},
+		ConcurrentRequestLimit: config.concurrentRequestLimit,
 	})
 	require.NoError(t, err)
 

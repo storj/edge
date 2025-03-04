@@ -201,6 +201,7 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	if config.ListPageLimit <= 0 {
 		return nil, ErrInvalidListPageLimit
 	}
+
 	bases := make([]*url.URL, 0, len(config.URLBases))
 	for _, base := range config.URLBases {
 		parsed, err := parseURLBase(base)

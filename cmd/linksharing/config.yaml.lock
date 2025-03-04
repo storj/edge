@@ -121,6 +121,9 @@ key-file: ""
 # the url to redirect empty requests to
 landing-redirect-target: https://www.storj.io/
 
+# the number of concurrent requests allowed per project ID, or if unavailable, macaroon head
+# limits.concurrent-requests: "500"
+
 # maximum number of paths to list on a single page
 # list-page-limit: 100
 
