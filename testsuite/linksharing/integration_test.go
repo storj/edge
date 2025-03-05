@@ -99,6 +99,11 @@ func TestIntegration(t *testing.T) {
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusSeeOther,
+			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, _, _ string) string {
+				return fmt.Sprintf("/raw/%s/%s/", accessKey, root)
+			},
 		},
 		{
 			name: "Public domain insecure redirect",
@@ -110,6 +115,12 @@ func TestIntegration(t *testing.T) {
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+			},
+		},
+		{
+			name: "Public domain insecure index.html",
+			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
+				return fmt.Sprintf("http://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
@@ -180,13 +191,13 @@ func TestIntegration(t *testing.T) {
 		{
 			name: "Public domain TLS",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain TLS redirect",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
 			},
 			redirectHTTPS:    true,
 			wantRedirectResp: false,

@@ -506,7 +506,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket") + "/",
 			status:           http.StatusOK,
 			body:             []string{"test/"},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:             "GET prefix listing success",
@@ -1025,7 +1025,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"pagination/test1":             "FOOBAR",
 				"pagination/test2":             "FOOBAR",
 			},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 8),
+			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
 		},
 		{
 			name:   "GET bucket tar download",
@@ -1040,7 +1040,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"pagination/test1":             "FOOBAR",
 				"pagination/test2":             "FOOBAR",
 			},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 8),
+			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
 		},
 		{
 			name:             "GET prefix zip download",
@@ -1080,7 +1080,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "emptytestbucket", "?download=1"),
 			status:           http.StatusOK,
 			zipContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch", "/metainfo.Metainfo/CompressedBatch"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "emptytestbucket")
 			},
@@ -1091,7 +1091,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=tar.gz"),
 			status:           http.StatusOK,
 			tarContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch", "/metainfo.Metainfo/CompressedBatch"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
 			cleanupFunc: func() error {
 				return planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "emptytestbucket")
 			},
@@ -1102,7 +1102,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "badbucket", "?download=1"),
 			status:           http.StatusOK,
 			zipContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch", "/metainfo.Metainfo/CompressedBatch"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:             "GET bad bucket tar download",
@@ -1110,7 +1110,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "badbucket", "?download=1&download-kind=tar.gz"),
 			status:           http.StatusOK,
 			tarContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch", "/metainfo.Metainfo/CompressedBatch"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:   "GET prefix download bad download kind",
@@ -1147,7 +1147,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"TRUNCATED.txt": `This archive contains only the first 6 objects from the downloaded prefix.
 To download a larger number of objects at once, download the prefix using the tar.gz archive.`,
 			},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 8),
+			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
 		},
 	}
 

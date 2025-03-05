@@ -174,12 +174,14 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		return objectErr
 	// there are no objects with the empty key
 	case pr.realKey == "":
-		o, err := project.StatObject(ctx, pr.bucket, pr.realKey+"index.html")
-		if err == nil {
-			return handler.showObject(ctx, w, r, pr, project, o, nil, httpranger.HTTPRange{})
-		}
-		if !errors.Is(err, uplink.ErrObjectNotFound) {
-			return errdata.WithAction(err, "stat object - index.html")
+		if pr.hosting {
+			o, err := project.StatObject(ctx, pr.bucket, "index.html")
+			if err == nil {
+				return handler.showObject(ctx, w, r, pr, project, o, nil, httpranger.HTTPRange{})
+			}
+			if !errors.Is(err, uplink.ErrObjectNotFound) {
+				return errdata.WithAction(err, "stat object - index.html")
+			}
 		}
 
 		// special case for if the user requested a bucket but there's no trailing slash
