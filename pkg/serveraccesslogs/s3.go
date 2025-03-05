@@ -1,6 +1,6 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
-package accesslogs
+package serveraccesslogs
 
 import (
 	"strconv"
@@ -10,9 +10,9 @@ import (
 	"storj.io/common/memory"
 )
 
-// S3AccessLogEntryOptions represents all fields needed for producing
-// S3-style server access log entry.
-type S3AccessLogEntryOptions struct {
+// S3EntryOptions represents all fields needed for producing S3-style
+// server access log entry.
+type S3EntryOptions struct {
 	BucketOwner        string        // example: 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be
 	Bucket             string        // example: DOC-EXAMPLE-BUCKET1
 	Time               time.Time     // example: [06/Feb/2019:00:00:38 +0000]
@@ -41,16 +41,16 @@ type S3AccessLogEntryOptions struct {
 	ACLRequired        string        // example: Yes
 }
 
-// S3AccessLogEntry represents the S3-style server access log entry.
-type S3AccessLogEntry struct {
+// S3Entry represents the S3-style server access log entry.
+type S3Entry struct {
 	b *strings.Builder
 }
 
-// NewS3AccessLogEntry creates new S3AccessLogEntry.
+// NewS3Entry creates new S3Entry.
 //
 // It assumes that all relevant fields are already escaped.
-func NewS3AccessLogEntry(o S3AccessLogEntryOptions) *S3AccessLogEntry {
-	e := new(S3AccessLogEntry)
+func NewS3Entry(o S3EntryOptions) *S3Entry {
+	e := new(S3Entry)
 	e.b = new(strings.Builder)
 
 	e.writeString(o.BucketOwner)
@@ -105,17 +105,17 @@ func NewS3AccessLogEntry(o S3AccessLogEntryOptions) *S3AccessLogEntry {
 }
 
 // Size returns the size of the entry.
-func (e S3AccessLogEntry) Size() memory.Size {
+func (e S3Entry) Size() memory.Size {
 	return memory.Size(e.b.Len())
 }
 
 // String returns the formatted entry (as per
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/LogFormat.html).
-func (e S3AccessLogEntry) String() string {
+func (e S3Entry) String() string {
 	return e.b.String()
 }
 
-func (e S3AccessLogEntry) writeString(s string) {
+func (e S3Entry) writeString(s string) {
 	if s != "" {
 		e.b.WriteString(s)
 	} else {
@@ -124,7 +124,7 @@ func (e S3AccessLogEntry) writeString(s string) {
 	e.b.WriteRune(' ')
 }
 
-func (e S3AccessLogEntry) writeQuotedString(s string) {
+func (e S3Entry) writeQuotedString(s string) {
 	if s != "" {
 		e.b.WriteRune('"')
 		e.b.WriteString(s)
@@ -135,7 +135,7 @@ func (e S3AccessLogEntry) writeQuotedString(s string) {
 	e.b.WriteRune(' ')
 }
 
-func (e S3AccessLogEntry) writeInt(i int) {
+func (e S3Entry) writeInt(i int) {
 	if i > 0 {
 		e.b.WriteString(strconv.Itoa(i))
 	} else {
@@ -144,7 +144,7 @@ func (e S3AccessLogEntry) writeInt(i int) {
 	e.b.WriteRune(' ')
 }
 
-func (e S3AccessLogEntry) writeInt64(i int64) {
+func (e S3Entry) writeInt64(i int64) {
 	if i > 0 {
 		e.b.WriteString(strconv.FormatInt(i, 10))
 	} else {

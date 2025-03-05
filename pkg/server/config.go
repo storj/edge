@@ -6,8 +6,8 @@ package server
 import (
 	"time"
 
+	"storj.io/common/accesslogs"
 	"storj.io/common/memory"
-	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/uplinkutil"
 	"storj.io/gateway/miniogw"

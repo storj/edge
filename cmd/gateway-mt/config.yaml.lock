@@ -1,6 +1,9 @@
 # log entry size limit
 access-logs-processor.default-entry-limit: 2.0 KiB
 
+# log file time limit regardless of size (0 means unlimited)
+access-logs-processor.default-shipment-interval: 1h0m0s
+
 # log file size limit
 access-logs-processor.default-shipment-limit: 63.0 MiB
 

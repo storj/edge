@@ -41,13 +41,13 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/edge/internal/minioclient"
 	"storj.io/edge/internal/register"
-	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/auth"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
 	"storj.io/edge/pkg/server/middleware"
+	"storj.io/edge/pkg/serveraccesslogs"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/storj/private/testplanet"
@@ -909,7 +909,7 @@ func TestAccessLogs(t *testing.T) {
 				BucketName: "watchedbucket",
 			}: middleware.DestinationLogBucket{
 				BucketName: "destbucket",
-				Storage:    accesslogs.NewStorjStorage(logsAccess),
+				Storage:    serveraccesslogs.NewStorjStorage(logsAccess),
 				Prefix:     "logs/",
 			},
 		})

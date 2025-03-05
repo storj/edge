@@ -20,9 +20,10 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
+	"storj.io/common/accesslogs"
 	"storj.io/common/uuid"
-	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/edge/pkg/serveraccesslogs"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 )
@@ -134,7 +135,7 @@ func ParseAccessLogConfig(log *zap.Logger, config []string) (AccessLogConfig, er
 			BucketName: parts[1],
 		}] = DestinationLogBucket{
 			BucketName: parts[2],
-			Storage:    accesslogs.NewStorjStorage(parsedAccessGrant),
+			Storage:    serveraccesslogs.NewStorjStorage(parsedAccessGrant),
 			Prefix:     parts[4],
 		}
 	}
@@ -149,7 +150,7 @@ func SerializeAccessLogConfig(config AccessLogConfig) ([]string, error) {
 	for watchedBucket, destBucket := range config {
 		var serialized string
 		if destBucket.Storage != nil {
-			if storjStorage, ok := destBucket.Storage.(*accesslogs.StorjStorage); ok {
+			if storjStorage, ok := destBucket.Storage.(*serveraccesslogs.StorjStorage); ok {
 				var err error
 				serialized, err = storjStorage.SerializedAccessGrant()
 				if err != nil {
@@ -169,10 +170,10 @@ func SerializeAccessLogConfig(config AccessLogConfig) ([]string, error) {
 	return ret, nil
 }
 
-func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) accesslogs.S3AccessLogEntryOptions {
+func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) serveraccesslogs.S3EntryOptions {
 	// todo: set the right object size based on request type.
 	// S3 sets it as the part size if a part upload request, otherwise total object size for get, put, head object requests.
-	entryOptions := accesslogs.S3AccessLogEntryOptions{
+	entryOptions := serveraccesslogs.S3EntryOptions{
 		BucketOwner:        "-",
 		Bucket:             gl.BucketName,
 		Time:               startTime,
@@ -232,6 +233,6 @@ func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.T
 	return entryOptions
 }
 
-func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) accesslogs.S3AccessLogEntry {
-	return *accesslogs.NewS3AccessLogEntry(populateLogEntry(r, rw, startTime, gl))
+func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) serveraccesslogs.S3Entry {
+	return *serveraccesslogs.NewS3Entry(populateLogEntry(r, rw, startTime, gl))
 }

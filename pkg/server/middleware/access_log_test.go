@@ -20,11 +20,12 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/webhelp.v1/whmon"
 
+	"storj.io/common/accesslogs"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
+	"storj.io/edge/pkg/serveraccesslogs"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd/logger"
 	"storj.io/uplink"
@@ -45,7 +46,7 @@ func TestSerializeAccessLogConfig(t *testing.T) {
 					BucketName: "test",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 					Prefix:     "myprefix",
 				},
 			},
@@ -58,7 +59,7 @@ func TestSerializeAccessLogConfig(t *testing.T) {
 					BucketName: "test",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 				},
 			},
 			expected: []string{"01020300-0000-0000-0000-000000000000:test:mybucket:13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx:"},
@@ -70,7 +71,7 @@ func TestSerializeAccessLogConfig(t *testing.T) {
 					BucketName: "test",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 					Prefix:     "something/",
 				},
 				WatchedBucket{
@@ -78,7 +79,7 @@ func TestSerializeAccessLogConfig(t *testing.T) {
 					BucketName: "foo",
 				}: DestinationLogBucket{
 					BucketName: "anotherbucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 				},
 			},
 			expected: []string{
@@ -138,7 +139,7 @@ func TestParseAccessLogConfig(t *testing.T) {
 					BucketName: "sourcebucket",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 				},
 			},
 		},
@@ -150,7 +151,7 @@ func TestParseAccessLogConfig(t *testing.T) {
 					BucketName: "test",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 					Prefix:     "myprefix",
 				},
 			},
@@ -166,7 +167,7 @@ func TestParseAccessLogConfig(t *testing.T) {
 					BucketName: "test",
 				}: DestinationLogBucket{
 					BucketName: "mybucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 					Prefix:     "something/",
 				},
 				WatchedBucket{
@@ -174,7 +175,7 @@ func TestParseAccessLogConfig(t *testing.T) {
 					BucketName: "foo",
 				}: DestinationLogBucket{
 					BucketName: "anotherbucket",
-					Storage:    accesslogs.NewStorjStorage(testAccessGrant),
+					Storage:    serveraccesslogs.NewStorjStorage(testAccessGrant),
 				},
 			},
 		},

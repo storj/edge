@@ -1,6 +1,6 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
-package accesslogs
+package serveraccesslogs
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestS3AccessLogEntry(t *testing.T) {
+func TestS3Entry(t *testing.T) {
 	t.Parallel()
 
 	testTime, err := time.Parse(time.RFC3339, "2024-12-21T13:45:10Z")
@@ -17,7 +17,7 @@ func TestS3AccessLogEntry(t *testing.T) {
 
 	objectSize := int64(0)
 
-	o := S3AccessLogEntryOptions{
+	o := S3EntryOptions{
 		BucketOwner:        "bucketOwner",
 		Bucket:             "bucketName",
 		Time:               testTime,
@@ -44,7 +44,7 @@ func TestS3AccessLogEntry(t *testing.T) {
 		TLSVersion:         "TLSv1.2",
 	}
 
-	e := NewS3AccessLogEntry(o)
+	e := NewS3Entry(o)
 
 	require.True(t, e.Size() > 0)
 
@@ -54,11 +54,11 @@ func TestS3AccessLogEntry(t *testing.T) {
 
 var result string
 
-func BenchmarkS3AccessLogEntryToString(b *testing.B) {
+func BenchmarkS3EntryToString(b *testing.B) {
 	testTime, err := time.Parse(time.RFC3339, "2024-12-21T13:45:10Z")
 	require.NoError(b, err)
 
-	o := S3AccessLogEntryOptions{
+	o := S3EntryOptions{
 		BucketOwner:        "bucketOwner",
 		Bucket:             "bucketName",
 		Time:               testTime,
@@ -88,7 +88,7 @@ func BenchmarkS3AccessLogEntryToString(b *testing.B) {
 
 	var r string
 	for i := 0; i < b.N; i++ {
-		r = NewS3AccessLogEntry(o).String()
+		r = NewS3Entry(o).String()
 	}
 	result = r
 }

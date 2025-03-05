@@ -19,11 +19,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/accesslogs"
 	"storj.io/common/errs2"
 	"storj.io/common/http/requestid"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/version"
-	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/minio"
