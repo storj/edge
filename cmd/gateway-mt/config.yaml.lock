@@ -88,9 +88,6 @@ client.satellite-identities.cert-paths: ""
 # a comma separated list of private key files. must be in the same order as the cert-paths list.
 client.satellite-identities.key-paths: ""
 
-# number of allowed concurrent uploads or downloads per macaroon head
-# concurrent-allowed: "500"
-
 # RPC connection pool capacity (non-satellite connections)
 # connection-pool.capacity: 100
 
@@ -129,6 +126,9 @@ client.satellite-identities.key-paths: ""
 
 # insecurely log all errors, paths, and headers
 # insecure-log-all: false
+
+# number of allowed concurrent uploads or downloads per project ID, or if unavailable, macaroon head
+# limits.concurrent-requests: "500"
 
 # if true, log function filename and line number
 # log.caller: false

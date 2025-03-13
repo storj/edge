@@ -32,7 +32,6 @@ type Config struct {
 	ClientTrustedIPSList []string      `help:"list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
 	UseClientIPHeaders   bool          `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
 	InsecureLogAll       bool          `help:"insecurely log all errors, paths, and headers" default:"false"`
-	ConcurrentAllowed    uint          `help:"number of allowed concurrent uploads or downloads per macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 	IdleTimeout          time.Duration `help:"maximum time to wait for the next request" default:"60s"`
 	ShutdownDelay        time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 	DisableHTTP2         bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
@@ -43,6 +42,7 @@ type Config struct {
 	Client                  ClientConfig
 	SatelliteConnectionPool SatelliteConnectionPoolConfig
 	ConnectionPool          ConnectionPoolConfig
+	Limits                  limitsConfig
 	CertMagic               certMagic
 	StartupCheck            startupCheck
 	AccessLogsProcessor     accesslogs.Options
@@ -79,6 +79,11 @@ type SatelliteConnectionPoolConfig struct {
 	KeyCapacity    int           `help:"RPC connection pool limit per key (satellite connections)" default:"0"`
 	IdleExpiration time.Duration `help:"RPC connection pool idle expiration (satellite connections)" default:"10m0s"`
 	MaxLifetime    time.Duration `help:"RPC connection pool max lifetime of a connection" default:"10m0s"`
+}
+
+// limitsConfig is a config struct for configuring request limiting behavior.
+type limitsConfig struct {
+	ConcurrentRequests uint `help:"number of allowed concurrent uploads or downloads per project ID, or if unavailable, macaroon head" default:"500"` // see S3 CLI's max_concurrent_requests
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how to
