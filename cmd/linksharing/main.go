@@ -56,8 +56,6 @@ type LinkSharing struct {
 	DownloadPrefixEnabled  bool          `help:"whether downloading a prefix as a zip or tar file is enabled" default:"false"`
 	DownloadZipLimit       int           `help:"maximum number of files from a prefix that can be packaged into a downloadable zip" default:"1000"`
 	DynamicAssetsDir       string        `help:"use a assets dir that is reparsed for every request" default:""`
-	ConcurrentRequestLimit int           `help:"the number of concurrent requests total to allow" default:"40000"`
-	ConcurrentRequestWait  bool          `help:"if true, wait until a slot opens. if false, return 429" default:"false"`
 	BlockedPaths           string        `help:"a comma separated list of hosts and request uris to return unauthorized errors for. e.g. link.storjshare.io/raw/accesskey/bucket/path1"`
 
 	Client struct {
@@ -217,12 +215,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				ChainPEM:    clientCertPEM,
 				KeyPEM:      clientKeyPEM,
 			},
-			ListPageLimit:          runCfg.ListPageLimit,
-			ConcurrentRequestLimit: runCfg.ConcurrentRequestLimit,
-			ConcurrentRequestWait:  runCfg.ConcurrentRequestWait,
-			BlockedPaths:           strings.Split(runCfg.BlockedPaths, ","),
-			DownloadPrefixEnabled:  runCfg.DownloadPrefixEnabled,
-			DownloadZipLimit:       runCfg.DownloadZipLimit,
+			ListPageLimit:         runCfg.ListPageLimit,
+			BlockedPaths:          strings.Split(runCfg.BlockedPaths, ","),
+			DownloadPrefixEnabled: runCfg.DownloadPrefixEnabled,
+			DownloadZipLimit:      runCfg.DownloadZipLimit,
 		},
 		GeoLocationDB: runCfg.GeoLocationDB,
 		ShutdownDelay: runCfg.ShutdownDelay,

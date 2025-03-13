@@ -73,12 +73,6 @@ client.identity.cert-path: ""
 # path to the private key for this identity
 client.identity.key-path: ""
 
-# the number of concurrent requests total to allow
-# concurrent-request-limit: 40000
-
-# if true, wait until a slot opens. if false, return 429
-# concurrent-request-wait: false
-
 # RPC connection pool capacity
 connection-pool.capacity: 100
 

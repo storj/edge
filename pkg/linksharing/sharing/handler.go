@@ -18,7 +18,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/ranger"
 	"storj.io/common/ranger/httpranger"
@@ -156,11 +155,6 @@ type Config struct {
 	// A file indicating that the downloaded prefix is incomplete is included in the zip file if exceeded.
 	DownloadZipLimit int
 
-	// ConcurrentRequestLimit is the number of total concurrent requests a handler will serve. If <= 0, no limit.
-	ConcurrentRequestLimit int
-	// ConcurrentRequestWait if true will make requests wait for a free slot instead of returning 429 (the default, false).
-	ConcurrentRequestWait bool
-
 	// BlockedPaths are requests that will return unauthorized errors. Each entry in this slice
 	// is of the host and the URI on that host concatenated. N.B.: if the special
 	// path "debug" is added, then allowed paths will be logged to debug level
@@ -198,8 +192,6 @@ type Handler struct {
 	listPageLimit          int
 	downloadPrefixEnabled  bool
 	downloadZipLimit       int
-	concurrentRequests     *semaphore.Weighted
-	concurrentRequestWait  bool
 	blockedPaths           map[string]bool
 	blockedRegexes         []*regexp.Regexp
 }
@@ -307,11 +299,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		}
 	}
 
-	var concurrentRequests *semaphore.Weighted
-	if config.ConcurrentRequestLimit > 0 {
-		concurrentRequests = semaphore.NewWeighted(int64(config.ConcurrentRequestLimit))
-	}
-
 	blockedPaths := make(map[string]bool, len(config.BlockedPaths))
 	var blockedRegexes []*regexp.Regexp
 	for _, path := range config.BlockedPaths {
@@ -347,8 +334,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		listPageLimit:          config.ListPageLimit,
 		downloadPrefixEnabled:  config.DownloadPrefixEnabled,
 		downloadZipLimit:       config.DownloadZipLimit,
-		concurrentRequests:     concurrentRequests,
-		concurrentRequestWait:  config.ConcurrentRequestWait,
 		blockedPaths:           blockedPaths,
 		blockedRegexes:         blockedRegexes,
 	}, nil
@@ -493,12 +478,6 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 		handler.log.Debug("serving", zap.String("path", r.Host+r.URL.Path))
 	}
 
-	done, err := handler.rateLimit(ctx)
-	if err != nil {
-		return errdata.WithStatus(err, http.StatusTooManyRequests)
-	}
-	defer done()
-
 	ourDomain, err := isDomainOurs(r.Host, handler.urlBases)
 	if err != nil {
 		return err
@@ -543,22 +522,6 @@ func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter
 	}
 	_, err = w.Write([]byte("okay"))
 	return err
-}
-
-func (handler *Handler) rateLimit(ctx context.Context) (done func(), err error) {
-	if handler.concurrentRequests == nil {
-		return func() {}, nil
-	}
-	if handler.concurrentRequestWait {
-		err := handler.concurrentRequests.Acquire(ctx, 1)
-		if err != nil {
-			return nil, err
-		}
-	} else if !handler.concurrentRequests.TryAcquire(1) {
-		return nil, errs.New("too many requests")
-	}
-
-	return func() { handler.concurrentRequests.Release(1) }, nil
 }
 
 func cacheControlStatic(h http.Handler) http.Handler {
