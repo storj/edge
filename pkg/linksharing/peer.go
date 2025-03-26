@@ -25,6 +25,7 @@ import (
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
 	gwmiddleware "storj.io/edge/pkg/server/middleware"
+	"storj.io/edge/pkg/tierquery"
 )
 
 var (
@@ -87,13 +88,9 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		peer.Mapper = objectmap.NewIPDB(reader)
 	}
 
-	var tqs *sharing.TierQueryingService
+	var tqs *tierquery.Service
 	if config.Server.TLSConfig != nil {
-		tqs, err = sharing.NewTierQueryingService(
-			config.Server.TLSConfig.TierServiceIdentity,
-			config.Server.TLSConfig.TierCacheExpiration,
-			config.Server.TLSConfig.TierCacheCapacity,
-		)
+		tqs, err = tierquery.New(config.Server.TLSConfig.TierService, "LinkSharingService")
 		if err != nil {
 			return nil, errs.New("unable to create tier querying service: %w", err)
 		}
@@ -180,7 +177,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	return peer, nil
 }
 
-func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords, tqs *sharing.TierQueryingService, dnsClient *sharing.DNSClient) (httpserver.CertMagicOnDemandDecisionFunc, error) {
+func customDomainsOverTLSDecisionFunc(tlsConfig *httpserver.TLSConfig, txtRecords *sharing.TXTRecords, tqs *tierquery.Service, dnsClient *sharing.DNSClient) (httpserver.CertMagicOnDemandDecisionFunc, error) {
 	bases := make([]*url.URL, 0, len(tlsConfig.CertMagicPublicURLs))
 	for _, base := range tlsConfig.CertMagicPublicURLs {
 		parsed, err := url.Parse(base)

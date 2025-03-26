@@ -25,6 +25,7 @@ import (
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/edge/pkg/linksharing/sharing/assets"
+	"storj.io/edge/pkg/tierquery"
 	"storj.io/edge/pkg/uplinkutil"
 	"storj.io/uplink"
 )
@@ -171,14 +172,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertMagic:             runCfg.CertMagic.Enabled,
-			CertMagicKeyFile:      runCfg.CertMagic.KeyFile,
-			CertMagicEmail:        runCfg.CertMagic.Email,
-			CertMagicStaging:      runCfg.CertMagic.Staging,
-			CertMagicBucket:       runCfg.CertMagic.Bucket,
-			TierServiceIdentity:   runCfg.CertMagic.TierServiceIdentity,
-			TierCacheExpiration:   runCfg.CertMagic.TierCacheExpiration,
-			TierCacheCapacity:     runCfg.CertMagic.TierCacheCapacity,
+			CertMagic:        runCfg.CertMagic.Enabled,
+			CertMagicKeyFile: runCfg.CertMagic.KeyFile,
+			CertMagicEmail:   runCfg.CertMagic.Email,
+			CertMagicStaging: runCfg.CertMagic.Staging,
+			CertMagicBucket:  runCfg.CertMagic.Bucket,
+			TierService: tierquery.Config{
+				Identity:        runCfg.CertMagic.TierServiceIdentity,
+				CacheExpiration: runCfg.CertMagic.TierCacheExpiration,
+				CacheCapacity:   runCfg.CertMagic.TierCacheCapacity,
+			},
 			SkipPaidTierAllowlist: runCfg.CertMagic.SkipPaidTierAllowlist,
 			CertFile:              runCfg.CertFile,
 			KeyFile:               runCfg.KeyFile,

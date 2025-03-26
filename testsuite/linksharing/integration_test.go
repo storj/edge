@@ -52,6 +52,7 @@ import (
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/edge/pkg/linksharing/sharing/assets"
+	"storj.io/edge/pkg/tierquery"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -759,11 +760,13 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 					CertificatePath: caCertPath,
 					Resolver:        dnsSrv.LocalAddr().String(),
 				},
-				CertMagicKeyFile:    config.gcsKeyPath,
-				CertMagicBucket:     config.gcsBucketName,
-				TierServiceIdentity: identityConfig,
-				TierCacheExpiration: 10 * time.Second,
-				TierCacheCapacity:   10000,
+				CertMagicKeyFile: config.gcsKeyPath,
+				CertMagicBucket:  config.gcsBucketName,
+				TierService: tierquery.Config{
+					Identity:        identityConfig,
+					CacheExpiration: 10 * time.Second,
+					CacheCapacity:   10000,
+				},
 				CertMagicPublicURLs: publicURLs,
 				Ctx:                 ctx,
 			},

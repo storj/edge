@@ -25,10 +25,10 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
 	"storj.io/edge/pkg/certstorage"
 	"storj.io/edge/pkg/gpublicca"
 	"storj.io/edge/pkg/startupcheck"
+	"storj.io/edge/pkg/tierquery"
 )
 
 var mon = monkit.Package()
@@ -128,14 +128,8 @@ type TLSConfig struct {
 	// CertMagicBucket bucket to use for certstorage
 	CertMagicBucket string
 
-	// TierServiceIdentity is the tier querying service identity config
-	TierServiceIdentity identity.Config
-
-	// TierCacheExpiration is the expiration time for the tier querying service cache
-	TierCacheExpiration time.Duration
-
-	// TierCacheCapacity is the tier querying service cache size
-	TierCacheCapacity int
+	// TierService is the configuration for the tier-querying service.
+	TierService tierquery.Config
 
 	// SkipPaidTierAllowlist is a list of domain names to which bypass paid tier queries.
 	// If any one value is set to "*" then the paid tier checking is disabled entirely.
