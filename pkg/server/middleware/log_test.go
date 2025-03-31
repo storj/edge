@@ -33,7 +33,7 @@ func TestResponseNoPaths(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -59,7 +59,7 @@ func TestResponsePathsIncluded(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -89,7 +89,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -121,7 +121,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest("GET", "/test?q=123", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/test?q=123", nil).WithContext(ctx)
 	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=jvvsakmsemhqns6g7ix7pinqlyuq/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123")
 	req.Header.Set("X-Amz-Date", "20060102T150405Z")
 	rr := httptest.NewRecorder()
@@ -166,7 +166,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest("GET", "/test?q=123", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/test?q=123", nil).WithContext(ctx)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -213,7 +213,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 			target = fmt.Sprintf("/?%s=test", test.query)
 		}
 
-		req := httptest.NewRequest("GET", target, nil).WithContext(ctx)
+		req := httptest.NewRequest(http.MethodGet, target, nil).WithContext(ctx)
 		rr := httptest.NewRecorder()
 
 		if test.header != "" {
@@ -303,7 +303,7 @@ func TestRemoteIP(t *testing.T) {
 				})
 			}
 
-			req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+			req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
 			req.RemoteAddr = tc.remoteAddr
 			req.Header = tc.header
 

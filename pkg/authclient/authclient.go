@@ -64,7 +64,7 @@ func (a *AuthClient) Resolve(ctx context.Context, accessKeyID string, clientIP s
 	}
 
 	reqURL.Path = path.Join(reqURL.Path, "/v1/access", accessKeyID)
-	req, err := http.NewRequestWithContext(ctx, "GET", reqURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if err != nil {
 		return AuthServiceResponse{}, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusInternalServerError)
 	}
@@ -170,7 +170,7 @@ func (a *AuthClient) GetHealthLive(ctx context.Context) (_ bool, err error) {
 	if err != nil {
 		return false, errdata.WithStatus(AuthServiceError.Wrap(err), http.StatusBadRequest)
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", healthLiveURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthLiveURL.String(), nil)
 	if err != nil {
 		return false, AuthServiceError.Wrap(err)
 	}

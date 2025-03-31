@@ -6,9 +6,9 @@ package sharing
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"go.uber.org/zap"
 
@@ -98,14 +98,14 @@ func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, loc
 			data = bytes.Replace(data, []byte("</svg>"), []byte(
 				`<text x="3%" y="75%" width="100%" dominant-baseline="middle" text-anchor="left"
 	    style="font-family:Poppins,sans-serif;font-size:18px;fill:#6c757d;fill-opacity:1;">
-	    <tspan font-weight="bold">Pieces:</tspan> `+fmt.Sprint(pieces)+`
+	    <tspan font-weight="bold">Pieces:</tspan> `+strconv.FormatInt(pieces, 10)+`
 	    <tspan x="3%" dy="1.4em"><tspan font-weight="bold">Size:</tspan> `+memory.Size(o.System.ContentLength).Base10String()+`</tspan>
 	  </text>
 	</svg>`), 1)
 		}
 	}
 
-	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, err = w.Write(data)
 	return err
 }

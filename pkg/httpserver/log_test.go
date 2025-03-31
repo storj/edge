@@ -77,7 +77,7 @@ func TestRemoteIP(t *testing.T) {
 				})
 			}
 
-			req := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+			req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
 			req.RemoteAddr = tc.remoteAddr
 			req.Header = tc.header
 

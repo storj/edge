@@ -326,7 +326,7 @@ type APIError struct {
 
 // Error implements the error interface.
 func (e APIError) Error() string {
-	msg := fmt.Sprintf("unexpected status: %s", e.Status)
+	msg := "unexpected status: " + e.Status
 	if e.Message != "" {
 		msg += fmt.Sprintf(": %q", e.Message)
 	}

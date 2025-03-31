@@ -38,7 +38,7 @@ func TestMetrics(t *testing.T) {
 		})
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
 	assert.NoError(t, err)
 	rr := httptest.NewRecorder()
 

@@ -307,7 +307,7 @@ func TestPeer_ProxyProtocol(t *testing.T) {
 		},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/v1/health/startup", p.ProxyAddressTLS()), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/v1/health/startup", p.ProxyAddressTLS()), nil)
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)

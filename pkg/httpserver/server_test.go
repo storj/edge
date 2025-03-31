@@ -204,7 +204,7 @@ func TestProxyProtocol(t *testing.T) {
 		},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s", server.ProxyAddrTLS()), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+server.ProxyAddrTLS(), nil)
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)
@@ -270,7 +270,7 @@ func (testCase *serverTestCase) DoGet(ctx context.Context, tb testing.TB) {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s://%s", scheme, addr), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s://%s", scheme, addr), nil)
 	require.NoError(tb, err)
 
 	resp, err := client.Do(req)

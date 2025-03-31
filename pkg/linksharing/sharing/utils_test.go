@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"fmt"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func TestMutexGroup(t *testing.T) {
 		for workerNo := 0; workerNo < 10; workerNo++ {
 			lockNo := lockNo
 			accesses.Go(func() error {
-				lockName := fmt.Sprint(lockNo)
+				lockName := strconv.Itoa(lockNo)
 
 				highwater := int32(0)
 

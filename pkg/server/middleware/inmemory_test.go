@@ -17,7 +17,7 @@ func TestSetInMemory(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
 	require.NoError(t, err)
 
 	verify := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

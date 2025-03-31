@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestClient_BasicCycle(t *testing.T) {
 
 	// upload some objects to test listing
 	for i := 1; i <= 3; i++ {
-		require.NoError(t, c.Upload(ctx, nil, bucket, fmt.Sprintf("%d", i), nil))
+		require.NoError(t, c.Upload(ctx, nil, bucket, strconv.Itoa(i), nil))
 		require.NoError(t, c.Upload(ctx, nil, bucket, fmt.Sprintf("%d/%d", i, i+1), nil))
 		require.NoError(t, c.Upload(ctx, nil, bucket, fmt.Sprintf("%d/%d/%d", i, i+1, i+2), nil))
 	}
@@ -86,7 +87,7 @@ func TestClient_BasicCycle(t *testing.T) {
 	require.NoError(t, c.Delete(ctx, headers, bucket, "o"))
 
 	for i := 1; i <= 3; i++ {
-		require.NoError(t, c.Delete(ctx, nil, bucket, fmt.Sprintf("%d", i)))
+		require.NoError(t, c.Delete(ctx, nil, bucket, strconv.Itoa(i)))
 		require.NoError(t, c.Delete(ctx, nil, bucket, fmt.Sprintf("%d/%d", i, i+1)))
 		require.NoError(t, c.Delete(ctx, nil, bucket, fmt.Sprintf("%d/%d/%d", i, i+1, i+2)))
 	}

@@ -94,7 +94,7 @@ func readNodeList(input []byte, satellites map[storj.NodeURL]struct{}) (err erro
 func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -104,7 +104,7 @@ func getHTTPList(ctx context.Context, url string) (_ []byte, err error) {
 	}
 	defer func() { err = errs.Combine(err, Error.Wrap(res.Body.Close())) }()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		return nil, Error.New("HTTP failed with HTTP status %d", res.StatusCode)
 	}
 	bodyBytes, err := io.ReadAll(res.Body)

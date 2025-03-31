@@ -58,7 +58,7 @@ func TestDir(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {})
 	matches := func(path string, dir Dir) bool {
 		rec := httptest.NewRecorder()
-		dir.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		dir.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		return rec.Code == http.StatusOK
 	}
 

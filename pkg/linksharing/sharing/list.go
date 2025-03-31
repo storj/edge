@@ -202,7 +202,7 @@ func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, 
 		fileName = endOfPrefix
 	}
 	fileName += ".zip"
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 
 	zipWriter := zip.NewWriter(w)
 	defer func() { err = errs.Combine(err, zipWriter.Close()) }()
@@ -286,7 +286,7 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 		fileName = endOfPrefix
 	}
 	fileName += ".tar.gz"
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 
 	gzipWriter := gzip.NewWriter(w)
 	defer func() { err = errs.Combine(err, gzipWriter.Close()) }()

@@ -61,7 +61,7 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 
 			ctx := testcontext.New(t)
 			w := httptest.NewRecorder()
-			r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test?download", nil)
+			r, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://test.test?download", nil)
 			require.NoError(t, err)
 
 			pr := &parsedRequest{}
@@ -225,7 +225,7 @@ func TestContentDisposition(t *testing.T) {
 
 			ctx := testcontext.New(t)
 			w := httptest.NewRecorder()
-			r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test", nil)
+			r, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://test.test", nil)
 			require.NoError(t, err)
 
 			pr := &parsedRequest{hosting: tc.hosting}
@@ -405,7 +405,7 @@ func testZipItemContentType(ctx context.Context, t *testing.T, handler *Handler,
 	pr := &parsedRequest{}
 	project := &uplink.Project{}
 	object := &uplink.Object{Key: "test.zip"}
-	r, err := http.NewRequestWithContext(ctx, "GET", "http://test.test?download&path="+path, nil)
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://test.test?download&path="+path, nil)
 	require.NoError(t, err)
 	if len(rangeStr) > 0 {
 		r.Header.Add("Range", rangeStr)

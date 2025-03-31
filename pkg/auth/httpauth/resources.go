@@ -196,7 +196,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 			res.writeError(w, "newAccess", fmt.Sprintf("%s will never be used: %s", key.ToBase32(), err), 499)
 			return
 		}
-		res.writeError(w, "newAccess", fmt.Sprintf("error storing request in database: %s", err.Error()), http.StatusInternalServerError)
+		res.writeError(w, "newAccess", "error storing request in database: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

@@ -129,7 +129,7 @@ func (client *Minio) ListBucketsAttribution(ctx context.Context) ([]string, erro
 	}
 	endpointURLStr := scheme + "://" + client.config.S3Gateway + "/?attribution"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", endpointURLStr, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpointURLStr, nil)
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}

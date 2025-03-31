@@ -85,7 +85,7 @@ Content-Type: text/plain
 This is some plain text.
 
 -----------------------------9051914041544843365972754266--`
-	req, err := http.NewRequestWithContext(ctx, "POST", "", strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=---------------------------9051914041544843365972754266")
 
@@ -135,7 +135,7 @@ Content-Type: text/plain
 This is some plain text.
 
 -----------------------------9051914041544843365972754266--`
-	req, err := http.NewRequestWithContext(ctx, "POST", "", strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=---------------------------9051914041544843365972754266")
 
@@ -196,7 +196,7 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=jwaohtj3dhixxfpzhwj522x7z3pb/20211026/us-east-1/s3/aws4_request, Signature=test")
 			req.Header.Set("X-Amz-Date", "20211026T233405Z")

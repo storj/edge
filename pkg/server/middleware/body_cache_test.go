@@ -13,7 +13,7 @@ import (
 
 func TestNewBodyCache(t *testing.T) {
 
-	orig := io.NopCloser(bytes.NewBuffer([]byte("This is a test")))
+	orig := io.NopCloser(bytes.NewBufferString("This is a test"))
 	bc := newBodyCache(orig)
 
 	this := make([]byte, 4)
@@ -43,7 +43,7 @@ func TestNewBodyCache(t *testing.T) {
 	require.Equal(t, 4, n)
 
 	// Empty Buffer
-	orig = io.NopCloser(bytes.NewBuffer([]byte("")))
+	orig = io.NopCloser(bytes.NewBufferString(""))
 	bc = newBodyCache(orig)
 	empty := make([]byte, 64)
 	n, err = bc.Read(empty)
@@ -55,7 +55,7 @@ func TestNewBodyCache(t *testing.T) {
 	require.Equal(t, 0, n)
 
 	// Read until EOF, reset
-	orig = io.NopCloser(bytes.NewBuffer([]byte("12")))
+	orig = io.NopCloser(bytes.NewBufferString("12"))
 	bc = newBodyCache(orig)
 	one := make([]byte, 1)
 	n, err = bc.Read(one)
@@ -84,7 +84,7 @@ func TestNewBodyCache(t *testing.T) {
 	require.Equal(t, 0, n)
 
 	// Read half buffer and reset
-	orig = io.NopCloser(bytes.NewBuffer([]byte("12")))
+	orig = io.NopCloser(bytes.NewBufferString("12"))
 	bc = newBodyCache(orig)
 	one = make([]byte, 1)
 	n, err = bc.Read(one)
@@ -103,7 +103,7 @@ func TestNewBodyCache(t *testing.T) {
 	require.Equal(t, 0, n)
 
 	// Read whole buffer then reset
-	orig = io.NopCloser(bytes.NewBuffer([]byte("12")))
+	orig = io.NopCloser(bytes.NewBufferString("12"))
 	bc = newBodyCache(orig)
 	ten := make([]byte, 10)
 	n, err = bc.Read(ten)

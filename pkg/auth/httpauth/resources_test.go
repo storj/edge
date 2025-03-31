@@ -159,7 +159,7 @@ func TestResources_CRUD(t *testing.T) {
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(createRequest))
+		req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(createRequest))
 		req.Header.Set("Authorization", "Bearer authToken")
 		res.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -246,11 +246,11 @@ func TestResources_CRUD(t *testing.T) {
 
 		check := func(body string, expectedCode int) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(body))
 			req.Header.Set("Authorization", "Bearer authToken")
 			res.ServeHTTP(rec, req)
 
-			require.Equal(t, expectedCode, rec.Code, fmt.Sprintf("body: %s", body))
+			require.Equal(t, expectedCode, rec.Code, "body: "+body)
 		}
 
 		check("", http.StatusUnprocessableEntity)
@@ -279,7 +279,7 @@ func TestResources_Authorization(t *testing.T) {
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
-	req := httptest.NewRequest("POST", "/v1/access", strings.NewReader(createRequest))
+	req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(createRequest))
 	rec := httptest.NewRecorder()
 	res.ServeHTTP(rec, req)
 	var out map[string]interface{}
@@ -390,7 +390,7 @@ func TestResources_Shutdown(t *testing.T) {
 
 	check := func(inShutdown bool) int {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/v1/health/live", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
 
 		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
 		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)

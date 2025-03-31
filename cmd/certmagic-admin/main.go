@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -154,7 +155,7 @@ func (cmd *cmdObtain) Setup(params clingy.Parameters) {
 
 func (cmd *cmdObtain) Execute(ctx context.Context) error {
 	if cmd.config.Email == "" {
-		return fmt.Errorf("email required")
+		return errors.New("email required")
 	}
 	magic, err := configureCertMagic(ctx, cmd.config, cmd.gPublicCA, cmd.letsEncrypt)
 	if err != nil {
@@ -180,7 +181,7 @@ func (cmd *cmdRenew) Setup(params clingy.Parameters) {
 
 func (cmd *cmdRenew) Execute(ctx context.Context) error {
 	if cmd.config.Email == "" {
-		return fmt.Errorf("email required")
+		return errors.New("email required")
 	}
 	magic, err := configureCertMagic(ctx, cmd.config, true, true)
 	if err != nil {
@@ -212,7 +213,7 @@ func (cmd *cmdRevoke) Setup(params clingy.Parameters) {
 
 func (cmd *cmdRevoke) Execute(ctx context.Context) error {
 	if cmd.config.Email == "" {
-		return fmt.Errorf("email required")
+		return errors.New("email required")
 	}
 	magic, err := configureCertMagic(ctx, cmd.config, cmd.gPublicCA, cmd.letsEncrypt)
 	if err != nil {
@@ -396,7 +397,7 @@ func parseReason(name string) (int, error) {
 		r = aACompromise
 
 	default:
-		return 0, fmt.Errorf("invalid reason")
+		return 0, errors.New("invalid reason")
 	}
 	return int(r), nil
 }

@@ -86,7 +86,7 @@ func TestHandler_CORS(t *testing.T) {
 func TestHandler_Shutdown(t *testing.T) {
 	check := func(inShutdown *int32) int {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "http://test.test/health/process", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://test.test/health/process", nil)
 
 		cfg := Config{
 			ListPageLimit: 1,

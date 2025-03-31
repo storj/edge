@@ -90,7 +90,7 @@ func testWithCredentials(ctx *testcontext.Context, t *testing.T, creds *Credenti
 
 func doRequest(ctx context.Context, t *testing.T, creds *Credentials, handler http.Handler) int {
 	credCtx := context.WithValue(ctx, credentialsCV{}, creds)
-	req, err := http.NewRequestWithContext(credCtx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(credCtx, http.MethodGet, "", nil)
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
