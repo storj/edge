@@ -86,7 +86,7 @@ func TestIntegration(t *testing.T) {
 		{
 			name: "Public domain landing page redirect",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/", publicDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s/", lookupHost(t, publicDomain, peer.Server.Addr()))
 			},
 			landingRedirectTarget: "https://www.storj.io/",
 			wantRedirectResp:      true,
@@ -98,7 +98,7 @@ func TestIntegration(t *testing.T) {
 		{
 			name: "Public domain insecure",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/raw/%s/%s", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusSeeOther,
@@ -109,96 +109,96 @@ func TestIntegration(t *testing.T) {
 		{
 			name: "Public domain insecure redirect",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/raw/%s/%s", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/raw/%s/%s", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("https://%s/raw/%s/%s", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain insecure index.html",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/raw/%s/%s/index.html", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain insecure redirect with escaping",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+				return fmt.Sprintf("http://%s/s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+				return fmt.Sprintf("https://%s/s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
 		},
 		{
 			name: "Public domain insecure redirect without /s or /raw prefix and with escaping",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+				return fmt.Sprintf("http://%s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/s/%s/test%%20something.txt", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey)
+				return fmt.Sprintf("https://%s/s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
 		},
 		{
 			name: "Public domain insecure redirect without /s or /raw prefix",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain insecure redirect to HTTPS without /s or /raw prefix",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("http://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("http://%s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.Addr()), accessKey, root)
+				return fmt.Sprintf("https://%s/s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain secure redirect without /s or /raw prefix",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/s/%s/%s/index.html?download=1", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s/s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
 		},
 		{
 			name: "Custom domain insecure",
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 		},
 		{
 			name: "Public domain TLS",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s/raw/%s/%s/index.html", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
 		},
 		{
 			name: "Public domain TLS redirect",
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
-				return fmt.Sprintf("https://%s:%d/raw/%s/%s/index.html", publicDomain, lookupPort(t, peer.Server.AddrTLS()), accessKey, root)
+				return fmt.Sprintf("https://%s/raw/%s/%s/index.html", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
 			redirectHTTPS:    true,
 			wantRedirectResp: false,
@@ -210,7 +210,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 			wantErr: true,
 		},
@@ -221,7 +221,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 			redirectHTTPS:    true,
 			wantRedirectResp: false,
@@ -230,7 +230,7 @@ func TestIntegration(t *testing.T) {
 			name:      "Custom domain TLS not paid tier",
 			tlsRecord: true,
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 			wantErr: true,
 		},
@@ -247,7 +247,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
 			},
 			wantErr: true,
 		},
@@ -258,7 +258,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 		},
 		{
@@ -268,13 +268,13 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d/", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("https://%s/", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 		},
 		{
@@ -284,13 +284,13 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("http://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("http://%s/test%%20something.txt", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d/test%%20something.txt", customDomain, lookupPort(t, peer.Server.Addr()))
+				return fmt.Sprintf("https://%s/test%%20something.txt", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
 		},
 		{
@@ -300,7 +300,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
 			},
 		},
 		{
@@ -310,7 +310,7 @@ func TestIntegration(t *testing.T) {
 				return newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
-				return fmt.Sprintf("https://%s:%d", customDomain, lookupPort(t, peer.Server.AddrTLS()))
+				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
 			},
 			redirectHTTPS:    true,
 			wantRedirectResp: false,
@@ -524,7 +524,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 	addressTLS := tempListener.Addr().String()
 	require.NoError(t, tempListener.Close())
 
-	issuerURL := fmt.Sprintf("https://%s:%d/dir", pebbleDomain, lookupPort(t, pebbleListener.Addr().String()))
+	issuerURL := fmt.Sprintf("https://%s/dir", lookupHost(t, pebbleDomain, pebbleListener.Addr().String()))
 
 	peer, err := linksharing.New(logger.Named("peer"), linksharing.Config{
 		Server: httpserver.Config{
@@ -628,8 +628,15 @@ func randomNameLowercase(length int) string {
 	return strings.ToLower(string(testrand.RandAlphaNumeric(length)))
 }
 
-func lookupPort(t *testing.T, addr string) int {
-	_, port, err := net.SplitHostPort(addr)
+func lookupHost(t *testing.T, host, hostPort string) string {
+	_, port, err := net.SplitHostPort(hostPort)
+	require.NoError(t, err)
+
+	return net.JoinHostPort(host, port)
+}
+
+func lookupPort(t *testing.T, hostPort string) int {
+	_, port, err := net.SplitHostPort(hostPort)
 	require.NoError(t, err)
 
 	lookupPort, err := net.LookupPort("tcp", port)
