@@ -247,8 +247,14 @@ linksharing-image: ## Build linksharing Docker image
 	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
 
 .PHONY: simplegateway-image
-simplegateway-image: ## Build simplegateway Docker image (linux/amd64 only)
+simplegateway-image: ## Build simplegateway Docker image
 	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/simplegateway:${TAG}-amd64 \
+		-f cmd/simplegateway/Dockerfile .
+	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/simplegateway:${TAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/simplegateway/Dockerfile .
+	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/simplegateway:${TAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/simplegateway/Dockerfile .
 	docker tag storjlabs/simplegateway:${TAG}-amd64 storjlabs/simplegateway:${LATEST_DEV_TAG}
 
