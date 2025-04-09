@@ -284,7 +284,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
-	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
+	storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89 // indirect
 	storj.io/gateway v1.10.1-0.20250404043257-08ede73680c6 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
