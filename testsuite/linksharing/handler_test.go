@@ -214,24 +214,25 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	}
 
 	testCases := []struct {
-		name             string
-		host             string
-		method           string
-		path             string
-		dnsRecords       map[string]mockdns.Zone
-		redirectLocation string
-		status           int
-		reqHeader        map[string]string
-		body             []string
-		notContains      []string
-		zipContent       map[string]string
-		tarContent       map[string]string
-		listPageLimit    *listPageLimit
-		newHandlerErr    error
-		authserver       string
-		expectedRPCCalls []string
-		prepFunc         func() error
-		cleanupFunc      func() error
+		name                  string
+		host                  string
+		method                string
+		path                  string
+		dnsRecords            map[string]mockdns.Zone
+		redirectLocation      string
+		status                int
+		reqHeader             map[string]string
+		body                  []string
+		notContains           []string
+		downloadPrefixEnabled bool
+		zipContent            map[string]string
+		tarContent            map[string]string
+		listPageLimit         *listPageLimit
+		newHandlerErr         error
+		authserver            string
+		expectedRPCCalls      []string
+		prepFunc              func() error
+		cleanupFunc           func() error
 	}{
 		{
 			name:             "invalid method",
@@ -1013,10 +1014,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
-			name:   "GET bucket zip download",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "?download=1"),
-			status: http.StatusOK,
+			name:                  "GET bucket zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
 			zipContent: map[string]string{
 				"test/foo":                     "FOOBAR",
 				"pagination/.foo":              "FOO",
@@ -1028,10 +1030,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
 		},
 		{
-			name:   "GET bucket tar download",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=tar.gz"),
-			status: http.StatusOK,
+			name:                  "GET bucket tar download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
 			tarContent: map[string]string{
 				"test/foo":                     "FOOBAR",
 				"pagination/.foo":              "FOO",
@@ -1043,80 +1046,89 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
 		},
 		{
-			name:             "GET prefix zip download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "test/?download=1"),
-			status:           http.StatusOK,
-			zipContent:       map[string]string{"foo": "FOOBAR"},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			name:                  "GET prefix zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			zipContent:            map[string]string{"foo": "FOOBAR"},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
 		},
 		{
-			name:             "GET prefix tar download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
-			status:           http.StatusOK,
-			tarContent:       map[string]string{"foo": "FOOBAR"},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			name:                  "GET prefix tar download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			tarContent:            map[string]string{"foo": "FOOBAR"},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
 		},
 		{
-			name:             "GET empty prefix zip download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1"),
-			status:           http.StatusOK,
-			zipContent:       map[string]string{},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			name:                  "GET empty prefix zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			zipContent:            map[string]string{},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
-			name:             "GET empty prefix tar download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1&download-kind=tar.gz"),
-			status:           http.StatusOK,
-			tarContent:       map[string]string{},
-			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			name:                  "GET empty prefix tar download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			tarContent:            map[string]string{},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
-			name:             "GET empty bucket zip download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "emptytestbucket", "?download=1"),
-			status:           http.StatusOK,
-			zipContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
+			name:                  "GET empty bucket zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			zipContent:            map[string]string{},
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "emptytestbucket")
 			},
 		},
 		{
-			name:             "GET empty bucket tar download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=tar.gz"),
-			status:           http.StatusOK,
-			tarContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
+			name:                  "GET empty bucket tar download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			tarContent:            map[string]string{},
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 			cleanupFunc: func() error {
 				return planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "emptytestbucket")
 			},
 		},
 		{
-			name:             "GET bad bucket zip download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "badbucket", "?download=1"),
-			status:           http.StatusOK,
-			zipContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
+			name:                  "GET bad bucket zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			zipContent:            map[string]string{},
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
-			name:             "GET bad bucket tar download",
-			method:           "GET",
-			path:             path.Join("s", serializedAccess, "badbucket", "?download=1&download-kind=tar.gz"),
-			status:           http.StatusOK,
-			tarContent:       map[string]string{},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch"},
+			name:                  "GET bad bucket tar download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			tarContent:            map[string]string{},
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
-			name:   "GET prefix download bad download kind",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=notarealfiletype"),
-			status: http.StatusBadRequest,
+			name:                  "GET prefix download bad download kind",
+			method:                "GET",
+			downloadPrefixEnabled: true,
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=notarealfiletype"),
+			status:                http.StatusBadRequest,
 		},
 		{
 			name:   "GET bucket zip download above limit",
@@ -1136,7 +1148,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				}
 				return eg.Err()
 			},
-			status: http.StatusOK,
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
 			zipContent: map[string]string{
 				"test/foo":         "FOOBAR",
 				"test/new0":        "FOO",
@@ -1148,6 +1161,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 To download a larger number of objects at once, download the prefix using the tar.gz archive.`,
 			},
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
+		},
+		{
+			name:             "GET prefix download falls back to listing prefix if config disabled",
+			method:           "GET",
+			path:             path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
+			status:           http.StatusOK,
+			body:             []string{"test/"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 	}
 
@@ -1201,7 +1222,7 @@ To download a larger number of objects at once, download the prefix using the ta
 				AuthServiceConfig:     authConfig,
 				DNSServer:             dnsSrv.LocalAddr().String(),
 				ListPageLimit:         listPageLimit,
-				DownloadPrefixEnabled: true,
+				DownloadPrefixEnabled: testCase.downloadPrefixEnabled,
 				DownloadZipLimit:      6,
 			})
 			require.Equal(t, testCase.newHandlerErr, err)

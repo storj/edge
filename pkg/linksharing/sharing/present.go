@@ -117,7 +117,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
-		if (download || !wrap) && !pr.hosting {
+		if handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting {
 			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
 		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
@@ -192,7 +192,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 			http.Redirect(w, r, u.String(), http.StatusSeeOther)
 			return nil
 		}
-		if (download || !wrap) && !pr.hosting {
+		if handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting {
 			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
 		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
