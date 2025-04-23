@@ -14,11 +14,11 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20250404195112-72bfbe41709e
+	storj.io/common v0.0.0-20250417130254-ed442fd0e04f
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20250401203336-4f3c22e9dbf2
-	storj.io/storj v1.126.3
-	storj.io/uplink v1.13.2-0.20250408105506-951dddb666db
+	storj.io/storj v1.127.1
+	storj.io/uplink v1.13.2-0.20250411115637-46e46ee70e74
 )
 
 require (
@@ -284,9 +284,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
-	storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89 // indirect
-	storj.io/gateway v1.10.1-0.20250410114333-b5b04fd14bb6 // indirect
+	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
+	storj.io/gateway v1.10.1-0.20250423023459-a6c654fd3ee6 // indirect
 	storj.io/infectious v0.0.2 // indirect
+	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
