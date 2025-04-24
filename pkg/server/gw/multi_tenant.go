@@ -474,21 +474,16 @@ func (l *MultiTenancyLayer) DeleteObject(ctx context.Context, bucket, object str
 }
 
 // DeleteObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteObjects.
-func (l *MultiTenancyLayer) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, errors []error) {
+func (l *MultiTenancyLayer) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, deleteErrors []minio.DeleteObjectsError, err error) {
 	project, err := l.openProject(ctx, getAccessGrant(ctx))
 	if err != nil {
-		return nil, []error{err}
+		return nil, nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	deleted, errors = l.layer.DeleteObjects(miniogw.WithUplinkProject(ctx, project), bucket, objects, opts)
-
-	for _, err := range errors {
-		_ = l.log(ctx, err)
-	}
-
-	return deleted, errors
+	deleted, deleteErrors, err = l.layer.DeleteObjects(miniogw.WithUplinkProject(ctx, project), bucket, objects, opts)
+	return deleted, deleteErrors, l.log(ctx, err)
 }
 
 // ListMultipartUploads is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListMultipartUploads.

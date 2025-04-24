@@ -218,8 +218,8 @@ func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucket, objectPath 
 	return minio.ObjectInfo{}, minio.NotImplemented{}
 }
 
-func (layer *gatewayLayer) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []error) {
-	return nil, []error{minio.NotImplemented{}}
+func (layer *gatewayLayer) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []minio.DeleteObjectsError, error) {
+	return nil, nil, minio.NotImplemented{}
 }
 
 func (layer *gatewayLayer) GetObjectLockConfig(ctx context.Context, bucket string) (*objectlock.Config, error) {

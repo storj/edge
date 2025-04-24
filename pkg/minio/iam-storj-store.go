@@ -113,8 +113,8 @@ func (iamOS *NotImplementedObjectStore) DeleteObject(ctx context.Context, bucket
 }
 
 // DeleteObjects is unimplemented, but required to meet the ObjectLayer interface.
-func (iamOS *NotImplementedObjectStore) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []error) {
-	return []minio.DeletedObject{}, []error{minio.NotImplemented{}}
+func (iamOS *NotImplementedObjectStore) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) ([]minio.DeletedObject, []minio.DeleteObjectsError, error) {
+	return []minio.DeletedObject{}, []minio.DeleteObjectsError{}, minio.NotImplemented{}
 }
 
 // GetBucketInfo is unimplemented, but required to meet the ObjectLayer interface.
