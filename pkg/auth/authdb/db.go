@@ -17,11 +17,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/encryption"
-	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/common/version"
+	internalAccess "storj.io/edge/internal/access"
 	"storj.io/edge/pkg/nodelist"
+	"storj.io/edge/pkg/tierquery"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 	privateProject "storj.io/uplink/private/project"
@@ -127,31 +128,55 @@ func toBase32(k []byte) string {
 	return strings.ToLower(base32Encoding.EncodeToString(k))
 }
 
+// Config contains configuration parameters for a Database.
+type Config struct {
+	AllowedSatelliteURLs    map[storj.NodeURL]struct{}
+	RetrievePublicProjectID bool
+	FreeTierAccessLimit     FreeTierAccessLimitConfig
+}
+
+// FreeTierAccessLimitConfig contains settings for restricting the access grants of free tier users.
+type FreeTierAccessLimitConfig struct {
+	MaxDuration time.Duration `help:"maximum amount of time that free tier users' access grants are allowed to be active for. 0 means no limit" default:"0"`
+	TierQuery   tierquery.Config
+}
+
 // Database wraps Storage implementation and uses it to store encrypted accesses
 // and secrets.
 type Database struct {
-	storage Storage
-	logger  *zap.Logger
+	storage     Storage
+	logger      *zap.Logger
+	tierService *tierquery.Service
 
-	mu                      sync.Mutex
-	allowedSatelliteURLs    map[storj.NodeURL]struct{}
-	retrievePublicProjectID bool
-	uplinkConfig            uplink.Config
+	config       Config
+	uplinkConfig uplink.Config
+
+	mu                   sync.Mutex
+	allowedSatelliteURLs map[storj.NodeURL]struct{}
 }
 
 // NewDatabase constructs a Database. allowedSatelliteAddresses should contain
 // the full URL (with a node ID), including port, for each satellite we
 // allow for incoming access grants.
-func NewDatabase(logger *zap.Logger, storage Storage, allowedSatelliteURLs map[storj.NodeURL]struct{}, retrievePublicProjectID bool) *Database {
+func NewDatabase(logger *zap.Logger, storage Storage, config Config) (_ *Database, err error) {
+	var tierService *tierquery.Service
+	if config.FreeTierAccessLimit.MaxDuration > 0 {
+		tierService, err = tierquery.NewService(config.FreeTierAccessLimit.TierQuery, "AuthService")
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
 	return &Database{
-		storage:                 storage,
-		logger:                  logger,
-		allowedSatelliteURLs:    allowedSatelliteURLs,
-		retrievePublicProjectID: retrievePublicProjectID,
+		storage:     storage,
+		logger:      logger,
+		tierService: tierService,
+		config:      config,
 		uplinkConfig: uplink.Config{
 			UserAgent: userAgent,
 		},
-	}
+		allowedSatelliteURLs: config.AllowedSatelliteURLs,
+	}, nil
 }
 
 // SetAllowedSatellites updates the allowed satellites list from configuration values.
@@ -161,15 +186,29 @@ func (db *Database) SetAllowedSatellites(allowedSatelliteURLs map[storj.NodeURL]
 	db.mu.Unlock()
 }
 
+// PutResult represents the result of inserting an access grant into the database.
+type PutResult struct {
+	SecretKey SecretKey
+
+	// FreeTierRestrictedExpiration is the restricted expiration date of the
+	// access grant. It is set if the original expiration date surpassed the
+	// free-tier limit.
+	FreeTierRestrictedExpiration *time.Time
+}
+
 // Put encrypts the access grant with the key and stores it under the hash of
 // the encryption key. It rejects access grants with expiration times that are
 // before a minute from now.
-func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (secretKey SecretKey, err error) {
+//
+// If the access grant's owner is a free-tier user, expiration date restrictions
+// may be imposed on the access grant according to the FreeTierAccessLimitConfig
+// used when constructing the database.
+func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (result PutResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	access, err := uplink.ParseAccess(accessGrant)
 	if err != nil {
-		return secretKey, ErrAccessGrant.Wrap(err)
+		return PutResult{}, ErrAccessGrant.Wrap(err)
 	}
 
 	// Check that the satellite address embedded in the access grant is on the
@@ -177,41 +216,69 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 	satelliteAddr := access.SatelliteAddress()
 	nodeURL, err := nodelist.ParseNodeURL(satelliteAddr)
 	if err != nil {
-		return secretKey, ErrAccessGrant.Wrap(err)
+		return PutResult{}, ErrAccessGrant.Wrap(err)
 	}
 
 	db.mu.Lock()
 	_, ok := db.allowedSatelliteURLs[nodeURL]
 	db.mu.Unlock()
 	if !ok {
-		return secretKey, ErrAccessGrant.New("disallowed satellite: %q", satelliteAddr)
-	}
-
-	if _, err := rand.Read(secretKey[:]); err != nil {
-		return secretKey, errs.Wrap(err)
-	}
-
-	storjKey := key.ToStorjKey()
-	// note that we currently always use the same nonce here - all zero's for secret keys
-	encryptedSecretKey, err := encryption.Encrypt(secretKey[:], storj.EncAESGCM, &storjKey, &storj.Nonce{})
-	if err != nil {
-		return secretKey, errs.Wrap(err)
-	}
-	// note that we currently always use the same nonce here - one then all zero's for access grants
-	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
-	if err != nil {
-		return secretKey, errs.Wrap(err)
+		return PutResult{}, ErrAccessGrant.New("disallowed satellite: %q", satelliteAddr)
 	}
 
 	apiKey := privateAccess.APIKey(access)
 
-	expiration, err := apiKeyExpiration(apiKey)
+	expiration, err := internalAccess.APIKeyExpiration(apiKey)
 	if err != nil {
-		return secretKey, ErrAccessGrant.Wrap(err)
+		return PutResult{}, ErrAccessGrant.Wrap(err)
+	}
+	if expiration != nil && expiration.Before(time.Now().Add(time.Minute)) {
+		return PutResult{}, ErrAccessGrant.New("expiration cannot be shorter than a minute")
+	}
+
+	if db.config.FreeTierAccessLimit.MaxDuration > 0 {
+		paidTier, err := db.tierService.Do(ctx, access, "")
+		if err != nil {
+			return PutResult{}, errs.Wrap(err)
+		}
+
+		maxExpiration := time.Now().Add(db.config.FreeTierAccessLimit.MaxDuration)
+		if !paidTier && (expiration == nil || expiration.After(maxExpiration)) {
+			restricted, err := privateAccess.Share(access, privateAccess.WithAllPermissions(), privateAccess.NotAfter(maxExpiration))
+			if err != nil {
+				return PutResult{}, errs.Wrap(err)
+			}
+
+			accessGrant, err = restricted.Serialize()
+			if err != nil {
+				return PutResult{}, errs.Wrap(err)
+			}
+
+			access = restricted
+			apiKey = privateAccess.APIKey(access)
+			expiration = &maxExpiration
+			result.FreeTierRestrictedExpiration = &maxExpiration
+		}
+	}
+
+	if _, err := rand.Read(result.SecretKey[:]); err != nil {
+		return PutResult{}, errs.Wrap(err)
+	}
+
+	storjKey := key.ToStorjKey()
+	// note that we currently always use the same nonce here - all zero's for secret keys
+	encryptedSecretKey, err := encryption.Encrypt(result.SecretKey[:], storj.EncAESGCM, &storjKey, &storj.Nonce{})
+	if err != nil {
+		return PutResult{}, errs.Wrap(err)
+	}
+	// note that we currently always use the same nonce here - one then all zero's for access grants
+	encryptedAccessGrant, err := encryption.Encrypt([]byte(accessGrant), storj.EncAESGCM, &storjKey, &storj.Nonce{1})
+	if err != nil {
+		return PutResult{}, errs.Wrap(err)
 	}
 
 	var publicProjectID uuid.UUID
-	if db.retrievePublicProjectID {
+	if db.config.RetrievePublicProjectID {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		publicProjectID, err = privateProject.GetPublicID(timeoutCtx, db.uplinkConfig, access)
@@ -232,7 +299,11 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		ExpiresAt:            expiration,
 	}
 
-	return secretKey, errs.Wrap(db.storage.Put(ctx, key.Hash(), record))
+	if err = db.storage.Put(ctx, key.Hash(), record); err != nil {
+		return PutResult{}, errs.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // Get retrieves an access grant and secret key, looked up by the hash of the
@@ -276,36 +347,4 @@ func (db *Database) HealthCheck(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return errs.Wrap(db.storage.HealthCheck(ctx))
-}
-
-// apiKeyExpiration returns the expiration time of apiKey, and any error
-// encountered. It rejects expiration times that are before a minute from now.
-//
-// TODO: we should expose this functionality in the API Key type natively.
-func apiKeyExpiration(apiKey *macaroon.APIKey) (*time.Time, error) {
-	mac, err := macaroon.ParseMacaroon(apiKey.SerializeRaw())
-	if err != nil {
-		return nil, err
-	}
-
-	var expiration *time.Time
-	for _, cavbuf := range mac.Caveats() {
-		var cav macaroon.Caveat
-		err := cav.UnmarshalBinary(cavbuf)
-		if err != nil {
-			return nil, err
-		}
-		if cav.NotAfter != nil {
-			cavExpiration := *cav.NotAfter
-			if expiration == nil || expiration.After(cavExpiration) {
-				expiration = &cavExpiration
-			}
-		}
-	}
-
-	if expiration != nil && expiration.Before(time.Now().Add(time.Minute)) {
-		return nil, errs.New("expiration cannot be shorter than a minute")
-	}
-
-	return expiration, nil
 }

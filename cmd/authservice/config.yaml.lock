@@ -41,6 +41,21 @@ drpc-listen-addr-tls: :20003
 # Gateway endpoint URL to return to clients
 # endpoint: ""
 
+# maximum amount of time that free tier users' access grants are allowed to be active for. 0 means no limit
+# free-tier-access-limit.max-duration: 0s
+
+# capacity of the tier-querying service cache
+# free-tier-access-limit.tier-query.cache-capacity: 10000
+
+# expiration time for entries in the tier-querying service cache
+# free-tier-access-limit.tier-query.cache-expiration: 5m0s
+
+# path to the certificate chain for this identity
+free-tier-access-limit.tier-query.identity.cert-path: /identity.cert
+
+# path to the private key for this identity
+free-tier-access-limit.tier-query.identity.key-path: /identity.key
+
 # timeout for idle connections
 # idle-timeout: 1m0s
 

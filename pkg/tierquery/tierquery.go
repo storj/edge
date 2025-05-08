@@ -43,8 +43,8 @@ type tierQueryResponse struct {
 	paidTier bool
 }
 
-// New constructs a Service.
-func New(config Config, product string) (*Service, error) {
+// NewService constructs a Service.
+func NewService(config Config, product string) (*Service, error) {
 	identity, err := config.Identity.Load()
 	if err != nil {
 		return nil, errs.Wrap(err)

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -28,9 +29,10 @@ var Error = errs.Class("register")
 
 // Credentials represents authservice's response.
 type Credentials struct {
-	AccessKeyID string `json:"access_key_id"`
-	SecretKey   string `json:"secret_key"`
-	Endpoint    string `json:"endpoint"`
+	AccessKeyID                  string     `json:"access_key_id"`
+	SecretKey                    string     `json:"secret_key"`
+	Endpoint                     string     `json:"endpoint"`
+	FreeTierRestrictedExpiration *time.Time `json:"freeTierRestrictedExpiration"`
 }
 
 func (c Credentials) String() string {
@@ -81,9 +83,10 @@ func registerDRPC(ctx context.Context, addr string, secure bool, access string, 
 	}
 
 	return Credentials{
-		AccessKeyID: res.AccessKeyId,
-		SecretKey:   res.SecretKey,
-		Endpoint:    res.Endpoint,
+		AccessKeyID:                  res.AccessKeyId,
+		SecretKey:                    res.SecretKey,
+		Endpoint:                     res.Endpoint,
+		FreeTierRestrictedExpiration: res.FreeTierRestrictedExpiration,
 	}, nil
 }
 

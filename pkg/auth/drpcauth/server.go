@@ -105,15 +105,16 @@ func (g *Server) registerAccessImpl(
 		return nil, err
 	}
 
-	secretKey, err := g.db.Put(ctx, accessKey, request.AccessGrant, request.Public)
+	putResult, err := g.db.Put(ctx, accessKey, request.AccessGrant, request.Public)
 	if err != nil {
 		return nil, err
 	}
 
 	response := pb.EdgeRegisterAccessResponse{
-		AccessKeyId: accessKey.ToBase32(),
-		SecretKey:   secretKey.ToBase32(),
-		Endpoint:    g.endpoint.String(),
+		AccessKeyId:                  accessKey.ToBase32(),
+		SecretKey:                    putResult.SecretKey.ToBase32(),
+		Endpoint:                     g.endpoint.String(),
+		FreeTierRestrictedExpiration: putResult.FreeTierRestrictedExpiration,
 	}
 
 	return &response, nil

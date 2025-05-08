@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -158,6 +160,18 @@ func cmdRegister(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if res.FreeTierRestrictedExpiration != nil {
+		notice := fmt.Sprintf(
+			"Due to the limitations of your free trial, these credentials will expire at %s.\n"+
+				"Upgrade to a Pro account to remove expiration limits.",
+			res.FreeTierRestrictedExpiration.Format(time.RFC3339),
+		)
+		if registerCfg.FormatEnv {
+			notice = bashComment(notice)
+		}
+		fmt.Println(notice)
+	}
+
 	if registerCfg.FormatEnv {
 		fmt.Printf("AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_ENDPOINT=%s\n",
 			res.AccessKeyID, res.SecretKey, res.Endpoint)
@@ -166,4 +180,12 @@ func cmdRegister(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func bashComment(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = "# " + line
+	}
+	return strings.Join(lines, "\n")
 }

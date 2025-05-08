@@ -5,33 +5,228 @@ package authservice_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/grant"
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	internalAccess "storj.io/edge/internal/access"
 	"storj.io/edge/internal/register"
 	"storj.io/edge/pkg/auth"
+	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/tierquery"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 func TestAuthservice(t *testing.T) {
 	t.Parallel()
 
+	testSatellite := testrand.NodeID().String() + "@satellite.test"
+
+	runEnvironment(t, reconfigure{
+		auth: func(config *auth.Config) {
+			config.AllowedSatellites = append(config.AllowedSatellites, testSatellite)
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, env *environment) {
+		serialized, err := env.planet.Uplinks[0].Access[env.planet.Satellites[0].ID()].Serialize()
+		require.NoError(t, err)
+
+		runTest := func(addr, serialized string, test func(resp authclient.AuthServiceResponse)) {
+			creds, err := register.Access(ctx, addr, serialized, false)
+			require.NoError(t, err)
+
+			resp, err := env.authClient.Resolve(ctx, creds.AccessKeyID, "")
+			require.NoError(t, err)
+
+			test(resp)
+		}
+
+		test := func(resp authclient.AuthServiceResponse) {
+			require.Equal(t, serialized, resp.AccessGrant)
+			require.Equal(t, env.planet.Uplinks[0].Projects[0].PublicID.String(), resp.PublicProjectID)
+		}
+
+		runTest("http://"+env.auth.Address(), serialized, test)
+		runTest("drpc://"+env.auth.DRPCAddress(), serialized, test)
+
+		apiKey, err := macaroon.NewAPIKey([]byte("secret"))
+		require.NoError(t, err)
+
+		ag := grant.Access{
+			SatelliteAddress: testSatellite,
+			APIKey:           apiKey,
+			EncAccess:        grant.NewEncryptionAccess(),
+		}
+		testSatelliteAccess, err := ag.Serialize()
+		require.NoError(t, err)
+
+		nonExistentSatelliteTest := func(resp authclient.AuthServiceResponse) {
+			require.Equal(t, testSatelliteAccess, resp.AccessGrant)
+			require.Equal(t, "", resp.PublicProjectID)
+		}
+
+		runTest("http://"+env.auth.Address(), testSatelliteAccess, nonExistentSatelliteTest)
+		runTest("drpc://"+env.auth.DRPCAddress(), testSatelliteAccess, nonExistentSatelliteTest)
+	})
+}
+
+func TestFreeTierAccessExpiration(t *testing.T) {
+	t.Parallel()
+
+	tempPath := t.TempDir()
+	identConfig := identity.Config{
+		CertPath: filepath.Join(tempPath, "identity.crt"),
+		KeyPath:  filepath.Join(tempPath, "identity.key"),
+	}
+
+	ident := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	require.NoError(t, identConfig.Save(ident))
+
+	const maxAccessDuration = 5 * time.Minute
+	runEnvironment(t, reconfigure{
+		testPlanet: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				url, err := storj.ParseNodeURL(ident.ID.String() + "@")
+				require.NoError(t, err)
+
+				config.Userinfo.Enabled = true
+				config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+			},
+		},
+		auth: func(config *auth.Config) {
+			config.FreeTierAccessLimit = authdb.FreeTierAccessLimitConfig{
+				MaxDuration: maxAccessDuration,
+				TierQuery: tierquery.Config{
+					Identity:        identConfig,
+					CacheExpiration: 10 * time.Second,
+					CacheCapacity:   10000,
+				},
+			}
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, env *environment) {
+		access := env.planet.Uplinks[0].Access[env.planet.Satellites[0].ID()]
+
+		type accessTestCase struct {
+			serializedAccess   string
+			expectRestricted   bool
+			expectedExpiration time.Time
+		}
+
+		runTests := func(t *testing.T, testCase accessTestCase) {
+			for _, tt := range []struct{ name, addr string }{
+				{name: "HTTP", addr: "http://" + env.auth.Address()},
+				{name: "DRPC", addr: "drpc://" + env.auth.DRPCAddress()},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, false)
+					require.NoError(t, err)
+
+					if testCase.expectRestricted {
+						require.NotNil(t, creds.FreeTierRestrictedExpiration)
+						require.WithinDuration(t, testCase.expectedExpiration, *creds.FreeTierRestrictedExpiration, time.Second)
+					} else {
+						require.Nil(t, creds.FreeTierRestrictedExpiration)
+					}
+
+					resp, err := env.authClient.Resolve(ctx, creds.AccessKeyID, "")
+					require.NoError(t, err)
+
+					respAccess, err := uplink.ParseAccess(resp.AccessGrant)
+					require.NoError(t, err)
+
+					apiKey := privateAccess.APIKey(respAccess)
+					expiration, err := internalAccess.APIKeyExpiration(apiKey)
+					require.NoError(t, err)
+					require.NotNil(t, expiration)
+
+					require.WithinDuration(t, testCase.expectedExpiration, *expiration, time.Second)
+				})
+			}
+		}
+
+		t.Run("Unrestricted access", func(t *testing.T) {
+			serialized, err := access.Serialize()
+			require.NoError(t, err)
+
+			runTests(t, accessTestCase{
+				serializedAccess:   serialized,
+				expectRestricted:   true,
+				expectedExpiration: time.Now().Add(maxAccessDuration),
+			})
+		})
+
+		t.Run("Access with prohibited expiration", func(t *testing.T) {
+			access, err := privateAccess.Share(access,
+				privateAccess.WithAllPermissions(),
+				privateAccess.NotAfter(time.Now().Add(maxAccessDuration).Add(5*time.Minute)),
+			)
+			require.NoError(t, err)
+
+			serialized, err := access.Serialize()
+			require.NoError(t, err)
+
+			runTests(t, accessTestCase{
+				serializedAccess:   serialized,
+				expectRestricted:   true,
+				expectedExpiration: time.Now().Add(maxAccessDuration),
+			})
+		})
+
+		t.Run("Access with allowed expiration", func(t *testing.T) {
+			expiration := time.Now().Add(maxAccessDuration / 2)
+
+			access, err := privateAccess.Share(access,
+				privateAccess.WithAllPermissions(),
+				privateAccess.NotAfter(expiration),
+			)
+			require.NoError(t, err)
+
+			serialized, err := access.Serialize()
+			require.NoError(t, err)
+
+			runTests(t, accessTestCase{
+				serializedAccess:   serialized,
+				expectRestricted:   false,
+				expectedExpiration: expiration,
+			})
+		})
+	})
+}
+
+type environment struct {
+	planet     *testplanet.Planet
+	auth       *auth.Peer
+	authClient *authclient.AuthClient
+}
+
+type reconfigure struct {
+	testPlanet testplanet.Reconfigure
+	auth       func(config *auth.Config)
+}
+
+func runEnvironment(t *testing.T, recfg reconfigure, fn func(t *testing.T, ctx *testcontext.Context, env *environment)) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-		UplinkCount:      1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: recfg.testPlanet,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		logger := zaptest.NewLogger(t)
 		defer ctx.Check(logger.Sync)
@@ -47,7 +242,7 @@ func TestAuthservice(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
-		nonExistentSatellite := testrand.NodeID().String() + "@sa"
+		testSatellite := testrand.NodeID().String() + "@satellite.test"
 
 		authConfig := auth.Config{
 			Endpoint:      "http://localhost:1234",
@@ -55,7 +250,7 @@ func TestAuthservice(t *testing.T) {
 			POSTSizeLimit: 4 * memory.KiB,
 			AllowedSatellites: []string{
 				planet.Satellites[0].NodeURL().String(),
-				nonExistentSatellite,
+				testSatellite,
 			},
 			KVBackend:      "spanner://",
 			ListenAddr:     ":0",
@@ -65,6 +260,10 @@ func TestAuthservice(t *testing.T) {
 				Address:      server.Addr,
 			},
 			RetrievePublicProjectID: true,
+		}
+
+		if recfg.auth != nil {
+			recfg.auth(&authConfig)
 		}
 
 		auth, err := auth.New(ctx, logger.Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
@@ -84,44 +283,10 @@ func TestAuthservice(t *testing.T) {
 			Token:   "super-secret",
 		})
 
-		serialized, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Serialize()
-		require.NoError(t, err)
-
-		runTest := func(addr, serialized string, test func(resp authclient.AuthServiceResponse)) {
-			creds, err := register.Access(ctx, addr, serialized, false)
-			require.NoError(t, err)
-
-			resp, err := authClient.Resolve(ctx, creds.AccessKeyID, "")
-			require.NoError(t, err)
-
-			test(resp)
-		}
-
-		test := func(resp authclient.AuthServiceResponse) {
-			require.Equal(t, serialized, resp.AccessGrant)
-			require.Equal(t, planet.Uplinks[0].Projects[0].PublicID.String(), resp.PublicProjectID)
-		}
-
-		runTest("http://"+auth.Address(), serialized, test)
-		runTest("drpc://"+auth.DRPCAddress(), serialized, test)
-
-		apiKey, err := macaroon.NewAPIKey([]byte("secret"))
-		require.NoError(t, err)
-
-		ag := grant.Access{
-			SatelliteAddress: nonExistentSatellite,
-			APIKey:           apiKey,
-			EncAccess:        grant.NewEncryptionAccess(),
-		}
-		nonExistentSatelliteAccess, err := ag.Serialize()
-		require.NoError(t, err)
-
-		nonExistentSatelliteTest := func(resp authclient.AuthServiceResponse) {
-			require.Equal(t, nonExistentSatelliteAccess, resp.AccessGrant)
-			require.Equal(t, "", resp.PublicProjectID)
-		}
-
-		runTest("http://"+auth.Address(), nonExistentSatelliteAccess, nonExistentSatelliteTest)
-		runTest("drpc://"+auth.DRPCAddress(), nonExistentSatelliteAccess, nonExistentSatelliteTest)
+		fn(t, ctx, &environment{
+			planet:     planet,
+			auth:       auth,
+			authClient: authClient,
+		})
 	})
 }

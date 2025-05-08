@@ -90,7 +90,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 
 	var tqs *tierquery.Service
 	if config.Server.TLSConfig != nil {
-		tqs, err = tierquery.New(config.Server.TLSConfig.TierService, "LinkSharingService")
+		tqs, err = tierquery.NewService(config.Server.TLSConfig.TierService, "LinkSharingService")
 		if err != nil {
 			return nil, errs.New("unable to create tier querying service: %w", err)
 		}

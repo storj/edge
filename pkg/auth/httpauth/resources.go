@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -186,7 +187,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	secretKey, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
+	putResult, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
 	if err != nil {
 		if authdb.ErrAccessGrant.Has(err) {
 			res.writeError(w, "newAccess", err.Error(), http.StatusBadRequest)
@@ -201,14 +202,16 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var response struct {
-		AccessKeyID string `json:"access_key_id"`
-		SecretKey   string `json:"secret_key"`
-		Endpoint    string `json:"endpoint"`
+		AccessKeyID                  string     `json:"access_key_id"`
+		SecretKey                    string     `json:"secret_key"`
+		Endpoint                     string     `json:"endpoint"`
+		FreeTierRestrictedExpiration *time.Time `json:"freeTierRestrictedExpiration,omitempty"`
 	}
 
 	response.AccessKeyID = key.ToBase32()
-	response.SecretKey = secretKey.ToBase32()
+	response.SecretKey = putResult.SecretKey.ToBase32()
 	response.Endpoint = res.endpoint.String()
+	response.FreeTierRestrictedExpiration = putResult.FreeTierRestrictedExpiration
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)

@@ -68,79 +68,6 @@ func combineNotAfterCaveats(t *testing.T, unrestricted *macaroon.APIKey, times .
 	return restricted
 }
 
-func TestApiKeyExpiration(t *testing.T) {
-	unrestricted, err := macaroon.NewAPIKey([]byte("test"))
-	require.NoError(t, err)
-
-	withUnrelatedCaveats, err := unrestricted.Restrict(macaroon.Caveat{DisallowReads: true})
-	require.NoError(t, err)
-	withUnrelatedCaveats, err = withUnrelatedCaveats.Restrict(macaroon.Caveat{NotBefore: &time.Time{}})
-	require.NoError(t, err)
-
-	// a, b and c are times in the order of appearance:
-	a := time.Now().Add(time.Hour)
-	b := a.Add(1)
-	c := b.Add(1)
-
-	tests := [...]struct {
-		apiKey *macaroon.APIKey
-		want   *time.Time
-	}{
-		{unrestricted, nil},
-		{withUnrelatedCaveats, nil},
-		{combineNotAfterCaveats(t, unrestricted, a), &a},
-		{combineNotAfterCaveats(t, unrestricted, a, b), &a},
-		{combineNotAfterCaveats(t, unrestricted, b, a), &a},
-		{combineNotAfterCaveats(t, unrestricted, a, b, c), &a},
-		{combineNotAfterCaveats(t, unrestricted, a, c, b), &a},
-		{combineNotAfterCaveats(t, unrestricted, b, a, c), &a},
-		{combineNotAfterCaveats(t, unrestricted, b, c, a), &a},
-		{combineNotAfterCaveats(t, unrestricted, c, a, b), &a},
-		{combineNotAfterCaveats(t, unrestricted, c, b, a), &a},
-	}
-
-	for i, tt := range tests {
-		got, err := apiKeyExpiration(tt.apiKey)
-		require.NoError(t, err, i)
-		if tt.want != nil {
-			require.Equal(t, tt.want.UTC(), got.UTC(), i)
-		} else {
-			require.Equal(t, tt.want, got, i)
-		}
-	}
-}
-
-func TestApiKeyExpiration_Invalid(t *testing.T) {
-	mac, err := macaroon.NewUnrestricted([]byte("test"))
-	require.NoError(t, err)
-	mac, err = mac.AddFirstPartyCaveat([]byte("\xff\xfftrash\xff\xff"))
-	require.NoError(t, err)
-
-	k, err := macaroon.ParseRawAPIKey(mac.Serialize())
-	require.NoError(t, err)
-
-	_, err = apiKeyExpiration(k) // first caveat is invalid
-	require.Error(t, err)
-
-	k, err = k.Restrict(macaroon.Caveat{NotAfter: &time.Time{}})
-	require.NoError(t, err)
-	k, err = k.Restrict(macaroon.Caveat{DisallowDeletes: true})
-	require.NoError(t, err)
-
-	_, err = apiKeyExpiration(k) // one of the caveats is invalid
-	require.Error(t, err)
-}
-
-func TestApiKeyExpiration_ShortExpiration(t *testing.T) {
-	unrestricted, err := macaroon.NewAPIKey(nil)
-	require.NoError(t, err)
-
-	fut, pas := time.Now().Add(time.Hour), time.Unix(0, 0)
-
-	_, err = apiKeyExpiration(combineNotAfterCaveats(t, unrestricted, fut, pas))
-	require.Error(t, err)
-}
-
 func TestPutSatelliteValidation(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -164,7 +91,11 @@ func TestPutSatelliteValidation(t *testing.T) {
 
 	url, err := storj.ParseNodeURL(validURL)
 	require.NoError(t, err)
-	db := NewDatabase(zaptest.NewLogger(t), mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false)
+
+	db, err := NewDatabase(zaptest.NewLogger(t), mockStorage{}, Config{
+		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{url: {}},
+	})
+	require.NoError(t, err)
 
 	key, err := NewEncryptionKey()
 	require.NoError(t, err)
@@ -195,7 +126,12 @@ func TestPutShortExpiration(t *testing.T) {
 	s, err := g.Serialize()
 	require.NoError(t, err)
 
-	_, err = NewDatabase(zaptest.NewLogger(t), mockStorage{}, map[storj.NodeURL]struct{}{url: {}}, false).Put(context.TODO(), enc, s, true)
+	db, err := NewDatabase(zaptest.NewLogger(t), mockStorage{}, Config{
+		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{url: {}},
+	})
+	require.NoError(t, err)
+
+	_, err = db.Put(context.TODO(), enc, s, true)
 	t.Log(err)
 	require.Error(t, err)
 	require.True(t, ErrAccessGrant.Has(err))

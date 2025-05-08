@@ -114,8 +114,11 @@ func TestResources_CRUD(t *testing.T) {
 	}
 
 	t.Run("Availability after startup", func(t *testing.T) {
-		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+		})
+		require.NoError(t, err)
+		res := newResource(t, logger, db, endpoint)
 
 		const path = "/v1/health/startup"
 
@@ -133,8 +136,11 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("CRUD", func(t *testing.T) {
-		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+		})
+		require.NoError(t, err)
+		res := newResource(t, logger, db, endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -153,8 +159,11 @@ func TestResources_CRUD(t *testing.T) {
 	t.Run("ApprovedSatelliteID", func(t *testing.T) {
 		var unknownSatelliteID storj.NodeURL
 		unknownSatelliteID.ID[4] = 7
-		allowed := map[storj.NodeURL]struct{}{unknownSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{unknownSatelliteID: {}},
+		})
+		require.NoError(t, err)
+		res := newResource(t, logger, db, endpoint)
 
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -167,8 +176,14 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok := exec(res, "POST", "/v1/access", createRequest)
 		require.False(t, ok)
 
-		allowed = map[storj.NodeURL]struct{}{unknownSatelliteID: {}, minimalAccessSatelliteID: {}}
-		res = newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err = authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{
+				unknownSatelliteID:       {},
+				minimalAccessSatelliteID: {},
+			},
+		})
+		require.NoError(t, err)
+		res = newResource(t, logger, db, endpoint)
 
 		// create an access
 		createRequest = fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -177,7 +192,13 @@ func TestResources_CRUD(t *testing.T) {
 
 		allowed, _, err := nodelist.Resolve(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
-		res = newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+
+		db, err = authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: allowed,
+		})
+		require.NoError(t, err)
+		res = newResource(t, logger, db, endpoint)
+
 		mac, err := macaroon.NewAPIKey(nil)
 		require.NoError(t, err)
 		access := grant.Access{
@@ -196,8 +217,11 @@ func TestResources_CRUD(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
-		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+		})
+		require.NoError(t, err)
+		res := newResource(t, logger, db, endpoint)
 
 		// create a public access
 		createRequest := fmt.Sprintf(`{"access_grant": %q, "public": true}`, minimalAccess)
@@ -241,8 +265,11 @@ func TestResources_CRUD(t *testing.T) {
 	// })
 
 	t.Run("Invalid request", func(t *testing.T) {
-		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+		})
+		require.NoError(t, err)
+		res := newResource(t, logger, db, endpoint)
 
 		check := func(body string, expectedCode int) {
 			rec := httptest.NewRecorder()
@@ -274,8 +301,11 @@ func TestResources_Authorization(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
-	allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-	res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+	db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+	})
+	require.NoError(t, err)
+	res := newResource(t, logger, db, endpoint)
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
@@ -392,8 +422,12 @@ func TestResources_Shutdown(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
 
-		allowed := map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}}
-		res := newResource(t, logger, authdb.NewDatabase(zaptest.NewLogger(t), storage, allowed, false), endpoint)
+		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+		})
+		require.NoError(t, err)
+
+		res := newResource(t, logger, db, endpoint)
 		res.SetStartupDone()
 		if inShutdown {
 			res.SetShutdown()

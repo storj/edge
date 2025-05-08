@@ -65,6 +65,8 @@ type Config struct {
 	PublicURL               []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
 	RetrievePublicProjectID bool     `user:"true" help:"retrieve and store public project ID when registering access grant" default:"true"`
 
+	FreeTierAccessLimit authdb.FreeTierAccessLimitConfig
+
 	CertMagic certMagic
 
 	Node    badgerauth.Config
@@ -153,7 +155,15 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	adb := authdb.NewDatabase(log.Named("authdb"), storage, allowedSats, config.RetrievePublicProjectID)
+	adb, err := authdb.NewDatabase(log.Named("authdb"), storage, authdb.Config{
+		AllowedSatelliteURLs:    allowedSats,
+		RetrievePublicProjectID: config.RetrievePublicProjectID,
+		FreeTierAccessLimit:     config.FreeTierAccessLimit,
+	})
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
