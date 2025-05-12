@@ -104,7 +104,8 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	if config.ConcurrentRequestLimit <= 0 {
 		return nil, ErrInvalidConcurrentRequests
 	}
-	limitHandle := middleware.NewConcurrentRequestsLimiter(config.ConcurrentRequestLimit,
+	limitHandle := middleware.NewLimiter(config.ConcurrentRequestLimit,
+		sharing.CredentialsLimitKey,
 		func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 		},

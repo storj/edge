@@ -17,6 +17,7 @@ import (
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 type credentialsCV struct{}
@@ -37,6 +38,21 @@ func credentialsFromContext(ctx context.Context) *credentials {
 		creds = &credentials{err: errdata.WithStatus(errs.New("access missing"), http.StatusBadRequest)}
 	}
 	return creds
+}
+
+// CredentialsLimitKey returns a credential key suitable for rate limiting.
+func CredentialsLimitKey(r *http.Request) (string, error) {
+	credentials := credentialsFromContext(r.Context())
+	if credentials.err != nil {
+		return "", credentials.err
+	}
+	if credentials.publicProjectID != "" {
+		return credentials.publicProjectID, nil
+	}
+	if credentials.access == nil {
+		return "", errdata.WithStatus(errs.New("access missing"), http.StatusBadRequest)
+	}
+	return string(privateAccess.APIKey(credentials.access).Head()), nil
 }
 
 // CredentialsHandler retrieves and saves credentials as a context value.
