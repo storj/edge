@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -180,7 +179,6 @@ type Handler struct {
 	mapper                 *objectmap.IPDB
 	txtRecords             *TXTRecords
 	authClient             *authclient.AuthClient
-	static                 http.Handler
 	redirectHTTPS          bool
 	landingRedirect        string
 	uplink                 *uplink.Config
@@ -188,7 +186,6 @@ type Handler struct {
 	standardRendersContent bool
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
-	inShutdown             *int32
 	listPageLimit          int
 	downloadPrefixEnabled  bool
 	downloadZipLimit       int
@@ -197,7 +194,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler.
-func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, inShutdown *int32, config Config) (*Handler, error) {
+func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords, authClient *authclient.AuthClient, config Config) (*Handler, error) {
 	if config.ListPageLimit <= 0 {
 		return nil, ErrInvalidListPageLimit
 	}
@@ -287,19 +284,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		txtRecords = NewTXTRecords(config.TXTRecordTTL, dns, authClient)
 	}
 
-	var static http.Handler
-	if config.Assets != nil {
-		fs, err := fs.Sub(config.Assets, "static")
-		if err != nil {
-			return nil, err
-		}
-
-		static = http.StripPrefix("/static/", http.FileServer(http.FS(fs)))
-		if !config.DynamicAssets {
-			static = cacheControlStatic(static)
-		}
-	}
-
 	blockedPaths := make(map[string]bool, len(config.BlockedPaths))
 	var blockedRegexes []*regexp.Regexp
 	for _, path := range config.BlockedPaths {
@@ -323,7 +307,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		mapper:                 mapper,
 		txtRecords:             txtRecords,
 		authClient:             authClient,
-		static:                 static,
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,
@@ -331,7 +314,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,
-		inShutdown:             inShutdown,
 		listPageLimit:          config.ListPageLimit,
 		downloadPrefixEnabled:  config.DownloadPrefixEnabled,
 		downloadZipLimit:       config.DownloadZipLimit,
@@ -457,15 +439,7 @@ func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, d
 func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method == http.MethodOptions {
-		// handle CORS pre-flight requests
-		handler.cors(ctx, w, r)
-		return nil
-	} else if r.Method != http.MethodHead && r.Method != http.MethodGet {
-		return errdata.WithStatus(errs.New("method not allowed"), http.StatusMethodNotAllowed)
-	}
-	handler.cors(ctx, w, r)
-
+	// todo: move blocked into middleware
 	if handler.blockedPaths[r.Host+r.URL.Path] {
 		return errdata.WithStatus(errs.New("blocked url"), http.StatusUnauthorized)
 	}
@@ -493,43 +467,12 @@ func (handler *Handler) serveHTTP(ctx context.Context, w http.ResponseWriter, r 
 		target := url.URL{Scheme: "https", Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 		http.Redirect(w, r, target.String(), http.StatusPermanentRedirect)
 		return nil
-	case strings.HasPrefix(r.URL.Path, "/static/"):
-		if handler.static == nil {
-			return errdata.WithStatus(errs.New("static asset filesystem not initialized"), http.StatusInternalServerError)
-		}
-		handler.static.ServeHTTP(w, r.WithContext(ctx))
-		return nil
-	case strings.HasPrefix(r.URL.Path, "/health/process"):
-		return handler.healthProcess(ctx, w, r)
 	case handler.landingRedirect != "" && (r.URL.Path == "" || r.URL.Path == "/"):
 		http.Redirect(w, r, handler.landingRedirect, http.StatusSeeOther)
 		return nil
 	default:
 		return handler.handleStandard(ctx, w, r)
 	}
-}
-
-func (handler *Handler) cors(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD")
-	w.Header().Set("Access-Control-Allow-Headers", "*")
-}
-
-func (handler *Handler) healthProcess(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if atomic.LoadInt32(handler.inShutdown) != 0 {
-		http.Error(w, "down", http.StatusServiceUnavailable)
-		return nil
-	}
-	_, err = w.Write([]byte("okay"))
-	return err
-}
-
-func cacheControlStatic(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=15552000")
-		h.ServeHTTP(w, r)
-	})
 }
 
 func isDomainOurs(host string, bases []*url.URL) (bool, error) {

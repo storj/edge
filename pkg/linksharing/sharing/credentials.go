@@ -71,11 +71,6 @@ func (h *Handler) CredentialsHandler(next http.Handler) http.Handler {
 		}
 
 		path := strings.TrimPrefix(r.URL.Path, "/")
-		// don't try and get credentials for requests that don't need them.
-		if ourDomain && (strings.HasPrefix(path, "static/") || strings.HasPrefix(path, "health/process")) {
-			next.ServeHTTP(w, r)
-			return
-		}
 
 		if ourDomain {
 			if path == "" {

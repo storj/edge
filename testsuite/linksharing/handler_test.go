@@ -114,7 +114,7 @@ func TestNewHandler(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, testCase.config)
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, testCase.config)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -234,14 +234,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		prepFunc              func() error
 		cleanupFunc           func() error
 	}{
-		{
-			name:             "invalid method",
-			method:           "PUT",
-			path:             "s/",
-			status:           http.StatusMethodNotAllowed,
-			body:             []string{"Malformed request."},
-			expectedRPCCalls: []string{},
-		},
 		{
 			name:             "GET missing access",
 			method:           "GET",
@@ -1216,7 +1208,7 @@ To download a larger number of objects at once, download the prefix using the ta
 				listPageLimit = testCase.listPageLimit.v
 			}
 
-			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, sharing.Config{
+			handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, sharing.Config{
 				Assets:                assets.FS(),
 				URLBases:              []string{"http://localhost"},
 				AuthServiceConfig:     authConfig,

@@ -54,7 +54,7 @@ func TestServer(t *testing.T) {
 		URLBases:      []string{"https://localhost:15001"},
 	}
 	mapper := objectmap.NewIPDB(&objectmap.MockReader{})
-	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, nil, handlerConfig)
+	handler, err := sharing.NewHandler(zaptest.NewLogger(t), mapper, nil, nil, handlerConfig)
 	require.NoError(t, err)
 
 	tempdir := t.TempDir()

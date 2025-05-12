@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
 	httpmon "github.com/spacemonkeygo/monkit/v3/http"
@@ -19,9 +20,11 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
+	"storj.io/edge/pkg/linksharing/handlers"
+	"storj.io/edge/pkg/linksharing/middleware"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
-	"storj.io/edge/pkg/server/middleware"
+	gwmiddleware "storj.io/edge/pkg/server/middleware"
 )
 
 var (
@@ -96,7 +99,40 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	handle, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, &peer.inShutdown, config.Handler)
+	if config.ConcurrentRequestLimit <= 0 {
+		return nil, ErrInvalidConcurrentRequests
+	}
+
+	r := mux.NewRouter()
+	r.SkipClean(true)
+	r.UseEncodedPath()
+
+	r.Use(middleware.Preflight)
+
+	var staticHandler http.Handler
+	if config.Handler.Assets != nil {
+		staticHandler, err = handlers.NewStaticHandler(config.Handler.Assets, config.Handler.DynamicAssets)
+		if err != nil {
+			return nil, errs.New("unable to create static handler: %w", err)
+		}
+	}
+
+	// configure health check and static endpoints for public hosts only.
+	for _, ub := range config.Handler.URLBases {
+		u, err := url.Parse(ub)
+		if err != nil {
+			return nil, errs.New("invalid URL base %q: %v", u, err)
+		}
+
+		publicRouter := r.Host(u.Host).Subrouter()
+		publicRouter.PathPrefix("/health/process").Handler(handlers.NewHealthCheckHandler(&peer.inShutdown))
+
+		if staticHandler != nil {
+			publicRouter.PathPrefix("/static").Handler(staticHandler)
+		}
+	}
+
+	sharingHandler, err := sharing.NewHandler(log, peer.Mapper, txtRecords, authClient, config.Handler)
 	if err != nil {
 		return nil, errs.New("unable to create handler: %w", err)
 	}
@@ -104,18 +140,29 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 	if config.ConcurrentRequestLimit <= 0 {
 		return nil, ErrInvalidConcurrentRequests
 	}
-	limitHandle := middleware.NewLimiter(config.ConcurrentRequestLimit,
+	limiter := gwmiddleware.NewLimiter(
+		config.ConcurrentRequestLimit,
 		sharing.CredentialsLimitKey,
 		func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 		},
-	).Limit(handle)
+	)
 
-	eventHandle := sharing.EventHandler(limitHandle)
-	credsHandle := handle.CredentialsHandler(eventHandle)
-	traceHandle := httpmon.TraceHandler(credsHandle, mon)
-	metricsHandle := middleware.Metrics("linksharing", traceHandle)
-	reqIDHandle := requestid.AddToContext(metricsHandle)
+	sharingRouter := r.PathPrefix("/").Subrouter()
+
+	sharingRouter.Use(requestid.AddToContext)
+	sharingRouter.Use(func(handler http.Handler) http.Handler {
+		return httpmon.TraceHandler(handler, mon)
+	})
+	sharingRouter.Use(gwmiddleware.NewMetrics("linksharing"))
+	sharingRouter.Use(sharingHandler.CredentialsHandler)
+	sharingRouter.Use(func(handler http.Handler) http.Handler {
+		return limiter.Limit(handler)
+	})
+
+	sharingRouter.Use(sharing.EventHandler)
+
+	sharingRouter.PathPrefix("/").Handler(sharingHandler)
 
 	var decisionFunc httpserver.CertMagicOnDemandDecisionFunc
 	if config.Server.TLSConfig != nil && config.Server.TLSConfig.CertMagic {
@@ -125,7 +172,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 		}
 	}
 
-	peer.Server, err = httpserver.New(log, reqIDHandle, decisionFunc, config.Server)
+	peer.Server, err = httpserver.New(log, r, decisionFunc, config.Server)
 	if err != nil {
 		return nil, errs.New("unable to create httpserver: %w", err)
 	}
