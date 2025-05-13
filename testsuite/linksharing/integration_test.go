@@ -35,6 +35,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/grant"
 	"storj.io/common/identity"
@@ -65,32 +66,206 @@ func TestIntegration(t *testing.T) {
 		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
 	}
 
-	const listPageLimit = 1
-	const concurrentRequestLimit = 1000
-
 	tests := []struct {
-		name                  string
-		tlsRecord             bool
-		cnameRecord           string
-		dialContext           func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
-		access                func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access
-		url                   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		followRedirect        bool
-		redirectHTTPS         bool
-		landingRedirectTarget string
-		wantRedirectResp      bool
-		redirectLocation      func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
-		redirectStatusCode    int
-		wantErr               bool
+		name               string
+		tlsRecord          bool
+		cnameRecord        string
+		dialContext        func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error)
+		reconfigure        func(config *linksharing.Config)
+		prepare            func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, root string)
+		url                func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		test               func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, accesses []authHandlerEntry, publicDomain, customDomain string, client http.Client)
+		method             string
+		expectedStatusCode int
+		expectedBody       string
+		expectedHeaders    map[string]string
+		followRedirect     bool
+		wantRedirectResp   bool
+		redirectLocation   func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, customDomain string) string
+		redirectStatusCode int
+		wantErr            bool
 	}{
 		{
+			name: "Method not allowed",
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s", lookupHost(t, publicDomain, peer.Server.AddrTLS()))
+			},
+			method:             http.MethodPost,
+			expectedStatusCode: http.StatusMethodNotAllowed,
+			expectedBody:       "Method Not Allowed",
+		},
+		{
+			name: "CORS headers",
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s", lookupHost(t, publicDomain, peer.Server.AddrTLS()))
+			},
+			method: http.MethodOptions,
+			expectedHeaders: map[string]string{
+				"Access-Control-Allow-Origin":  "*",
+				"Access-Control-Allow-Methods": "GET, HEAD",
+				"Access-Control-Allow-Headers": "*",
+			},
+		},
+		{
+			name: "Public health and static endpoints",
+			reconfigure: func(config *linksharing.Config) {
+				config.ConcurrentRequestLimit = 1
+				config.ShutdownDelay = 5 * time.Second
+			},
+			test: func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, accesses []authHandlerEntry, publicDomain, _ string, client http.Client) {
+				healthURL := fmt.Sprintf("https://%s/health/process", lookupHost(t, publicDomain, peer.Server.AddrTLS()))
+				staticURL := fmt.Sprintf("https://%s/static/img/logo.svg", lookupHost(t, publicDomain, peer.Server.AddrTLS()))
+
+				var group errgroup.Group
+
+				// test health and static endpoints aren't rate limited.
+				for i := range 20 {
+					url := healthURL
+					if i%2 == 0 {
+						url = staticURL
+					}
+
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+					require.NoError(t, err)
+
+					group.Go(func() error {
+						resp, err := client.Do(req) //nolint:bodyclose
+						if err != nil {
+							return err
+						}
+						ctx.Check(resp.Body.Close)
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+						}
+						return nil
+					})
+				}
+				require.NoError(t, group.Wait())
+
+				ctx.Go(peer.Close)
+
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+				require.NoError(t, err)
+
+				resp, err := client.Do(req) //nolint:bodyclose
+				require.NoError(t, err)
+				ctx.Check(resp.Body.Close)
+
+				require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+			},
+		},
+		{
+			name: "Limit applied to normal requests",
+			reconfigure: func(config *linksharing.Config) {
+				config.ConcurrentRequestLimit = 5
+			},
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				for i := range planet.Uplinks {
+					planet.Uplinks[i].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+					require.NoError(t, planet.Uplinks[i].Upload(ctx, planet.Satellites[0], "test", "index.html", []byte("HELLO!")))
+				}
+			},
+			test: func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, accesses []authHandlerEntry, publicDomain, _ string, client http.Client) {
+				if len(accesses) != 2 {
+					t.Fatal("misconfigured test")
+				}
+
+				url1 := fmt.Sprintf("https://%s/raw/%s/test/index.html", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accesses[0].accessKey)
+				url2 := fmt.Sprintf("https://%s/raw/%s/test/index.html", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accesses[1].accessKey)
+
+				var group errgroup.Group
+
+				doReq := func(url string, index int, responses []int) error {
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+					require.NoError(t, err)
+
+					resp, err := client.Do(req) //nolint:bodyclose
+					if err != nil {
+						return err
+					}
+					ctx.Check(resp.Body.Close)
+					switch resp.StatusCode {
+					case http.StatusOK, http.StatusTooManyRequests:
+						responses[index] = resp.StatusCode
+						return nil
+					default:
+						return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+					}
+				}
+
+				url1RequestCount := 10
+				url2RequestCount := 2
+
+				url1Responses := make([]int, url1RequestCount)
+				url2Responses := make([]int, url2RequestCount)
+
+				for i := range url1RequestCount {
+					i := i
+					group.Go(func() error {
+						return doReq(url1, i, url1Responses)
+					})
+				}
+				for i := range url2RequestCount {
+					i := i
+					group.Go(func() error {
+						return doReq(url2, i, url2Responses)
+					})
+				}
+				require.NoError(t, group.Wait())
+
+				countLimitResponses := func(responses []int) int {
+					var limited int
+					for _, statusCode := range responses {
+						if statusCode == http.StatusTooManyRequests {
+							limited++
+						}
+					}
+					return limited
+				}
+
+				require.Greater(t, countLimitResponses(url1Responses), 0)
+				require.Equal(t, 0, countLimitResponses(url2Responses))
+			},
+		},
+		{
+			name:      "Health endpoint not applied to custom domain",
+			tlsRecord: true,
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, root string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+				require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "health/process", []byte("HELLO!")))
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s/health/process", lookupHost(t, customDomain, peer.Server.AddrTLS()))
+			},
+		},
+		{
+			name: "Static endpoint public domain",
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, publicDomain, _ string) string {
+				return fmt.Sprintf("https://%s/static/img/logo.svg", lookupHost(t, publicDomain, peer.Server.AddrTLS()))
+			},
+			expectedBody: "<svg",
+		},
+		{
+			name:      "Static endpoint not applied to custom domain",
+			tlsRecord: true,
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, root string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+				require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "static/img/logo.svg", []byte("HELLO!")))
+			},
+			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
+				return fmt.Sprintf("https://%s/static/img/logo.svg", lookupHost(t, customDomain, peer.Server.AddrTLS()))
+			},
+		},
+		{
 			name: "Public domain landing page redirect",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.LandingRedirectTarget = "https://www.storj.io/"
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s/", lookupHost(t, publicDomain, peer.Server.Addr()))
 			},
-			landingRedirectTarget: "https://www.storj.io/",
-			wantRedirectResp:      true,
-			redirectStatusCode:    http.StatusSeeOther,
+			wantRedirectResp:   true,
+			redirectStatusCode: http.StatusSeeOther,
 			redirectLocation: func(_ *testing.T, _ *linksharing.Peer, _, _, _, _ string) string {
 				return "https://www.storj.io/"
 			},
@@ -108,10 +283,12 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain insecure redirect",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s/raw/%s/%s", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -126,10 +303,12 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain insecure redirect with escaping",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s/s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -138,10 +317,12 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain insecure redirect without /s or /raw prefix and with escaping",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s/%s/test%%20something.txt", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey)
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -161,10 +342,12 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain insecure redirect to HTTPS without /s or /raw prefix",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("http://%s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.Addr()), accessKey, root)
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -173,10 +356,12 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain secure redirect without /s or /raw prefix",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("https://%s/%s/%s/index.html?download=1", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
@@ -197,17 +382,19 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			name: "Public domain TLS redirect",
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
 			url: func(t *testing.T, peer *linksharing.Peer, accessKey, root, publicDomain, _ string) string {
 				return fmt.Sprintf("https://%s/raw/%s/%s/index.html", lookupHost(t, publicDomain, peer.Server.AddrTLS()), accessKey, root)
 			},
-			redirectHTTPS:    true,
 			wantRedirectResp: false,
 		},
 		{
 			name:      "Custom domain TLS TXT record disabled",
 			tlsRecord: false,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.Addr()))
@@ -217,13 +404,15 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain insecure TXT record disabled redirect",
 			tlsRecord: false,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
-			redirectHTTPS:    true,
 			wantRedirectResp: false,
 		},
 		{
@@ -243,8 +432,8 @@ func TestIntegration(t *testing.T) {
 					return net.Dial(network, peer.Server.AddrTLS())
 				}
 			},
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
@@ -254,8 +443,8 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain insecure paid tier",
 			tlsRecord: true,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
@@ -264,13 +453,15 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain insecure paid tier redirect",
 			tlsRecord: true,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
@@ -280,13 +471,15 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain insecure paid tier redirect with escaping",
 			tlsRecord: true,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("http://%s/test%%20something.txt", lookupHost(t, customDomain, peer.Server.Addr()))
 			},
-			redirectHTTPS:      true,
 			wantRedirectResp:   true,
 			redirectStatusCode: http.StatusPermanentRedirect,
 			redirectLocation: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
@@ -296,8 +489,8 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain TLS paid tier",
 			tlsRecord: true,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
@@ -306,13 +499,15 @@ func TestIntegration(t *testing.T) {
 		{
 			name:      "Custom domain TLS paid tier redirect",
 			tlsRecord: true,
-			access: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) *uplink.Access {
-				return newPaidAccess(ctx, t, planet.Satellites[0])
+			reconfigure: func(config *linksharing.Config) {
+				config.Handler.RedirectHTTPS = true
+			},
+			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
+				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
 				return fmt.Sprintf("https://%s", lookupHost(t, customDomain, peer.Server.AddrTLS()))
 			},
-			redirectHTTPS:    true,
 			wantRedirectResp: false,
 		},
 	}
@@ -321,8 +516,8 @@ func TestIntegration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if tc.url == nil {
-				t.Error("test misconfigured: url not defined", t.Name())
+			if tc.url == nil && tc.test == nil {
+				t.Error("test misconfigured: url or test not defined", t.Name())
 				return
 			}
 
@@ -335,7 +530,7 @@ func TestIntegration(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount:   1,
 				StorageNodeCount: 0,
-				UplinkCount:      1,
+				UplinkCount:      2,
 				Reconfigure: testplanet.Reconfigure{
 					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 						url, err := storj.ParseNodeURL(ident.ID.String() + "@")
@@ -346,20 +541,27 @@ func TestIntegration(t *testing.T) {
 					},
 				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-				access := planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID]
-				if tc.access != nil {
-					access = tc.access(t, ctx, planet)
-					planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = access
-				}
-
-				serializedAccess, err := access.Serialize()
-				require.NoError(t, err)
-
 				// note that the host should be no more than 63 characters to be valid for DNS.
 				root := testrand.BucketName()
 				publicDomain := randomNameLowercase(40) + ".link.local"
 				customDomain := randomNameLowercase(40) + ".example.com"
-				accessKey := randomAccessKey(t)
+
+				if tc.prepare != nil {
+					tc.prepare(t, ctx, planet, root)
+				}
+
+				var authRecords []authHandlerEntry
+				for i := range planet.Uplinks {
+					serializedAccess, err := planet.Uplinks[i].Access[planet.Satellites[0].NodeURL().ID].Serialize()
+					require.NoError(t, err)
+
+					authRecords = append(authRecords, authHandlerEntry{
+						accessKey:        randomAccessKey(t),
+						serializedAccess: serializedAccess,
+						publicProjectID:  testrand.UUID(),
+						public:           true,
+					})
+				}
 
 				cnameRecord := publicDomain + "."
 				if tc.cnameRecord != "" {
@@ -378,34 +580,22 @@ func TestIntegration(t *testing.T) {
 					},
 					"txt-" + customDomain + ".": {
 						TXT: []string{
-							"storj-access:" + accessKey,
+							"storj-access:" + authRecords[0].accessKey,
 							"storj-root:" + root,
 							"storj-tls:" + strconv.FormatBool(tc.tlsRecord),
 						},
 					},
 				}
 
-				authRecords := map[string]authHandlerEntry{
-					accessKey: {serializedAccess, true},
-				}
-
 				runEnvironment(t, ctx, environmentConfig{
-					gcsKeyPath:             gcsKeyPath,
-					gcsBucketName:          gcsBucketName,
-					publicDomain:           publicDomain,
-					ident:                  ident,
-					dnsRecords:             dnsRecords,
-					authRecords:            authRecords,
-					redirectHTTPS:          tc.redirectHTTPS,
-					landingRedirectTarget:  tc.landingRedirectTarget,
-					listPageLimit:          listPageLimit,
-					concurrentRequestLimit: concurrentRequestLimit,
+					gcsKeyPath:    gcsKeyPath,
+					gcsBucketName: gcsBucketName,
+					publicDomain:  publicDomain,
+					ident:         ident,
+					dnsRecords:    dnsRecords,
+					authRecords:   authRecords,
+					reconfigure:   tc.reconfigure,
 				}, func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool) {
-					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!"))
-					require.NoError(t, err)
-
-					url := tc.url(t, peer, accessKey, root, publicDomain, customDomain)
-
 					dialContext := (&mockdns.Resolver{Zones: dnsRecords}).DialContext
 					if tc.dialContext != nil {
 						dialContext = tc.dialContext(peer)
@@ -418,6 +608,17 @@ func TestIntegration(t *testing.T) {
 						},
 					}}
 
+					if tc.test != nil {
+						tc.test(t, ctx, peer, authRecords, publicDomain, customDomain, client)
+						return
+					}
+
+					if tc.url == nil {
+						t.Fatal("test misconfigured: url not defined", t.Name())
+					}
+
+					url := tc.url(t, peer, authRecords[0].accessKey, root, publicDomain, customDomain)
+
 					if !tc.followRedirect {
 						// Configure the HTTP client to not follow the redirect, so we can check it below.
 						client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -425,7 +626,14 @@ func TestIntegration(t *testing.T) {
 						}
 					}
 
-					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+					require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!")))
+
+					method := tc.method
+					if method == "" {
+						method = http.MethodGet
+					}
+
+					req, err := http.NewRequestWithContext(ctx, method, url, nil)
 					require.NoError(t, err, url)
 
 					resp, err := client.Do(req) //nolint:bodyclose
@@ -437,17 +645,33 @@ func TestIntegration(t *testing.T) {
 					require.NoError(t, err, url)
 					defer ctx.Check(resp.Body.Close)
 
+					expectedStatusCode := tc.expectedStatusCode
+					if expectedStatusCode == 0 {
+						expectedStatusCode = http.StatusOK
+					}
+
+					expectedBody := tc.expectedBody
+					if expectedBody == "" && method != http.MethodOptions {
+						expectedBody = "HELLO!"
+					}
+
+					if tc.expectedHeaders != nil {
+						for k, v := range tc.expectedHeaders {
+							require.Equal(t, v, resp.Header.Get(k), url)
+						}
+					}
+
 					if !tc.wantRedirectResp {
 						body, err := io.ReadAll(resp.Body)
 						require.NoError(t, err, url)
 
-						require.Equal(t, http.StatusOK, resp.StatusCode)
-						require.Equal(t, "HELLO!", string(body), url)
+						require.Equal(t, expectedStatusCode, resp.StatusCode)
+						require.Contains(t, string(body), expectedBody, url)
 						return
 					}
 
 					require.Equal(t, tc.redirectStatusCode, resp.StatusCode)
-					redirectLocation := tc.redirectLocation(t, peer, accessKey, root, publicDomain, customDomain)
+					redirectLocation := tc.redirectLocation(t, peer, authRecords[0].accessKey, root, publicDomain, customDomain)
 					require.Equal(t, redirectLocation, resp.Header.Get("Location"))
 				})
 			})
@@ -456,16 +680,13 @@ func TestIntegration(t *testing.T) {
 }
 
 type environmentConfig struct {
-	gcsKeyPath             string
-	gcsBucketName          string
-	publicDomain           string
-	ident                  *identity.FullIdentity
-	dnsRecords             map[string]mockdns.Zone
-	authRecords            map[string]authHandlerEntry
-	redirectHTTPS          bool
-	landingRedirectTarget  string
-	listPageLimit          int
-	concurrentRequestLimit uint
+	gcsKeyPath    string
+	gcsBucketName string
+	publicDomain  string
+	ident         *identity.FullIdentity
+	dnsRecords    map[string]mockdns.Zone
+	authRecords   []authHandlerEntry
+	reconfigure   func(*linksharing.Config)
 }
 
 func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentConfig, fn func(t *testing.T, ctx *testcontext.Context, peer *linksharing.Peer, caCertPool *x509.CertPool)) {
@@ -526,7 +747,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 
 	issuerURL := fmt.Sprintf("https://%s/dir", lookupHost(t, pebbleDomain, pebbleListener.Addr().String()))
 
-	peer, err := linksharing.New(logger.Named("peer"), linksharing.Config{
+	linksharingConfig := linksharing.Config{
 		Server: httpserver.Config{
 			Address:    "127.0.0.1:0",
 			AddressTLS: addressTLS,
@@ -556,13 +777,18 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 				BaseURL: authServer.URL,
 				Token:   authToken,
 			},
-			DNSServer:             dnsSrv.LocalAddr().String(),
-			RedirectHTTPS:         config.redirectHTTPS,
-			LandingRedirectTarget: config.landingRedirectTarget,
-			ListPageLimit:         config.listPageLimit,
+			DNSServer:     dnsSrv.LocalAddr().String(),
+			ListPageLimit: 1,
 		},
-		ConcurrentRequestLimit: config.concurrentRequestLimit,
-	})
+		ConcurrentRequestLimit: 1000,
+		ShutdownDelay:          -1,
+	}
+
+	if config.reconfigure != nil {
+		config.reconfigure(&linksharingConfig)
+	}
+
+	peer, err := linksharing.New(logger.Named("peer"), linksharingConfig)
 	require.NoError(t, err)
 
 	defer ctx.Check(func() error {
@@ -646,9 +872,11 @@ func lookupPort(t *testing.T, hostPort string) int {
 }
 
 func newPaidAccess(ctx context.Context, t *testing.T, sat *testplanet.Satellite) *uplink.Access {
+	name := string(testrand.RandAlphaNumeric(16))
+
 	user, err := sat.AddUser(ctx, console.CreateUser{
-		FullName: "testuser123",
-		Email:    "test@email.com",
+		FullName: name,
+		Email:    fmt.Sprintf("%s@email.com", name),
 	}, 1)
 	require.NoError(t, err)
 

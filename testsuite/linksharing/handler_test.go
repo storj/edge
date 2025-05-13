@@ -35,6 +35,7 @@ import (
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/linksharing/objectmap"
@@ -137,8 +138,10 @@ func TestHandlerRequests(t *testing.T) {
 }
 
 type authHandlerEntry struct {
-	grant  string
-	public bool
+	accessKey        string
+	serializedAccess string
+	publicProjectID  uuid.UUID
+	public           bool
 }
 
 func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -200,12 +203,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	downloadOnlyAccessName := randomAccessKey(t)
 
 	authToken := hex.EncodeToString(testrand.BytesInt(16))
-	validAuthServer := httptest.NewServer(makeAuthHandler(t, map[string]authHandlerEntry{
-		goodAccessName:         {serializedAccess, true},
-		privateAccessName:      {serializedAccess, false},
-		listOnlyAccessName:     {serializedListOnlyAccess, true},
-		prefixedAccessName:     {serializedPrefixedAccess, true},
-		downloadOnlyAccessName: {serializedDownloadOnlyAccess, true},
+	validAuthServer := httptest.NewServer(makeAuthHandler(t, []authHandlerEntry{
+		{goodAccessName, serializedAccess, testrand.UUID(), true},
+		{privateAccessName, serializedAccess, testrand.UUID(), false},
+		{listOnlyAccessName, serializedListOnlyAccess, testrand.UUID(), true},
+		{prefixedAccessName, serializedPrefixedAccess, testrand.UUID(), true},
+		{downloadOnlyAccessName, serializedDownloadOnlyAccess, testrand.UUID(), true},
 	}, authToken))
 	defer validAuthServer.Close()
 
@@ -1294,22 +1297,34 @@ To download a larger number of objects at once, download the prefix using the ta
 	}
 }
 
-func makeAuthHandler(t *testing.T, accessKeys map[string]authHandlerEntry, token string) http.Handler {
+func makeAuthHandler(t *testing.T, accessKeys []authHandlerEntry, token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.True(t, strings.HasPrefix(r.URL.Path, "/v1/access/"))
 		require.Equal(t, r.Header.Get("Authorization"), "Bearer "+token)
 		accessKey := strings.TrimPrefix(r.URL.Path, "/v1/access/")
-		if grant, ok := accessKeys[accessKey]; ok {
-			require.NoError(t, json.NewEncoder(w).Encode(struct {
-				AccessGrant string `json:"access_grant"`
-				Public      bool   `json:"public"`
-			}{
-				AccessGrant: grant.grant,
-				Public:      grant.public,
-			}))
-		} else {
-			w.WriteHeader(http.StatusUnauthorized)
+
+		var entry authHandlerEntry
+		for _, v := range accessKeys {
+			if v.accessKey == accessKey {
+				entry = v
+				break
+			}
 		}
+
+		if entry == (authHandlerEntry{}) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		require.NoError(t, json.NewEncoder(w).Encode(struct {
+			AccessGrant     string `json:"access_grant"`
+			PublicProjectID string `json:"public_project_id"`
+			Public          bool   `json:"public"`
+		}{
+			AccessGrant:     entry.serializedAccess,
+			PublicProjectID: entry.publicProjectID.String(),
+			Public:          entry.public,
+		}))
 	})
 }
 
