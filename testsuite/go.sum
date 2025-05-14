@@ -2593,8 +2593,8 @@ storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 h1:hLvEV2RMTscX3JHPd+LSQCeTt
 storj.io/drpc v0.0.35-0.20240709171858-0075ac871661/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 h1:5MZ0CyMbG6Pi0rRzUWVG6dvpXjbBYEX2oyXuj+tT+sk=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156/go.mod h1:CpnM6kfZV58dcq3lpbo/IQ4/KoutarnTSHY0GYVwnYw=
-storj.io/gateway v1.10.1-0.20250512043545-f079ad050f10 h1:ue5rmjmE7ET0clpAX6WcUN5gbwQDUSmM+T0BsoJa01Q=
-storj.io/gateway v1.10.1-0.20250512043545-f079ad050f10/go.mod h1:2SYeB2PjjNvXkuf+zHUlJ85/C9jNrCE3YoEyLMvN68g=
+storj.io/gateway v1.10.1-0.20250514104142-ef4532781dea h1:rFVWvwjZxW3Qy2xdqqey8bBreCwx/lbLoiNKaOvx/6w=
+storj.io/gateway v1.10.1-0.20250514104142-ef4532781dea/go.mod h1:uK177d5i0ACoipyMnAgPtnIDUGGyNxkDPa6BBRIRRGE=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
 storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20250505044116-871bf178a1a9 h1:CeIG76lDP+OaHLW+vSQ8DPw7DffTbpC0Vz+TDwUWOp0=
@@ -2605,8 +2605,8 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd h1:XkLxAvogynNQu/1gM/F
 storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu81qBfAE5cBGkVXROYSNJu9pGXLtStHE=
 storj.io/picobuf v0.0.3 h1:xAUPB5ZUGfxkqd3bnw3zp01kkWb9wlhg4vtZWUs2S9A=
 storj.io/picobuf v0.0.3/go.mod h1:4V4xelV1RSCck5GgmkL/Txw9l6IfX3XcBzegmL5Kudo=
-storj.io/storj v1.128.4 h1:rNyxcsU7EEYxQyOPI7B6Y3AyVFR7cH3aQJyAIYTdh4E=
-storj.io/storj v1.128.4/go.mod h1:H8omTFaJAPuqM1Q0jcThpK2cJaQwR/sRbdCDHLrIyEo=
+storj.io/storj v1.128.6 h1:ZNox6hPP8t1cOZzGeibTm8XKiOqE+QXXMgEXulpJ5f4=
+storj.io/storj v1.128.6/go.mod h1:H8omTFaJAPuqM1Q0jcThpK2cJaQwR/sRbdCDHLrIyEo=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
 storj.io/uplink v1.13.2-0.20250502121312-7a6801d76d91 h1:XMKR9yIURGKM8VizpQ+yQN0G+ip6aFgJpT/iQC5cq1k=
 storj.io/uplink v1.13.2-0.20250502121312-7a6801d76d91/go.mod h1:Jcv8KRhmT6sluOyhmt9d3NabDMJK8jNUgBF+//FUkKo=
