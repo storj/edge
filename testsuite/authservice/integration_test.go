@@ -33,6 +33,7 @@ import (
 	"storj.io/edge/pkg/tierquery"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 )
@@ -89,7 +90,7 @@ func TestAuthservice(t *testing.T) {
 	})
 }
 
-func TestFreeTierAccessExpiration(t *testing.T) {
+func TestAccessExpiration(t *testing.T) {
 	t.Parallel()
 
 	tempPath := t.TempDir()
@@ -117,18 +118,34 @@ func TestFreeTierAccessExpiration(t *testing.T) {
 				MaxDuration: maxAccessDuration,
 				TierQuery: tierquery.Config{
 					Identity:        identConfig,
-					CacheExpiration: 10 * time.Second,
-					CacheCapacity:   10000,
+					CacheExpiration: 0,
+					CacheCapacity:   0,
 				},
 			}
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, env *environment) {
-		access := env.planet.Uplinks[0].Access[env.planet.Satellites[0].ID()]
+		sat := env.planet.Satellites[0]
+		up := env.planet.Uplinks[0]
+
+		unrestricted := up.Access[sat.ID()]
+
+		unrestrictedSerialized, err := unrestricted.Serialize()
+		require.NoError(t, err)
+
+		longDurationExpiration := time.Now().Add(maxAccessDuration).Add(5 * time.Minute)
+		longDuration, err := privateAccess.Share(unrestricted,
+			privateAccess.WithAllPermissions(),
+			privateAccess.NotAfter(longDurationExpiration),
+		)
+		require.NoError(t, err)
+
+		longDurationSerialized, err := longDuration.Serialize()
+		require.NoError(t, err)
 
 		type accessTestCase struct {
-			serializedAccess   string
-			expectRestricted   bool
-			expectedExpiration time.Time
+			serializedAccess             string
+			expectedExpiration           *time.Time
+			expectedRestrictedExpiration *time.Time
 		}
 
 		runTests := func(t *testing.T, testCase accessTestCase) {
@@ -140,9 +157,9 @@ func TestFreeTierAccessExpiration(t *testing.T) {
 					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, false)
 					require.NoError(t, err)
 
-					if testCase.expectRestricted {
+					if testCase.expectedRestrictedExpiration != nil {
 						require.NotNil(t, creds.FreeTierRestrictedExpiration)
-						require.WithinDuration(t, testCase.expectedExpiration, *creds.FreeTierRestrictedExpiration, time.Second)
+						require.WithinDuration(t, *testCase.expectedRestrictedExpiration, *creds.FreeTierRestrictedExpiration, time.Second)
 					} else {
 						require.Nil(t, creds.FreeTierRestrictedExpiration)
 					}
@@ -156,57 +173,76 @@ func TestFreeTierAccessExpiration(t *testing.T) {
 					apiKey := privateAccess.APIKey(respAccess)
 					expiration, err := internalAccess.APIKeyExpiration(apiKey)
 					require.NoError(t, err)
-					require.NotNil(t, expiration)
 
-					require.WithinDuration(t, testCase.expectedExpiration, *expiration, time.Second)
+					if testCase.expectedExpiration != nil {
+						require.NotNil(t, expiration)
+						require.WithinDuration(t, *testCase.expectedExpiration, *expiration, time.Second)
+					} else {
+						require.Nil(t, expiration)
+					}
 				})
 			}
 		}
 
-		t.Run("Unrestricted access", func(t *testing.T) {
-			serialized, err := access.Serialize()
-			require.NoError(t, err)
+		t.Run("Free tier", func(t *testing.T) {
+			t.Run("Unrestricted access", func(t *testing.T) {
+				expiration := time.Now().Add(maxAccessDuration)
+				runTests(t, accessTestCase{
+					serializedAccess:             unrestrictedSerialized,
+					expectedExpiration:           &expiration,
+					expectedRestrictedExpiration: &expiration,
+				})
+			})
 
-			runTests(t, accessTestCase{
-				serializedAccess:   serialized,
-				expectRestricted:   true,
-				expectedExpiration: time.Now().Add(maxAccessDuration),
+			t.Run("Access with prohibited expiration", func(t *testing.T) {
+				expiration := time.Now().Add(maxAccessDuration)
+				runTests(t, accessTestCase{
+					serializedAccess:             longDurationSerialized,
+					expectedExpiration:           &expiration,
+					expectedRestrictedExpiration: &expiration,
+				})
+			})
+
+			t.Run("Access with allowed expiration", func(t *testing.T) {
+				expiration := time.Now().Add(maxAccessDuration / 2)
+
+				access, err := privateAccess.Share(unrestricted,
+					privateAccess.WithAllPermissions(),
+					privateAccess.NotAfter(expiration),
+				)
+				require.NoError(t, err)
+
+				serialized, err := access.Serialize()
+				require.NoError(t, err)
+
+				runTests(t, accessTestCase{
+					serializedAccess:             serialized,
+					expectedExpiration:           &expiration,
+					expectedRestrictedExpiration: nil,
+				})
 			})
 		})
 
-		t.Run("Access with prohibited expiration", func(t *testing.T) {
-			access, err := privateAccess.Share(access,
-				privateAccess.WithAllPermissions(),
-				privateAccess.NotAfter(time.Now().Add(maxAccessDuration).Add(5*time.Minute)),
-			)
-			require.NoError(t, err)
+		t.Run("Paid tier", func(t *testing.T) {
+			paidTier := true
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, up.Projects[0].Owner.ID, console.UpdateUserRequest{
+				PaidTier: &paidTier,
+			}))
 
-			serialized, err := access.Serialize()
-			require.NoError(t, err)
-
-			runTests(t, accessTestCase{
-				serializedAccess:   serialized,
-				expectRestricted:   true,
-				expectedExpiration: time.Now().Add(maxAccessDuration),
+			t.Run("Unrestricted access", func(t *testing.T) {
+				runTests(t, accessTestCase{
+					serializedAccess:             unrestrictedSerialized,
+					expectedExpiration:           nil,
+					expectedRestrictedExpiration: nil,
+				})
 			})
-		})
 
-		t.Run("Access with allowed expiration", func(t *testing.T) {
-			expiration := time.Now().Add(maxAccessDuration / 2)
-
-			access, err := privateAccess.Share(access,
-				privateAccess.WithAllPermissions(),
-				privateAccess.NotAfter(expiration),
-			)
-			require.NoError(t, err)
-
-			serialized, err := access.Serialize()
-			require.NoError(t, err)
-
-			runTests(t, accessTestCase{
-				serializedAccess:   serialized,
-				expectRestricted:   false,
-				expectedExpiration: expiration,
+			t.Run("Access with duration longer than free-tier limit", func(t *testing.T) {
+				runTests(t, accessTestCase{
+					serializedAccess:             longDurationSerialized,
+					expectedRestrictedExpiration: nil,
+					expectedExpiration:           &longDurationExpiration,
+				})
 			})
 		})
 	})
