@@ -1059,30 +1059,98 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
 		},
 		{
-			name:                  "GET empty prefix zip download",
+			name:                  "GET prefix zip download bandwidth limit",
 			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1"),
-			status:                http.StatusOK,
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1"),
+			status:                http.StatusForbidden,
 			downloadPrefixEnabled: true,
-			zipContent:            map[string]string{},
+			body:                  []string{"Bandwidth limit exceeded"},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			prepFunc: func() error {
+				// set bandwidth limit to 0
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
+			},
+			cleanupFunc: func() error {
+				// set bandwidth limit back to initial value
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, memory.Size(*bandwidthLimit))
+			},
+		},
+		{
+			name:                  "GET prefix tar download bandwidth limit",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
+			status:                http.StatusForbidden,
+			downloadPrefixEnabled: true,
+			body:                  []string{"Bandwidth limit exceeded"},
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			prepFunc: func() error {
+				// set bandwidth limit to 0
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
+			},
+			cleanupFunc: func() error {
+				// set bandwidth limit back to initial value
+				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, memory.Size(*bandwidthLimit))
+			},
+		},
+		{
+			name:                  "GET prefix zip download list-only access",
+			method:                "GET",
+			path:                  path.Join("s", serializedListOnlyAccess, "testbucket", "test/?download=1"),
+			status:                http.StatusForbidden,
+			body:                  []string{"Access denied"},
+			downloadPrefixEnabled: true,
+		},
+		{
+			name:                  "GET prefix tar download list-only access",
+			method:                "GET",
+			path:                  path.Join("s", serializedListOnlyAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
+			status:                http.StatusForbidden,
+			body:                  []string{"Access denied"},
+			downloadPrefixEnabled: true,
+		},
+		{
+			name:                  "GET prefix zip download download-only access",
+			method:                "GET",
+			path:                  path.Join("s", serializedDownloadOnlyAccess, "testbucket", "test/?download=1"),
+			status:                http.StatusForbidden,
+			body:                  []string{"Access denied"},
+			downloadPrefixEnabled: true,
 			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
-			name:                  "GET empty prefix tar download",
+			name:                  "GET prefix tar download download-only access",
+			method:                "GET",
+			path:                  path.Join("s", serializedDownloadOnlyAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
+			status:                http.StatusForbidden,
+			body:                  []string{"Access denied"},
+			downloadPrefixEnabled: true,
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+		},
+		{
+			name:                  "GET nonexistent prefix zip download",
+			method:                "GET",
+			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1"),
+			status:                http.StatusNotFound,
+			body:                  []string{"Object not found"},
+			downloadPrefixEnabled: true,
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+		},
+		{
+			name:                  "GET nonexistent prefix tar download",
 			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1&download-kind=tar.gz"),
-			status:                http.StatusOK,
+			status:                http.StatusNotFound,
+			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
-			tarContent:            map[string]string{},
 			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
 			name:                  "GET empty bucket zip download",
 			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1"),
-			status:                http.StatusOK,
+			status:                http.StatusNotFound,
+			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
-			zipContent:            map[string]string{},
 			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 			prepFunc: func() error {
 				return planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "emptytestbucket")
@@ -1092,9 +1160,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:                  "GET empty bucket tar download",
 			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=tar.gz"),
-			status:                http.StatusOK,
+			status:                http.StatusNotFound,
+			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
-			tarContent:            map[string]string{},
 			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 			cleanupFunc: func() error {
 				return planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "emptytestbucket")
@@ -1104,18 +1172,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			name:                  "GET bad bucket zip download",
 			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1"),
-			status:                http.StatusOK,
+			status:                http.StatusNotFound,
+			body:                  []string{"Bucket not found"},
 			downloadPrefixEnabled: true,
-			zipContent:            map[string]string{},
 			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:                  "GET bad bucket tar download",
 			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1&download-kind=tar.gz"),
-			status:                http.StatusOK,
+			status:                http.StatusNotFound,
+			body:                  []string{"Bucket not found"},
 			downloadPrefixEnabled: true,
-			tarContent:            map[string]string{},
 			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{

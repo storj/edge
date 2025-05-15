@@ -202,10 +202,13 @@ func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, 
 		fileName = endOfPrefix
 	}
 	fileName += ".zip"
-	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 
-	zipWriter := zip.NewWriter(w)
-	defer func() { err = errs.Combine(err, zipWriter.Close()) }()
+	var zipWriter *zip.Writer
+	defer func() {
+		if zipWriter != nil {
+			err = errs.Combine(err, zipWriter.Close())
+		}
+	}()
 
 	objects := project.ListObjects(ctx, pr.bucket, &uplink.ListObjectsOptions{
 		Prefix:    pr.realKey,
@@ -220,6 +223,10 @@ func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, 
 		// this check is necessary to limit the amount of memory that can be consumed due to downloading zip files containing many objects
 		// zip file headers must be kept in memory until the file is closed
 		if totalCount > handler.downloadZipLimit {
+			if zipWriter == nil {
+				w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+				zipWriter = zip.NewWriter(w)
+			}
 			header := zip.FileHeader{
 				Name:     "TRUNCATED.txt",
 				Method:   zip.Deflate,
@@ -244,6 +251,11 @@ To download a larger number of objects at once, download the prefix using the ta
 			return err
 		}
 		defer func() { err = errs.Combine(err, object.Close()) }()
+
+		if zipWriter == nil {
+			w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+			zipWriter = zip.NewWriter(w)
+		}
 
 		header := zip.FileHeader{
 			Name:     item.Key[len(pr.realKey):],
@@ -273,6 +285,9 @@ To download a larger number of objects at once, download the prefix using the ta
 	if err := objects.Err(); err != nil {
 		return err
 	}
+	if totalCount == 0 {
+		return uplink.ErrObjectNotFound
+	}
 
 	return nil
 }
@@ -286,12 +301,19 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 		fileName = endOfPrefix
 	}
 	fileName += ".tar.gz"
-	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 
-	gzipWriter := gzip.NewWriter(w)
-	defer func() { err = errs.Combine(err, gzipWriter.Close()) }()
-	tarWriter := tar.NewWriter(gzipWriter)
-	defer func() { err = errs.Combine(err, tarWriter.Close()) }()
+	var gzipWriter *gzip.Writer
+	defer func() {
+		if gzipWriter != nil {
+			err = errs.Combine(err, gzipWriter.Close())
+		}
+	}()
+	var tarWriter *tar.Writer
+	defer func() {
+		if tarWriter != nil {
+			err = errs.Combine(err, tarWriter.Close())
+		}
+	}()
 
 	objects := project.ListObjects(ctx, pr.bucket, &uplink.ListObjectsOptions{
 		Prefix:    pr.realKey,
@@ -299,12 +321,21 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 		System:    true,
 	})
 
+	totalCount := 0
 	processItem := func(item *uplink.Object) (err error) {
+		totalCount++
 		object, err := project.DownloadObject(ctx, pr.bucket, item.Key, nil)
 		if err != nil {
 			return err
 		}
 		defer func() { err = errs.Combine(err, object.Close()) }()
+
+		if gzipWriter == nil {
+			w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+			gzipWriter = gzip.NewWriter(w)
+			tarWriter = tar.NewWriter(gzipWriter)
+		}
+
 		header := tar.Header{
 			Name:    item.Key[len(pr.realKey):],
 			ModTime: item.System.Created,
@@ -329,6 +360,9 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 	}
 	if err := objects.Err(); err != nil {
 		return err
+	}
+	if totalCount == 0 {
+		return uplink.ErrObjectNotFound
 	}
 
 	return nil
