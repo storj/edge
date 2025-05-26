@@ -140,7 +140,7 @@ func (l *MultiTenancyLayer) StorageInfo(ctx context.Context) (minio.StorageInfo,
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, errors := l.layer.StorageInfo(miniogw.WithUplinkProject(ctx, project))
+	info, errors := l.layer.StorageInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}))
 
 	for _, err := range errors {
 		_ = l.log(ctx, err)
@@ -158,7 +158,7 @@ func (l *MultiTenancyLayer) MakeBucketWithLocation(ctx context.Context, bucket s
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.MakeBucketWithLocation(miniogw.WithUplinkProject(ctx, project), bucket, opts))
+	return l.log(ctx, l.layer.MakeBucketWithLocation(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, opts))
 }
 
 // GetBucketInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketInfo.
@@ -180,7 +180,7 @@ func (l *MultiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (b
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	bucketInfo, err = l.layer.GetBucketInfo(miniogw.WithUplinkProject(ctx, project), bucket)
+	bucketInfo, err = l.layer.GetBucketInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
 	return bucketInfo, l.log(ctx, err)
 }
 
@@ -213,7 +213,7 @@ func (l *MultiTenancyLayer) GetBucketVersioning(ctx context.Context, bucket stri
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	versioning, err = l.layer.GetBucketVersioning(miniogw.WithUplinkProject(ctx, project), bucket)
+	versioning, err = l.layer.GetBucketVersioning(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
 	return versioning, l.log(ctx, err)
 }
 
@@ -226,7 +226,7 @@ func (l *MultiTenancyLayer) SetBucketVersioning(ctx context.Context, bucket stri
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	err = l.layer.SetBucketVersioning(miniogw.WithUplinkProject(ctx, project), bucket, v)
+	err = l.layer.SetBucketVersioning(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, v)
 	return l.log(ctx, err)
 }
 
@@ -239,7 +239,7 @@ func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.Bu
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	buckets, err = l.layer.ListBuckets(miniogw.WithUplinkProject(ctx, project))
+	buckets, err = l.layer.ListBuckets(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}))
 	return buckets, l.log(ctx, err)
 }
 
@@ -284,7 +284,7 @@ func (l *MultiTenancyLayer) DeleteBucket(ctx context.Context, bucket string, for
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.DeleteBucket(miniogw.WithUplinkProject(ctx, project), bucket, forceDelete))
+	return l.log(ctx, l.layer.DeleteBucket(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, forceDelete))
 }
 
 // GetObjectLockConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLockConfig.
@@ -296,7 +296,7 @@ func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket stri
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objectLockConfig, err = l.layer.GetObjectLockConfig(miniogw.WithUplinkProject(ctx, project), bucket)
+	objectLockConfig, err = l.layer.GetObjectLockConfig(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
 	return objectLockConfig, l.log(ctx, err)
 }
 
@@ -309,7 +309,7 @@ func (l *MultiTenancyLayer) SetObjectLockConfig(ctx context.Context, bucket stri
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithUplinkProject(ctx, project), bucket, config))
+	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, config))
 }
 
 // GetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLegalHold.
@@ -321,7 +321,7 @@ func (l *MultiTenancyLayer) GetObjectLegalHold(ctx context.Context, bucket, obje
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	lh, err := l.layer.GetObjectLegalHold(miniogw.WithUplinkProject(ctx, project), bucket, object, version)
+	lh, err := l.layer.GetObjectLegalHold(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version)
 
 	return lh, l.log(ctx, err)
 }
@@ -335,7 +335,7 @@ func (l *MultiTenancyLayer) SetObjectLegalHold(ctx context.Context, bucket, obje
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectLegalHold(miniogw.WithUplinkProject(ctx, project), bucket, object, version, lh))
+	return l.log(ctx, l.layer.SetObjectLegalHold(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version, lh))
 }
 
 // GetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectRetention.
@@ -347,7 +347,7 @@ func (l *MultiTenancyLayer) GetObjectRetention(ctx context.Context, bucket, obje
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	retention, err := l.layer.GetObjectRetention(miniogw.WithUplinkProject(ctx, project), bucket, object, version)
+	retention, err := l.layer.GetObjectRetention(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version)
 
 	return retention, l.log(ctx, err)
 }
@@ -361,7 +361,7 @@ func (l *MultiTenancyLayer) SetObjectRetention(ctx context.Context, bucket, obje
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectRetention(miniogw.WithUplinkProject(ctx, project), bucket, object, version, r))
+	return l.log(ctx, l.layer.SetObjectRetention(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version, r))
 }
 
 // ListObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjects.
@@ -373,7 +373,7 @@ func (l *MultiTenancyLayer) ListObjects(ctx context.Context, bucket, prefix, mar
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjects(miniogw.WithUplinkProject(ctx, project), bucket, prefix, marker, delimiter, maxKeys)
+	result, err = l.layer.ListObjects(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, marker, delimiter, maxKeys)
 	return result, l.log(ctx, err)
 }
 
@@ -386,7 +386,7 @@ func (l *MultiTenancyLayer) ListObjectsV2(ctx context.Context, bucket, prefix, c
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectsV2(miniogw.WithUplinkProject(ctx, project), bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
+	result, err = l.layer.ListObjectsV2(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
 	return result, l.log(ctx, err)
 }
 
@@ -399,7 +399,7 @@ func (l *MultiTenancyLayer) ListObjectVersions(ctx context.Context, bucket, pref
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectVersions(miniogw.WithUplinkProject(ctx, project), bucket, prefix, marker, versionMarker, delimiter, maxKeys)
+	result, err = l.layer.ListObjectVersions(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, marker, versionMarker, delimiter, maxKeys)
 	return result, l.log(ctx, err)
 }
 
@@ -410,7 +410,7 @@ func (l *MultiTenancyLayer) GetObjectNInfo(ctx context.Context, bucket, object s
 		return nil, err
 	}
 
-	reader, err = l.layer.GetObjectNInfo(miniogw.WithUplinkProject(ctx, project), bucket, object, rs, h, lockType, opts)
+	reader, err = l.layer.GetObjectNInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, rs, h, lockType, opts)
 	if err != nil {
 		err = errs.Combine(err, project.Close())
 	} else {
@@ -429,7 +429,7 @@ func (l *MultiTenancyLayer) GetObjectInfo(ctx context.Context, bucket, object st
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.GetObjectInfo(miniogw.WithUplinkProject(ctx, project), bucket, object, opts)
+	objInfo, err = l.layer.GetObjectInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
 	return objInfo, l.log(ctx, err)
 }
 
@@ -442,7 +442,7 @@ func (l *MultiTenancyLayer) PutObject(ctx context.Context, bucket, object string
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.PutObject(miniogw.WithUplinkProject(ctx, project), bucket, object, data, opts)
+	objInfo, err = l.layer.PutObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, data, opts)
 
 	return objInfo, l.log(ctx, err)
 }
@@ -456,7 +456,7 @@ func (l *MultiTenancyLayer) CopyObject(ctx context.Context, srcBucket, srcObject
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.CopyObject(miniogw.WithUplinkProject(ctx, project), srcBucket, srcObject, destBucket, destObject, srcInfo, srcOpts, destOpts)
+	objInfo, err = l.layer.CopyObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), srcBucket, srcObject, destBucket, destObject, srcInfo, srcOpts, destOpts)
 	return objInfo, l.log(ctx, err)
 }
 
@@ -469,7 +469,7 @@ func (l *MultiTenancyLayer) DeleteObject(ctx context.Context, bucket, object str
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.DeleteObject(miniogw.WithUplinkProject(ctx, project), bucket, object, opts)
+	objInfo, err = l.layer.DeleteObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
 	return objInfo, l.log(ctx, err)
 }
 
@@ -482,7 +482,7 @@ func (l *MultiTenancyLayer) DeleteObjects(ctx context.Context, bucket string, ob
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	deleted, deleteErrors, err = l.layer.DeleteObjects(miniogw.WithUplinkProject(ctx, project), bucket, objects, opts)
+	deleted, deleteErrors, err = l.layer.DeleteObjects(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, objects, opts)
 	return deleted, deleteErrors, l.log(ctx, err)
 }
 
@@ -495,7 +495,7 @@ func (l *MultiTenancyLayer) ListMultipartUploads(ctx context.Context, bucket, pr
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListMultipartUploads(miniogw.WithUplinkProject(ctx, project), bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	result, err = l.layer.ListMultipartUploads(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 	return result, l.log(ctx, err)
 }
 
@@ -508,7 +508,7 @@ func (l *MultiTenancyLayer) NewMultipartUpload(ctx context.Context, bucket, obje
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	uploadID, err = l.layer.NewMultipartUpload(miniogw.WithUplinkProject(ctx, project), bucket, object, opts)
+	uploadID, err = l.layer.NewMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
 	return uploadID, l.log(ctx, err)
 }
 
@@ -521,7 +521,7 @@ func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, u
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, err = l.layer.PutObjectPart(miniogw.WithUplinkProject(ctx, project), bucket, object, uploadID, partID, data, opts)
+	info, err = l.layer.PutObjectPart(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, partID, data, opts)
 	return info, l.log(ctx, err)
 }
 
@@ -534,7 +534,7 @@ func (l *MultiTenancyLayer) GetMultipartInfo(ctx context.Context, bucket string,
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, err = l.layer.GetMultipartInfo(miniogw.WithUplinkProject(ctx, project), bucket, object, uploadID, opts)
+	info, err = l.layer.GetMultipartInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, opts)
 	return info, l.log(ctx, err)
 }
 
@@ -547,7 +547,7 @@ func (l *MultiTenancyLayer) ListObjectParts(ctx context.Context, bucket, object,
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectParts(miniogw.WithUplinkProject(ctx, project), bucket, object, uploadID, partNumberMarker, maxParts, opts)
+	result, err = l.layer.ListObjectParts(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, partNumberMarker, maxParts, opts)
 	return result, l.log(ctx, err)
 }
 
@@ -560,7 +560,7 @@ func (l *MultiTenancyLayer) AbortMultipartUpload(ctx context.Context, bucket, ob
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.AbortMultipartUpload(miniogw.WithUplinkProject(ctx, project), bucket, object, uploadID, opts))
+	return l.log(ctx, l.layer.AbortMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, opts))
 }
 
 // CompleteMultipartUpload is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).CompleteMultipartUpload.
@@ -572,7 +572,7 @@ func (l *MultiTenancyLayer) CompleteMultipartUpload(ctx context.Context, bucket,
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.CompleteMultipartUpload(miniogw.WithUplinkProject(ctx, project), bucket, object, uploadID, uploadedParts, opts)
+	objInfo, err = l.layer.CompleteMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, uploadedParts, opts)
 	return objInfo, l.log(ctx, err)
 }
 
@@ -590,7 +590,7 @@ func (l *MultiTenancyLayer) PutObjectTags(ctx context.Context, bucketName, objec
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err := l.layer.PutObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, tags, opts)
+	objInfo, err := l.layer.PutObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, tags, opts)
 
 	return objInfo, l.log(ctx, err)
 }
@@ -604,7 +604,7 @@ func (l *MultiTenancyLayer) GetObjectTags(ctx context.Context, bucketName, objec
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	t, err = l.layer.GetObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, opts)
+	t, err = l.layer.GetObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, opts)
 	return t, l.log(ctx, err)
 }
 
@@ -617,7 +617,7 @@ func (l *MultiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, ob
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err := l.layer.DeleteObjectTags(miniogw.WithUplinkProject(ctx, project), bucketName, objectPath, opts)
+	objInfo, err := l.layer.DeleteObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, opts)
 
 	return objInfo, l.log(ctx, err)
 }

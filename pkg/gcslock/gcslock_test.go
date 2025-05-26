@@ -20,10 +20,15 @@ import (
 )
 
 func TestMutex_PutHeadPatchDeleteCycle(t *testing.T) {
+	jsonKey, bucket, err := gcstest.FindCredentials()
+	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
+	}
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t, gcstest.RandPathUTF8(1024), "")
+	mu := newMutex(ctx, t, jsonKey, bucket, gcstest.RandPathUTF8(1024), "")
 	// 1st put should succeed & 2nd put should fail
 	require.NoError(t, mu.put(ctx))
 	require.ErrorIs(t, mu.put(ctx), gcsops.ErrPreconditionFailed)
@@ -37,10 +42,15 @@ func TestMutex_PutHeadPatchDeleteCycle(t *testing.T) {
 }
 
 func TestMutex_LockUnlock(t *testing.T) {
+	jsonKey, bucket, err := gcstest.FindCredentials()
+	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
+	}
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mu := newMutex(ctx, t, gcstest.RandPathUTF8(1024), "")
+	mu := newMutex(ctx, t, jsonKey, bucket, gcstest.RandPathUTF8(1024), "")
 
 	for i := 0; i < 3; i++ {
 		require.NoError(t, mu.Lock(ctx))
@@ -53,6 +63,11 @@ func TestMutex_LockUnlock(t *testing.T) {
 }
 
 func TestMutex_ConcurrentLockUnlock(t *testing.T) {
+	jsonKey, bucket, err := gcstest.FindCredentials()
+	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
+	}
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -60,14 +75,14 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 
 	// Make sure we clean up after a failed test:
 	defer func() {
-		_ = newMutex(ctx, t, name, "11").Unlock(ctx)
+		_ = newMutex(ctx, t, jsonKey, bucket, name, "11").Unlock(ctx)
 	}()
 
 	var observedLock uint32
 	for i := 0; i < 10; i++ {
 		i := i
 		ctx.Go(func() error {
-			mu := newMutex(ctx, t, name, strconv.Itoa(i))
+			mu := newMutex(ctx, t, jsonKey, bucket, name, strconv.Itoa(i))
 			require.NoError(t, mu.Lock(ctx))
 			require.True(t, atomic.CompareAndSwapUint32(&observedLock, 0, 1), "%d already locked", i)
 			require.True(t, sync2.Sleep(ctx, 100*time.Millisecond))
@@ -77,12 +92,7 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 	}
 }
 
-func newMutex(ctx *testcontext.Context, t *testing.T, name, tag string) *Mutex {
-	jsonKey, bucket, err := gcstest.FindCredentials()
-	if errs.Is(err, gcstest.ErrCredentialsNotFound) {
-		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
-	}
-
+func newMutex(ctx *testcontext.Context, t *testing.T, jsonKey []byte, bucket, name, tag string) *Mutex {
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 

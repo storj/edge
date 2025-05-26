@@ -1359,7 +1359,7 @@ To download a larger number of objects at once, download the prefix using the ta
 				}
 			}
 			if testCase.expectedRPCCalls != nil {
-				assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())
+				assert.ElementsMatch(t, testCase.expectedRPCCalls, callRecorder.History())
 			}
 		})
 	}

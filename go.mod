@@ -29,18 +29,18 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.37.0
 	golang.org/x/oauth2 v0.28.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.14.0
 	google.golang.org/api v0.227.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20250507192132-0c51beb4a743
+	storj.io/common v0.0.0-20250522165802-807832ddbca1
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/gateway v1.10.1-0.20250514104142-ef4532781dea
+	storj.io/gateway v1.10.1-0.20250523124950-95ee129cd086
 	storj.io/minio v0.0.0-20250505044116-871bf178a1a9
-	storj.io/uplink v1.13.2-0.20250502121312-7a6801d76d91
+	storj.io/uplink v1.13.2-0.20250523121258-d2d134cb6a83
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -215,11 +215,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
@@ -236,5 +236,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
-	storj.io/picobuf v0.0.3 // indirect
+	storj.io/picobuf v0.0.4 // indirect
 )
