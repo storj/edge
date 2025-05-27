@@ -133,14 +133,14 @@ func (l *MultiTenancyLayer) Shutdown(ctx context.Context) error {
 
 // StorageInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).StorageInfo.
 func (l *MultiTenancyLayer) StorageInfo(ctx context.Context) (minio.StorageInfo, []error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.StorageInfo{}, []error{err}
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, errors := l.layer.StorageInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}))
+	info, errors := l.layer.StorageInfo(miniogw.WithCredentials(ctx, project, credsInfo))
 
 	for _, err := range errors {
 		_ = l.log(ctx, err)
@@ -151,36 +151,36 @@ func (l *MultiTenancyLayer) StorageInfo(ctx context.Context) (minio.StorageInfo,
 
 // MakeBucketWithLocation is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).MakeBucketWithLocation.
 func (l *MultiTenancyLayer) MakeBucketWithLocation(ctx context.Context, bucket string, opts minio.BucketOptions) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.MakeBucketWithLocation(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, opts))
+	return l.log(ctx, l.layer.MakeBucketWithLocation(miniogw.WithCredentials(ctx, project, credsInfo), bucket, opts))
 }
 
 // GetBucketInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketInfo.
 func (l *MultiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
-	accessGrant := getAccessGrant(ctx)
+	creds := getCredentials(ctx)
 
-	// Some S3 (like AWS S3) implementations allow anonymous checks for bucket
-	// existence, but we explicitly forbid those and return
-	// `minio.NotImplemented`, which seems to be the most appropriate response
-	// in this case.
-	if accessGrant == "" {
+	// Some S3 (like AWS S3) implementations allow anonymous checks for
+	// bucket existence, but we explicitly forbid those and return
+	// `minio.NotImplemented`, which seems to be the most appropriate
+	// response in this case.
+	if creds.AccessGrant == "" {
 		return minio.BucketInfo{}, minio.NotImplemented{Message: "GetBucketInfo (anonymous)"}
 	}
 
-	project, err := l.openProject(ctx, accessGrant)
+	project, credsInfo, err := l.parseCredentials(ctx, creds)
 	if err != nil {
 		return minio.BucketInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	bucketInfo, err = l.layer.GetBucketInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
+	bucketInfo, err = l.layer.GetBucketInfo(miniogw.WithCredentials(ctx, project, credsInfo), bucket)
 	return bucketInfo, l.log(ctx, err)
 }
 
@@ -193,7 +193,7 @@ func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName st
 		return "", l.log(ctx, minio.BucketNameInvalid{Bucket: bucketName})
 	}
 
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return "", err
 	}
@@ -206,40 +206,40 @@ func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName st
 
 // GetBucketVersioning retrieves versioning configuration of a bucket.
 func (l *MultiTenancyLayer) GetBucketVersioning(ctx context.Context, bucket string) (versioning *versioning.Versioning, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	versioning, err = l.layer.GetBucketVersioning(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
+	versioning, err = l.layer.GetBucketVersioning(miniogw.WithCredentials(ctx, project, credsInfo), bucket)
 	return versioning, l.log(ctx, err)
 }
 
 // SetBucketVersioning enables versioning on a bucket.
 func (l *MultiTenancyLayer) SetBucketVersioning(ctx context.Context, bucket string, v *versioning.Versioning) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	err = l.layer.SetBucketVersioning(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, v)
+	err = l.layer.SetBucketVersioning(miniogw.WithCredentials(ctx, project, credsInfo), bucket, v)
 	return l.log(ctx, err)
 }
 
 // ListBuckets is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListBuckets.
 func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	buckets, err = l.layer.ListBuckets(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}))
+	buckets, err = l.layer.ListBuckets(miniogw.WithCredentials(ctx, project, credsInfo))
 	return buckets, l.log(ctx, err)
 }
 
@@ -255,7 +255,7 @@ type BucketWithAttributionInfo struct {
 func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buckets []BucketWithAttributionInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -277,140 +277,140 @@ func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buc
 
 // DeleteBucket is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteBucket.
 func (l *MultiTenancyLayer) DeleteBucket(ctx context.Context, bucket string, forceDelete bool) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.DeleteBucket(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, forceDelete))
+	return l.log(ctx, l.layer.DeleteBucket(miniogw.WithCredentials(ctx, project, credsInfo), bucket, forceDelete))
 }
 
 // GetObjectLockConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLockConfig.
 func (l *MultiTenancyLayer) GetObjectLockConfig(ctx context.Context, bucket string) (objectLockConfig *objectlock.Config, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return &objectlock.Config{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objectLockConfig, err = l.layer.GetObjectLockConfig(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket)
+	objectLockConfig, err = l.layer.GetObjectLockConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket)
 	return objectLockConfig, l.log(ctx, err)
 }
 
 // SetObjectLockConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectLockConfig.
 func (l *MultiTenancyLayer) SetObjectLockConfig(ctx context.Context, bucket string, config *objectlock.Config) (err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, config))
+	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket, config))
 }
 
 // GetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLegalHold.
 func (l *MultiTenancyLayer) GetObjectLegalHold(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectLegalHold, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	lh, err := l.layer.GetObjectLegalHold(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version)
+	lh, err := l.layer.GetObjectLegalHold(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, version)
 
 	return lh, l.log(ctx, err)
 }
 
 // SetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectLegalHold.
 func (l *MultiTenancyLayer) SetObjectLegalHold(ctx context.Context, bucket, object, version string, lh *objectlock.ObjectLegalHold) (err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectLegalHold(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version, lh))
+	return l.log(ctx, l.layer.SetObjectLegalHold(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, version, lh))
 }
 
 // GetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectRetention.
 func (l *MultiTenancyLayer) GetObjectRetention(ctx context.Context, bucket, object, version string) (_ *objectlock.ObjectRetention, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	retention, err := l.layer.GetObjectRetention(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version)
+	retention, err := l.layer.GetObjectRetention(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, version)
 
 	return retention, l.log(ctx, err)
 }
 
 // SetObjectRetention is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetObjectRetention.
 func (l *MultiTenancyLayer) SetObjectRetention(ctx context.Context, bucket, object, version string, r minio.ObjectOptions) (err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.SetObjectRetention(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, version, r))
+	return l.log(ctx, l.layer.SetObjectRetention(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, version, r))
 }
 
 // ListObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjects.
 func (l *MultiTenancyLayer) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ListObjectsInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjects(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, marker, delimiter, maxKeys)
+	result, err = l.layer.ListObjects(miniogw.WithCredentials(ctx, project, credsInfo), bucket, prefix, marker, delimiter, maxKeys)
 	return result, l.log(ctx, err)
 }
 
 // ListObjectsV2 is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjectsV2.
 func (l *MultiTenancyLayer) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ListObjectsV2Info{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectsV2(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
+	result, err = l.layer.ListObjectsV2(miniogw.WithCredentials(ctx, project, credsInfo), bucket, prefix, continuationToken, delimiter, maxKeys, fetchOwner, startAfter)
 	return result, l.log(ctx, err)
 }
 
 // ListObjectVersions returns information about all versions of the objects in a bucket.
 func (l *MultiTenancyLayer) ListObjectVersions(ctx context.Context, bucket, prefix, marker, versionMarker, delimiter string, maxKeys int) (result minio.ListObjectVersionsInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ListObjectVersionsInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectVersions(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, marker, versionMarker, delimiter, maxKeys)
+	result, err = l.layer.ListObjectVersions(miniogw.WithCredentials(ctx, project, credsInfo), bucket, prefix, marker, versionMarker, delimiter, maxKeys)
 	return result, l.log(ctx, err)
 }
 
 // GetObjectNInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectNInfo.
 func (l *MultiTenancyLayer) GetObjectNInfo(ctx context.Context, bucket, object string, rs *minio.HTTPRangeSpec, h http.Header, lockType minio.LockType, opts minio.ObjectOptions) (reader *minio.GetObjectReader, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
-	reader, err = l.layer.GetObjectNInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, rs, h, lockType, opts)
+	reader, err = l.layer.GetObjectNInfo(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, rs, h, lockType, opts)
 	if err != nil {
 		err = errs.Combine(err, project.Close())
 	} else {
@@ -422,157 +422,157 @@ func (l *MultiTenancyLayer) GetObjectNInfo(ctx context.Context, bucket, object s
 
 // GetObjectInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectInfo.
 func (l *MultiTenancyLayer) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.GetObjectInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
+	objInfo, err = l.layer.GetObjectInfo(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, opts)
 	return objInfo, l.log(ctx, err)
 }
 
 // PutObject is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObject.
 func (l *MultiTenancyLayer) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.PutObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, data, opts)
+	objInfo, err = l.layer.PutObject(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, data, opts)
 
 	return objInfo, l.log(ctx, err)
 }
 
 // CopyObject is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).CopyObject.
 func (l *MultiTenancyLayer) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo, srcOpts, destOpts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.CopyObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), srcBucket, srcObject, destBucket, destObject, srcInfo, srcOpts, destOpts)
+	objInfo, err = l.layer.CopyObject(miniogw.WithCredentials(ctx, project, credsInfo), srcBucket, srcObject, destBucket, destObject, srcInfo, srcOpts, destOpts)
 	return objInfo, l.log(ctx, err)
 }
 
 // DeleteObject is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteObject.
 func (l *MultiTenancyLayer) DeleteObject(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.DeleteObject(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
+	objInfo, err = l.layer.DeleteObject(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, opts)
 	return objInfo, l.log(ctx, err)
 }
 
 // DeleteObjects is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteObjects.
 func (l *MultiTenancyLayer) DeleteObjects(ctx context.Context, bucket string, objects []minio.ObjectToDelete, opts minio.ObjectOptions) (deleted []minio.DeletedObject, deleteErrors []minio.DeleteObjectsError, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	deleted, deleteErrors, err = l.layer.DeleteObjects(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, objects, opts)
+	deleted, deleteErrors, err = l.layer.DeleteObjects(miniogw.WithCredentials(ctx, project, credsInfo), bucket, objects, opts)
 	return deleted, deleteErrors, l.log(ctx, err)
 }
 
 // ListMultipartUploads is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListMultipartUploads.
 func (l *MultiTenancyLayer) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ListMultipartsInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListMultipartUploads(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	result, err = l.layer.ListMultipartUploads(miniogw.WithCredentials(ctx, project, credsInfo), bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 	return result, l.log(ctx, err)
 }
 
 // NewMultipartUpload is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).NewMultipartUpload.
 func (l *MultiTenancyLayer) NewMultipartUpload(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (uploadID string, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return "", err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	uploadID, err = l.layer.NewMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, opts)
+	uploadID, err = l.layer.NewMultipartUpload(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, opts)
 	return uploadID, l.log(ctx, err)
 }
 
 // PutObjectPart is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObjectPart.
 func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.PartInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, err = l.layer.PutObjectPart(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, partID, data, opts)
+	info, err = l.layer.PutObjectPart(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, partID, data, opts)
 	return info, l.log(ctx, err)
 }
 
 // GetMultipartInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetMultipartInfo.
 func (l *MultiTenancyLayer) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.MultipartInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	info, err = l.layer.GetMultipartInfo(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, opts)
+	info, err = l.layer.GetMultipartInfo(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, opts)
 	return info, l.log(ctx, err)
 }
 
 // ListObjectParts is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListObjectParts.
 func (l *MultiTenancyLayer) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int, opts minio.ObjectOptions) (result minio.ListPartsInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ListPartsInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	result, err = l.layer.ListObjectParts(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, partNumberMarker, maxParts, opts)
+	result, err = l.layer.ListObjectParts(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, partNumberMarker, maxParts, opts)
 	return result, l.log(ctx, err)
 }
 
 // AbortMultipartUpload is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).AbortMultipartUpload.
 func (l *MultiTenancyLayer) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts minio.ObjectOptions) error {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	return l.log(ctx, l.layer.AbortMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, opts))
+	return l.log(ctx, l.layer.AbortMultipartUpload(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, opts))
 }
 
 // CompleteMultipartUpload is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).CompleteMultipartUpload.
 func (l *MultiTenancyLayer) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err = l.layer.CompleteMultipartUpload(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucket, object, uploadID, uploadedParts, opts)
+	objInfo, err = l.layer.CompleteMultipartUpload(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, uploadedParts, opts)
 	return objInfo, l.log(ctx, err)
 }
 
@@ -583,68 +583,73 @@ func (l *MultiTenancyLayer) IsTaggingSupported() bool {
 
 // PutObjectTags is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObjectTags.
 func (l *MultiTenancyLayer) PutObjectTags(ctx context.Context, bucketName, objectPath string, tags string, opts minio.ObjectOptions) (minio.ObjectInfo, error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err := l.layer.PutObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, tags, opts)
+	objInfo, err := l.layer.PutObjectTags(miniogw.WithCredentials(ctx, project, credsInfo), bucketName, objectPath, tags, opts)
 
 	return objInfo, l.log(ctx, err)
 }
 
 // GetObjectTags is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectTags.
 func (l *MultiTenancyLayer) GetObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (t *tags.Tags, err error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	t, err = l.layer.GetObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, opts)
+	t, err = l.layer.GetObjectTags(miniogw.WithCredentials(ctx, project, credsInfo), bucketName, objectPath, opts)
 	return t, l.log(ctx, err)
 }
 
 // DeleteObjectTags is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteObjectTags.
 func (l *MultiTenancyLayer) DeleteObjectTags(ctx context.Context, bucketName, objectPath string, opts minio.ObjectOptions) (minio.ObjectInfo, error) {
-	project, err := l.openProject(ctx, getAccessGrant(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	objInfo, err := l.layer.DeleteObjectTags(miniogw.WithCredentials(ctx, project, miniogw.CredentialsInfo{}), bucketName, objectPath, opts)
+	objInfo, err := l.layer.DeleteObjectTags(miniogw.WithCredentials(ctx, project, credsInfo), bucketName, objectPath, opts)
 
 	return objInfo, l.log(ctx, err)
 }
 
-func getAccessGrant(ctx context.Context) string {
+func getCredentials(ctx context.Context) *middleware.Credentials {
 	credentials := middleware.GetAccess(ctx)
-	if credentials == nil || credentials.AccessKey == "" {
-		return ""
+	if credentials == nil {
+		return &middleware.Credentials{}
 	}
-	return credentials.AccessGrant
+	return credentials
 }
 
-func (l *MultiTenancyLayer) openProject(ctx context.Context, accessKey string) (_ *uplink.Project, err error) {
+func (l *MultiTenancyLayer) parseCredentials(ctx context.Context, credentials *middleware.Credentials) (_ *uplink.Project, _ miniogw.CredentialsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// this happens when an anonymous request hits the gateway endpoint, e.g.
-	// accessing http://localhost:20010 directly.
-	if accessKey == "" {
-		return nil, ErrAccessKeyEmpty
+	// this happens when an anonymous request hits the gateway endpoint,
+	// e.g. accessing http://localhost:20010 directly.
+	if credentials.AccessKey == "" {
+		return nil, miniogw.CredentialsInfo{}, ErrAccessKeyEmpty
 	}
 
-	access, err := uplink.ParseAccess(accessKey)
+	access, err := uplink.ParseAccess(credentials.AccessGrant)
 	if err != nil {
-		return nil, ErrAccessGrant.Wrap(err)
+		return nil, miniogw.CredentialsInfo{}, ErrAccessGrant.Wrap(err)
 	}
 
-	return l.setupProject(ctx, access)
+	project, err := l.setupProject(ctx, access)
+
+	return project, miniogw.CredentialsInfo{
+		Access:          access,
+		PublicProjectID: credentials.PublicProjectID,
+	}, err
 }
 
 func (l *MultiTenancyLayer) setupProject(ctx context.Context, access *uplink.Access) (_ *uplink.Project, err error) {
