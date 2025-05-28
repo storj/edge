@@ -2326,8 +2326,8 @@ storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhj
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 h1:5MZ0CyMbG6Pi0rRzUWVG6dvpXjbBYEX2oyXuj+tT+sk=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156/go.mod h1:CpnM6kfZV58dcq3lpbo/IQ4/KoutarnTSHY0GYVwnYw=
-storj.io/gateway v1.10.1-0.20250523124950-95ee129cd086 h1:shZ7MnvcvttLtQpNspKgl/KnZly0p6VPx9C9pRGkJ6Q=
-storj.io/gateway v1.10.1-0.20250523124950-95ee129cd086/go.mod h1:vi0hviLrgLuVWRw1oic0dgwnUTdXGZfXy3qC3bUIvoU=
+storj.io/gateway v1.10.1-0.20250528192608-f9c10519f51a h1:0x8+8JeZLWoEm1XOSIO6ZnUlA4un8JSDiQYLXDAJMrs=
+storj.io/gateway v1.10.1-0.20250528192608-f9c10519f51a/go.mod h1:vi0hviLrgLuVWRw1oic0dgwnUTdXGZfXy3qC3bUIvoU=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
 storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20250505044116-871bf178a1a9 h1:CeIG76lDP+OaHLW+vSQ8DPw7DffTbpC0Vz+TDwUWOp0=

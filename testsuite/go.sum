@@ -2595,8 +2595,8 @@ storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhj
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 h1:5MZ0CyMbG6Pi0rRzUWVG6dvpXjbBYEX2oyXuj+tT+sk=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156/go.mod h1:CpnM6kfZV58dcq3lpbo/IQ4/KoutarnTSHY0GYVwnYw=
-storj.io/gateway v1.10.1-0.20250523124950-95ee129cd086 h1:shZ7MnvcvttLtQpNspKgl/KnZly0p6VPx9C9pRGkJ6Q=
-storj.io/gateway v1.10.1-0.20250523124950-95ee129cd086/go.mod h1:vi0hviLrgLuVWRw1oic0dgwnUTdXGZfXy3qC3bUIvoU=
+storj.io/gateway v1.10.1-0.20250528192608-f9c10519f51a h1:0x8+8JeZLWoEm1XOSIO6ZnUlA4un8JSDiQYLXDAJMrs=
+storj.io/gateway v1.10.1-0.20250528192608-f9c10519f51a/go.mod h1:vi0hviLrgLuVWRw1oic0dgwnUTdXGZfXy3qC3bUIvoU=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
 storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20250505044116-871bf178a1a9 h1:CeIG76lDP+OaHLW+vSQ8DPw7DffTbpC0Vz+TDwUWOp0=
@@ -2607,8 +2607,8 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd h1:XkLxAvogynNQu/1gM/F
 storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu81qBfAE5cBGkVXROYSNJu9pGXLtStHE=
 storj.io/picobuf v0.0.4 h1:qswHDla+YZ2TovGtMnU4astjvrADSIz84FXRn0qgP6o=
 storj.io/picobuf v0.0.4/go.mod h1:hSMxmZc58MS/2qSLy1I0idovlO7+6K47wIGUyRZa6mg=
-storj.io/storj v1.129.3 h1:7HiZDC2gL0EFe5YeZesVyJpFGfKeMJfIH7DjhyX2ApI=
-storj.io/storj v1.129.3/go.mod h1:uQVeiO6jlV6LH7ugAtkf3jgew2+P4nz2jl6dO5pTlVk=
+storj.io/storj v1.129.4 h1:vW8+75f5kzfyjP58I0hLhHD5Az0kIVcqlFYDh0Zb6NQ=
+storj.io/storj v1.129.4/go.mod h1:uQVeiO6jlV6LH7ugAtkf3jgew2+P4nz2jl6dO5pTlVk=
 storj.io/uplink v1.7.1/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
 storj.io/uplink v1.13.2-0.20250523121258-d2d134cb6a83 h1:ACTWxYNjPniqTOBeZzpbZClEvL29agN8ajAvEFqctxw=
 storj.io/uplink v1.13.2-0.20250523121258-d2d134cb6a83/go.mod h1:1p+Bz1QvYcmVE3a/f8d92ndBX0D/Xj230DMFx+U63Ss=
