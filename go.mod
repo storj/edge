@@ -34,13 +34,13 @@ require (
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20250522165802-807832ddbca1
+	storj.io/common v0.0.0-20250529081337-15d9add689d4
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/gateway v1.10.1-0.20250528192608-f9c10519f51a
+	storj.io/gateway v1.10.1-0.20250530000240-5abd9fcbcce2
 	storj.io/minio v0.0.0-20250505044116-871bf178a1a9
-	storj.io/uplink v1.13.2-0.20250523121258-d2d134cb6a83
+	storj.io/uplink v1.13.2-0.20250529124627-1197eab6410a
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -235,6 +235,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/infectious v0.0.2 // indirect
-	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
+	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
 )
