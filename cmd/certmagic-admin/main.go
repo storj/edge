@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/pem"
@@ -107,12 +108,16 @@ func (cmd *cmdList) Execute(ctx context.Context) error {
 }
 
 type cmdShow struct {
-	config *certmagicConfig
-	name   string
+	config    *certmagicConfig
+	name      string
+	pemFormat bool
 }
 
 func (cmd *cmdShow) Setup(params clingy.Parameters) {
 	cmd.config.Staging = params.Flag("staging", "Use staging CA endpoints", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
+	cmd.pemFormat = params.Flag("pem", "Show full certificate and key in PEM format", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	cmd.name = params.Arg("name", "hostname to show certificate for (example.com)").(string)
@@ -127,12 +132,33 @@ func (cmd *cmdShow) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if cmd.pemFormat {
+		var buf bytes.Buffer
+
+		pkPEM, err := certmagic.PEMEncodePrivateKey(cert.PrivateKey)
+		if err != nil {
+			return err
+		}
+		buf.Write(pkPEM)
+
+		for _, certData := range cert.Certificate.Certificate {
+			buf.Write(pem.EncodeToMemory(&pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certData,
+			}))
+		}
+
+		_, err = fmt.Fprint(clingy.Stdout(ctx), buf.String())
+		return err
+	}
+
 	result, err := certinfo.CertificateText(cert.Leaf)
 	if err != nil {
 		return err
 	}
-	fmt.Print(result)
-	return nil
+	_, err = fmt.Fprint(clingy.Stdout(ctx), result)
+	return err
 }
 
 type cmdObtain struct {
