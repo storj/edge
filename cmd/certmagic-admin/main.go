@@ -22,6 +22,7 @@ import (
 	"github.com/libdns/googleclouddns"
 	"github.com/zeebo/clingy"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/edge/pkg/certstorage"
 	"storj.io/edge/pkg/gpublicca"
@@ -54,12 +55,10 @@ func main() {
 	logConf := zap.NewDevelopmentConfig()
 	logger, _ = logConf.Build()
 	ok, err := clingy.Environment{}.Run(context.Background(), func(cmds clingy.Commands) {
-		logEnabled := cmds.Flag("log.debug", "log debug messages", false,
-			clingy.Transform(strconv.ParseBool), clingy.Boolean,
-		).(bool)
-		if !logEnabled {
-			logConf.Level.SetLevel(zap.InfoLevel)
-		}
+		level := cmds.Flag("log.level", "log level (debug, info, warn, error, panic, fatal)", zapcore.InfoLevel,
+			clingy.Transform(zapcore.ParseLevel),
+		).(zapcore.Level)
+		logConf.Level.SetLevel(level)
 
 		c := &certmagicConfig{}
 		setupGlobalCertmagicConfig(cmds, c)
