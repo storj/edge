@@ -10,8 +10,10 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -66,6 +68,7 @@ func main() {
 		cmds.Group("cert", "certificate commands", func() {
 			cmds.New("list", "list certificates in storage", &cmdList{config: c})
 			cmds.New("show", "show a certificate from storage", &cmdShow{config: c})
+			cmds.New("export", "export one or more certificates to a directory", &cmdExport{config: c})
 			cmds.New("obtain", "obtains and stores a certificate for a domain, noop if cert already in storage", &cmdObtain{config: c})
 			cmds.New("renew", "renews and stores the certificate for a domain", &cmdRenew{config: c})
 			cmds.New("revoke", "revokes the certificate for a domain and deletes it from storage", &cmdRevoke{config: c})
@@ -133,22 +136,12 @@ func (cmd *cmdShow) Execute(ctx context.Context) error {
 	}
 
 	if cmd.pemFormat {
-		var buf bytes.Buffer
-
-		pkPEM, err := certmagic.PEMEncodePrivateKey(cert.PrivateKey)
+		pemStr, err := pemCertificate(&cert)
 		if err != nil {
 			return err
 		}
-		buf.Write(pkPEM)
 
-		for _, certData := range cert.Certificate.Certificate {
-			buf.Write(pem.EncodeToMemory(&pem.Block{
-				Type:  "CERTIFICATE",
-				Bytes: certData,
-			}))
-		}
-
-		_, err = fmt.Fprint(clingy.Stdout(ctx), buf.String())
+		_, err = fmt.Fprint(clingy.Stdout(ctx), pemStr)
 		return err
 	}
 
@@ -158,6 +151,59 @@ func (cmd *cmdShow) Execute(ctx context.Context) error {
 	}
 	_, err = fmt.Fprint(clingy.Stdout(ctx), result)
 	return err
+}
+
+type cmdExport struct {
+	config     *certmagicConfig
+	name       []string
+	outputPath string
+}
+
+func (cmd *cmdExport) Setup(params clingy.Parameters) {
+	setupCommonFlags(params, cmd.config)
+	cmd.outputPath = params.Arg("output", "output path").(string)
+	cmd.name = params.Arg("name", "hostname(s) to export certificates for, space separated, e.g. example.com *.example.com", clingy.Repeated).([]string)
+}
+
+func (cmd *cmdExport) Execute(ctx context.Context) error {
+	magic, err := configureCertMagic(ctx, cmd.config, true, true)
+	if err != nil {
+		return err
+	}
+
+	outputPathInfo, err := os.Stat(cmd.outputPath)
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("output path %s does not exist", cmd.outputPath)
+	}
+	if !outputPathInfo.IsDir() {
+		return fmt.Errorf("output path %s is not a directory", cmd.outputPath)
+	}
+
+	for _, name := range cmd.name {
+		cert, err := magic.CacheManagedCertificate(ctx, name)
+		if err != nil {
+			return err
+		}
+
+		var kb certmagic.KeyBuilder
+
+		file, err := os.OpenFile(filepath.Join(cmd.outputPath, kb.Safe(name+".pem")), os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+
+		pemStr, err := pemCertificate(&cert)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.WriteString(pemStr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type cmdObtain struct {
@@ -425,4 +471,23 @@ func parseReason(name string) (int, error) {
 		return 0, errors.New("invalid reason")
 	}
 	return int(r), nil
+}
+
+func pemCertificate(cert *certmagic.Certificate) (string, error) {
+	var buf bytes.Buffer
+
+	pkPEM, err := certmagic.PEMEncodePrivateKey(cert.PrivateKey)
+	if err != nil {
+		return "", err
+	}
+	buf.Write(pkPEM)
+
+	for _, certData := range cert.Certificate.Certificate {
+		buf.Write(pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certData,
+		}))
+	}
+
+	return buf.String(), nil
 }
