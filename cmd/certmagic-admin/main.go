@@ -476,18 +476,18 @@ func parseReason(name string) (int, error) {
 func pemCertificate(cert *certmagic.Certificate) (string, error) {
 	var buf bytes.Buffer
 
-	pkPEM, err := certmagic.PEMEncodePrivateKey(cert.PrivateKey)
-	if err != nil {
-		return "", err
-	}
-	buf.Write(pkPEM)
-
 	for _, certData := range cert.Certificate.Certificate {
 		buf.Write(pem.EncodeToMemory(&pem.Block{
 			Type:  "CERTIFICATE",
 			Bytes: certData,
 		}))
 	}
+
+	pkPEM, err := certmagic.PEMEncodePrivateKey(cert.PrivateKey)
+	if err != nil {
+		return "", err
+	}
+	buf.Write(pkPEM)
 
 	return buf.String(), nil
 }
