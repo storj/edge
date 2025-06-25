@@ -236,7 +236,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return PutResult{}, ErrAccessGrant.New("expiration cannot be shorter than a minute")
 	}
 
-	if db.config.FreeTierAccessLimit.MaxDuration > 0 {
+	if public && db.config.FreeTierAccessLimit.MaxDuration > 0 {
 		paidTier, err := db.tierService.Do(ctx, access, "")
 		if err != nil {
 			return PutResult{}, errs.Wrap(err)

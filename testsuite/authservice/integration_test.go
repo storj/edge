@@ -90,6 +90,8 @@ func TestAuthservice(t *testing.T) {
 	})
 }
 
+// TODO(jeremy, artur): this test has a potential to be flaky due to the
+// time-based nature of the test.
 func TestAccessExpiration(t *testing.T) {
 	t.Parallel()
 
@@ -143,6 +145,7 @@ func TestAccessExpiration(t *testing.T) {
 		require.NoError(t, err)
 
 		type accessTestCase struct {
+			public                       bool
 			serializedAccess             string
 			expectedExpiration           *time.Time
 			expectedRestrictedExpiration *time.Time
@@ -154,7 +157,7 @@ func TestAccessExpiration(t *testing.T) {
 				{name: "DRPC", addr: "drpc://" + env.auth.DRPCAddress()},
 			} {
 				t.Run(tt.name, func(t *testing.T) {
-					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, false)
+					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, testCase.public)
 					require.NoError(t, err)
 
 					if testCase.expectedRestrictedExpiration != nil {
@@ -188,6 +191,13 @@ func TestAccessExpiration(t *testing.T) {
 			t.Run("Unrestricted access", func(t *testing.T) {
 				expiration := time.Now().Add(maxAccessDuration)
 				runTests(t, accessTestCase{
+					public:                       false,
+					serializedAccess:             unrestrictedSerialized,
+					expectedExpiration:           nil,
+					expectedRestrictedExpiration: nil,
+				})
+				runTests(t, accessTestCase{
+					public:                       true,
 					serializedAccess:             unrestrictedSerialized,
 					expectedExpiration:           &expiration,
 					expectedRestrictedExpiration: &expiration,
@@ -197,6 +207,13 @@ func TestAccessExpiration(t *testing.T) {
 			t.Run("Access with prohibited expiration", func(t *testing.T) {
 				expiration := time.Now().Add(maxAccessDuration)
 				runTests(t, accessTestCase{
+					public:                       false,
+					serializedAccess:             longDurationSerialized,
+					expectedExpiration:           &longDurationExpiration,
+					expectedRestrictedExpiration: nil,
+				})
+				runTests(t, accessTestCase{
+					public:                       true,
 					serializedAccess:             longDurationSerialized,
 					expectedExpiration:           &expiration,
 					expectedRestrictedExpiration: &expiration,
@@ -216,6 +233,13 @@ func TestAccessExpiration(t *testing.T) {
 				require.NoError(t, err)
 
 				runTests(t, accessTestCase{
+					public:                       false,
+					serializedAccess:             serialized,
+					expectedExpiration:           &expiration,
+					expectedRestrictedExpiration: nil,
+				})
+				runTests(t, accessTestCase{
+					public:                       true,
 					serializedAccess:             serialized,
 					expectedExpiration:           &expiration,
 					expectedRestrictedExpiration: nil,
@@ -231,6 +255,13 @@ func TestAccessExpiration(t *testing.T) {
 
 			t.Run("Unrestricted access", func(t *testing.T) {
 				runTests(t, accessTestCase{
+					public:                       false,
+					serializedAccess:             unrestrictedSerialized,
+					expectedExpiration:           nil,
+					expectedRestrictedExpiration: nil,
+				})
+				runTests(t, accessTestCase{
+					public:                       true,
 					serializedAccess:             unrestrictedSerialized,
 					expectedExpiration:           nil,
 					expectedRestrictedExpiration: nil,
@@ -239,9 +270,16 @@ func TestAccessExpiration(t *testing.T) {
 
 			t.Run("Access with duration longer than free-tier limit", func(t *testing.T) {
 				runTests(t, accessTestCase{
+					public:                       false,
 					serializedAccess:             longDurationSerialized,
-					expectedRestrictedExpiration: nil,
 					expectedExpiration:           &longDurationExpiration,
+					expectedRestrictedExpiration: nil,
+				})
+				runTests(t, accessTestCase{
+					public:                       true,
+					serializedAccess:             longDurationSerialized,
+					expectedExpiration:           &longDurationExpiration,
+					expectedRestrictedExpiration: nil,
 				})
 			})
 		})
