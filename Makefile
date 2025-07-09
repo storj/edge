@@ -479,4 +479,4 @@ integration-services-start:
 		--cert-dir /cert \
 		--insecure-disable-tls=false \
 		--s3compatibility.fully-compatible-listing \
-		--s3compatibility.disable-copy-object=false
+		--s3compatibility.upload-part-copy.enable

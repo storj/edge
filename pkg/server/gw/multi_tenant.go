@@ -512,6 +512,19 @@ func (l *MultiTenancyLayer) NewMultipartUpload(ctx context.Context, bucket, obje
 	return uploadID, l.log(ctx, err)
 }
 
+// CopyObjectPart is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).CopyObjectPart.
+func (l *MultiTenancyLayer) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject, uploadID string, partID int, startOffset, length int64, srcInfo minio.ObjectInfo, srcOpts, dstOpts minio.ObjectOptions) (info minio.PartInfo, err error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return minio.PartInfo{}, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	info, err = l.layer.CopyObjectPart(miniogw.WithCredentials(ctx, project, credsInfo), srcBucket, srcObject, destBucket, destObject, uploadID, partID, startOffset, length, srcInfo, srcOpts, dstOpts)
+	return info, l.log(ctx, err)
+}
+
 // PutObjectPart is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).PutObjectPart.
 func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *minio.PutObjReader, opts minio.ObjectOptions) (info minio.PartInfo, err error) {
 	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))

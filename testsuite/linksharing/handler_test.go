@@ -1326,7 +1326,7 @@ To download a larger number of objects at once, download the prefix using the ta
 				for name, expectedContent := range testCase.zipContent {
 					f, err := zf.Open(name)
 					require.NoError(t, err)
-					defer func() { require.NoError(t, f.Close()) }()
+					defer func() { require.NoError(t, f.Close()) }() //nolint:gocritic
 					content, err := io.ReadAll(f)
 					require.NoError(t, err)
 					assert.Equal(t, expectedContent, string(content), fmt.Sprintf("zip entry does not have expected content: %s", expectedContent))

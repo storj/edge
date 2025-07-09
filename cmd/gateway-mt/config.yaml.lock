@@ -202,6 +202,16 @@ client.satellite-identities.key-paths: ""
 # minimum part size for multipart uploads
 # s3compatibility.min-part-size: 5242880
 
+# if true, UploadPartCopy calls do not incur egress fees
+# s3compatibility.upload-part-copy.discount-egress: false
+
+# return 501 (Not Implemented) for UploadPartCopy calls if not enabled
+# s3compatibility.upload-part-copy.enable: false
+
+# combinations ((public project ID):(bucket location),…) where UploadPartCopy is enabled
+# s3compatibility.upload-part-copy.enabled-combinations:
+# - '*:*'
+
 # RPC connection pool capacity (satellite connections)
 # satellite-connection-pool.capacity: 200
 
