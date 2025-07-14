@@ -230,6 +230,32 @@ func (l *MultiTenancyLayer) SetBucketVersioning(ctx context.Context, bucket stri
 	return l.log(ctx, err)
 }
 
+// GetBucketTagging is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketTagging.
+func (l *MultiTenancyLayer) GetBucketTagging(ctx context.Context, bucket string) (*tags.Tags, error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	t, err := l.layer.GetBucketTagging(miniogw.WithCredentials(ctx, project, credsInfo), bucket)
+	return t, l.log(ctx, err)
+}
+
+// SetBucketTagging is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetBucketTagging.
+func (l *MultiTenancyLayer) SetBucketTagging(ctx context.Context, bucket string, tags *tags.Tags) error {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	err = l.layer.SetBucketTagging(miniogw.WithCredentials(ctx, project, credsInfo), bucket, tags)
+	return l.log(ctx, err)
+}
+
 // ListBuckets is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListBuckets.
 func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.BucketInfo, err error) {
 	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
