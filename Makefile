@@ -178,7 +178,7 @@ verify: lint cross-vet test ## Execute pre-commit verification
 
 ##@ Release/Private Jenkins/Build
 
-GO_VERSION ?= 1.24.2plus564197
+GO_VERSION ?= 1.25rc2
 GO_VERSION_INTEGRATION_TESTS ?= 1.24.2
 
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
@@ -263,7 +263,7 @@ binaries: ${BINARIES} ## Build gateway-mt, authservice, linksharing, and simpleg
 		-w /usr/src/edge \
 		-e GOCACHE=/tmp/go-pkg \
 		-u $$(id -u):$$(id -g) \
-		golang:latest scripts/build_components_linux.sh "${COMPONENTLIST}" "${GO_VERSION}" "release/${TAG}"
+		golang:"${GO_VERSION}" scripts/build_components_linux.sh "${COMPONENTLIST}" "release/${TAG}"
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub
