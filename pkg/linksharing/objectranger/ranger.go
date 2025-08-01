@@ -27,11 +27,11 @@ type ObjectRanger struct {
 	bucket string
 
 	mu sync.Mutex
-	d  *uplink.Download
+	d  io.ReadCloser
 }
 
 // New creates a new object ranger.
-func New(p *uplink.Project, o *uplink.Object, d *uplink.Download, r httpranger.HTTPRange, bucket string) ranger.Ranger {
+func New(p *uplink.Project, o *uplink.Object, d io.ReadCloser, r httpranger.HTTPRange, bucket string) ranger.Ranger {
 	return &ObjectRanger{
 		p:      p,
 		o:      o,

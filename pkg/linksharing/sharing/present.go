@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
 	"mime"
@@ -130,14 +131,15 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		if (download || !wrap) && !mapOnly && len(archivePath) == 0 && rangeErr == nil {
 			d, err := project.DownloadObject(ctx, pr.bucket, pr.realKey, options)
 			if err == nil {
+				donce := &readCloserOnce{ReadCloser: d}
 				defer func() {
-					if err := d.Close(); err != nil {
+					if err := donce.Close(); err != nil {
 						handler.log.Debug("couldn't close the download", zap.Error(err))
 					}
 				}()
 				// set the actual offset and length
 				httpRange := optionsToRange(d.Info().System.ContentLength, options)
-				return handler.showObject(ctx, w, r, pr, project, d.Info(), d, httpRange)
+				return handler.showObject(ctx, w, r, pr, project, d.Info(), donce, httpRange)
 			}
 			objectErr = errdata.WithAction(err, "download object")
 			if errors.Is(objectErr, uplink.ErrPermissionDenied) || errors.Is(objectErr, uplink.ErrBandwidthLimitExceeded) {
@@ -201,7 +203,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	}
 }
 
-func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project, o *uplink.Object, d *uplink.Download, httpRange httpranger.HTTPRange) (err error) {
+func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r *http.Request, pr *parsedRequest, project *uplink.Project, o *uplink.Object, d io.ReadCloser, httpRange httpranger.HTTPRange) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	q := r.URL.Query()

@@ -4,6 +4,7 @@
 package sharing
 
 import (
+	"io"
 	"net/url"
 	"strconv"
 	"strings"
@@ -98,4 +99,22 @@ func (m *MutexGroup) Lock(name string) (unlock func()) {
 		}
 		m.mu.Unlock()
 	}
+}
+
+// readCloserOnce implements a wrapper around io.ReadCloser ensuring
+// that Close only gets called once for the underlying type.
+// Close returns nil on repeated calls.
+type readCloserOnce struct {
+	io.ReadCloser
+	closed bool
+}
+
+// Close closes the underlying ReadCloser.
+// Close returns nil when it has been already closed.
+func (rc *readCloserOnce) Close() error {
+	if !rc.closed {
+		rc.closed = true
+		return rc.ReadCloser.Close()
+	}
+	return nil
 }
