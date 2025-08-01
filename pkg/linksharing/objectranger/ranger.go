@@ -6,6 +6,7 @@ package objectranger
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/spacemonkeygo/monkit/v3"
 
@@ -22,9 +23,11 @@ var (
 type ObjectRanger struct {
 	p      *uplink.Project
 	o      *uplink.Object
-	d      *uplink.Download
 	r      httpranger.HTTPRange
 	bucket string
+
+	mu sync.Mutex
+	d  *uplink.Download
 }
 
 // New creates a new object ranger.
@@ -46,8 +49,15 @@ func (ranger *ObjectRanger) Size() int64 {
 // Range returns object read/close interface.
 func (ranger *ObjectRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	ranger.mu.Lock()
 	if ranger.d != nil && ranger.r.Start == offset && ranger.r.Length == length {
-		return ranger.d, nil
+		download := ranger.d
+		ranger.d = nil
+		ranger.mu.Unlock()
+		return download, nil
 	}
+	ranger.mu.Unlock()
+
 	return ranger.p.DownloadObject(ctx, ranger.bucket, ranger.o.Key, &uplink.DownloadOptions{Offset: offset, Length: length})
 }
