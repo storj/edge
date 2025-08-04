@@ -227,12 +227,12 @@ func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.T
 	credentials := GetAccess(r.Context())
 	if credentials != nil {
 		entryOptions.BucketOwner = credentials.PublicProjectID
-		entryOptions.Requester = credentials.PublicProjectID
+		entryOptions.Requester = credentials.AccessKey
 	}
 
 	return entryOptions
 }
 
-func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) serveraccesslogs.S3Entry {
-	return *serveraccesslogs.NewS3Entry(populateLogEntry(r, rw, startTime, gl))
+func extractLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.Time, gl *gwlog.Log) *serveraccesslogs.S3Entry {
+	return serveraccesslogs.NewS3Entry(populateLogEntry(r, rw, startTime, gl))
 }
