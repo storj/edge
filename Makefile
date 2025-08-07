@@ -1,4 +1,4 @@
-COMPONENTLIST := gateway-mt authservice linksharing simplegateway
+COMPONENTLIST := gateway-mt authservice linksharing simplegateway mcp-server
 
 #
 # Common
@@ -196,63 +196,24 @@ DOCKER_BUILD := docker build --build-arg TAG=${TAG}
 LATEST_DEV_TAG := dev
 
 .PHONY: images
-images: gateway-mt-image authservice-image linksharing-image simplegateway-image ## Build Docker images
-	@echo Built version: ${TAG}
-
-.PHONY: gateway-mt-image
-gateway-mt-image: ## Build gateway-mt Docker image
-	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/gateway-mt:${TAG}-amd64 \
-		-f cmd/gateway-mt/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/gateway-mt:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm \
-		--build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/gateway-mt/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/gateway-mt:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 \
-		--build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/gateway-mt/Dockerfile .
-	docker tag storjlabs/gateway-mt:${TAG}-amd64 storjlabs/gateway-mt:${LATEST_DEV_TAG}
-
-.PHONY: authservice-image
-authservice-image: ## Build authservice Docker image
-	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/authservice:${TAG}-amd64 \
-		-f cmd/authservice/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/authservice:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm \
-		--build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/authservice/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/authservice:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 \
-		--build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/authservice/Dockerfile .
-	docker tag storjlabs/authservice:${TAG}-amd64 storjlabs/authservice:${LATEST_DEV_TAG}
-
-.PHONY: linksharing-image
-linksharing-image: ## Build linksharing Docker image
-	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/linksharing:${TAG}-amd64 \
-		-f cmd/linksharing/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/linksharing:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/linksharing/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/linksharing:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/linksharing/Dockerfile .
-	docker tag storjlabs/linksharing:${TAG}-amd64 storjlabs/linksharing:${LATEST_DEV_TAG}
-
-.PHONY: simplegateway-image
-simplegateway-image: ## Build simplegateway Docker image
-	${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/simplegateway:${TAG}-amd64 \
-		-f cmd/simplegateway/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/simplegateway:${TAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/simplegateway/Dockerfile .
-	${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/simplegateway:${TAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/simplegateway/Dockerfile .
-	docker tag storjlabs/simplegateway:${TAG}-amd64 storjlabs/simplegateway:${LATEST_DEV_TAG}
+images: ## Build Docker images
+	for c in ${COMPONENTLIST}; do \
+		${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/$$c:${TAG}-amd64 \
+			-f cmd/$$c/Dockerfile . \
+		${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/$$c:${TAG}-arm32v6 \
+			--build-arg=GOARCH=arm \
+			--build-arg=DOCKER_ARCH=arm32v6 \
+			-f cmd/$$c/Dockerfile .
+		${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/$$c:${TAG}-arm64v8 \
+			--build-arg=GOARCH=arm64 \
+			--build-arg=DOCKER_ARCH=arm64v8 \
+			-f cmd/$$c/Dockerfile .
+		&& docker tag storjlabs/$$c:${TAG}-amd64 storjlabs/$$c:${LATEST_DEV_TAG} \
+		&& echo Built $$c version: ${TAG} \
+	; done
 
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway-mt, authservice, linksharing, and simplegateway binaries
+binaries: ${BINARIES} ## Build binaries
 	# TODO(artur): we could use a bit of caching here, but that's not strictly necessary for now
 	docker run --rm \
 		-v $$PWD:/usr/src/edge \
@@ -309,10 +270,9 @@ clean-binaries: ## Remove local release binaries
 
 .PHONY: clean-images
 clean-images:
-	-docker rmi -f $(shell docker images -q "storjlabs/gateway-mt:${TAG}-*")
-	-docker rmi -f $(shell docker images -q "storjlabs/authservice:${TAG}-*")
-	-docker rmi -f $(shell docker images -q "storjlabs/linksharing:${TAG}-*")
-	-docker rmi -f $(shell docker images -q "storjlabs/simplegateway:${TAG}-*")
+	for c in ${COMPONENTLIST}; do \
+		docker rmi -f $$(docker images -q "storjlabs/$$c:${TAG}-*") \
+	; done
 
 ##@ Local development/Public Jenkins/Integration Test
 

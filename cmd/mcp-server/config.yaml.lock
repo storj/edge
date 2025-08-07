@@ -1,0 +1,167 @@
+# Address to serve HTTP requests
+# address: :20110
+
+# Address to serve TLS requests
+# address-tls: :20111
+
+# The active time between retries, typically not set
+# auth.back-off.delay: 0s
+
+# The maximum total time to allow retries
+# auth.back-off.max: 5m0s
+
+# The minimum time between retries
+# auth.back-off.min: 100ms
+
+# base url to use for resolving access key ids
+auth.base-url: ""
+
+# how many cached access grants to keep in cache
+auth.cache.capacity: 10000
+
+# how long to keep cached access grants in cache
+auth.cache.expiration: 24h0m0s
+
+# how long to wait for a single auth service connection
+auth.timeout: 10s
+
+# auth token for giving access to the auth service
+auth.token: ""
+
+# bucket to use for certificate storage
+# cert-magic.bucket: ""
+
+# domain to set the TXT record on, to delegate the challenge to a different domain
+# cert-magic.challenge-override-domain: ""
+
+# email address to use while creating an ACME account
+# cert-magic.email: ""
+
+# use CertMagic to handle TLS certificates
+# cert-magic.enabled: false
+
+# path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)
+# cert-magic.key-file: ""
+
+# a project where the Google Cloud DNS zone exists
+# cert-magic.project: ""
+
+# use staging CA endpoints
+# cert-magic.staging: false
+
+# RPC connection pool capacity (non-satellite connections)
+# connection-pool.capacity: 100
+
+# RPC connection pool idle expiration (non-satellite connections)
+# connection-pool.idle-expiration: 2m0s
+
+# RPC connection pool limit per key (non-satellite connections)
+# connection-pool.key-capacity: 5
+
+# RPC connection pool max lifetime of a connection (non-satellite connections)
+# connection-pool.max-lifetime: 10m0s
+
+# address to listen on for debug endpoints
+# debug.addr: 127.0.0.1:0
+
+# If set, a path to write a process trace SVG to
+# debug.trace-out: ""
+
+# Comma-separated domain suffixes to serve on
+# domain-name: ""
+
+# Maximum time to wait for the next request
+# idle-timeout: 1m0s
+
+# Listen using insecure connections only
+# insecure-disable-tls: false
+
+# LinkSharing URL for sharing links
+# link-sharing-url: https://link.storjshare.io
+
+# if true, log function filename and line number
+# log.caller: false
+
+# custom level overrides for specific loggers in the format NAME1=ERROR,NAME2=WARN,... Only level increment is supported, and only for selected loggers!
+# log.custom-level: ""
+
+# if true, set logging to development mode
+# log.development: false
+
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
+# log.encoding: ""
+
+# the minimum log level to log
+# log.level: info
+
+# can be stdout, stderr, or a filename
+# log.output: stderr
+
+# if true, log stack traces
+# log.stack: false
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.addr: collectora.storj.io:9000
+
+# application name for telemetry identification. Ignored for certain applications.
+# metrics.app: mcp-server
+
+# application suffix. Ignored for certain applications.
+# metrics.app-suffix: -release
+
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
+
+# size of the internal eventkit queue for UDP sending
+# metrics.event-queue: 10000
+
+# instance id prefix
+# metrics.instance-prefix: ""
+
+# how frequently to send up telemetry. Ignored for certain applications.
+# metrics.interval: 1m0s
+
+# Address to serve TLS PROXY protocol requests
+# proxy-address-tls: :20112
+
+# RPC connection pool capacity (satellite connections)
+# satellite-connection-pool.capacity: 200
+
+# RPC connection pool idle expiration (satellite connections)
+# satellite-connection-pool.idle-expiration: 10m0s
+
+# RPC connection pool limit per key (satellite connections)
+# satellite-connection-pool.key-capacity: 0
+
+# RPC connection pool max lifetime of a connection (satellite connections)
+# satellite-connection-pool.max-lifetime: 10m0s
+
+# Time to delay server shutdown while returning 503s on the health endpoint
+# shutdown-delay: 45s
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: mcp-server
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: true
+
+# the possible hostnames that trace-host designated traces can be sent to
+# tracing.host-regex: \.storj\.tools:[0-9]+$
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
