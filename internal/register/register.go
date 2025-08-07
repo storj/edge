@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/edge/pkg/errdata"
 )
 
 // Error is the default error class for the register package.
@@ -41,7 +42,7 @@ func (c Credentials) String() string {
 }
 
 // Access registers access at authservice at authAddr.
-func Access(ctx context.Context, authAddr, access string, public bool) (Credentials, error) {
+func Access(ctx context.Context, authAddr, access string, public bool, usageTags []string) (Credentials, error) {
 	u, err := url.Parse(authAddr)
 	if err != nil {
 		return Credentials{}, Error.Wrap(err)
@@ -50,7 +51,7 @@ func Access(ctx context.Context, authAddr, access string, public bool) (Credenti
 		return registerDRPC(ctx, u.Host, u.Scheme == "drpcs", access, public)
 	}
 	u.Path = "/v1/access"
-	return registerHTTP(ctx, u.String(), access, public)
+	return registerHTTP(ctx, u.String(), access, public, usageTags)
 }
 
 func registerDRPC(ctx context.Context, addr string, secure bool, access string, public bool) (Credentials, error) {
@@ -90,13 +91,15 @@ func registerDRPC(ctx context.Context, addr string, secure bool, access string, 
 	}, nil
 }
 
-func registerHTTP(ctx context.Context, adrr, access string, public bool) (Credentials, error) {
+func registerHTTP(ctx context.Context, adrr, access string, public bool, usageTags []string) (Credentials, error) {
 	payload := struct {
-		AccessGrant string `json:"access_grant"`
-		Public      bool   `json:"public"`
+		AccessGrant string   `json:"access_grant"`
+		Public      bool     `json:"public"`
+		UsageTags   []string `json:"usage_tags,omitempty"`
 	}{
 		AccessGrant: access,
 		Public:      public,
+		UsageTags:   usageTags,
 	}
 
 	var ret Credentials
@@ -116,7 +119,7 @@ func registerHTTP(ctx context.Context, adrr, access string, public bool) (Creden
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != http.StatusOK {
-		return ret, Error.New("non-ok status (%s)", res.Status)
+		return ret, errdata.WithStatus(Error.New("non-ok status"), res.StatusCode)
 	}
 
 	return ret, json.NewDecoder(res.Body).Decode(&ret)

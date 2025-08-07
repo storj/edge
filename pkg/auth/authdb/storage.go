@@ -25,7 +25,8 @@ type Record struct {
 	EncryptedSecretKey   []byte
 	EncryptedAccessGrant []byte
 	ExpiresAt            *time.Time
-	Public               bool // if true, knowledge of secret key is not required
+	Public               bool     // if true, knowledge of secret key is not required
+	UsageTags            []string // some use-cases require an explicit tag set.
 }
 
 // FullRecord extends Record and includes invalidation information.

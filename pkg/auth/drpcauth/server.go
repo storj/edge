@@ -105,7 +105,7 @@ func (g *Server) registerAccessImpl(
 		return nil, err
 	}
 
-	putResult, err := g.db.Put(ctx, accessKey, request.AccessGrant, request.Public)
+	putResult, err := g.db.Put(ctx, accessKey, request.AccessGrant, request.Public, nil)
 	if err != nil {
 		return nil, err
 	}

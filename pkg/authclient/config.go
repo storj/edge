@@ -52,8 +52,9 @@ type AuthServiceCacheConfig struct {
 
 // AuthServiceResponse is the struct representing the response from the auth service.
 type AuthServiceResponse struct {
-	AccessGrant     string `json:"access_grant"`
-	SecretKey       string `json:"secret_key"`
-	Public          bool   `json:"public"`
-	PublicProjectID string `json:"public_project_id,omitempty"`
+	AccessGrant     string   `json:"access_grant"`
+	SecretKey       string   `json:"secret_key"`
+	Public          bool     `json:"public"`
+	PublicProjectID string   `json:"public_project_id,omitempty"`
+	UsageTags       []string `json:"usage_tags,omitempty"`
 }

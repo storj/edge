@@ -1947,7 +1947,7 @@ func runTest(
 		serialized, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Serialize()
 		require.NoError(t, err)
 
-		creds, err := register.Access(ctx, "http://"+auth.Address(), serialized, false)
+		creds, err := register.Access(ctx, "http://"+auth.Address(), serialized, false, nil)
 		require.NoError(t, err)
 
 		// Set the correct endpoint now that we know where gateway is.
@@ -1983,7 +1983,7 @@ func registerAccess(ctx context.Context, t *testing.T, encAccess *grant.Encrypti
 	serialized, err := restrictedAccess.Serialize()
 	require.NoError(t, err)
 
-	creds, err := register.Access(ctx, "http://"+authAddr, serialized, false)
+	creds, err := register.Access(ctx, "http://"+authAddr, serialized, false, nil)
 	require.NoError(t, err)
 
 	return creds

@@ -6,6 +6,8 @@ package spannerauth
 import (
 	"bytes"
 	"context"
+	"slices"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -100,6 +102,15 @@ func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record 
 		// "invalidated_at"
 	}
 
+	if len(record.UsageTags) > 0 {
+		if slices.ContainsFunc(record.UsageTags, func(tag string) bool {
+			return strings.Contains(tag, ",")
+		}) {
+			return Error.New("usage tags can't contain commas")
+		}
+		in["usage_tags"] = strings.Join(record.UsageTags, ",")
+	}
+
 	if record.PublicProjectID != nil && !bytes.Equal(record.PublicProjectID, uuid.UUID{}.Bytes()) {
 		in["public_project_id"] = record.PublicProjectID
 	}
@@ -159,6 +170,7 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		"encrypted_access_grant",
 		"invalidation_reason",
 		"invalidated_at",
+		"usage_tags",
 	}
 
 	boundedTx := d.client.Single().WithTimestampBound(spanner.ExactStaleness(defaultExactStaleness))
@@ -228,6 +240,14 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		return nil, Error.Wrap(err)
 	}
 	record.InvalidatedAt = invalidatedAt.Time
+
+	var usageTagsJoined spanner.NullString
+	if err := row.ColumnByName("usage_tags", &usageTagsJoined); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if len(usageTagsJoined.StringVal) > 0 {
+		record.UsageTags = strings.Split(usageTagsJoined.StringVal, ",")
+	}
 
 	// From https://cloud.google.com/spanner/docs/ttl:
 	//

@@ -20,6 +20,7 @@ type cachedAuthServiceResponse struct {
 	secretKey       []byte
 	public          bool
 	publicProjectID string
+	usageTags       []string
 	err             error
 }
 
@@ -44,6 +45,7 @@ func encryptResponse(accessKeyID string, resp AuthServiceResponse, respErr error
 		secretKey:       secretKey,
 		public:          resp.Public,
 		publicProjectID: resp.PublicProjectID,
+		usageTags:       resp.UsageTags,
 		err:             respErr,
 	}, nil
 }
@@ -69,5 +71,6 @@ func (resp *cachedAuthServiceResponse) decrypt(accessKeyID string) (AuthServiceR
 		SecretKey:       string(secretKey),
 		Public:          resp.public,
 		PublicProjectID: resp.publicProjectID,
+		UsageTags:       resp.usageTags,
 	}, nil
 }

@@ -100,10 +100,55 @@ func TestPutSatelliteValidation(t *testing.T) {
 	key, err := NewEncryptionKey()
 	require.NoError(t, err)
 
-	_, err = db.Put(ctx, key, validGrant, false)
+	_, err = db.Put(ctx, key, validGrant, false, nil)
 	require.NoError(t, err)
-	_, err = db.Put(ctx, key, invalidGrant, false)
+	_, err = db.Put(ctx, key, invalidGrant, false, nil)
 	require.Error(t, err)
+}
+
+func TestUsageTags(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	validURL := "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777"
+	checkURL := "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@127.0.0.1:7778"
+
+	mac, err := macaroon.NewAPIKey(nil)
+	require.NoError(t, err)
+
+	g := grant.Access{
+		SatelliteAddress: checkURL,
+		EncAccess:        grant.NewEncryptionAccess(),
+		APIKey:           mac,
+	}
+	g.SatelliteAddress = validURL
+	validGrant, err := g.Serialize()
+	require.NoError(t, err)
+
+	url, err := storj.ParseNodeURL(validURL)
+	require.NoError(t, err)
+
+	db, err := NewDatabase(zaptest.NewLogger(t), mockStorage{}, Config{
+		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{url: {}},
+	})
+	require.NoError(t, err)
+
+	key, err := NewEncryptionKey()
+	require.NoError(t, err)
+
+	_, err = db.Put(ctx, key, validGrant, false, []string{"something,foo"})
+	require.True(t, ErrInvalidTag.Has(err))
+
+	_, err = db.Put(ctx, key, validGrant, false, []string{"something"})
+	require.True(t, ErrInvalidTag.Has(err))
+
+	_, err = db.Put(ctx, key, validGrant, false, []string{""})
+	require.NoError(t, err)
+
+	_, err = db.Put(ctx, key, validGrant, false, nil)
+	require.NoError(t, err)
+
+	_, err = db.Put(ctx, key, validGrant, false, []string{"mcp"})
+	require.NoError(t, err)
 }
 
 func TestPutShortExpiration(t *testing.T) {
@@ -131,7 +176,7 @@ func TestPutShortExpiration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db.Put(context.TODO(), enc, s, true)
+	_, err = db.Put(context.TODO(), enc, s, true, nil)
 	t.Log(err)
 	require.Error(t, err)
 	require.True(t, ErrAccessGrant.Has(err))

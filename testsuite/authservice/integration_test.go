@@ -5,6 +5,7 @@ package authservice_test
 
 import (
 	"context"
+	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/tierquery"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -52,7 +54,7 @@ func TestAuthservice(t *testing.T) {
 		require.NoError(t, err)
 
 		runTest := func(addr, serialized string, test func(resp authclient.AuthServiceResponse)) {
-			creds, err := register.Access(ctx, addr, serialized, false)
+			creds, err := register.Access(ctx, addr, serialized, false, nil)
 			require.NoError(t, err)
 
 			resp, err := env.authClient.Resolve(ctx, creds.AccessKeyID, "")
@@ -87,6 +89,51 @@ func TestAuthservice(t *testing.T) {
 
 		runTest("http://"+env.auth.Address(), testSatelliteAccess, nonExistentSatelliteTest)
 		runTest("drpc://"+env.auth.DRPCAddress(), testSatelliteAccess, nonExistentSatelliteTest)
+	})
+}
+
+func TestUsageTags(t *testing.T) {
+	t.Parallel()
+
+	testSatellite := testrand.NodeID().String() + "@satellite.test"
+
+	runEnvironment(t, reconfigure{
+		auth: func(config *auth.Config) {
+			config.AllowedSatellites = append(config.AllowedSatellites, testSatellite)
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, env *environment) {
+		apiKey, err := macaroon.NewAPIKey([]byte("secret"))
+		require.NoError(t, err)
+
+		ag := grant.Access{
+			SatelliteAddress: testSatellite,
+			APIKey:           apiKey,
+			EncAccess:        grant.NewEncryptionAccess(),
+		}
+		testSatelliteAccess, err := ag.Serialize()
+		require.NoError(t, err)
+
+		// note: use-case tags can only be registered with HTTP endpoints at the moment.
+		runTest := func(access string, usageTags []string, expectedUsageTags []string, expectedBadResponse bool) {
+			registerResp, err := register.Access(ctx, "http://"+env.auth.Address(), access, false, usageTags)
+			if expectedBadResponse {
+				require.Error(t, err)
+				require.Equal(t, http.StatusBadRequest, errdata.GetStatus(err, 0))
+				return
+			}
+			require.NoError(t, err)
+
+			resp, err := env.authClient.Resolve(ctx, registerResp.AccessKeyID, "")
+			require.NoError(t, err)
+
+			require.Equal(t, expectedUsageTags, resp.UsageTags)
+		}
+
+		runTest(testSatelliteAccess, nil, nil, false)
+		runTest(testSatelliteAccess, []string{""}, nil, false)
+		runTest(testSatelliteAccess, []string{"something"}, nil, true)
+		runTest(testSatelliteAccess, []string{"mcp"}, []string{"mcp"}, false)
+		runTest(testSatelliteAccess, []string{"mcp", "something"}, nil, true)
 	})
 }
 
@@ -157,7 +204,7 @@ func TestAccessExpiration(t *testing.T) {
 				{name: "DRPC", addr: "drpc://" + env.auth.DRPCAddress()},
 			} {
 				t.Run(tt.name, func(t *testing.T) {
-					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, testCase.public)
+					creds, err := register.Access(ctx, tt.addr, testCase.serializedAccess, testCase.public, nil)
 					require.NoError(t, err)
 
 					if testCase.expectedRestrictedExpiration != nil {

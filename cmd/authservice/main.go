@@ -61,9 +61,10 @@ var (
 	confDir string
 
 	registerCfg struct {
-		Address   string `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.storjshare.io:7777"`
-		Public    bool   `help:"whether access grant can be retrieved from authservice by providing only Access Key ID without Secret Access Key" default:"false"`
-		FormatEnv bool   `help:"environmental-variable format of credentials; for using in scripts" default:"false"`
+		Address   string   `help:"authservice to register access to" dev:"drpc://localhost:20002" release:"drpcs://auth.storjshare.io:7777"`
+		Public    bool     `help:"whether access grant can be retrieved from authservice by providing only Access Key ID without Secret Access Key" default:"false"`
+		UsageTags []string `help:"use-case tags for the access grant"`
+		FormatEnv bool     `help:"environmental-variable format of credentials; for using in scripts" default:"false"`
 	}
 )
 
@@ -155,7 +156,7 @@ func cmdSetup(cmd *cobra.Command, _ []string) error {
 func cmdRegister(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
-	res, err := register.Access(ctx, registerCfg.Address, args[0], registerCfg.Public)
+	res, err := register.Access(ctx, registerCfg.Address, args[0], registerCfg.Public, registerCfg.UsageTags)
 	if err != nil {
 		return err
 	}

@@ -51,7 +51,8 @@ func ConfigureTestServer(ctx context.Context, logger *zap.Logger) (*spannertest.
 				encrypted_secret_key   BYTES(48)   NOT NULL,
 				encrypted_access_grant BYTES(MAX)  NOT NULL,
 				invalidation_reason    STRING(MAX),
-				invalidated_at         TIMESTAMP
+				invalidated_at         TIMESTAMP,
+				usage_tags             STRING(MAX)
 			) PRIMARY KEY (encryption_key_hash),
 			ROW DELETION POLICY (OLDER_THAN(expires_at, INTERVAL 0 DAY))`,
 		},

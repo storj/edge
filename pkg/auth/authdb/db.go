@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,9 @@ var (
 
 	// ErrAccessGrant occurs when an invalid access grant is given.
 	ErrAccessGrant = errs.Class("access grant")
+
+	// ErrInvalidTag occurs when attempting to use an invalid tag.
+	ErrInvalidTag = errs.Class("invalid tag")
 
 	base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
@@ -196,6 +200,34 @@ type PutResult struct {
 	FreeTierRestrictedExpiration *time.Time
 }
 
+func lowercaseAll(v []string) (rv []string) {
+	rv = make([]string, 0, len(v))
+	for _, v := range v {
+		rv = append(rv, strings.ToLower(v))
+	}
+	return rv
+}
+
+func processUsageTags(tags []string) ([]string, error) {
+	tags = lowercaseAll(tags)
+	slices.Sort(tags)
+	tags = slices.Compact(tags)
+	filtered := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		if strings.Contains(tag, ",") {
+			return nil, ErrInvalidTag.New("can't contain commas")
+		}
+		switch tag {
+		case "mcp":
+			filtered = append(filtered, tag)
+		case "":
+		default:
+			return nil, ErrInvalidTag.New("unknown tag %q", tag)
+		}
+	}
+	return filtered, nil
+}
+
 // Put encrypts the access grant with the key and stores it under the hash of
 // the encryption key. It rejects access grants with expiration times that are
 // before a minute from now.
@@ -203,8 +235,13 @@ type PutResult struct {
 // If the access grant's owner is a free-tier user, expiration date restrictions
 // may be imposed on the access grant according to the FreeTierAccessLimitConfig
 // used when constructing the database.
-func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool) (result PutResult, err error) {
+func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant string, public bool, usageTags []string) (result PutResult, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	usageTags, err = processUsageTags(usageTags)
+	if err != nil {
+		return PutResult{}, err
+	}
 
 	access, err := uplink.ParseAccess(accessGrant)
 	if err != nil {
@@ -297,6 +334,7 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		EncryptedAccessGrant: encryptedAccessGrant,
 		Public:               public,
 		ExpiresAt:            expiration,
+		UsageTags:            usageTags,
 	}
 
 	if err = db.storage.Put(ctx, key.Hash(), record); err != nil {

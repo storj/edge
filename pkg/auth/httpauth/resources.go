@@ -163,8 +163,9 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	res.newAccessCORS(w, req)
 	res.log.Debug("newAccess request", zap.String("remote address", req.RemoteAddr))
 	var request struct {
-		AccessGrant string `json:"access_grant"`
-		Public      bool   `json:"public"`
+		AccessGrant string   `json:"access_grant"`
+		Public      bool     `json:"public"`
+		UsageTags   []string `json:"usage_tags"`
 	}
 
 	reader := http.MaxBytesReader(w, req.Body, res.postSizeLimit.Int64())
@@ -187,9 +188,9 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	putResult, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public)
+	putResult, err := res.db.Put(req.Context(), key, request.AccessGrant, request.Public, request.UsageTags)
 	if err != nil {
-		if authdb.ErrAccessGrant.Has(err) {
+		if authdb.ErrAccessGrant.Has(err) || authdb.ErrInvalidTag.Has(err) {
 			res.writeError(w, "newAccess", err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -269,10 +270,11 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var response struct {
-		AccessGrant     string `json:"access_grant"`
-		SecretKey       string `json:"secret_key"`
-		Public          bool   `json:"public"`
-		PublicProjectID string `json:"public_project_id,omitempty"`
+		AccessGrant     string   `json:"access_grant"`
+		SecretKey       string   `json:"secret_key"`
+		Public          bool     `json:"public"`
+		PublicProjectID string   `json:"public_project_id,omitempty"`
+		UsageTags       []string `json:"usage_tags,omitempty"`
 	}
 
 	var publicProjectID string
@@ -291,6 +293,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	response.SecretKey = result.SecretKey.ToBase32()
 	response.Public = result.Public
 	response.PublicProjectID = publicProjectID
+	response.UsageTags = result.UsageTags
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
