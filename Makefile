@@ -178,18 +178,14 @@ verify: lint cross-vet test ## Execute pre-commit verification
 
 ##@ Release/Private Jenkins/Build
 
-GO_VERSION ?= 1.25rc2
-GO_VERSION_INTEGRATION_TESTS ?= 1.24.2
-
+GO_VERSION ?= 1.25.0
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 
 ifeq (${BRANCH_NAME},main)
 	TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-	TAG_INTEGRATION_TESTS := $(shell git rev-parse --short HEAD)-go${GO_VERSION_INTEGRATION_TESTS}
 	BRANCH_NAME :=
 else
 	TAG := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
-	TAG_INTEGRATION_TESTS := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION_INTEGRATION_TESTS}
 	ifneq ($(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*"),)
 		LATEST_STABLE_TAG := latest
 	endif
@@ -320,7 +316,7 @@ clean-images:
 
 ##@ Local development/Public Jenkins/Integration Test
 
-BUILD_NUMBER ?= ${TAG_INTEGRATION_TESTS}
+BUILD_NUMBER ?= ${TAG}
 
 .PHONY: integration-run
 integration-run: integration-env-start integration-all-tests ## Start the integration environment and run all tests
@@ -417,7 +413,7 @@ integration-checkout:
 .PHONY: integration-image-build
 integration-image-build:
 	for C in gateway-mt authservice; do \
-		CGO_ENABLED=0 ./scripts/integration_tests_build_image.sh $$C ${BUILD_NUMBER} ${GO_VERSION_INTEGRATION_TESTS} \
+		CGO_ENABLED=0 ./scripts/integration_tests_build_image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
 	storj-up init minimal,db && \
