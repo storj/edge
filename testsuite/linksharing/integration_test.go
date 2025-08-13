@@ -163,6 +163,7 @@ func TestIntegration(t *testing.T) {
 			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
 				for i := range planet.Uplinks {
 					planet.Uplinks[i].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+					require.NoError(t, planet.Uplinks[i].CreateBucket(ctx, planet.Satellites[0], "test"))
 					require.NoError(t, planet.Uplinks[i].Upload(ctx, planet.Satellites[0], "test", "index.html", []byte("HELLO!")))
 				}
 			},
@@ -233,6 +234,7 @@ func TestIntegration(t *testing.T) {
 			tlsRecord: true,
 			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, root string) {
 				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+				require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], root))
 				require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "health/process", []byte("HELLO!")))
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
@@ -251,6 +253,7 @@ func TestIntegration(t *testing.T) {
 			tlsRecord: true,
 			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, root string) {
 				planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID] = newPaidAccess(ctx, t, planet.Satellites[0])
+				require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], root))
 				require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "static/img/logo.svg", []byte("HELLO!")))
 			},
 			url: func(t *testing.T, peer *linksharing.Peer, _, _, _, customDomain string) string {
@@ -627,6 +630,7 @@ func TestIntegration(t *testing.T) {
 						}
 					}
 
+					require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], root))
 					require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], root, "index.html", []byte("HELLO!")))
 
 					method := tc.method

@@ -1,8 +1,8 @@
 module storj.io/edge/testsuite
 
-go 1.23.5
+go 1.24.0
 
-toolchain go1.23.6
+toolchain go1.24.6
 
 require (
 	github.com/aws/aws-sdk-go v1.55.6
@@ -15,11 +15,11 @@ require (
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.14.0
-	storj.io/common v0.0.0-20250708184027-161236ba0b21
+	storj.io/common v0.0.0-20250808122759-804533d519c1
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20250710234239-80320feaf0d2
-	storj.io/storj v1.132.7
-	storj.io/uplink v1.13.2-0.20250725154842-6fd789141c65
+	storj.io/storj v1.135.5
+	storj.io/uplink v1.13.2-0.20250811123044-b47024cb1fe1
 )
 
 require (
@@ -83,7 +83,7 @@ require (
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.1 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-ldap/ldap/v3 v3.2.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -100,7 +100,7 @@ require (
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
+	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
@@ -144,11 +144,11 @@ require (
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/linkedin/goavro/v2 v2.13.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mailru/easyjson v0.7.6 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mattn/go-sqlite3 v1.14.19 // indirect
+	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/minio/cli v1.22.0 // indirect
@@ -255,7 +255,7 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
@@ -282,7 +282,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
-	storj.io/gateway v1.10.1-0.20250714130850-ec8f9dfa5b2b // indirect
+	storj.io/gateway v1.11.1-0.20250813002816-a0484b72b939 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect

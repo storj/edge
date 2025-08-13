@@ -248,9 +248,9 @@ func TestAccessExpiration(t *testing.T) {
 		})
 
 		t.Run("Paid tier", func(t *testing.T) {
-			paidTier := true
+			paidUser := console.PaidUser
 			require.NoError(t, sat.DB.Console().Users().Update(ctx, up.Projects[0].Owner.ID, console.UpdateUserRequest{
-				PaidTier: &paidTier,
+				Kind: &paidUser,
 			}))
 
 			t.Run("Unrestricted access", func(t *testing.T) {
