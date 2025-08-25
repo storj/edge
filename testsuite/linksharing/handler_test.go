@@ -149,7 +149,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	require.NoError(t, err)
 
 	testListPrefix := "pagination"
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		var name string
 		if i == 3 {
 			name = fmt.Sprintf("%s/%s", testListPrefix, sharing.FilePlaceholder)
@@ -239,7 +239,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	}{
 		{
 			name:             "GET missing access",
-			method:           "GET",
 			path:             "s/",
 			status:           http.StatusBadRequest,
 			body:             []string{"Malformed request."},
@@ -247,7 +246,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET misconfigured auth server",
-			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
 			body:             []string{"Internal server error."},
@@ -256,7 +254,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET missing access key",
-			method:           "GET",
 			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
 			body:             []string{"Access denied."},
@@ -265,7 +262,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET private access key",
-			method:           "GET",
 			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Access denied."},
@@ -274,7 +270,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET found access key",
-			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{"foo"},
@@ -283,7 +278,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET missing bucket",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess),
 			status:           http.StatusBadRequest,
 			body:             []string{"Malformed request."},
@@ -291,7 +285,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET object not found",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
 			body:             []string{"Object not found"},
@@ -299,7 +292,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET success",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{"foo"},
@@ -307,7 +299,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET download",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?download=1"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
@@ -315,7 +306,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET map only",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
 			body:             []string{"circle"},
@@ -323,7 +313,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET map only raw",
-			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?map=1"),
 			status:           http.StatusOK,
 			body:             []string{"circle"},
@@ -331,7 +320,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET view",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?view=1"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
@@ -339,7 +327,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET wrap",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
 			body:             []string{"This file is ready for download"},
@@ -347,7 +334,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:   "GET wrap (image preview)",
-			method: "GET",
 			path:   path.Join("s", serializedAccess, "testbucket", "test/mIllogh.jpg?wrap=1"),
 			status: http.StatusOK,
 			body: []string{
@@ -364,7 +350,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET wrap raw",
-			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo?wrap=1"),
 			status:           http.StatusOK,
 			body:             []string{"This file is ready for download"},
@@ -372,7 +357,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:   "GET wrap raw (image preview)",
-			method: "GET",
 			path:   path.Join("raw", serializedAccess, "testbucket", "test/mIllogh.jpg?wrap=1"),
 			status: http.StatusOK,
 			body: []string{
@@ -389,7 +373,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET no wrap",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?wrap=no"),
 			status:           http.StatusOK,
 			body:             []string{"FOOBAR"},
@@ -397,15 +380,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET download success",
-			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download with range",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download with range",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range": "bytes=0-",
 			},
@@ -414,9 +395,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download with range partial content",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download with range partial content",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range": "bytes=0-1",
 			},
@@ -425,9 +405,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download with suffix-byte-range",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download with suffix-byte-range",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range": "bytes=-3",
 			},
@@ -436,9 +415,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download with too large range",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download with too large range",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range": "bytes=0-10",
 			},
@@ -447,9 +425,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download not modified modtime",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download not modified modtime",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"If-Modified-Since": "Wed, 25 Jun 2100 17:12:18 GMT",
 			},
@@ -457,9 +434,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download with range no overlap",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download with range no overlap",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range": "bytes=10-20",
 			},
@@ -467,9 +443,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "GET download range with modtime mismatch",
-			method: "GET",
-			path:   path.Join("raw", serializedAccess, "testbucket", "test/foo"),
+			name: "GET download range with modtime mismatch",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			reqHeader: map[string]string{
 				"Range":    "bytes=0-4",
 				"If-Range": "Wed, 25 Jun 2014 17:12:18 GMT",
@@ -479,7 +454,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:       "GET download with trailing slash",
-			method:     "GET",
 			path:       path.Join("raw", goodAccessName, "testbucket", "test/foo1") + "/",
 			status:     http.StatusOK,
 			body:       []string{"FOO"},
@@ -498,7 +472,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET bucket listing success",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket") + "/",
 			status:           http.StatusOK,
 			body:             []string{"test/"},
@@ -506,7 +479,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			status:           http.StatusOK,
 			body:             []string{"foo"},
@@ -514,7 +486,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 1 limit 1",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix) + "/",
 			status:           http.StatusOK,
 			body:             []string{"test0", "Next", "?cursor=test0"},
@@ -523,7 +494,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 1",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test0"),
 			status:           http.StatusOK,
 			body:             []string{"test2", "Next", "?cursor=test2", "Back To Page 1", "history.back()"},
@@ -532,7 +502,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 3 limit 1; is final page since next page would only contain FilePlaceholder.",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
 			status:           http.StatusOK,
 			body:             []string{"test1", "Back To Page 1", "history.back()"},
@@ -541,7 +510,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 3 limit 1; is not final page since next page contains more than just FilePlaceholder.",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
 			status:           http.StatusOK,
 			body:             []string{"test1", "Back To Page 1", "history.back()"},
@@ -553,7 +521,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 4 limit 1",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test1"),
 			status:           http.StatusOK,
 			body:             []string{".foo", "Back To Page 1", "history.back()"},
@@ -562,7 +529,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 1 limit 2",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix) + "/",
 			status:           http.StatusOK,
 			listPageLimit:    &listPageLimit{v: 2},
@@ -572,7 +538,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing success page 2 limit 2",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=test2"),
 			status:           http.StatusOK,
 			listPageLimit:    &listPageLimit{v: 2},
@@ -582,21 +547,18 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:   "GET directory listing shows link to parent directory",
-			method: "GET",
 			path:   path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			status: http.StatusOK,
 			body:   []string{"..."},
 		},
 		{
 			name:        "GET directory listing hides link to unlistable parent directory",
-			method:      "GET",
 			path:        path.Join("s", serializedPrefixedAccess, "testbucket", "test") + "/",
 			status:      http.StatusOK,
 			notContains: []string{"..."},
 		},
 		{
 			name:             "GET prefix listing with cursor at last object fails",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=.foo"),
 			status:           http.StatusNotFound,
 			notContains:      []string{"test0", "test1", "test2", ".foo", sharing.FilePlaceholder},
@@ -614,14 +576,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix listing empty",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
 			status:           http.StatusNotFound,
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
 			name:             "GET prefix redirect",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test"),
 			status:           http.StatusSeeOther,
 			redirectLocation: "http://localhost/" + path.Join("s", serializedAccess, "testbucket", "test") + "/",
@@ -629,14 +589,12 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET list-only access grant",
-			method:           "GET",
 			path:             path.Join("s", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
 			name:             "GET download list-only access grant",
-			method:           "GET",
 			path:             path.Join("raw", serializedListOnlyAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Access denied"},
@@ -670,7 +628,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "HEAD private access key",
-			method:           "GET",
 			path:             path.Join("s", privateAccessName, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Access denied"},
@@ -679,7 +636,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "HEAD found access key",
-			method:           "GET",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{""},
@@ -712,7 +668,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET download when exceeded bandwidth limit",
-			method:           "GET",
 			path:             path.Join("raw", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusForbidden,
 			body:             []string{"Bandwidth limit exceeded"},
@@ -728,7 +683,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix download-only access",
-			method:           "GET",
 			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusForbidden,
 			authserver:       validAuthServer.URL,
@@ -736,7 +690,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix containing index.html",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar") + "/",
 			status:           http.StatusOK,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
@@ -749,7 +702,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:             "GET prefix containing index.html download-only access",
-			method:           "GET",
 			path:             path.Join("s", downloadOnlyAccessName, "testbucket", "test/bar") + "/",
 			status:           http.StatusOK,
 			authserver:       validAuthServer.URL,
@@ -764,16 +716,14 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "hosting GET missing all TXT records",
 			host:             "mydomain.com",
-			method:           "GET",
 			status:           http.StatusBadRequest,
 			body:             []string{"Malformed request."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "hosting GET empty access TXT record",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET empty access TXT record",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -787,9 +737,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "hosting GET empty root TXT record",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET empty root TXT record",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -803,9 +752,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "hosting GET private access key",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET private access key",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -820,9 +768,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{},
 		},
 		{
-			name:   "hosting GET download list-only access",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET download list-only access",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -836,10 +783,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "hosting GET prefix download-only access",
-			host:   "mydomain.com",
-			method: "GET",
-			path:   "test/foo/",
+			name: "hosting GET prefix download-only access",
+			host: "mydomain.com",
+			path: "test/foo/",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -853,9 +799,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
-			name:   "hosting GET root index.html download-only access",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET root index.html download-only access",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -876,9 +821,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
-			name:   "hosting GET root index.html",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET root index.html",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -899,9 +843,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
-			name:   "hosting GET prefix index.html",
-			host:   "mydomain.com",
-			method: "GET",
+			name: "hosting GET prefix index.html",
+			host: "mydomain.com",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -922,10 +865,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
-			name:   "hosting GET success",
-			host:   "mydomain.com",
-			method: "GET",
-			path:   "foo",
+			name: "hosting GET success",
+			host: "mydomain.com",
+			path: "foo",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -940,10 +882,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
 		},
 		{
-			name:   "hosting GET success (image preview)",
-			host:   "mydomain.com",
-			method: "GET",
-			path:   "mIllogh.jpg?wrap=1",
+			name: "hosting GET success (image preview)",
+			host: "mydomain.com",
+			path: "mIllogh.jpg?wrap=1",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -967,10 +908,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
-			name:   "hosting GET root 404 default page",
-			host:   "mydomain.com",
-			method: "GET",
-			path:   "/doesnotexist",
+			name: "hosting GET root 404 default page",
+			host: "mydomain.com",
+			path: "/doesnotexist",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -985,10 +925,9 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
 		},
 		{
-			name:   "hosting GET root 404.html",
-			host:   "mydomain.com",
-			method: "GET",
-			path:   "/doesnotexist",
+			name: "hosting GET root 404.html",
+			host: "mydomain.com",
+			path: "/doesnotexist",
 			dnsRecords: map[string]mockdns.Zone{
 				"txt-mydomain.com.": {
 					TXT: []string{
@@ -1010,8 +949,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET bucket zip download",
-			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1"),
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
 			status:                http.StatusOK,
 			downloadPrefixEnabled: true,
 			zipContent: map[string]string{
@@ -1026,7 +964,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET bucket tar download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=tar.gz"),
 			status:                http.StatusOK,
 			downloadPrefixEnabled: true,
@@ -1042,30 +979,50 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET prefix zip download",
-			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1"),
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=zip"),
 			status:                http.StatusOK,
 			downloadPrefixEnabled: true,
 			zipContent:            map[string]string{"foo": "FOOBAR"},
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 2),
 		},
 		{
 			name:                  "GET prefix tar download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
 			status:                http.StatusOK,
 			downloadPrefixEnabled: true,
 			tarContent:            map[string]string{"foo": "FOOBAR"},
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 2),
+		},
+		{
+			name:                  "GET slash terminated object and prefix zip download",
+			path:                  path.Join("s", serializedAccess, "testbucket", "myfile/") + "/?download=1&download-kind=zip",
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			zipContent: map[string]string{
+				"myfile": "hello",
+				"foo":    "FOOBAR",
+			},
+			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			prepFunc: func() error {
+				return errs.Combine(
+					planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "myfile/", []byte("hello")),
+					planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "myfile/foo", []byte("FOOBAR")),
+				)
+			},
+			cleanupFunc: func() error {
+				return errs.Combine(
+					planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "myfile/foo"),
+					planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "myfile/"),
+				)
+			},
 		},
 		{
 			name:                  "GET prefix zip download bandwidth limit",
-			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1"),
+			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=zip"),
 			status:                http.StatusForbidden,
 			downloadPrefixEnabled: true,
 			body:                  []string{"Bandwidth limit exceeded"},
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 2),
 			prepFunc: func() error {
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
@@ -1077,12 +1034,11 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET prefix tar download bandwidth limit",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
 			status:                http.StatusForbidden,
 			downloadPrefixEnabled: true,
 			body:                  []string{"Bandwidth limit exceeded"},
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 4),
+			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 2),
 			prepFunc: func() error {
 				// set bandwidth limit to 0
 				return planet.Satellites[0].DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, planet.Uplinks[0].Projects[0].ID, 0)
@@ -1094,15 +1050,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET prefix zip download list-only access",
-			method:                "GET",
-			path:                  path.Join("s", serializedListOnlyAccess, "testbucket", "test/?download=1"),
+			path:                  path.Join("s", serializedListOnlyAccess, "testbucket", "test/?download=1&download-kind=zip"),
 			status:                http.StatusForbidden,
 			body:                  []string{"Access denied"},
 			downloadPrefixEnabled: true,
 		},
 		{
 			name:                  "GET prefix tar download list-only access",
-			method:                "GET",
 			path:                  path.Join("s", serializedListOnlyAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
 			status:                http.StatusForbidden,
 			body:                  []string{"Access denied"},
@@ -1110,44 +1064,39 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET prefix zip download download-only access",
-			method:                "GET",
-			path:                  path.Join("s", serializedDownloadOnlyAccess, "testbucket", "test/?download=1"),
+			path:                  path.Join("s", serializedDownloadOnlyAccess, "testbucket", "test/?download=1&download-kind=zip"),
 			status:                http.StatusForbidden,
 			body:                  []string{"Access denied"},
 			downloadPrefixEnabled: true,
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:                  "GET prefix tar download download-only access",
-			method:                "GET",
 			path:                  path.Join("s", serializedDownloadOnlyAccess, "testbucket", "test/?download=1&download-kind=tar.gz"),
 			status:                http.StatusForbidden,
 			body:                  []string{"Access denied"},
 			downloadPrefixEnabled: true,
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:                  "GET nonexistent prefix zip download",
-			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1"),
+			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1&download-kind=zip"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:                  "GET nonexistent prefix tar download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "testbucket", "test-empty/?download=1&download-kind=tar.gz"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
-			expectedRPCCalls:      slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch"},
 		},
 		{
 			name:                  "GET empty bucket zip download",
-			method:                "GET",
-			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1"),
+			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=zip"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Object not found"},
 			downloadPrefixEnabled: true,
@@ -1158,7 +1107,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET empty bucket tar download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "emptytestbucket", "?download=1&download-kind=tar.gz"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Object not found"},
@@ -1170,7 +1118,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET bad bucket zip download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Bucket not found"},
@@ -1179,7 +1126,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET bad bucket tar download",
-			method:                "GET",
 			path:                  path.Join("s", serializedAccess, "badbucket", "?download=1&download-kind=tar.gz"),
 			status:                http.StatusNotFound,
 			body:                  []string{"Bucket not found"},
@@ -1188,25 +1134,23 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		},
 		{
 			name:                  "GET prefix download bad download kind",
-			method:                "GET",
 			downloadPrefixEnabled: true,
 			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=notarealfiletype"),
 			status:                http.StatusBadRequest,
 		},
 		{
-			name:   "GET bucket zip download above limit",
-			method: "GET",
-			path:   path.Join("s", serializedAccess, "testbucket", "?download=1"),
+			name: "GET bucket zip download above limit",
+			path: path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
 			prepFunc: func() error {
 				var eg errs.Group
-				for i := 0; i < 3; i++ {
+				for i := range 3 {
 					eg.Add(planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/new%d", i), []byte("FOO")))
 				}
 				return eg.Err()
 			},
 			cleanupFunc: func() error {
 				var eg errs.Group
-				for i := 0; i < 3; i++ {
+				for i := range 3 {
 					eg.Add(planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/new%d", i)))
 				}
 				return eg.Err()
@@ -1227,7 +1171,6 @@ To download a larger number of objects at once, download the prefix using the ta
 		},
 		{
 			name:             "GET prefix download falls back to listing prefix if config disabled",
-			method:           "GET",
 			path:             path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
 			status:           http.StatusOK,
 			body:             []string{"test/"},
@@ -1293,9 +1236,14 @@ To download a larger number of objects at once, download the prefix using the ta
 				return
 			}
 
+			method := testCase.method
+			if method == "" {
+				method = http.MethodGet
+			}
+
 			url := "http://" + host + "/" + testCase.path
 			w := httptest.NewRecorder()
-			r, err := http.NewRequestWithContext(contextWithRecording, testCase.method, url, nil)
+			r, err := http.NewRequestWithContext(contextWithRecording, method, url, nil)
 			require.NoError(t, err)
 
 			for k, v := range testCase.reqHeader {

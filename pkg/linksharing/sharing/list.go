@@ -257,8 +257,15 @@ To download a larger number of objects at once, download the prefix using the ta
 			zipWriter = zip.NewWriter(w)
 		}
 
+		// an empty result after removing the prefix from the object key means we have a slash-terminated object.
+		// we'll use the object key without a trailing slash so it appears in the zip correctly.
+		name := item.Key[len(pr.realKey):]
+		if name == "" {
+			name = strings.TrimSuffix(pr.realKey, "/")
+		}
+
 		header := zip.FileHeader{
-			Name:     item.Key[len(pr.realKey):],
+			Name:     name,
 			Method:   zip.Deflate,
 			Modified: item.System.Created,
 		}
@@ -336,8 +343,15 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 			tarWriter = tar.NewWriter(gzipWriter)
 		}
 
+		// an empty result after removing the prefix from the object key means we have a slash-terminated object.
+		// we'll use the object key without a trailing slash so it appears in the zip correctly.
+		name := item.Key[len(pr.realKey):]
+		if name == "" {
+			name = strings.TrimSuffix(pr.realKey, "/")
+		}
+
 		header := tar.Header{
-			Name:    item.Key[len(pr.realKey):],
+			Name:    name,
 			ModTime: item.System.Created,
 			Size:    item.System.ContentLength,
 			Mode:    0600,

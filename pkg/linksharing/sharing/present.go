@@ -73,7 +73,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 	q := r.URL.Query()
 	download := queryFlagLookup(q, "download", pr.downloadDefault)
-	downloadKind := queryStringLookup(q, "download-kind", "zip")
+	downloadKind := queryStringLookup(q, "download-kind", "")
 	wrap := queryFlagLookup(q, "wrap", !queryFlagLookup(q, "view", !pr.wrapDefault))
 	mapOnly := queryFlagLookup(q, "map", false)
 	cursor := q.Get("cursor")
@@ -84,6 +84,8 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 	}
 
 	switch {
+	case handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting && downloadKind != "":
+		return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
 	case strings.HasSuffix(pr.realKey, "/"):
 		// kick off background index.html request to cut down on sequential round trips.
 		type statResult struct {
@@ -118,9 +120,6 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
-		if handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting {
-			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
-		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 
 	case pr.realKey != "":
@@ -193,9 +192,6 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 			http.Redirect(w, r, u.String(), http.StatusSeeOther)
 			return nil
-		}
-		if handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting {
-			return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
 		}
 		return handler.servePrefix(ctx, w, project, pr, "", cursor)
 	default:
