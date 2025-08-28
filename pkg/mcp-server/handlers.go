@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -17,10 +19,17 @@ import (
 	"storj.io/edge/pkg/errdata"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// POST size limit for JSON-RPC endpoint. A single data field is limited to 10 MiB (see tools package)
+	// so we allow an additional 1 MiB for the rest of the JSON message.
+	rpcMaxPostSize = 11 * 1024 * 1024
+)
 
 // Handler is an MCP handler.
 type Handler struct {
+	server     *server.StreamableHTTPServer
 	authClient *authclient.AuthClient
 	log        *zap.Logger
 }
@@ -59,6 +68,43 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		http.Error(w, fmt.Sprintf("failed to encode response: %s", err), http.StatusInternalServerError)
 	}
+}
+
+// RPC handles MCP RPC requests.
+func (h *Handler) RPC(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	if r.Method != http.MethodPost {
+		writeJSONRPCError(w, mcp.METHOD_NOT_FOUND, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, int64(rpcMaxPostSize))
+
+	h.server.ServeHTTP(w, r)
+}
+
+// writeJSONRPCError writes a JSON-RPC 2.0 error response with optional actionable suggestions
+func writeJSONRPCError(w http.ResponseWriter, code int, message string, httpStatus int, suggestion ...string) {
+	errorMap := map[string]any{
+		"code":    code,
+		"message": message,
+	}
+
+	// Add suggestion if provided
+	if len(suggestion) > 0 && suggestion[0] != "" {
+		errorMap["suggestion"] = suggestion[0]
+	}
+
+	errorResponse := map[string]any{
+		"jsonrpc": "2.0",
+		"error":   errorMap,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	_ = json.NewEncoder(w).Encode(errorResponse)
 }
 
 // authErrorMessage writes an appropriate error message to the user if it's related to the user
