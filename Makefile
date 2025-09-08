@@ -415,8 +415,9 @@ integration-image-build:
 		CGO_ENABLED=0 ./scripts/integration_tests_build_image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
+	git clone --filter blob:none --no-checkout https://github.com/storj/storj
 	storj-up init minimal,db && \
-		storj-up build remote github minimal -s && \
+		storj-up build remote github minimal -c $$(git -C storj rev-list --exclude='*rc*' --tags --max-count=1) -s && \
 		docker compose -p storj-up-integration build
 
 .PHONY: integration-network-create

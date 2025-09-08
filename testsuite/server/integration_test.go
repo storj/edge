@@ -245,6 +245,7 @@ func TestObjectLock(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
+		NonParallel:      true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
@@ -418,6 +419,8 @@ func TestObjectLock(t *testing.T) {
 		})
 
 		t.Run("put object with lock not allowed on unversioned bucket", func(t *testing.T) {
+			t.Skip("re-enable this test once https://review.dev.storj.tools/c/storj/storj/+/18569 is included in the next satellite release")
+
 			noVersioningBucket := testrand.BucketName()
 			require.NoError(t, createBucket(ctx, client, noVersioningBucket, false, false))
 
