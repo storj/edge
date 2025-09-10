@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -102,6 +103,19 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("api-operation", gl.API),
 				eventkit.String("query", queryJSON),
 				eventkit.String("request-headers", requestHeadersJSON),
-				eventkit.String("response-headers", responseHeadersJSON))
+				eventkit.String("response-headers", responseHeadersJSON),
+				eventkit.String("bucket", gl.BucketName),
+				eventkit.String("path-checksum", sha256HexString(gl.ObjectName)),
+			)
+
 		}))
+}
+
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func sha256HexString(s string) string {
+	return sha256Hex([]byte(s))
 }
