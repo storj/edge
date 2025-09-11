@@ -97,7 +97,7 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	if err != nil {
 		return nil, err
 	}
-	tlsALPNPort, err := net.LookupPort("tcp", port)
+	tlsALPNPort, err := (&net.Resolver{}).LookupPort(ctx, "tcp", port)
 	if err != nil {
 		return nil, err
 	}

@@ -521,7 +521,7 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 	if err != nil {
 		return nil, err
 	}
-	tlsALPNPort, err := net.LookupPort("tcp", port)
+	tlsALPNPort, err := (&net.Resolver{}).LookupPort(context.Background(), "tcp", port)
 	if err != nil {
 		return nil, err
 	}
