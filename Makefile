@@ -200,14 +200,14 @@ images: ## Build Docker images
 	for c in ${COMPONENTLIST}; do \
 		${DOCKER_BUILD} --platform linux/amd64 --pull=true -t storjlabs/$$c:${TAG}-amd64 \
 			-f cmd/$$c/Dockerfile . \
-		${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/$$c:${TAG}-arm32v6 \
+		&& ${DOCKER_BUILD} --platform linux/arm/v6 --pull=true -t storjlabs/$$c:${TAG}-arm32v6 \
 			--build-arg=GOARCH=arm \
 			--build-arg=DOCKER_ARCH=arm32v6 \
-			-f cmd/$$c/Dockerfile .
-		${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/$$c:${TAG}-arm64v8 \
+			-f cmd/$$c/Dockerfile . \
+		&& ${DOCKER_BUILD} --platform linux/arm64 --pull=true -t storjlabs/$$c:${TAG}-arm64v8 \
 			--build-arg=GOARCH=arm64 \
 			--build-arg=DOCKER_ARCH=arm64v8 \
-			-f cmd/$$c/Dockerfile .
+			-f cmd/$$c/Dockerfile . \
 		&& docker tag storjlabs/$$c:${TAG}-amd64 storjlabs/$$c:${LATEST_DEV_TAG} \
 		&& echo Built $$c version: ${TAG} \
 	; done
