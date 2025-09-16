@@ -433,7 +433,8 @@ func TestIntegration(t *testing.T) {
 			cnameRecord: "somethingelse.com.",
 			dialContext: func(peer *linksharing.Peer) func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return func(ctx context.Context, network, addr string) (net.Conn, error) {
-					return net.Dial(network, peer.Server.AddrTLS())
+					d := net.Dialer{}
+					return d.DialContext(ctx, network, peer.Server.AddrTLS())
 				}
 			},
 			prepare: func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, _ string) {
@@ -815,7 +816,7 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 
 	db := db.NewMemoryStore()
 	ca := ca.New(namedDebugStdLogger(t, pebbleLogger, "ca"), db, "", 0, 1, 600)
-	va := va.New(namedDebugStdLogger(t, pebbleLogger, "va"), lookupPort(t, peer.Server.Addr()), lookupPort(t, peer.Server.AddrTLS()), true, dnsSrv.LocalAddr().String())
+	va := va.New(namedDebugStdLogger(t, pebbleLogger, "va"), lookupPort(ctx, t, peer.Server.Addr()), lookupPort(ctx, t, peer.Server.AddrTLS()), true, dnsSrv.LocalAddr().String())
 	wfeImpl := wfe.New(namedDebugStdLogger(t, pebbleLogger, "wfe"), db, va, ca, true, false)
 
 	pebbleSrv := http.Server{Handler: wfeImpl.Handler()}
@@ -868,11 +869,11 @@ func lookupHost(t *testing.T, host, hostPort string) string {
 	return net.JoinHostPort(host, port)
 }
 
-func lookupPort(t *testing.T, hostPort string) int {
+func lookupPort(ctx context.Context, t *testing.T, hostPort string) int {
 	_, port, err := net.SplitHostPort(hostPort)
 	require.NoError(t, err)
 
-	lookupPort, err := net.LookupPort("tcp", port)
+	lookupPort, err := net.DefaultResolver.LookupPort(ctx, "tcp", port)
 	require.NoError(t, err)
 
 	return lookupPort
