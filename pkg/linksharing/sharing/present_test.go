@@ -156,6 +156,18 @@ func TestContentDisposition(t *testing.T) {
 			disposition: []string{"attachment; filename=test.html"},
 		},
 		{
+			desc:        "file with comma, type set, disposition set to attachment with quoted filename",
+			key:         "test,file.dat",
+			contentType: "unknown/thing",
+			disposition: []string{"attachment; filename=\"test,file.dat\""},
+		},
+		{
+			desc:        "file with UTF8, type set, disposition set to attachment with escaped filename",
+			key:         "数据统计.png",
+			contentType: "unknown/thing",
+			disposition: []string{"attachment; filename*=utf-8''%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1.png"},
+		},
+		{
 			desc:                   "html file, standard renders enabled, type detected, no disposition",
 			key:                    "test.html",
 			standardRendersContent: true,

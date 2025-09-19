@@ -224,7 +224,7 @@ func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, 
 		// zip file headers must be kept in memory until the file is closed
 		if totalCount > handler.downloadZipLimit {
 			if zipWriter == nil {
-				w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+				w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
 				zipWriter = zip.NewWriter(w)
 			}
 			header := zip.FileHeader{
@@ -253,7 +253,7 @@ To download a larger number of objects at once, download the prefix using the ta
 		defer func() { err = errs.Combine(err, object.Close()) }()
 
 		if zipWriter == nil {
-			w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+			w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
 			zipWriter = zip.NewWriter(w)
 		}
 
@@ -338,7 +338,7 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 		defer func() { err = errs.Combine(err, object.Close()) }()
 
 		if gzipWriter == nil {
-			w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+			w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
 			gzipWriter = gzip.NewWriter(w)
 			tarWriter = tar.NewWriter(gzipWriter)
 		}

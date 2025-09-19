@@ -222,9 +222,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 
 	if download {
 		if len(archivePath) > 0 {
-			w.Header().Set("Content-Disposition", "attachment; filename="+archivePath)
+			w.Header().Set("Content-Disposition", contentDispositionValue(archivePath))
 		} else {
-			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(o.Key))
+			w.Header().Set("Content-Disposition", contentDispositionValue(filepath.Base(o.Key)))
 		}
 	}
 
@@ -360,7 +360,7 @@ func (handler *Handler) setHeaders(w http.ResponseWriter, r *http.Request, metad
 	}
 
 	if !handler.standardRendersContent && !allowedInlineType(contentType) && !hosting {
-		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+		w.Header().Set("Content-Disposition", contentDispositionValue(filename))
 	}
 
 	cacheControl := metadataHeaderValue(metadata, "Cache-Control")
@@ -448,6 +448,12 @@ func allowedInlineType(contentType string) bool {
 		return false
 	}
 	return true
+}
+
+// contentDispositionValue returns the properly formatted Content-Disposition header value
+// for an attachment with the given filename.
+func contentDispositionValue(filename string) string {
+	return mime.FormatMediaType("attachment", map[string]string{"filename": filename})
 }
 
 func metadataHeaderValue(metadata map[string]string, header string) string {
