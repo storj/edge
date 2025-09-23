@@ -222,6 +222,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		EncryptedSecretKey:   record.EncryptedSecretKey,
 		EncryptedAccessGrant: record.EncryptedAccessGrant,
 		State:                pb.Record_CREATED,
+		UsageTags:            record.UsageTags,
 	}
 
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
@@ -256,6 +257,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 			EncryptedAccessGrant: r.EncryptedAccessGrant,
 			ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
 			Public:               r.Public,
+			UsageTags:            r.UsageTags,
 		}
 
 		return nil
