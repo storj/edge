@@ -91,6 +91,7 @@ func run() (bool, error) {
 			cmds.New("invalidate", "invalidate a record", new(cmdRecordInvalidate))
 			cmds.New("unpublish", "unpublish a record", new(cmdRecordUnpublish))
 			cmds.New("delete", "delete a record", new(cmdRecordDelete))
+			cmds.New("sync", "sync records with satellite database", new(cmdRecordSync))
 		})
 		cmds.Group("links", "links commands", func() {
 			cmds.New("inspect", "inspect given links and return a report", new(cmdLinksInspect))
