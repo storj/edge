@@ -67,8 +67,6 @@ const (
 )
 
 func TestObjectLockRestrictedPermissions(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -239,8 +237,6 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 }
 
 func TestObjectLock(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -892,8 +888,6 @@ func TestObjectLock(t *testing.T) {
 }
 
 func TestAccessLogs(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
@@ -988,8 +982,6 @@ func TestAccessLogs(t *testing.T) {
 }
 
 func TestUploadDownload(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -1169,8 +1161,6 @@ func TestUploadDownload(t *testing.T) {
 }
 
 func TestVersioning(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -1403,8 +1393,6 @@ func TestVersioning(t *testing.T) {
 }
 
 func TestObjectAttributes(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
@@ -1486,8 +1474,6 @@ func TestObjectAttributes(t *testing.T) {
 }
 
 func TestConditionalWrites(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
@@ -1679,8 +1665,6 @@ func TestConditionalWrites(t *testing.T) {
 }
 
 func TestBucketTagging(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,

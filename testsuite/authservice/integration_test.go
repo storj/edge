@@ -41,8 +41,6 @@ import (
 )
 
 func TestAuthservice(t *testing.T) {
-	t.Parallel()
-
 	testSatellite := testrand.NodeID().String() + "@satellite.test"
 
 	runEnvironment(t, reconfigure{
@@ -93,8 +91,6 @@ func TestAuthservice(t *testing.T) {
 }
 
 func TestUsageTags(t *testing.T) {
-	t.Parallel()
-
 	testSatellite := testrand.NodeID().String() + "@satellite.test"
 
 	runEnvironment(t, reconfigure{
@@ -140,8 +136,6 @@ func TestUsageTags(t *testing.T) {
 // TODO(jeremy, artur): this test has a potential to be flaky due to the
 // time-based nature of the test.
 func TestAccessExpiration(t *testing.T) {
-	t.Parallel()
-
 	tempPath := t.TempDir()
 	identConfig := identity.Config{
 		CertPath: filepath.Join(tempPath, "identity.crt"),

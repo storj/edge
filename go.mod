@@ -1,6 +1,6 @@
 module storj.io/edge
 
-go 1.23.5
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -35,13 +35,13 @@ require (
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20250905132913-dad2ec895b75
+	storj.io/common v0.0.0-20250918032746-784a656bec7e
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/gateway v1.11.1-0.20250911223113-1249ac099482
+	storj.io/gateway v1.11.1-0.20250930041001-8075200886bc
 	storj.io/minio v0.0.0-20250710234239-80320feaf0d2
-	storj.io/uplink v1.13.2-0.20250910140059-808e9e802e57
+	storj.io/uplink v1.13.2-0.20250930003134-d222f7415a99
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -205,7 +205,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/mwc v0.0.6 // indirect
+	github.com/zeebo/mwc v0.0.7 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	github.com/zeebo/sudo v1.0.2 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect

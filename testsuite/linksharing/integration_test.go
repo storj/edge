@@ -60,8 +60,6 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	t.Parallel()
-
 	gcsKeyPath, gcsBucketName, err := findCredentials()
 	if err != nil {
 		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
@@ -517,10 +515,7 @@ func TestIntegration(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			if tc.url == nil && tc.test == nil {
 				t.Error("test misconfigured: url or test not defined", t.Name())
 				return

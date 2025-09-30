@@ -31,8 +31,6 @@ import (
 )
 
 func TestBucketOperations(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -84,8 +82,6 @@ func TestBucketOperations(t *testing.T) {
 }
 
 func TestObjectOperations(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -169,8 +165,6 @@ func TestObjectOperations(t *testing.T) {
 }
 
 func TestMultipartUpload(t *testing.T) {
-	t.Parallel()
-
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -263,8 +257,6 @@ func TestMultipartUpload(t *testing.T) {
 }
 
 func TestShareURL(t *testing.T) {
-	t.Parallel()
-
 	testLinksharingURL := "https://linksharing.local"
 
 	runTest(t, testplanet.Config{
