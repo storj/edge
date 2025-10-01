@@ -74,10 +74,11 @@ type Record struct {
 	Public        bool     `protobuf:"varint,2,opt,name=public,proto3" json:"public,omitempty"`
 	UsageTags     []string `protobuf:"bytes,12,rep,name=usage_tags,json=usageTags,proto3" json:"usage_tags,omitempty"`
 	// denormalized information from access grant
-	SatelliteAddress string `protobuf:"bytes,3,opt,name=satellite_address,json=satelliteAddress,proto3" json:"satellite_address,omitempty"`
-	PublicProjectId  []byte `protobuf:"bytes,11,opt,name=public_project_id,json=publicProjectId,proto3" json:"public_project_id,omitempty"`
-	MacaroonHead     []byte `protobuf:"bytes,4,opt,name=macaroon_head,json=macaroonHead,proto3" json:"macaroon_head,omitempty"`
-	ExpiresAtUnix    int64  `protobuf:"varint,5,opt,name=expires_at_unix,json=expiresAtUnix,proto3" json:"expires_at_unix,omitempty"`
+	SatelliteAddress     string `protobuf:"bytes,3,opt,name=satellite_address,json=satelliteAddress,proto3" json:"satellite_address,omitempty"`
+	PublicProjectId      []byte `protobuf:"bytes,11,opt,name=public_project_id,json=publicProjectId,proto3" json:"public_project_id,omitempty"`
+	MacaroonHead         []byte `protobuf:"bytes,4,opt,name=macaroon_head,json=macaroonHead,proto3" json:"macaroon_head,omitempty"`
+	ExpiresAtUnix        int64  `protobuf:"varint,5,opt,name=expires_at_unix,json=expiresAtUnix,proto3" json:"expires_at_unix,omitempty"`
+	ProjectCreatedAtUnix int64  `protobuf:"varint,13,opt,name=project_created_at_unix,json=projectCreatedAtUnix,proto3" json:"project_created_at_unix,omitempty"`
 	// sensitive data
 	EncryptedSecretKey   []byte `protobuf:"bytes,6,opt,name=encrypted_secret_key,json=encryptedSecretKey,proto3" json:"encrypted_secret_key,omitempty"`
 	EncryptedAccessGrant []byte `protobuf:"bytes,7,opt,name=encrypted_access_grant,json=encryptedAccessGrant,proto3" json:"encrypted_access_grant,omitempty"`
@@ -169,6 +170,13 @@ func (x *Record) GetExpiresAtUnix() int64 {
 	return 0
 }
 
+func (x *Record) GetProjectCreatedAtUnix() int64 {
+	if x != nil {
+		return x.ProjectCreatedAtUnix
+	}
+	return 0
+}
+
 func (x *Record) GetEncryptedSecretKey() []byte {
 	if x != nil {
 		return x.EncryptedSecretKey
@@ -209,7 +217,7 @@ var File_badgerauth_proto protoreflect.FileDescriptor
 const file_badgerauth_proto_rawDesc = "" +
 	"\n" +
 	"\x10badgerauth.proto\x12\n" +
-	"badgerauth\"\x9c\x04\n" +
+	"badgerauth\"\xd3\x04\n" +
 	"\x06Record\x12&\n" +
 	"\x0fcreated_at_unix\x18\x01 \x01(\x03R\rcreatedAtUnix\x12\x16\n" +
 	"\x06public\x18\x02 \x01(\bR\x06public\x12\x1d\n" +
@@ -218,7 +226,8 @@ const file_badgerauth_proto_rawDesc = "" +
 	"\x11satellite_address\x18\x03 \x01(\tR\x10satelliteAddress\x12*\n" +
 	"\x11public_project_id\x18\v \x01(\fR\x0fpublicProjectId\x12#\n" +
 	"\rmacaroon_head\x18\x04 \x01(\fR\fmacaroonHead\x12&\n" +
-	"\x0fexpires_at_unix\x18\x05 \x01(\x03R\rexpiresAtUnix\x120\n" +
+	"\x0fexpires_at_unix\x18\x05 \x01(\x03R\rexpiresAtUnix\x125\n" +
+	"\x17project_created_at_unix\x18\r \x01(\x03R\x14projectCreatedAtUnix\x120\n" +
 	"\x14encrypted_secret_key\x18\x06 \x01(\fR\x12encryptedSecretKey\x124\n" +
 	"\x16encrypted_access_grant\x18\a \x01(\fR\x14encryptedAccessGrant\x12/\n" +
 	"\x13invalidation_reason\x18\b \x01(\tR\x12invalidationReason\x12.\n" +

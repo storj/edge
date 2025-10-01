@@ -1903,7 +1903,7 @@ func runTest(
 			DatabaseName: "projects/P/instances/I/databases/D",
 			Address:      spanner.Addr,
 		}
-		authConfig.RetrievePublicProjectID = true
+		authConfig.RetrieveProjectInfo = true
 
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
 		require.NoError(t, err)

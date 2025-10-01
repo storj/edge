@@ -270,11 +270,12 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var response struct {
-		AccessGrant     string   `json:"access_grant"`
-		SecretKey       string   `json:"secret_key"`
-		Public          bool     `json:"public"`
-		PublicProjectID string   `json:"public_project_id,omitempty"`
-		UsageTags       []string `json:"usage_tags,omitempty"`
+		AccessGrant      string    `json:"access_grant"`
+		SecretKey        string    `json:"secret_key"`
+		Public           bool      `json:"public"`
+		PublicProjectID  string    `json:"public_project_id,omitempty"`
+		UsageTags        []string  `json:"usage_tags,omitempty"`
+		ProjectCreatedAt time.Time `json:"project_created_at,omitzero"`
 	}
 
 	var publicProjectID string
@@ -293,6 +294,7 @@ func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
 	response.SecretKey = result.SecretKey.ToBase32()
 	response.Public = result.Public
 	response.PublicProjectID = publicProjectID
+	response.ProjectCreatedAt = result.ProjectCreatedAt
 	response.UsageTags = result.UsageTags
 
 	w.Header().Set("Content-Type", "application/json")

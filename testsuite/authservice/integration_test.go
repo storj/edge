@@ -374,7 +374,7 @@ func runEnvironment(t *testing.T, recfg reconfigure, fn func(t *testing.T, ctx *
 				DatabaseName: "projects/P/instances/I/databases/D",
 				Address:      server.Addr,
 			},
-			RetrievePublicProjectID: true,
+			RetrieveProjectInfo: true,
 		}
 
 		if recfg.auth != nil {

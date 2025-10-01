@@ -18,6 +18,7 @@ message Record {
   bytes public_project_id = 11;
   bytes macaroon_head = 4;
   int64 expires_at_unix = 5;
+  int64 project_created_at_unix = 13;
 
   // sensitive data
   bytes encrypted_secret_key = 6;

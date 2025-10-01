@@ -122,6 +122,10 @@ func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record 
 		in["expires_at"] = record.ExpiresAt
 	}
 
+	if !record.ProjectCreatedAt.IsZero() {
+		in["project_created_at"] = record.ProjectCreatedAt
+	}
+
 	ms := []*spanner.Mutation{
 		spanner.InsertMap("records", in),
 	}
@@ -171,6 +175,7 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		"invalidation_reason",
 		"invalidated_at",
 		"usage_tags",
+		"project_created_at",
 	}
 
 	boundedTx := d.client.Single().WithTimestampBound(spanner.ExactStaleness(defaultExactStaleness))
@@ -248,6 +253,12 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 	if len(usageTagsJoined.StringVal) > 0 {
 		record.UsageTags = strings.Split(usageTagsJoined.StringVal, ",")
 	}
+
+	var projectCreatedAt spanner.NullTime
+	if err := row.ColumnByName("project_created_at", &projectCreatedAt); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	record.ProjectCreatedAt = projectCreatedAt.Time
 
 	// From https://cloud.google.com/spanner/docs/ttl:
 	//

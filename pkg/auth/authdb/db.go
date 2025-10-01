@@ -19,7 +19,6 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/common/version"
 	internalAccess "storj.io/edge/internal/access"
 	"storj.io/edge/pkg/nodelist"
@@ -134,9 +133,9 @@ func toBase32(k []byte) string {
 
 // Config contains configuration parameters for a Database.
 type Config struct {
-	AllowedSatelliteURLs    map[storj.NodeURL]struct{}
-	RetrievePublicProjectID bool
-	FreeTierAccessLimit     FreeTierAccessLimitConfig
+	AllowedSatelliteURLs map[storj.NodeURL]struct{}
+	RetrieveProjectInfo  bool
+	FreeTierAccessLimit  FreeTierAccessLimitConfig
 }
 
 // FreeTierAccessLimitConfig contains settings for restricting the access grants of free tier users.
@@ -314,27 +313,29 @@ func (db *Database) Put(ctx context.Context, key EncryptionKey, accessGrant stri
 		return PutResult{}, errs.Wrap(err)
 	}
 
-	var publicProjectID uuid.UUID
-	if db.config.RetrievePublicProjectID {
+	var projInfo privateProject.Info
+	if db.config.RetrieveProjectInfo {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		publicProjectID, err = privateProject.GetPublicID(timeoutCtx, db.uplinkConfig, access)
+
+		projInfo, err = privateProject.GetProjectInfo(timeoutCtx, db.uplinkConfig, access)
 		if err != nil {
-			db.logger.Warn("retrieve public project id failed", zap.Error(err))
-			publicProjectID = uuid.UUID{} // just in case, zero it
-			mon.Event("retrieve_public_project_id_failed")
+			db.logger.Warn("retrieve project info failed", zap.Error(err))
+			projInfo = privateProject.Info{} // just in case, zero it
+			mon.Event("retrieve_project_info_failed")
 		}
 	}
 
 	record := &Record{
 		SatelliteAddress:     satelliteAddr,
-		PublicProjectID:      publicProjectID.Bytes(),
+		PublicProjectID:      projInfo.PublicId.Bytes(),
 		MacaroonHead:         apiKey.Head(),
 		EncryptedSecretKey:   encryptedSecretKey,
 		EncryptedAccessGrant: encryptedAccessGrant,
 		Public:               public,
 		ExpiresAt:            expiration,
 		UsageTags:            usageTags,
+		ProjectCreatedAt:     projInfo.CreatedAt,
 	}
 
 	if err = db.storage.Put(ctx, key.Hash(), record); err != nil {

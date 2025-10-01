@@ -60,10 +60,10 @@ type Config struct {
 
 	ProxyAddrTLS string `help:"TLS address to listen on for PROXY protocol requests" default:":20005"`
 
-	CertFile                string   `user:"true" help:"server certificate file" default:""`
-	KeyFile                 string   `user:"true" help:"server key file" default:""`
-	PublicURL               []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
-	RetrievePublicProjectID bool     `user:"true" help:"retrieve and store public project ID when registering access grant" default:"true"`
+	CertFile            string   `user:"true" help:"server certificate file" default:""`
+	KeyFile             string   `user:"true" help:"server key file" default:""`
+	PublicURL           []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
+	RetrieveProjectInfo bool     `user:"true" help:"retrieve and store project info (such as public ID, and created date) when registering access grant" default:"true"`
 
 	FreeTierAccessLimit authdb.FreeTierAccessLimitConfig
 
@@ -156,9 +156,9 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	}
 
 	adb, err := authdb.NewDatabase(log.Named("authdb"), storage, authdb.Config{
-		AllowedSatelliteURLs:    allowedSats,
-		RetrievePublicProjectID: config.RetrievePublicProjectID,
-		FreeTierAccessLimit:     config.FreeTierAccessLimit,
+		AllowedSatelliteURLs: allowedSats,
+		RetrieveProjectInfo:  config.RetrieveProjectInfo,
+		FreeTierAccessLimit:  config.FreeTierAccessLimit,
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)

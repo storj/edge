@@ -4,6 +4,8 @@
 package authclient
 
 import (
+	"time"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -16,12 +18,13 @@ var (
 )
 
 type cachedAuthServiceResponse struct {
-	accessGrant     []byte
-	secretKey       []byte
-	public          bool
-	publicProjectID string
-	usageTags       []string
-	err             error
+	accessGrant      []byte
+	secretKey        []byte
+	public           bool
+	publicProjectID  string
+	usageTags        []string
+	projectCreatedAt time.Time
+	err              error
 }
 
 func encryptResponse(accessKeyID string, resp AuthServiceResponse, respErr error) (cachedAuthServiceResponse, error) {
@@ -41,12 +44,13 @@ func encryptResponse(accessKeyID string, resp AuthServiceResponse, respErr error
 	}
 
 	return cachedAuthServiceResponse{
-		accessGrant:     accessGrant,
-		secretKey:       secretKey,
-		public:          resp.Public,
-		publicProjectID: resp.PublicProjectID,
-		usageTags:       resp.UsageTags,
-		err:             respErr,
+		accessGrant:      accessGrant,
+		secretKey:        secretKey,
+		public:           resp.Public,
+		publicProjectID:  resp.PublicProjectID,
+		usageTags:        resp.UsageTags,
+		projectCreatedAt: resp.ProjectCreatedAt,
+		err:              respErr,
 	}, nil
 }
 
@@ -67,10 +71,11 @@ func (resp *cachedAuthServiceResponse) decrypt(accessKeyID string) (AuthServiceR
 	}
 
 	return AuthServiceResponse{
-		AccessGrant:     string(accessGrant),
-		SecretKey:       string(secretKey),
-		Public:          resp.public,
-		PublicProjectID: resp.publicProjectID,
-		UsageTags:       resp.usageTags,
+		AccessGrant:      string(accessGrant),
+		SecretKey:        string(secretKey),
+		Public:           resp.public,
+		PublicProjectID:  resp.publicProjectID,
+		UsageTags:        resp.usageTags,
+		ProjectCreatedAt: resp.projectCreatedAt,
 	}, nil
 }

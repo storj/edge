@@ -223,7 +223,7 @@ func TestContextCanceledHandling(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestEmptyPublicProjectID(t *testing.T) {
+func TestProjectInfo(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -245,7 +245,7 @@ func TestEmptyPublicProjectID(t *testing.T) {
 
 	testUUID := testrand.UUID()
 
-	test := func(publicProjectID []byte, expected []byte) {
+	testProjectID := func(publicProjectID []byte, expected []byte) {
 		var k authdb.KeyHash
 		testrand.Read(k[:])
 
@@ -260,9 +260,28 @@ func TestEmptyPublicProjectID(t *testing.T) {
 		require.Equal(t, expected, actual.PublicProjectID)
 	}
 
-	test(nil, nil)
-	test(uuid.UUID{}.Bytes(), nil)
-	test(testUUID.Bytes(), testUUID.Bytes())
+	testProjectID(nil, nil)
+	testProjectID(uuid.UUID{}.Bytes(), nil)
+	testProjectID(testUUID.Bytes(), testUUID.Bytes())
+
+	testProjectCreatedAt := func(createdAt time.Time, expected time.Time) {
+		var k authdb.KeyHash
+		testrand.Read(k[:])
+
+		record := createRandomRecord(t, time.Time{}, true)
+		record.ProjectCreatedAt = createdAt
+
+		require.NoError(t, db.Put(ctx, k, record))
+
+		actual, err := db.Get(ctx, k)
+		require.NoError(t, err)
+
+		require.Equal(t, expected, actual.ProjectCreatedAt)
+	}
+
+	testProjectCreatedAt(time.Time{}, time.Time{})
+	testDate := time.Now().UTC()
+	testProjectCreatedAt(testDate, testDate)
 }
 
 func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *authdb.Record {

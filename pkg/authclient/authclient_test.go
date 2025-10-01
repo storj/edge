@@ -71,7 +71,7 @@ func TestLoadUserRetry(t *testing.T) {
 			firstAttempt = false
 			return // writing nothing will cause an http.Client error
 		}
-		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag", "public_project_id":"11111111-2222-3333-4444-555555555555"}`))
+		_, err := w.Write([]byte(`{"public":true, "secret_key":"", "access_grant":"ag", "public_project_id":"11111111-2222-3333-4444-555555555555", "project_created_at":"2023-01-02T15:04:05Z"}`))
 		require.NoError(t, err)
 	}))
 	defer ts.Close()
@@ -83,19 +83,30 @@ func TestLoadUserRetry(t *testing.T) {
 	require.False(t, firstAttempt)
 	require.Equal(t, "ag", asr.AccessGrant)
 	require.Equal(t, "11111111-2222-3333-4444-555555555555", asr.PublicProjectID)
+	require.Equal(t, time.Date(2023, 1, 2, 15, 4, 5, 0, time.UTC), asr.ProjectCreatedAt)
 }
 
 func TestLoadUserResponse(t *testing.T) {
 	tests := []struct {
-		name                    string
-		authResponse            string
-		expectedPublic          bool
-		expectedAccessGrant     string
-		expectedSecretKey       string
-		expectedPublicProjectID string
+		name                     string
+		authResponse             string
+		expectedPublic           bool
+		expectedAccessGrant      string
+		expectedSecretKey        string
+		expectedPublicProjectID  string
+		expectedProjectCreatedAt time.Time
 	}{
 		{
-			name:                    "public project id in response",
+			name:                     "project info in response",
+			authResponse:             `{"public":true,"secret_key":"mysecretkey","access_grant":"myaccessgrant","public_project_id":"11111111-2222-3333-4444-555555555555","project_created_at":"2023-01-02T15:04:05Z"}`,
+			expectedPublic:           true,
+			expectedAccessGrant:      "myaccessgrant",
+			expectedSecretKey:        "mysecretkey",
+			expectedPublicProjectID:  "11111111-2222-3333-4444-555555555555",
+			expectedProjectCreatedAt: time.Date(2023, 1, 2, 15, 4, 5, 0, time.UTC),
+		},
+		{
+			name:                    "partial project info in response",
 			authResponse:            `{"public":true,"secret_key":"mysecretkey","access_grant":"myaccessgrant","public_project_id":"11111111-2222-3333-4444-555555555555"}`,
 			expectedPublic:          true,
 			expectedAccessGrant:     "myaccessgrant",
@@ -103,7 +114,7 @@ func TestLoadUserResponse(t *testing.T) {
 			expectedPublicProjectID: "11111111-2222-3333-4444-555555555555",
 		},
 		{
-			name:                "no public project id in response",
+			name:                "no project info in response",
 			authResponse:        `{"public":false,"secret_key":"mysecretkey","access_grant":"myaccessgrant"}`,
 			expectedAccessGrant: "myaccessgrant",
 			expectedSecretKey:   "mysecretkey",
@@ -127,6 +138,7 @@ func TestLoadUserResponse(t *testing.T) {
 			require.Equal(t, tc.expectedAccessGrant, access.AccessGrant)
 			require.Equal(t, tc.expectedSecretKey, access.SecretKey)
 			require.Equal(t, tc.expectedPublicProjectID, access.PublicProjectID)
+			require.Equal(t, tc.expectedProjectCreatedAt, access.ProjectCreatedAt)
 		})
 	}
 }

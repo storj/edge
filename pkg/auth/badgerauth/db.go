@@ -212,6 +212,11 @@ func (db *DB) Put(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Re
 func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *authdb.Record, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var projectCreatedAtUnix int64
+	if !record.ProjectCreatedAt.IsZero() {
+		projectCreatedAtUnix = record.ProjectCreatedAt.Unix()
+	}
+
 	r := pb.Record{
 		CreatedAtUnix:        now.Unix(),
 		Public:               record.Public,
@@ -223,6 +228,7 @@ func (db *DB) PutAtTime(ctx context.Context, keyHash authdb.KeyHash, record *aut
 		EncryptedAccessGrant: record.EncryptedAccessGrant,
 		State:                pb.Record_CREATED,
 		UsageTags:            record.UsageTags,
+		ProjectCreatedAtUnix: projectCreatedAtUnix,
 	}
 
 	return Error.Wrap(db.txnWithBackoff(ctx, func(txn *badger.Txn) error {
@@ -249,6 +255,11 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 			return authdb.Invalid.New("%s", r.InvalidationReason)
 		}
 
+		var projectCreatedAt time.Time
+		if r.ProjectCreatedAtUnix != 0 {
+			projectCreatedAt = time.Unix(r.ProjectCreatedAtUnix, 0)
+		}
+
 		record = &authdb.Record{
 			SatelliteAddress:     r.SatelliteAddress,
 			PublicProjectID:      r.PublicProjectId,
@@ -258,6 +269,7 @@ func (db *DB) Get(ctx context.Context, keyHash authdb.KeyHash) (record *authdb.R
 			ExpiresAt:            timestampToTime(r.ExpiresAtUnix),
 			Public:               r.Public,
 			UsageTags:            r.UsageTags,
+			ProjectCreatedAt:     projectCreatedAt,
 		}
 
 		return nil
