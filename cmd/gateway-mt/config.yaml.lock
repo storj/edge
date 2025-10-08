@@ -187,9 +187,6 @@ client.satellite-identities.key-paths: ""
 # make ListObjects(V2) fully S3-compatible (specifically: always return lexicographically ordered results) but slow
 # s3compatibility.fully-compatible-listing: false
 
-# include custom metadata in S3's ListObjects, ListObjectsV2 and ListMultipartUploads responses
-# s3compatibility.include-custom-metadata-listing: true
-
 # maximum number of items to list for gateway-side filtering using arbitrary delimiter/prefix
 # s3compatibility.max-keys-exhaustive-limit: 100000
 
