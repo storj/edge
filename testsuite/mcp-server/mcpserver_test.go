@@ -35,7 +35,7 @@ func TestBucketOperations(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
 		client, err := mcpclient.New("http://"+server.Address()+"/mcp/jsonrpc", bearerToken)
 		require.NoError(t, err)
 
@@ -86,11 +86,12 @@ func TestObjectOperations(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
 		client, err := mcpclient.New("http://"+server.Address()+"/mcp/jsonrpc", bearerToken)
 		require.NoError(t, err)
 
-		// TODO: figure out why testrand.Path() doesn't work here.
+		// testrand.Path() isn't used for the object key because it produces invalid UTF-8 strings,
+		// which are mangled by the JSON marshaller.
 		bucket, key := testrand.BucketName(), string(testrand.RandAlphaNumeric(8))
 
 		_, err = client.CreateBucket(ctx, mcpclient.CreateBucketRequest{
@@ -127,12 +128,12 @@ func TestObjectOperations(t *testing.T) {
 		require.Equal(t, int64(9), listResp.Objects[0].Size)
 		require.NotZero(t, listResp.Objects[0].Modified)
 
+		destBucket, destKey := testrand.BucketName(), key+"-copy"
+
 		_, err = client.CreateBucket(ctx, mcpclient.CreateBucketRequest{
-			Bucket: bucket + "-copy",
+			Bucket: destBucket,
 		})
 		require.NoError(t, err)
-
-		destBucket, destKey := bucket+"-copy", key+"-copy"
 
 		copyResp, err := client.CopyObject(ctx, mcpclient.CopyObjectRequest{
 			SrcBucket:  bucket,
@@ -169,11 +170,12 @@ func TestMultipartUpload(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
 		client, err := mcpclient.New("http://"+server.Address()+"/mcp/jsonrpc", bearerToken)
 		require.NoError(t, err)
 
-		// TODO: figure out why testrand.Path() doesn't work here.
+		// testrand.Path() isn't used for the object key because it produces invalid UTF-8 strings,
+		// which are mangled by the JSON marshaller.
 		bucket, key := testrand.BucketName(), string(testrand.RandAlphaNumeric(8))
 
 		_, err = client.CreateBucket(ctx, mcpclient.CreateBucketRequest{
@@ -265,7 +267,7 @@ func TestShareURL(t *testing.T) {
 		UplinkCount:      1,
 	}, func(ctx *testcontext.Context, planet *testplanet.Planet, mcpConfig *mcpserver.Config) {
 		mcpConfig.LinkSharingURL = testLinksharingURL
-	}, func(ctx *testcontext.Context, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
+	}, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, server *mcpserver.Peer, bearerToken string) {
 		expires := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
 
 		for _, tc := range []struct {
@@ -345,7 +347,7 @@ func runTest(
 	t *testing.T,
 	planetConfig testplanet.Config,
 	prepare func(ctx *testcontext.Context, planet *testplanet.Planet, mcpConfig *mcpserver.Config),
-	test func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *mcpserver.Peer, bearerToken string),
+	test func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *mcpserver.Peer, bearerToken string),
 ) {
 	testplanet.Run(t, planetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var mcpConfig mcpserver.Config
@@ -435,6 +437,6 @@ func runTest(
 
 		require.NoError(t, resp.Body.Close())
 
-		test(ctx, planet, server, registerData.BearerToken)
+		test(ctx, t, planet, server, registerData.BearerToken)
 	})
 }
