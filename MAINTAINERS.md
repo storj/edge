@@ -46,9 +46,19 @@ Examples of Release Candidates:
   - Cick the `Edit` button on the release.
   - Upload all binaries as release artifacts.
   - Upload sha256sums as well.
-  - Add the following line for the description:
-```
-Docker image: `70cd153-v1.67.0-go1.21.3`
-```
   - If this is an official release, deselect the `This is a pre-release` checkbox.
   - Click the `Update release` button.
+
+## Github Release Template
+Be sure to update these items from the template:
+- vA.B.C should be the release revision from the current latest release.
+- vX.Y.Z should be the version anticipated for release
+- build tag text should be the build tag for the anticipated release i.e. `d6fc137-v1.70.2-go1.21.3`
+
+```
+## Changes
+**Full Changelog**: https://github.com/storj/edge/compare/vA.B.C...vX.Y.Z
+
+## Docker Image
+`build tag`
+```
