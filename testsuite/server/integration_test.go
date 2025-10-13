@@ -80,7 +80,7 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		satellite := planet.Satellites[0]
 		projectID := planet.Uplinks[0].Projects[0].ID
 		ownerID := planet.Uplinks[0].Projects[0].Owner.ID
@@ -252,7 +252,7 @@ func TestObjectLock(t *testing.T) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
 		bucket := testrand.BucketName()
@@ -915,7 +915,7 @@ func TestAccessLogs(t *testing.T) {
 		})
 		require.NoError(t, err)
 		gwConfig.ServerAccessLogging = accessLogConfig
-	}, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
 		require.NoError(t, createBucket(ctx, client, "watchedbucket", false, false))
@@ -991,7 +991,7 @@ func TestUploadDownload(t *testing.T) {
 				require.NoError(t, config.Placement.Set("config_test.yaml"))
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
@@ -1168,7 +1168,7 @@ func TestVersioning(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
 			Satellite: planet.Satellites[0].Addr(),
@@ -1400,7 +1400,7 @@ func TestObjectAttributes(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
 		bucket := testrand.BucketName()
@@ -1481,7 +1481,7 @@ func TestConditionalWrites(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
 		unversionedBucket, versionedBucket := testrand.BucketName(), testrand.BucketName()
@@ -1672,7 +1672,7 @@ func TestBucketTagging(t *testing.T) {
 				config.Metainfo.BucketTaggingEnabled = true
 			},
 		},
-	}, nil, func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
 		bucketName := testrand.BucketName()
@@ -1867,7 +1867,7 @@ func runTest(
 	t *testing.T,
 	planetConfig testplanet.Config,
 	prepare func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config),
-	test func(ctx *testcontext.Context, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials),
+	test func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials),
 ) {
 	testplanet.Run(t, planetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var gwConfig server.Config
@@ -1942,7 +1942,7 @@ func runTest(
 			return gateway.Run(ctx)
 		})
 
-		test(ctx, planet, gateway, auth, creds)
+		test(ctx, t, planet, gateway, auth, creds)
 	})
 }
 
