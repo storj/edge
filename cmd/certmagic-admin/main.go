@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/edge/pkg/certstorage"
-	"storj.io/edge/pkg/gpublicca"
 )
 
 type certmagicConfig struct {
@@ -330,33 +329,33 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 
 	// Enabling the DNS challenge disables the other challenges for that
 	// certmagic.ACMEIssuer instance.
-	s := &certmagic.DNS01Solver{
-		DNSProvider: &googleclouddns.Provider{
-			Project:            config.GCloudDNSProject,
-			ServiceAccountJSON: config.KeyFile,
+	certmagic.DefaultACME.DNS01Solver = &certmagic.DNS01Solver{
+		DNSManager: certmagic.DNSManager{
+			DNSProvider: &googleclouddns.Provider{
+				Project:            config.GCloudDNSProject,
+				ServiceAccountJSON: config.KeyFile,
+			},
+			OverrideDomain: config.ChallengeOverrideDomain,
 		},
-		OverrideDomain: config.ChallengeOverrideDomain,
 	}
 
-	googleCA := gpublicca.New(certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
-		CA:                   gpublicca.GooglePublicCAProduction,
+	googleCA := certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
+		CA:                   certmagic.GoogleTrustProductionCA,
 		DisableHTTPChallenge: true,
-		DNS01Solver:          s,
 		Logger:               logger,
 		Email:                config.Email,
 		Agreed:               true,
-	}), jsonKey)
+	})
 	letsEncryptCA := certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
 		CA:                   certmagic.LetsEncryptProductionCA,
 		DisableHTTPChallenge: true,
-		DNS01Solver:          s,
 		Logger:               logger,
 		Email:                config.Email,
 		Agreed:               true,
 	})
 
 	if config.Staging {
-		googleCA.CA = gpublicca.GooglePublicCAStaging
+		googleCA.CA = certmagic.GoogleTrustStagingCA
 		letsEncryptCA.CA = certmagic.LetsEncryptStagingCA
 	}
 

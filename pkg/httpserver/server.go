@@ -26,7 +26,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/edge/pkg/certstorage"
-	"storj.io/edge/pkg/gpublicca"
 	"storj.io/edge/pkg/startupcheck"
 	"storj.io/edge/pkg/tierquery"
 )
@@ -526,14 +525,14 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 		return nil, err
 	}
 
-	googleCA := gpublicca.New(certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
-		CA:                   gpublicca.GooglePublicCAProduction,
+	googleCA := certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
+		CA:                   certmagic.GoogleTrustProductionCA,
 		DisableHTTPChallenge: true,
 		AltTLSALPNPort:       tlsALPNPort,
 		Logger:               log,
 		Email:                config.TLSConfig.CertMagicEmail,
 		Agreed:               true,
-	}), jsonKey)
+	})
 	letsEncryptCA := certmagic.NewACMEIssuer(magic, certmagic.ACMEIssuer{
 		CA:                   certmagic.LetsEncryptProductionCA,
 		DisableHTTPChallenge: true,
@@ -550,11 +549,13 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 		// Enabling the DNS challenge disables the other challenges for that
 		// certmagic.ACMEIssuer instance.
 		s := &certmagic.DNS01Solver{
-			DNSProvider: &googleclouddns.Provider{
-				Project:            config.TLSConfig.CertMagicDNSChallengeWithGCloudDNSProject,
-				ServiceAccountJSON: config.TLSConfig.CertMagicKeyFile,
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &googleclouddns.Provider{
+					Project:            config.TLSConfig.CertMagicDNSChallengeWithGCloudDNSProject,
+					ServiceAccountJSON: config.TLSConfig.CertMagicKeyFile,
+				},
+				OverrideDomain: config.TLSConfig.CertMagicDNSChallengeOverrideDomain,
 			},
-			OverrideDomain: config.TLSConfig.CertMagicDNSChallengeOverrideDomain,
 		}
 		googleCA.DNS01Solver, letsEncryptCA.DNS01Solver = s, s
 	} else {
@@ -562,7 +563,7 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 	}
 
 	if config.TLSConfig.CertMagicStaging {
-		googleCA.CA = gpublicca.GooglePublicCAStaging
+		googleCA.CA = certmagic.GoogleTrustStagingCA
 		letsEncryptCA.CA = certmagic.LetsEncryptStagingCA
 	}
 
