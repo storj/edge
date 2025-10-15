@@ -199,6 +199,9 @@ client.satellite-identities.key-paths: ""
 # minimum part size for multipart uploads
 # s3compatibility.min-part-size: 5242880
 
+# if set, projects created after this date using self-managed encryption are no longer allowed to use arbitrary prefixes and delimiters (in RFC3339 format)
+# s3compatibility.unsupported-listing-deadline: ""
+
 # if true, UploadPartCopy calls do not incur egress fees
 # s3compatibility.upload-part-copy.discount-egress: false
 
