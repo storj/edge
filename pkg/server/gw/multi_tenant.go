@@ -685,10 +685,10 @@ func (l *MultiTenancyLayer) parseCredentials(ctx context.Context, credentials *m
 
 	project, err := l.setupProject(ctx, access)
 
-	// todo(sean): add ProjectCreatedAt here.
 	return project, miniogw.CredentialsInfo{
-		Access:          access,
-		PublicProjectID: credentials.PublicProjectID,
+		Access:           access,
+		PublicProjectID:  credentials.PublicProjectID,
+		ProjectCreatedAt: credentials.ProjectCreatedAt,
 	}, err
 }
 
