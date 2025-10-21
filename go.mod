@@ -249,5 +249,3 @@ require (
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
 )
-
-replace storj.io/common => ../common
