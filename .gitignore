@@ -25,3 +25,10 @@ gateway-st/
 
 # avoid pushing maxmind databases
 *.mmdb
+
+# Built binaries
+gateway-mt
+authservice
+linksharing
+simplegateway
+mcp-server
