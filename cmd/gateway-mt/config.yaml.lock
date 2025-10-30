@@ -252,6 +252,12 @@ startup-check.satellites:
 # maximum time to spend on checks
 startup-check.timeout: 30s
 
+# list of annotations which are supported by distributed tracing
+# tracing-annotations:
+# - checkerng
+# - test
+# - placement
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

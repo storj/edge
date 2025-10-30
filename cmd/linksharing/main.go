@@ -58,6 +58,7 @@ type LinkSharing struct {
 	DownloadZipLimit       int           `help:"maximum number of files from a prefix that can be packaged into a downloadable zip" default:"1000"`
 	DynamicAssetsDir       string        `help:"use a assets dir that is reparsed for every request" default:""`
 	BlockedPaths           string        `help:"a comma separated list of hosts and request uris to return unauthorized errors for. e.g. link.storjshare.io/raw/accesskey/bucket/path1"`
+	TracingAnnotations     []string      `user:"true" help:"list of annotations which are supported by distributed tracing" default:"checkerng,test,placement"`
 
 	Client struct {
 		Identity uplinkutil.IdentityConfig
@@ -232,6 +233,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		ConcurrentRequestLimit: runCfg.Limits.ConcurrentRequests,
 		GeoLocationDB:          runCfg.GeoLocationDB,
 		ShutdownDelay:          runCfg.ShutdownDelay,
+		TracingAnnotations:     runCfg.TracingAnnotations,
 	})
 	if err != nil {
 		return err

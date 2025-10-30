@@ -46,6 +46,7 @@ type Config struct {
 	CertMagic               certMagic
 	StartupCheck            startupCheck
 	AccessLogsProcessor     accesslogs.Options
+	TracingAnnotations      []string `help:"list of annotations which are supported by distributed tracing" default:"checkerng,test,placement"`
 }
 
 type certMagic struct {

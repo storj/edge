@@ -49,6 +49,9 @@ type Config struct {
 
 	// ConcurrentRequestLimit is the number of concurrent requests allowed per project ID, or if unavailable, macaroon head.
 	ConcurrentRequestLimit uint
+
+	// TracingAnnotations defines the annotations which are supported by distributed tracing.
+	TracingAnnotations []string
 }
 
 // Peer is the representation of a Linksharing service itself.
@@ -149,7 +152,7 @@ func New(log *zap.Logger, config Config) (_ *Peer, err error) {
 
 	sharingRouter.Use(requestid.AddToContext)
 	sharingRouter.Use(func(handler http.Handler) http.Handler {
-		return httpmon.TraceHandler(handler, mon)
+		return httpmon.TraceHandler(handler, mon, config.TracingAnnotations...)
 	})
 	sharingRouter.Use(gwmiddleware.NewMetrics("linksharing"))
 	sharingRouter.Use(sharingHandler.CredentialsHandler)
