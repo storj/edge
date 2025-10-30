@@ -1,6 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:build !windows
+
 package main
 
 import (
@@ -12,10 +14,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/caddyserver/certmagic"
@@ -54,6 +59,8 @@ var logger *zap.Logger
 
 func main() {
 	logConf := zap.NewDevelopmentConfig()
+	logConf.DisableStacktrace = true
+	logConf.EncoderConfig.TimeKey = ""
 	logger, _ = logConf.Build()
 	ok, err := clingy.Environment{}.Run(context.Background(), func(cmds clingy.Commands) {
 		level := cmds.Flag("log.level", "log level (debug, info, warn, error, panic, fatal)", zapcore.InfoLevel,
@@ -71,6 +78,7 @@ func main() {
 			cmds.New("obtain", "obtains and stores a certificate for a domain, noop if cert already in storage", &cmdObtain{config: c})
 			cmds.New("renew", "renews and stores the certificate for a domain", &cmdRenew{config: c})
 			cmds.New("revoke", "revokes the certificate for a domain and deletes it from storage", &cmdRevoke{config: c})
+			cmds.New("haproxy", "manage HAProxy certificates", &cmdHaproxy{config: c})
 		})
 	})
 	if err != nil {
@@ -184,20 +192,7 @@ func (cmd *cmdExport) Execute(ctx context.Context) error {
 			return err
 		}
 
-		var kb certmagic.KeyBuilder
-
-		file, err := os.OpenFile(filepath.Join(cmd.outputPath, kb.Safe(name+".pem")), os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			return err
-		}
-
-		pemStr, err := pemCertificate(&cert)
-		if err != nil {
-			return err
-		}
-
-		_, err = file.WriteString(pemStr)
-		if err != nil {
+		if err := writeCertificateToFile(&cert, cmd.outputPath, name); err != nil {
 			return err
 		}
 	}
@@ -301,6 +296,222 @@ func (cmd *cmdRevoke) Execute(ctx context.Context) error {
 	return magic.RevokeCert(ctx, cmd.name, cmd.reason, true)
 }
 
+type cmdHaproxy struct {
+	config           *certmagicConfig
+	outputDirsArg    []string
+	domainOutputDirs map[string]string // maps domain to output directory
+	manage           bool
+	update           bool
+	checkInterval    time.Duration
+	renewalThreshold time.Duration
+}
+
+func (cmd *cmdHaproxy) Setup(params clingy.Parameters) {
+	setupCommonFlags(params, cmd.config)
+	cmd.manage = params.Flag("manage", "Run in continuous management mode (check and renew on interval)", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
+	cmd.update = params.Flag("update", "Run once to update certificates and exit", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
+	cmd.checkInterval = params.Flag("check-interval", "Interval between certificate checks (only with --manage)", time.Hour,
+		clingy.Transform(time.ParseDuration),
+	).(time.Duration)
+	cmd.renewalThreshold = params.Flag("renewal-threshold", "Duration before expiry to renew certificates", 30*24*time.Hour,
+		clingy.Transform(time.ParseDuration),
+	).(time.Duration)
+	cmd.outputDirsArg = params.Arg("output-dirs", "space-separated list of outputdir:domain1,domain2 mappings (e.g., /etc/haproxy/certs:example.com,*.example.com)", clingy.Repeated).([]string)
+}
+
+func (cmd *cmdHaproxy) Execute(ctx context.Context) error {
+	if len(cmd.outputDirsArg) == 0 {
+		return errors.New("error: at least one output-dir mapping is required")
+	}
+
+	// Parse output directory mappings
+	cmd.domainOutputDirs = make(map[string]string)
+	for _, mapping := range cmd.outputDirsArg {
+		parts := strings.SplitN(mapping, ":", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid output-dir mapping format %q: expected outputdir:domain1,domain2", mapping)
+		}
+		outputDir := parts[0]
+		if outputDir == "" {
+			return fmt.Errorf("invalid output-dir mapping format %q: output directory cannot be empty", mapping)
+		}
+		domains := strings.Split(parts[1], ",")
+		if len(domains) == 0 {
+			return fmt.Errorf("invalid output-dir mapping format %q: at least one domain is required", mapping)
+		}
+		for _, d := range domains {
+			domain := strings.TrimSpace(d)
+			if domain == "" {
+				return fmt.Errorf("invalid output-dir mapping format %q: domain cannot be empty", mapping)
+			}
+			if existingDir, exists := cmd.domainOutputDirs[domain]; exists {
+				return fmt.Errorf("domain %q is mapped to multiple output directories: %q and %q", domain, existingDir, outputDir)
+			}
+			cmd.domainOutputDirs[domain] = outputDir
+		}
+	}
+
+	if !cmd.manage && !cmd.update {
+		return errors.New("either --manage or --update must be specified")
+	}
+	if cmd.manage && cmd.update {
+		return errors.New("--manage and --update are mutually exclusive")
+	}
+
+	magic, err := configureCertMagic(ctx, cmd.config, true, true)
+	if err != nil {
+		return err
+	}
+
+	log := logger.Sugar()
+
+	if cmd.update {
+		// One-shot mode
+		return cmd.processDomains(ctx, magic, log)
+	}
+
+	// Manage mode - continuous loop
+	log.Infof("Started - checking every %v, renewal threshold %v", cmd.checkInterval, cmd.renewalThreshold)
+
+	// Set up signal handler for SIGUSR1
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGUSR1)
+
+	ticker := time.NewTicker(cmd.checkInterval)
+	defer ticker.Stop()
+
+	// Run immediately on startup
+	log.Infof("Checking %d domain(s): %v", len(cmd.domainOutputDirs), cmd.domainOutputDirs)
+	if err := cmd.processDomains(ctx, magic, log); err != nil {
+		log.Errorf("Domain processing failed: %v", err)
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := cmd.processDomains(ctx, magic, log); err != nil {
+				log.Errorf("Domain processing failed: %v", err)
+			}
+		case <-sigChan:
+			log.Info("Received SIGUSR1, shutting down")
+			return nil
+		case <-ctx.Done():
+			log.Info("Context cancelled, shutting down")
+			return ctx.Err()
+		}
+	}
+}
+
+func (cmd *cmdHaproxy) processDomains(ctx context.Context, magic *certmagic.Config, log *zap.SugaredLogger) error {
+	changes := 0
+	for domain, outputDir := range cmd.domainOutputDirs {
+		needsRenewal, expiresAt, err := cmd.certNeedsRenewal(ctx, domain, outputDir, log)
+		if err != nil {
+			log.Errorf("Error checking certificate for %s: %v", domain, err)
+			continue
+		}
+
+		if needsRenewal {
+			if expiresAt.IsZero() {
+				log.Infof("Certificate for %s needs update (missing or invalid)", domain)
+			} else {
+				log.Infof("Certificate for %s needs update (expires %v)", domain, expiresAt.Format(time.RFC3339))
+			}
+			if err := cmd.downloadCert(ctx, magic, domain, outputDir, log); err != nil {
+				log.Errorf("Failed to download certificate for %s: %v", domain, err)
+				continue
+			}
+
+			needsRenewal, _, err := cmd.certNeedsRenewal(ctx, domain, outputDir, log)
+			if err != nil {
+				log.Errorf("Error checking certificate for %s: %v", domain, err)
+				continue
+			}
+			// Only trigger reload if the cert is new
+			if !needsRenewal {
+				changes++
+			}
+		} else {
+			log.Debugf("Certificate for %s is up to date", domain)
+		}
+	}
+
+	if changes > 0 {
+		log.Infof("Reloading HAProxy (%d certificate(s) updated)", changes)
+		if err := cmd.reloadHAProxy(log); err != nil {
+			log.Errorf("HAProxy reload failed: %v", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cmd *cmdHaproxy) certNeedsRenewal(ctx context.Context, domain string, outputDir string, log *zap.SugaredLogger) (bool, time.Time, error) {
+	var kb certmagic.KeyBuilder
+	certFile := filepath.Join(outputDir, kb.Safe(domain+".pem"))
+
+	// Missing cert needs renewal
+	if _, err := os.Stat(certFile); os.IsNotExist(err) {
+		return true, time.Time{}, nil
+	} else if err != nil {
+		return false, time.Time{}, err
+	}
+
+	// Read and parse the disk certificate
+	certPEM, err := os.ReadFile(certFile)
+	if err != nil {
+		log.Infof("Failed to read certificate file for %s, assuming needs renewal: %v", domain, err)
+		return true, time.Time{}, nil
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil || block.Type != "CERTIFICATE" {
+		log.Infof("Invalid certificate file for %s, assuming needs renewal", domain)
+		return true, time.Time{}, nil
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		log.Infof("Failed to parse certificate for %s: %v", domain, err)
+		return true, time.Time{}, nil
+	}
+
+	renewalTime := time.Now().Add(cmd.renewalThreshold)
+
+	return cert.NotAfter.Before(renewalTime), cert.NotAfter, nil
+}
+
+func (cmd *cmdHaproxy) downloadCert(ctx context.Context, magic *certmagic.Config, domain string, outputDir string, log *zap.SugaredLogger) error {
+	log.Infof("Downloading certificate for %s to %s", domain, outputDir)
+
+	cert, err := magic.CacheManagedCertificate(ctx, domain)
+	if err != nil {
+		return fmt.Errorf("fetching certificate: %w", err)
+	}
+
+	if err := writeCertificateToFile(&cert, outputDir, domain); err != nil {
+		return err
+	}
+
+	log.Infof("Installed certificate for %s to %s", domain, outputDir)
+	return nil
+}
+
+func (cmd *cmdHaproxy) reloadHAProxy(log *zap.SugaredLogger) error {
+	reloadCmd := exec.Command("/usr/bin/systemctl", "reload", "haproxy")
+	output, err := reloadCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("reload command failed: %w (output: %s)", err, string(output))
+	}
+
+	return nil
+}
+
 func setupGlobalCertmagicConfig(f clingy.Flags, config *certmagicConfig) {
 	config.KeyFile = f.Flag("keyfile", "path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)", "").(string)
 	config.Bucket = f.Flag("bucket", "bucket to use for certificate storage with optional prefix (bucket/prefix)", "").(string)
@@ -326,6 +537,9 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 	}
 	certmagic.Default.Storage = cs
 	certmagic.Default.Logger = logger
+	certmagic.Default.OCSP = certmagic.OCSPConfig{
+		DisableStapling: true,
+	}
 
 	// Enabling the DNS challenge disables the other challenges for that
 	// certmagic.ACMEIssuer instance.
@@ -489,4 +703,31 @@ func pemCertificate(cert *certmagic.Certificate) (string, error) {
 	buf.Write(pkPEM)
 
 	return buf.String(), nil
+}
+
+// writeCertificateToFile exports a certificate to a PEM file in the specified directory.
+func writeCertificateToFile(cert *certmagic.Certificate, outputDir, domain string) error {
+	var kb certmagic.KeyBuilder
+	certPath := filepath.Join(outputDir, kb.Safe(domain+".pem"))
+
+	file, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("opening certificate file: %w", err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("closing certificate file: %w", closeErr)
+		}
+	}()
+
+	pemStr, err := pemCertificate(cert)
+	if err != nil {
+		return fmt.Errorf("encoding certificate: %w", err)
+	}
+
+	if _, err := file.WriteString(pemStr); err != nil {
+		return fmt.Errorf("writing certificate: %w", err)
+	}
+
+	return nil
 }
