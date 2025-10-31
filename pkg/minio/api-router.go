@@ -17,10 +17,10 @@ import (
 
 // RegisterAPIRouter - registers S3 compatible APIs.
 func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
-	api := objectAPIHandlersWrapper{cmd.ObjectAPIHandlers{
-		ObjectAPI: func() cmd.ObjectLayer { return layer },
-		CacheAPI:  func() cmd.CacheObjectLayer { return nil },
-	}, corsAllowedOrigins}
+	api := objectAPIHandlersWrapper{
+		core:               mustNewObjectAPIHandlers(layer),
+		corsAllowedOrigins: corsAllowedOrigins,
+	}
 
 	// limit the conccurrency of uploads and downloads
 	limit := middleware.NewConcurrentRequestsLimiter(concurrentAllowed,
@@ -282,6 +282,14 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 	// If none of the routes match add default error handler routes
 	apiRouter.NotFoundHandler = cmd.CollectAPIStats("notfound", cmd.HTTPTraceAll(cmd.ErrorResponseHandler))
 	apiRouter.MethodNotAllowedHandler = cmd.CollectAPIStats("methodnotallowed", cmd.HTTPTraceAll(cmd.MethodNotAllowedHandler("S3")))
+}
+
+func mustNewObjectAPIHandlers(layer cmd.ObjectLayer) *cmd.ObjectAPIHandlers {
+	h, err := cmd.NewObjectAPIHandlers(func() cmd.ObjectLayer { return layer })
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 // This file was derived from an Apache 2 licensed codebase.  The original is included below:

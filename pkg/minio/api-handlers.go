@@ -13,7 +13,7 @@ import (
 
 // objectAPIHandlersWrapper should be used to extend cmd.ObjectAPIHandlers.
 type objectAPIHandlersWrapper struct {
-	core               cmd.ObjectAPIHandlers
+	core               *cmd.ObjectAPIHandlers
 	corsAllowedOrigins []string
 }
 
