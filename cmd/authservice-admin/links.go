@@ -206,7 +206,7 @@ type cmdLinksRevoke struct {
 func (cmd *cmdLinksRevoke) Setup(params clingy.Parameters) {
 	cmd.authClientConfig = getAuthAdminClientConfig(params)
 	cmd.satAdminClients = mustSatAdminClients(params)
-	cmd.freezeAccounts = params.Flag("freeze-accounts", "freeze free-tier user accounts", true,
+	cmd.freezeAccounts = params.Flag("freeze-accounts", "freeze user accounts", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	cmd.hashContents = params.Flag("hash-contents", "hash link contents and send an event if events address configured", true,
@@ -299,7 +299,7 @@ func (cmd *cmdLinksRevoke) revokeAccess(ctx context.Context, accessKey string, r
 
 		eg.Add(satAdminClient.DeleteAPIKey(ctx, authRecord.APIKey))
 
-		if !apiKeyResp.Owner.PaidTier && cmd.freezeAccounts {
+		if cmd.freezeAccounts {
 			eg.Add(satAdminClient.ViolationFreezeAccount(ctx, apiKeyResp.Owner.Email))
 		}
 	}
