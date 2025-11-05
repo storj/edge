@@ -558,9 +558,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			notContains: []string{"..."},
 		},
 		{
-			name:             "GET prefix listing with cursor at last object fails",
+			name:             "GET prefix listing with cursor at last object returns empty",
 			path:             path.Join("s", serializedAccess, "testbucket", testListPrefix, "?cursor=.foo"),
-			status:           http.StatusNotFound,
+			body:             []string{"No objects found."},
+			status:           http.StatusOK,
 			notContains:      []string{"test0", "test1", "test2", ".foo", sharing.FilePlaceholder},
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
@@ -577,7 +578,8 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		{
 			name:             "GET prefix listing empty",
 			path:             path.Join("s", serializedAccess, "testbucket", "test-empty") + "/",
-			status:           http.StatusNotFound,
+			body:             []string{"No objects found."},
+			status:           http.StatusOK,
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{

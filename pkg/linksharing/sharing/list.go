@@ -94,11 +94,7 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 		return err
 	}
 
-	if len(input.Objects) == 0 {
-		return errdata.WithAction(uplink.ErrObjectNotFound, "serve prefix - empty")
-	}
-
-	if cursor != "" {
+	if cursor != "" && len(input.Objects) > 0 {
 		input.ShowBackButton = true
 	}
 

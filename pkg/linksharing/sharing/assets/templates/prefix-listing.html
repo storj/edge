@@ -42,43 +42,53 @@
 
             <script src="{{.Base}}/static/js/common.js?v={{.VersionHash}}" type="text/javascript"></script>
 
-            {{range .Data.Objects}}
-            {{if .Prefix}}
-            <a class="directory-link" href="{{.URL}}">
-              <div class="row">
-                <div class="col">
-                  <img src="{{$.Base}}/static/img/folder.svg" alt="Prefix" />
-                  <span class="directory-name">{{.Key}}</span>
-                </div>
-              </div>
-            </a>
-            {{else}}
-            <div class="d-flex align-items-center w-100">
-              <a class="directory-link {{if $.AllowDownload}}directory-item-row{{else}}w-100{{end}}" href="{{.URL}}">
-                <div class="row align-items-center pr-2">
-                  <div class="col-9 col-sm-10 d-flex align-items-center">
-                    <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
-                    <script type="text/javascript" async>
-                      setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
-                    </script>
-                    <span class="directory-name text-break">{{.Key}}</span>
+            {{if gt (len .Data.Objects) 0}}
+              {{range .Data.Objects}}
+                {{if .Prefix}}
+                <a class="directory-link" href="{{.URL}}">
+                  <div class="row">
+                    <div class="col">
+                      <img src="{{$.Base}}/static/img/folder.svg" alt="Prefix" />
+                      <span class="directory-name">{{.Key}}</span>
+                    </div>
                   </div>
-                  <div class="col-3 col-sm-2 px-0 text-right">
-                    <p class="directory-size">{{.Size}}</p>
-                  </div>
-                </div>
-              </a>
-              {{ if $.AllowDownload }}
-              <div class="ml-4 mt-n1 rounded download-icon-wrapper">
-                {{if (gt (len $.ArchivePath) 0)}}
-                <a class="p-1" href="?download=1&path={{.Key}}" download><img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download"></a>
+                </a>
                 {{else}}
-                <a class="p-1" href="{{.Key}}?download=1" download><img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download"></a>
-                {{ end }}
-              </div>
+                <div class="d-flex align-items-center w-100">
+                  <a class="directory-link {{if $.AllowDownload}}directory-item-row{{else}}w-100{{end}}" href="{{.URL}}">
+                    <div class="row align-items-center pr-2">
+                      <div class="col-9 col-sm-10 d-flex align-items-center">
+                        <img id="file-{{.Key}}" src="{{$.Base}}/static/img/file.svg" alt="Object" />
+                        <script type="text/javascript" async>
+                            setFileIconSource("{{$.Base}}", "{{$.VersionHash}}", "{{.Key}}");
+                        </script>
+                        <span class="directory-name text-break">{{.Key}}</span>
+                      </div>
+                      <div class="col-3 col-sm-2 px-0 text-right">
+                        <p class="directory-size">{{.Size}}</p>
+                      </div>
+                    </div>
+                  </a>
+                  {{ if $.AllowDownload }}
+                  <div class="ml-4 mt-n1 rounded download-icon-wrapper">
+                    {{if (gt (len $.ArchivePath) 0)}}
+                    <a class="p-1" href="?download=1&path={{.Key}}" download>
+                      <img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download">
+                    </a>
+                    {{else}}
+                    <a class="p-1" href="{{.Key}}?download=1" download>
+                      <img class="download-icon" src="{{$.Base}}/static/img/icon-download-black.svg?v={{$.VersionHash}}" alt="Download">
+                    </a>
+                    {{end}}
+                  </div>
+                  {{end}}
+                </div>
+                {{end}}
               {{end}}
+            {{else}}
+            <div class="text-center text-muted my-4">
+              <p>No objects found.</p>
             </div>
-            {{end}}
             {{end}}
 
             {{if or .Data.IsParentListable .Data.ShowBackButton .Data.NextCursor}}
