@@ -82,6 +82,7 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 		return nil, errs.New("initializing certstorage: %v", err)
 	}
 	certmagic.Default.Storage = cs
+	certmagic.Default.DisableARI = true
 
 	certmagic.Default.OnDemand = &certmagic.OnDemandConfig{DecisionFunc: func(ctx context.Context, name string) error {
 		for _, host := range config.PublicURL {

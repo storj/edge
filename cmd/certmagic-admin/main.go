@@ -540,6 +540,7 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 	certmagic.Default.OCSP = certmagic.OCSPConfig{
 		DisableStapling: true,
 	}
+	certmagic.Default.DisableARI = true
 
 	// Enabling the DNS challenge disables the other challenges for that
 	// certmagic.ACMEIssuer instance.

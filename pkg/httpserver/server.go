@@ -506,8 +506,9 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 			}
 			return nil
 		},
-		Storage: cs,
-		Logger:  log,
+		Storage:    cs,
+		Logger:     log,
+		DisableARI: true,
 	})
 	// if decisionFunc is nil, it's better to skip configuring on-demand config
 	// as it will delay obtaining certificates for public URLs.
