@@ -2,7 +2,7 @@ pipeline {
     agent none
 
     options {
-        timeout(time: 26, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         skipDefaultCheckout(true)
     }
 
@@ -174,11 +174,6 @@ pipeline {
                     steps {
                         script {
                             def tests = [:]
-                            tests['splunk-tests'] = {
-                                stage('splunk-tests') {
-                                    sh 'make integration-splunk-tests'
-                                }
-                            }
                             tests['ceph-tests'] = {
                                 stage('ceph-tests') {
                                     sh 'make integration-ceph-tests'
@@ -192,7 +187,7 @@ pipeline {
                                     }
                                 }
                             }
-                            ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd', 's3select'].each { test ->
+                            ['aws-sdk-java', 'awscli', 'minio-go', 's3select'].each { test ->
                                 tests["mint-test ${test}"] = {
                                     stage("mint-test ${test}") {
                                         sh "TEST=${test} make integration-mint-tests"
@@ -217,6 +212,24 @@ pipeline {
                 stage('mint-test aws-sdk-ruby') {
                     steps {
                         sh 'TEST=aws-sdk-ruby make integration-mint-tests'
+                    }
+                }
+
+                // These tests are run sequentially because the satellite can't handle
+                // certain parallel object deletions when the Spanner emulator is used.
+                stage('splunk-tests') {
+                    steps {
+                        sh 'make integration-splunk-tests'
+                    }
+                }
+                stage("mint-test aws-sdk-go") {
+                    steps {
+                        sh "TEST=aws-sdk-go make integration-mint-tests"
+                    }
+                }
+                stage("mint-test s3cmd") {
+                    steps {
+                        sh "TEST=s3cmd make integration-mint-tests"
                     }
                 }
             }
