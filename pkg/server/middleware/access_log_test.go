@@ -329,7 +329,7 @@ func TestProcessLogEntry(t *testing.T) {
 
 	filteredLogs := observedLogs.FilterMessage("Error parsing public project ID from authservice")
 	require.Len(t, filteredLogs.All(), 1)
-	publicProjectID, ok := filteredLogs.All()[0].ContextMap()["publicProjectID"].(string)
+	publicProjectID, ok := filteredLogs.All()[0].ContextMap()["public_project_id"].(string)
 	require.True(t, ok)
 	require.Equal(t, "malformed", publicProjectID)
 }

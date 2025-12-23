@@ -81,7 +81,7 @@ func AccessLog(log *zap.Logger, p *accesslogs.Processor, config AccessLogConfig)
 			if err != nil {
 				log.Error("Error parsing public project ID from authservice",
 					zap.Error(err),
-					zap.String("publicProjectID", publicProjectID))
+					zap.String("public_project_id", publicProjectID))
 				return
 			}
 

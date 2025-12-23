@@ -120,7 +120,7 @@ func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err
 	for i, a := range c.admins {
 		resp, err = a.GetFullRecord(ctx, key.hash)
 		if err != nil || resp == nil {
-			c.log.Warn("Get", zap.String("key", encodedKey), zap.Int("backend (index)", i), zap.Error(err))
+			c.log.Warn("Get", zap.String("key", encodedKey), zap.Int("backend_index", i), zap.Error(err))
 		} else {
 			break
 		}

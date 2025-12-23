@@ -78,12 +78,12 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 					// we are deliberately not logging the request URI as it has
 					// sensitive information in it.
 					zap.String("host", host),
-					zap.String("request-id", requestid.FromContext(r.Context())),
-					zap.String("trace-id", rw.Header().Get("trace-id")),
-					zap.Object("request-headers", &httplog.HeadersLogObject{
+					zap.String("request_id", requestid.FromContext(r.Context())),
+					zap.String("trace_id", rw.Header().Get("trace-id")),
+					zap.Object("request_headers", &httplog.HeadersLogObject{
 						Headers: r.Header,
 					}),
-					zap.Object("response-headers", &httplog.HeadersLogObject{
+					zap.Object("response_headers", &httplog.HeadersLogObject{
 						Headers: rw.Header(),
 					}),
 				}...)

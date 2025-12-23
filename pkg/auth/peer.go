@@ -298,7 +298,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 						Status:        rw.StatusCode(),
 					}),
 					zap.String("host", r.Host),
-					zap.String("request-id", requestid.FromContext(r.Context())),
+					zap.String("request_id", requestid.FromContext(r.Context())),
 				}...)
 			}
 		}))
@@ -392,7 +392,7 @@ func (p *Peer) ServeHTTP(ctx context.Context, listener net.Listener) (err error)
 	case <-ctx.Done():
 		p.res.SetShutdown()
 		if p.config.ShutdownDelay > 0 {
-			p.log.Info("Waiting before server shutdown:", zap.Duration("Delay", p.config.ShutdownDelay))
+			p.log.Info("Waiting before server shutdown:", zap.Duration("delay", p.config.ShutdownDelay))
 			time.Sleep(p.config.ShutdownDelay)
 		}
 

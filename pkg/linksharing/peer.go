@@ -243,7 +243,7 @@ func (peer *Peer) Close() error {
 
 	atomic.StoreInt32(&peer.inShutdown, 1)
 	if peer.shutdownDelay > 0 {
-		peer.Log.Info("Waiting before server shutdown:", zap.Duration("Delay", peer.shutdownDelay))
+		peer.Log.Info("Waiting before server shutdown:", zap.Duration("delay", peer.shutdownDelay))
 		time.Sleep(peer.shutdownDelay)
 	}
 

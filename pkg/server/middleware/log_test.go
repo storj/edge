@@ -139,16 +139,16 @@ func TestAccessDetailsLogged(t *testing.T) {
 
 	AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
 
-	filteredLogs := observedLogs.FilterField(zap.String("encryption-key-hash", "64f74892360a5cd203e9111d2ce72dd46ee195bf3dc33a2f0dddc892529b145d"))
+	filteredLogs := observedLogs.FilterField(zap.String("encryption_key_hash", "64f74892360a5cd203e9111d2ce72dd46ee195bf3dc33a2f0dddc892529b145d"))
 	require.Len(t, filteredLogs.All(), 1)
 
-	filteredLogs = observedLogs.FilterField(zap.String("macaroon-head", "4dff5d8e6b3506be68cf76b480ab1261ac391fe5a2f7db66d1293d68109f3665"))
+	filteredLogs = observedLogs.FilterField(zap.String("macaroon_head", "4dff5d8e6b3506be68cf76b480ab1261ac391fe5a2f7db66d1293d68109f3665"))
 	require.Len(t, filteredLogs.All(), 1)
 
-	filteredLogs = observedLogs.FilterField(zap.String("satellite-address", "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"))
+	filteredLogs = observedLogs.FilterField(zap.String("satellite_address", "1SYXsAycDPUu4z2ZksJD5fh5nTDcH3vCFHnpcVye5XuL1NrYV@s"))
 	require.Len(t, filteredLogs.All(), 1)
 
-	filteredLogs = observedLogs.FilterField(zap.String("public-project-id", "11111111-2222-3333-4444-555555555555"))
+	filteredLogs = observedLogs.FilterField(zap.String("public_project_id", "11111111-2222-3333-4444-555555555555"))
 	require.Len(t, filteredLogs.All(), 1)
 }
 
@@ -227,7 +227,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 
 		if test.header != "" {
 			require.Len(t, observedLogs.All(), 1, i)
-			fields, ok := observedLogs.All()[0].ContextMap()["request-headers"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["request_headers"].(map[string]interface{})
 			require.True(t, ok, i)
 			require.Equal(t, "[...]", fields[test.header], i)
 		}

@@ -136,7 +136,7 @@ func (d *CloudDatabase) Put(ctx context.Context, keyHash authdb.KeyHash, record 
 		}
 		return Error.Wrap(err)
 	}
-	d.logger.Debug("applied", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+	d.logger.Debug("applied", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit_timestamp", t))
 	return nil
 }
 
@@ -302,7 +302,7 @@ func (d *CloudDatabase) Invalidate(ctx context.Context, keyHash authdb.KeyHash, 
 		return Error.Wrap(err)
 	}
 
-	d.logger.Debug("invalidated", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+	d.logger.Debug("invalidated", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit_timestamp", t))
 
 	return nil
 }
@@ -319,7 +319,7 @@ func (d *CloudDatabase) Unpublish(ctx context.Context, keyHash authdb.KeyHash) (
 		return Error.Wrap(err)
 	}
 
-	d.logger.Debug("unpublished", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+	d.logger.Debug("unpublished", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit_timestamp", t))
 
 	return nil
 }
@@ -333,7 +333,7 @@ func (d *CloudDatabase) Delete(ctx context.Context, keyHash authdb.KeyHash) (err
 		return Error.Wrap(err)
 	}
 
-	d.logger.Debug("deleted", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit timestamp", t))
+	d.logger.Debug("deleted", zap.String("encryption_key_hash", keyHash.ToHex()), zap.Time("commit_timestamp", t))
 
 	return nil
 }

@@ -150,22 +150,22 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		}),
 		zap.String("host", r.Host),
 		zap.String("error", gl.TagValue("error")),
-		zap.String("request-id", requestid.FromContext(r.Context())),
-		zap.String("amz-request-id", gl.RequestID),
-		zap.String("public-project-id", publicProjectID),
-		zap.String("encryption-key-hash", encKeyHash),
-		zap.String("macaroon-head", macHead),
-		zap.String("satellite-address", satelliteAddress),
-		zap.String("trace-id", rw.Header().Get("trace-id")),
+		zap.String("request_id", requestid.FromContext(r.Context())),
+		zap.String("amz_request_id", gl.RequestID),
+		zap.String("public_project_id", publicProjectID),
+		zap.String("encryption_key_hash", encKeyHash),
+		zap.String("macaroon_head", macHead),
+		zap.String("satellite_address", satelliteAddress),
+		zap.String("trace_id", rw.Header().Get("trace-id")),
 		zap.Object("query", &httplog.RequestQueryLogObject{
 			Query:                                   r.URL.Query(),
 			InsecureDisableConfidentialSanitization: insecureLogAll,
 		}),
-		zap.Object("request-headers", &httplog.HeadersLogObject{
+		zap.Object("request_headers", &httplog.HeadersLogObject{
 			Headers:                                 r.Header,
 			InsecureDisableConfidentialSanitization: insecureLogAll,
 		}),
-		zap.Object("response-headers", &httplog.HeadersLogObject{
+		zap.Object("response_headers", &httplog.HeadersLogObject{
 			Headers:                                 rw.Header(),
 			InsecureDisableConfidentialSanitization: true, // we don't need to hide any known response header values.
 		}),

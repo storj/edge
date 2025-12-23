@@ -141,7 +141,7 @@ func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
 // Service Unavailable otherwise (e.g. this would return 503 if the database
 // connection failed).
 func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
-	res.log.Debug("getLive request", zap.String("remote address", req.RemoteAddr))
+	res.log.Debug("getLive request", zap.String("remote_address", req.RemoteAddr))
 
 	// Confirm we have finished startup and are not shutting down.
 	if atomic.LoadInt32(&res.startup) == 0 || atomic.LoadInt32(&res.inShutdown) != 0 {
@@ -161,7 +161,7 @@ func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 
 func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	res.newAccessCORS(w, req)
-	res.log.Debug("newAccess request", zap.String("remote address", req.RemoteAddr))
+	res.log.Debug("newAccess request", zap.String("remote_address", req.RemoteAddr))
 	var request struct {
 		AccessGrant string   `json:"access_grant"`
 		Public      bool     `json:"public"`
@@ -242,7 +242,7 @@ func (res *Resources) requestAuthorized(req *http.Request) bool {
 }
 
 func (res *Resources) getAccess(w http.ResponseWriter, req *http.Request) {
-	res.log.Debug("getAccess request", zap.String("remote address", req.RemoteAddr))
+	res.log.Debug("getAccess request", zap.String("remote_address", req.RemoteAddr))
 	if !res.requestAuthorized(req) {
 		res.writeError(w, "getAccess", "unauthorized", http.StatusUnauthorized)
 		return

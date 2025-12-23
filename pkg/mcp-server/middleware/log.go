@@ -107,11 +107,11 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 			ce.Write([]zapcore.Field{
 				gcloudlogging.LogHTTPRequest(httpRequestLog),
 				zap.String("host", r.Host),
-				zap.String("request-id", requestid.FromContext(r.Context())),
-				zap.String("public-project-id", publicProjectID),
-				zap.String("encryption-key-hash", encKeyHash),
-				zap.String("macaroon-head", macHead),
-				zap.String("satellite-address", satelliteAddress),
+				zap.String("request_id", requestid.FromContext(r.Context())),
+				zap.String("public_project_id", publicProjectID),
+				zap.String("encryption_key_hash", encKeyHash),
+				zap.String("macaroon_head", macHead),
+				zap.String("satellite_address", satelliteAddress),
 			}...)
 		}))
 }

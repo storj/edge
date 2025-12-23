@@ -273,7 +273,7 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 func (s *Peer) Close() error {
 	atomic.StoreInt32(&s.inShutdown, 1)
 	if s.config.ShutdownDelay > 0 {
-		s.log.Info("Waiting before server shutdown", zap.Duration("Delay", s.config.ShutdownDelay))
+		s.log.Info("Waiting before server shutdown", zap.Duration("delay", s.config.ShutdownDelay))
 		time.Sleep(s.config.ShutdownDelay)
 	}
 
