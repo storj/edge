@@ -17,7 +17,7 @@ import (
 // newListBucketsWithAttributionHandler implements GET operation, returning a
 // list of all buckets with attribution owned by the authenticated/authorized
 // sender of the request.
-func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer) http.HandlerFunc {
+func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer, handlers *cmd.ObjectAPIHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		defer mon.Task()(&ctx)(nil)
@@ -26,7 +26,7 @@ func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer) http.Hand
 
 		defer logger.AuditLog(ctx, w, r, nil)
 
-		if _, _, s3Error := cmd.CheckRequestAuthTypeCredential(ctx, r, policy.ListAllMyBucketsAction, "", ""); s3Error != cmd.ErrNone {
+		if _, _, s3Error := handlers.CheckRequestAuthTypeCredential(ctx, r, policy.ListAllMyBucketsAction, "", ""); s3Error != cmd.ErrNone {
 			cmd.WriteErrorResponse(ctx, w, cmd.GetAPIError(s3Error), r.URL, false)
 			return
 		}
@@ -43,7 +43,7 @@ func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer) http.Hand
 	}
 }
 
-func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer) http.HandlerFunc {
+func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer, handlers *cmd.ObjectAPIHandlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		defer mon.Task()(&ctx)(nil)
@@ -55,7 +55,7 @@ func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer) http.HandlerFunc {
 		vars := mux.Vars(r)
 		bucket := vars["bucket"]
 
-		if _, _, s3Error := cmd.CheckRequestAuthTypeCredential(ctx, r, policy.GetBucketLocationAction, bucket, ""); s3Error != cmd.ErrNone {
+		if _, _, s3Error := handlers.CheckRequestAuthTypeCredential(ctx, r, policy.GetBucketLocationAction, bucket, ""); s3Error != cmd.ErrNone {
 			cmd.WriteErrorResponse(ctx, w, cmd.GetAPIError(s3Error), r.URL, false)
 			return
 		}

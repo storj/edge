@@ -118,7 +118,7 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 		// Bucket operations
 		// GetBucketLocation
 		bucket.Methods(http.MethodGet).HandlerFunc(
-			cmd.MaxClients(cmd.CollectAPIStats("getbucketlocation", cmd.HTTPTraceAll(newGetBucketLocationHandler(layer))))).Queries("location", "")
+			cmd.MaxClients(cmd.CollectAPIStats("getbucketlocation", cmd.HTTPTraceAll(newGetBucketLocationHandler(layer, api.core))))).Queries("location", "")
 		// GetBucketPolicy
 		bucket.Methods(http.MethodGet).HandlerFunc(
 			cmd.MaxClients(cmd.CollectAPIStats("getbucketpolicy", cmd.HTTPTraceAll(api.GetBucketPolicyHandler)))).Queries("policy", "")
@@ -268,7 +268,7 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 
 	// ListBucketsWithAttribution (similar to ListBuckets)
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
-		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(newListBucketsWithAttributionHandler(layer))))).Queries("attribution", "")
+		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(newListBucketsWithAttributionHandler(layer, api.core))))).Queries("attribution", "")
 
 	// ListBuckets
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(

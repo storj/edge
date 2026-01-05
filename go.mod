@@ -1,6 +1,6 @@
 module storj.io/edge
 
-go 1.25.1
+go 1.25.3
 
 require (
 	cloud.google.com/go/spanner v1.81.0
@@ -33,13 +33,13 @@ require (
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20251028153705-6cc45d003319
+	storj.io/common v0.0.0-20251223102046-b62f25bc78c4
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/gateway v1.11.1-0.20251030181225-3c316712957a
-	storj.io/minio v0.0.0-20251029162921-2ee0a8fbedda
-	storj.io/uplink v1.13.2-0.20251023093727-3f5761e4ff21
+	storj.io/gateway v1.11.1-0.20251223140609-ec6b525c10e4
+	storj.io/minio v0.0.0-20251205210102-30bed4dd17de
+	storj.io/uplink v1.13.2-0.20251218104035-eafc30b23083
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -61,6 +61,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/participle v0.2.1 // indirect
+	github.com/amwolff/awsig v0.0.0-20251205113350-51861a127c1f // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/apache/thrift v0.17.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
