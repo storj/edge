@@ -37,13 +37,13 @@ func TestRemoteIP(t *testing.T) {
 			desc:       "X-Real-Ip, and RemoteAddr",
 			remoteAddr: "1.2.3.4",
 			header:     http.Header{"X-Real-Ip": []string{"4.5.6.7"}},
-			expectedIP: "4.5.6.7",
+			expectedIP: "1.2.3.4",
 		},
 		{
 			desc:       "Forwarded, and RemoteAddr",
 			remoteAddr: "1.2.3.4",
 			header:     http.Header{"Forwarded": []string{"for=7.8.9.0"}},
-			expectedIP: "7.8.9.0",
+			expectedIP: "1.2.3.4",
 		},
 		{
 			desc:       "X-Forwarded-For, X-Real-Ip, and RemoteAddr",
@@ -62,7 +62,7 @@ func TestRemoteIP(t *testing.T) {
 				"X-Forwarded-For": []string{"4.5.6.7"},
 				"X-Real-Ip":       []string{"7.8.9.0"},
 			},
-			expectedIP: "4.3.2.1",
+			expectedIP: "4.5.6.7",
 		},
 	}
 	for _, tc := range testCases {

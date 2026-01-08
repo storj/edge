@@ -5,7 +5,6 @@ package trustedip
 
 import (
 	"net/http"
-	"regexp"
 	"strings"
 )
 
@@ -55,11 +54,9 @@ func (l List) IsTrusted(ip string) bool {
 	return ok
 }
 
-// GetClientIP gets the IP of the client from the 'Forwarded',
-// 'X-Forwarded-For', or 'X-Real-Ip' headers if r.RemoteAddr is a trusted IP and
-// returning it from the first header which are checked in that specific order.
-// If the IP isn't trusted then it returns r.RemoteAddr.
-// It panics if r is nil.
+// GetClientIP gets the IP of the client from the 'X-Forwarded-For' header if
+// r.RemoteAddr is a trusted IP.  If the IP isn't trusted then it returns
+// r.RemoteAddr.  It panics if r is nil.
 //
 // If an address contains the port, it's stripped. Addresses with ports are
 // accepted in r.RemoteAddr and 'Forwarded' header.
@@ -79,57 +76,27 @@ func GetClientIP(l List, r *http.Request) string {
 	return addr
 }
 
-var forwardForClientIPRegExp = regexp.MustCompile(`(?i:(?:^|;)for=([^,; ]+))`)
-
-// GetIPFromHeaders gets the IP of the client from the first exiting header in
-// this order: 'Forwarded', 'X-Forwarded-For', or 'X-Real-Ip'.
-// It returns the IP and true if the any of the headers exists, otherwise false.
-//
-// The 'for' field of the 'Forwarded' may contain the IP with a port, as defined
-// in the RFC 7239. When the header contains the IP with a port, the port is
-// striped, so only the IP is returned.
+// GetIPFromHeaders gets the IP of the client from the 'X-Forwarded-For'
+// header.  It returns the IP and true if the header exists, otherwise false.
 //
 // NOTE: it doesn't check that the IP value get from wherever source is a well
 // formatted IP v4 nor v6; an invalid formatted IP will return an undefined
 // result.
 func GetIPFromHeaders(headers http.Header) (string, bool) {
-	h := headers.Get("Forwarded")
-	if h != "" {
-		// Get the first value of the 'for' identifier present in the header because
-		// its the one that contains the client IP.
-		// see: https://datatracker.ietf.org/doc/html/rfc7230
-		matches := forwardForClientIPRegExp.FindStringSubmatch(h)
-		if len(matches) > 1 {
-			ip := strings.Trim(matches[1], `"`)
-			ip = stripPort(ip)
-			if ip[0] == '[' {
-				ip = ip[1 : len(ip)-1]
-			}
-
-			return ip, true
-		}
+	h := headers.Get("X-Forwarded-For")
+	if h == "" {
+		return "", false
 	}
-
-	h = headers.Get("X-Forwarded-For")
-	if h != "" {
-		// Get the first the value IP because it's the client IP.
-		// Header sysntax: X-Forwarded-For: <client>, <proxy1>, <proxy2>
-		// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For
-		ips := strings.SplitN(h, ",", 2)
-		if len(ips) > 0 {
-			return ips[0], true
-		}
+	// Get the last IP because it's the IP talking to our edge.
+	// The original internal ip of a client behind a proxy is less useful.
+	// Header syntax: X-Forwarded-For: <client>, <proxy1>, <proxy2>
+	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For
+	ips := strings.Split(h, ",")
+	if len(ips) == 0 {
+		return "", false
 	}
-
-	h = headers.Get("X-Real-Ip")
-	if h != "" {
-		// Get the value of the header because its value is just the client IP.
-		// This header is mostly sent by NGINX.
-		// See https://www.nginx.com/resources/wiki/start/topics/examples/forwarded/
-		return h, true
-	}
-
-	return "", false
+	ip := strings.TrimSpace(ips[len(ips)-1])
+	return ip, true
 }
 
 // stripPort strips the port from addr when it has it and return the host
