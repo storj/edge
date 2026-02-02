@@ -13,11 +13,11 @@ require (
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.18.0
-	storj.io/common v0.0.0-20251223102046-b62f25bc78c4
+	storj.io/common v0.0.0-20260130132429-0e905b8ee485
 	storj.io/edge v0.0.0-00010101000000-000000000000
-	storj.io/minio v0.0.0-20251205210102-30bed4dd17de
-	storj.io/storj v1.144.3
-	storj.io/uplink v1.13.2-0.20251218104035-eafc30b23083
+	storj.io/minio v0.0.0-20260129101855-14915b3faa6d
+	storj.io/storj v1.146.7
+	storj.io/uplink v1.13.2-0.20260129095714-a3543955ce4c
 )
 
 require (
@@ -208,7 +208,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.21.3 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20260113195619-706ad4b46206 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -292,7 +292,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
-	storj.io/gateway v1.11.1-0.20251223140609-ec6b525c10e4 // indirect
+	storj.io/gateway v1.11.1-0.20260202145113-333d852df5ba // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect

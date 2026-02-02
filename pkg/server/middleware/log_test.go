@@ -42,7 +42,7 @@ func TestResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -68,7 +68,7 @@ func TestResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Equal(t, "/", fields["requestUrl"])
@@ -98,7 +98,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -175,7 +175,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
 	require.True(t, ok)
 
 	require.Equal(t, "/test?q=123", fields["requestUrl"])
@@ -315,7 +315,7 @@ func TestRemoteIP(t *testing.T) {
 			LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 			require.Len(t, observedLogs.All(), 1)
-			fields, ok := observedLogs.All()[0].ContextMap()["httpRequest"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])

@@ -321,7 +321,7 @@ func TestPeer_ProxyProtocol(t *testing.T) {
 	logs = observedLogs.FilterMessage("request").All()
 	require.NotEmpty(t, logs)
 
-	fields, ok := logs[0].ContextMap()["httpRequest"].(map[string]interface{})
+	fields, ok := logs[0].ContextMap()["http_request"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, expectedClientAddr.IP.String(), fields["remoteIp"])
 }

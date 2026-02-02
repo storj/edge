@@ -27,6 +27,7 @@ import (
 	"storj.io/minio/pkg/auth"
 	objectlock "storj.io/minio/pkg/bucket/object/lock"
 	"storj.io/minio/pkg/bucket/versioning"
+	"storj.io/minio/pkg/event"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/project"
@@ -336,6 +337,31 @@ func (l *MultiTenancyLayer) SetObjectLockConfig(ctx context.Context, bucket stri
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket, config))
+}
+
+// GetBucketNotificationConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketNotificationConfig.
+func (l *MultiTenancyLayer) GetBucketNotificationConfig(ctx context.Context, bucket string) (config *event.Config, err error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	config, err = l.layer.GetBucketNotificationConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket)
+	return config, l.log(ctx, err)
+}
+
+// SetBucketNotificationConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).SetBucketNotificationConfig.
+func (l *MultiTenancyLayer) SetBucketNotificationConfig(ctx context.Context, bucket string, config *event.Config) (err error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	return l.log(ctx, l.layer.SetBucketNotificationConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket, config))
 }
 
 // GetObjectLegalHold is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetObjectLegalHold.
