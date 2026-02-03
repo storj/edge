@@ -339,6 +339,11 @@ func (l *MultiTenancyLayer) SetObjectLockConfig(ctx context.Context, bucket stri
 	return l.log(ctx, l.layer.SetObjectLockConfig(miniogw.WithCredentials(ctx, project, credsInfo), bucket, config))
 }
 
+// IsNotificationSupported is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).IsNotificationSupported.
+func (l *MultiTenancyLayer) IsNotificationSupported() bool {
+	return l.layer.IsNotificationSupported()
+}
+
 // GetBucketNotificationConfig is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketNotificationConfig.
 func (l *MultiTenancyLayer) GetBucketNotificationConfig(ctx context.Context, bucket string) (config *event.Config, err error) {
 	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
