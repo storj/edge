@@ -20,6 +20,13 @@ import (
 // MinioError is class for minio errors.
 var MinioError = errs.Class("minio")
 
+// LicenseInfo represents license information returned from the API.
+type LicenseInfo struct {
+	Type      string
+	ExpiresAt string
+	Key       string
+}
+
 // Config is the setup for a particular client.
 type Config struct {
 	S3Gateway     string
@@ -39,6 +46,7 @@ type Client interface {
 	GetBucketLocation(ctx context.Context, bucket string) (string, error)
 	ListBuckets(ctx context.Context) ([]string, error)
 	ListBucketsAttribution(ctx context.Context) ([]string, error)
+	ListLicenses(ctx context.Context, bucket, licenseType string) ([]LicenseInfo, error)
 
 	Upload(ctx context.Context, bucket, objectName string, data []byte) error
 	Download(ctx context.Context, bucket, objectName string, buffer []byte) ([]byte, error)
@@ -119,6 +127,53 @@ type listAllMyBucketsResult struct {
 			Attribution  string `xml:"Attribution"`
 		} `xml:"Bucket"`
 	} `xml:"Buckets"`
+}
+
+type listLicensesResult struct {
+	XMLName  xml.Name `xml:"ListLicensesResult"`
+	Licenses struct {
+		License []LicenseInfo `xml:"License"`
+	} `xml:"Licenses"`
+}
+
+// ListLicenses returns license information for the specified bucket and license type.
+func (client *Minio) ListLicenses(ctx context.Context, bucket, licenseType string) ([]LicenseInfo, error) {
+	scheme := "https"
+	if client.config.NoSSL {
+		scheme = "http"
+	}
+	endpointURLStr := scheme + "://" + client.config.S3Gateway + "/?licenses"
+	if bucket != "" {
+		endpointURLStr += "&bucket=" + bucket
+	}
+	if licenseType != "" {
+		endpointURLStr += "&licenseType=" + licenseType
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpointURLStr, nil)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+	req.Header.Set("X-Amz-Content-Sha256", emptySHA256Hex)
+	sreq := signer.SignV4(*req, client.config.AccessKey, client.config.SecretKey, "", "us-east-1")
+	res, err := client.httpClient.Do(sreq)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, MinioError.New("unexpected status code: %d", res.StatusCode)
+	}
+
+	d := xml.NewDecoder(res.Body)
+	result := listLicensesResult{}
+	err = d.Decode(&result)
+	if err != nil {
+		return nil, MinioError.Wrap(err)
+	}
+
+	return result.Licenses.License, nil
 }
 
 // ListBucketsAttribution lists all buckets with attribution.

@@ -55,6 +55,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/uplink"
 )
@@ -72,10 +73,6 @@ func TestObjectLockRestrictedPermissions(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
 			},
@@ -244,8 +241,6 @@ func TestObjectLock(t *testing.T) {
 		NonParallel:      true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
 				config.Metainfo.ProjectLimits.MaxBuckets = 100
 			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
@@ -1155,6 +1150,52 @@ func TestUploadDownload(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "Poland", location)
 		}
+		{ // ListLicenses
+			licenses, err := client.ListLicenses(ctx, "non-existent-bucket", "non-existing-type")
+			require.NoError(t, err)
+			require.Len(t, licenses, 0)
+
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+			// Get the user who owns this API key.
+			apiKeyInfo, err := planet.Satellites[0].DB.Console().APIKeys().GetByHead(ctx, apiKey.Head())
+			require.NoError(t, err)
+
+			now := time.Now().UTC().Truncate(time.Second)
+			expectedKey := []byte("some key")
+			expectedExpiresAt := now.Add(24 * time.Hour)
+			err = planet.Satellites[0].API.Entitlements.Service.Licenses().Set(ctx, apiKeyInfo.CreatedBy, entitlements.AccountLicenses{
+				Licenses: []entitlements.AccountLicense{
+					{
+						Type:       "object-mount",
+						PublicID:   apiKeyInfo.ProjectPublicID.String(),
+						BucketName: "bucketa",
+						ExpiresAt:  expectedExpiresAt,
+						Key:        expectedKey,
+					},
+
+					{
+						Type:       "object-mount",
+						PublicID:   apiKeyInfo.ProjectPublicID.String(),
+						BucketName: "bucketb",
+						ExpiresAt:  expectedExpiresAt,
+					},
+					{
+						Type:      "expired",
+						ExpiresAt: expectedExpiresAt,
+						RevokedAt: now.Add(-24 * time.Hour),
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			licenses, err = client.ListLicenses(ctx, "bucketa", "object-mount")
+			require.NoError(t, err)
+			require.Len(t, licenses, 1)
+			require.Equal(t, "object-mount", licenses[0].Type)
+			// this is just a workaround to not deal with iso8601 time format in tests
+			require.Contains(t, licenses[0].ExpiresAt, now.Add(24*time.Hour).Format(time.DateOnly))
+			require.Equal(t, expectedKey, []byte(licenses[0].Key))
+		}
 	})
 }
 
@@ -1163,11 +1204,6 @@ func TestVersioning(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client, err := minioclient.NewMinio(minioclient.Config{
 			S3Gateway: gateway.Address(),
@@ -1395,11 +1431,6 @@ func TestObjectAttributes(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 
@@ -1476,11 +1507,6 @@ func TestConditionalWrites(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
 		client := createS3Client(t, gateway.Address(), creds.AccessKeyID, creds.SecretKey)
 

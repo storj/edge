@@ -30,6 +30,7 @@ import (
 	"storj.io/minio/pkg/event"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
+	"storj.io/uplink/private/license"
 	"storj.io/uplink/private/project"
 	"storj.io/uplink/private/transport"
 )
@@ -300,6 +301,44 @@ func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buc
 	}
 
 	return buckets, l.log(ctx, miniogw.ConvertError(it.Err(), "", ""))
+}
+
+// LicenseEntry represents license information for a bucket.
+type LicenseEntry struct {
+	Type      string
+	ExpiresAt time.Time
+	Key       []byte
+}
+
+// ListLicenses returns license information for the specified bucket and license type.
+func (l *MultiTenancyLayer) ListLicenses(ctx context.Context, bucketName, licenseType string) (licenses []LicenseEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = miniogw.ValidateBucket(ctx, bucketName); err != nil {
+		return nil, l.log(ctx, minio.BucketNameInvalid{Bucket: bucketName})
+	}
+
+	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	rawLicenses, err := license.List(ctx, project, licenseType, bucketName)
+	if err != nil {
+		return nil, l.log(ctx, miniogw.ConvertError(err, bucketName, ""))
+	}
+
+	for _, rawLicense := range rawLicenses {
+		licenses = append(licenses, LicenseEntry{
+			Type:      rawLicense.Type,
+			ExpiresAt: rawLicense.ExpiresAt,
+			Key:       rawLicense.Key,
+		})
+	}
+
+	return licenses, nil
 }
 
 // DeleteBucket is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteBucket.

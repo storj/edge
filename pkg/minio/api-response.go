@@ -5,12 +5,11 @@ package minio
 
 import (
 	"encoding/xml"
+	"time"
 
 	"storj.io/edge/pkg/server/gw"
 	"storj.io/minio/cmd"
 )
-
-const iso8601TimeFormat = "2006-01-02T15:04:05.000Z"
 
 // bucketWithAttribution represents the response's building block for custom
 // ListBucketsWithAttribution action.
@@ -45,11 +44,39 @@ func generateListBucketsWithAttributionResponse(info []gw.BucketWithAttributionI
 
 	for _, v := range info {
 		response.Buckets.Buckets = append(response.Buckets.Buckets, bucketWithAttribution{
-			CreationDate: v.Created.UTC().Format(iso8601TimeFormat),
+			CreationDate: v.Created.UTC().Format(time.RFC3339),
 			Name:         v.Name,
 			Attribution:  v.Attribution,
 		})
 	}
 
+	return response
+}
+
+// license represents a single license entry in the response.
+type license struct {
+	Type      string `xml:"Type"`
+	ExpiresAt string `xml:"ExpiresAt"`
+	Key       string `xml:"Key,omitempty"`
+}
+
+// listLicensesResponse represents a response for custom ListLicenses action.
+type listLicensesResponse struct {
+	XMLName  xml.Name `xml:"ListLicensesResult"`
+	Licenses struct {
+		Licenses []license `xml:"License"`
+	} `xml:"Licenses"`
+}
+
+// generateListLicensesResponse generates XML response from a slice of LicenseEntry.
+func generateListLicensesResponse(info []gw.LicenseEntry) listLicensesResponse {
+	response := listLicensesResponse{}
+	for _, v := range info {
+		response.Licenses.Licenses = append(response.Licenses.Licenses, license{
+			Type:      v.Type,
+			ExpiresAt: v.ExpiresAt.UTC().Format(time.RFC3339),
+			Key:       string(v.Key),
+		})
+	}
 	return response
 }

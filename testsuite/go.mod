@@ -13,11 +13,11 @@ require (
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.18.0
-	storj.io/common v0.0.0-20260130132429-0e905b8ee485
+	storj.io/common v0.0.0-20260203162304-8cd2cb45fbaf
 	storj.io/edge v0.0.0-00010101000000-000000000000
 	storj.io/minio v0.0.0-20260129101855-14915b3faa6d
-	storj.io/storj v1.146.7
-	storj.io/uplink v1.13.2-0.20260129095714-a3543955ce4c
+	storj.io/storj v1.146.9
+	storj.io/uplink v1.13.2-0.20260205074733-62b77937422d
 )
 
 require (
@@ -292,7 +292,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
-	storj.io/gateway v1.11.1-0.20260202145113-333d852df5ba // indirect
+	storj.io/gateway v1.11.1-0.20260202222856-2a811501966c // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect

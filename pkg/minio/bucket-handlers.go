@@ -71,3 +71,34 @@ func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer, handlers *cmd.Obje
 		}))
 	}
 }
+
+// newListLicensesHandler implements GET operation, returning license information
+// for the specified bucket and license type.
+func newListLicensesHandler(layer *gw.MultiTenancyLayer, handlers *cmd.ObjectAPIHandlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		defer mon.Task()(&ctx)(nil)
+
+		ctx = cmd.NewContext(r, w, "ListLicenses")
+
+		defer logger.AuditLog(ctx, w, r, nil)
+
+		bucket := r.URL.Query().Get("bucket")
+		licenseType := r.URL.Query().Get("licenseType")
+
+		if _, _, s3Error := handlers.CheckRequestAuthTypeCredential(ctx, r, policy.GetBucketLocationAction, bucket, ""); s3Error != cmd.ErrNone {
+			cmd.WriteErrorResponse(ctx, w, cmd.GetAPIError(s3Error), r.URL, false)
+			return
+		}
+
+		licenses, err := layer.ListLicenses(ctx, bucket, licenseType)
+		if err != nil {
+			cmd.WriteErrorResponse(ctx, w, cmd.ToAPIError(ctx, err), r.URL, false)
+			return
+		}
+
+		response := generateListLicensesResponse(licenses)
+
+		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(response))
+	}
+}

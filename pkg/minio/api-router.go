@@ -270,6 +270,10 @@ func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNa
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
 		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(newListBucketsWithAttributionHandler(layer, api.core))))).Queries("attribution", "")
 
+	// ListLicenses
+	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
+		cmd.MaxClients(cmd.CollectAPIStats("licenses", cmd.HTTPTraceAll(newListLicensesHandler(layer, api.core))))).Queries("licenses", "")
+
 	// ListBuckets
 	apiRouter.Methods(http.MethodGet).Path(cmd.SlashSeparator).HandlerFunc(
 		cmd.MaxClients(cmd.CollectAPIStats("listbuckets", cmd.HTTPTraceAll(api.ListBucketsHandler))))
