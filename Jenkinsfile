@@ -87,6 +87,7 @@ pipeline {
                                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26257/postgres?sslmode=disable'
                                 STORJ_TEST_POSTGRES  = 'postgres://postgres@localhost/postgres?sslmode=disable'
                                 STORJ_TEST_LOG_LEVEL = 'info'
+                                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile ' : ''}"
                             }
                             steps {
                                 sh 'make test 2>&1 | grep "^{.*" | tee .build/tests.json | xunit -out .build/tests.xml'
@@ -96,6 +97,19 @@ pipeline {
                                     sh script: 'cat .build/tests.json| tparse -all -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/tests.json'
                                     junit '.build/tests.xml'
+
+                                    script {
+                                        if(fileExists(".build/coverprofile")){
+                                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                                lineCoverageTargets: '70, 60, 50',
+                                                autoUpdateHealth: false,
+                                                autoUpdateStability: false,
+                                                failUnhealthy: false
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -121,6 +135,19 @@ pipeline {
                                     sh script: 'cat .build/testsuite.json| tparse -all -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/testsuite.json'
                                     junit '.build/testsuite.xml'
+
+                                    script {
+                                        if(fileExists(".build/coverprofile")){
+                                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                                lineCoverageTargets: '70, 60, 50',
+                                                autoUpdateHealth: false,
+                                                autoUpdateStability: false,
+                                                failUnhealthy: false
+                                        }
+                                    }
                                 }
                             }
                         }
