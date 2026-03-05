@@ -326,7 +326,7 @@ a:hover {
 }
 
 #pdfTag {
-  height: 500px;
+  height: calc(100vh - 130px);
 }
 
 .error-container {
@@ -456,6 +456,16 @@ a:hover {
 
   .collapser {
     display: none;
+  }
+
+  #pdfTag {
+    height: calc(100vh - 174px);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  #pdfTag {
+    height: calc(100vh - 242px);
   }
 }
 
