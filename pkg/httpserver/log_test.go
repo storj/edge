@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-
-	"storj.io/common/testcontext"
 )
 
 func TestRemoteIP(t *testing.T) {
@@ -68,16 +66,13 @@ func TestRemoteIP(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
-
 			handler := func() http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				})
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 			req.RemoteAddr = tc.remoteAddr
 			req.Header = tc.header
 

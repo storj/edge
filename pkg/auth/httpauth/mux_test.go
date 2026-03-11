@@ -58,7 +58,7 @@ func TestDir(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {})
 	matches := func(path string, dir Dir) bool {
 		rec := httptest.NewRecorder()
-		dir.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		dir.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 		return rec.Code == http.StatusOK
 	}
 
@@ -92,7 +92,7 @@ func TestMethod(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {})
 	matches := func(method string, m Method) bool {
 		rec := httptest.NewRecorder()
-		m.ServeHTTP(rec, httptest.NewRequest(method, "/", nil))
+		m.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/", nil))
 		return rec.Code == http.StatusOK
 	}
 
@@ -109,17 +109,17 @@ func TestArg(t *testing.T) {
 	arg.Capture(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
 		require.Equal(t, "foo", arg.Value(req.Context()))
 		require.Equal(t, "/bar", req.URL.Path)
-	})).ServeHTTP(nil, httptest.NewRequest("", "/foo/bar", nil))
+	})).ServeHTTP(nil, httptest.NewRequestWithContext(t.Context(), "", "/foo/bar", nil))
 
 	// check that empty argument works
 	Dir{"/foo": arg.Capture(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
 		require.Equal(t, "", arg.Value(req.Context()))
 		require.Equal(t, "/bar", req.URL.Path)
-	}))}.ServeHTTP(nil, httptest.NewRequest("", "/foo//bar", nil))
+	}))}.ServeHTTP(nil, httptest.NewRequestWithContext(t.Context(), "", "/foo//bar", nil))
 
 	// check that no argument is a 404
 	rec := httptest.NewRecorder()
-	Dir{"/foo": arg.Capture(nil)}.ServeHTTP(rec, httptest.NewRequest("", "/foo", nil))
+	Dir{"/foo": arg.Capture(nil)}.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), "", "/foo", nil))
 	require.Equal(t, http.StatusNotFound, rec.Code)
 
 	// check double arguments don't get confused
@@ -127,5 +127,5 @@ func TestArg(t *testing.T) {
 		require.Equal(t, "foo", arg.Value(req.Context()))
 		require.Equal(t, "bar", arg2.Value(req.Context()))
 		require.Equal(t, "", req.URL.Path)
-	}))).ServeHTTP(nil, httptest.NewRequest("", "/foo/bar", nil))
+	}))).ServeHTTP(nil, httptest.NewRequestWithContext(t.Context(), "", "/foo/bar", nil))
 }

@@ -17,7 +17,7 @@ import (
 func TestHealthCheckHandler(t *testing.T) {
 	check := func(inShutdown *int32) int {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "http://test.test/health/process", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://test.test/health/process", nil)
 
 		handler := handlers.NewHealthCheckHandler(inShutdown)
 		handler.ServeHTTP(rec, req)

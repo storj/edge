@@ -307,7 +307,7 @@ func TestProcessLogEntry(t *testing.T) {
 	})))
 
 	doReq := func(accessKey, target string) {
-		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 		req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential="+accessKey+"/20211026/us-east-1/s3/aws4_request, Signature=test")
 		req.Header.Set("X-Amz-Date", "20211026T233405Z")
 		testHandler.ServeHTTP(httptest.NewRecorder(), req)
@@ -379,7 +379,7 @@ func TestPopulateLogEntry(t *testing.T) {
 		assert.Equal(t, "AuthHeader", entry.AuthenticationType)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	req.Header.Set("Referer", "/foo")
 	req.Header.Set("Authentication", "bar")
 	req.Header.Set("User-Agent", "myapp")

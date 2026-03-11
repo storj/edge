@@ -4,7 +4,6 @@
 package httpauth
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -47,7 +46,7 @@ func TestResources_URLs(t *testing.T) {
 
 	check := func(method, path string) bool {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, nil)
+		req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
 
 		res := New(zaptest.NewLogger(t), nil, endpoint, []string{"authToken"}, 4*memory.KiB)
@@ -99,7 +98,7 @@ func TestResources_CRUD(t *testing.T) {
 
 	exec := func(res http.Handler, method, path, body string) (map[string]interface{}, bool) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer authToken")
 		res.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -168,7 +167,7 @@ func TestResources_CRUD(t *testing.T) {
 		// create an access
 		createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(createRequest))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/access", strings.NewReader(createRequest))
 		req.Header.Set("Authorization", "Bearer authToken")
 		res.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -190,7 +189,7 @@ func TestResources_CRUD(t *testing.T) {
 		_, ok = exec(res, "POST", "/v1/access", createRequest)
 		require.True(t, ok)
 
-		allowed, _, err := nodelist.Resolve(context.Background(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
+		allowed, _, err := nodelist.Resolve(t.Context(), []string{"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"})
 		require.NoError(t, err)
 
 		db, err = authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
@@ -273,7 +272,7 @@ func TestResources_CRUD(t *testing.T) {
 
 		check := func(body string, expectedCode int) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(body))
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/access", strings.NewReader(body))
 			req.Header.Set("Authorization", "Bearer authToken")
 			res.ServeHTTP(rec, req)
 
@@ -309,7 +308,7 @@ func TestResources_Authorization(t *testing.T) {
 
 	// create an access grant and base url
 	createRequest := fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)
-	req := httptest.NewRequest(http.MethodPost, "/v1/access", strings.NewReader(createRequest))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/access", strings.NewReader(createRequest))
 	rec := httptest.NewRecorder()
 	res.ServeHTTP(rec, req)
 	var out map[string]interface{}
@@ -318,7 +317,7 @@ func TestResources_Authorization(t *testing.T) {
 
 	check := func(method, path string) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, nil)
+		req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 		res.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	}
@@ -329,7 +328,7 @@ func TestResources_Authorization(t *testing.T) {
 	// Test multiple auth tokens
 	checkAuth := func(method, path, authToken string, resultCase bool) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, nil)
+		req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 		req.Header.Set("Authorization", "Bearer "+authToken)
 		res.ServeHTTP(rec, req)
 		if resultCase {
@@ -376,7 +375,7 @@ func TestResources_CORS(t *testing.T) {
 	check := func(method, path string) bool {
 		rec := httptest.NewRecorder()
 
-		req := httptest.NewRequest(method, path, nil)
+		req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 		req.Header.Set("Authorization", "Bearer authToken")
 		req.Header.Add("Origin", "http://example.com")
 
@@ -420,7 +419,7 @@ func TestResources_Shutdown(t *testing.T) {
 
 	check := func(inShutdown bool) int {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/health/live", nil)
 
 		db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
 			AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
@@ -452,7 +451,7 @@ func TestResources_EntityTooLarge(t *testing.T) {
 	body := strings.NewReader("{}")
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, path, body)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, body)
 	res.ServeHTTP(rec, req)
 
 	r := rec.Result()
@@ -464,7 +463,7 @@ func TestResources_EntityTooLarge(t *testing.T) {
 	body.Reset("{}")
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, path, body)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, body)
 	req.ContentLength = 1
 	res.ServeHTTP(rec, req)
 
@@ -479,7 +478,7 @@ func TestResources_EntityTooLarge(t *testing.T) {
 	body.Reset("{")
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, path, body)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, body)
 	res.ServeHTTP(rec, req)
 
 	r = rec.Result()

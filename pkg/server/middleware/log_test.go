@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/trustedip"
@@ -24,16 +23,13 @@ import (
 const testAccessGrant = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
 
 func TestResponseNoPaths(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -50,16 +46,13 @@ func TestResponseNoPaths(t *testing.T) {
 }
 
 func TestResponsePathsIncluded(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -75,9 +68,6 @@ func TestResponsePathsIncluded(t *testing.T) {
 }
 
 func TestGatewayResponseNoPaths(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if log, ok := gwlog.FromContext(r.Context()); ok {
@@ -89,7 +79,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -108,9 +98,6 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 }
 
 func TestAccessDetailsLogged(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if log, ok := gwlog.FromContext(r.Context()); ok {
@@ -121,7 +108,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/test?q=123", nil).WithContext(ctx)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test?q=123", nil)
 	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=jvvsakmsemhqns6g7ix7pinqlyuq/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-date,Signature=123")
 	req.Header.Set("X-Amz-Date", "20060102T150405Z")
 	rr := httptest.NewRecorder()
@@ -153,9 +140,6 @@ func TestAccessDetailsLogged(t *testing.T) {
 }
 
 func TestGatewayResponsePathsIncluded(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	handler := func() http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if log, ok := gwlog.FromContext(r.Context()); ok {
@@ -166,7 +150,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 		})
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/test?q=123", nil).WithContext(ctx)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test?q=123", nil)
 	rr := httptest.NewRecorder()
 
 	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -182,9 +166,6 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 }
 
 func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	tests := []struct {
 		header string
 		query  string
@@ -213,7 +194,7 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 			target = fmt.Sprintf("/?%s=test", test.query)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, target, nil).WithContext(ctx)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 		rr := httptest.NewRecorder()
 
 		if test.header != "" {
@@ -294,16 +275,13 @@ func TestRemoteIP(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
-
 			handler := func() http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				})
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 			req.RemoteAddr = tc.remoteAddr
 			req.Header = tc.header
 

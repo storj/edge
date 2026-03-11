@@ -54,7 +54,7 @@ func TestPreflight(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(tc.method, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), tc.method, "/", nil)
 
 		handler := middleware.Preflight(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
