@@ -103,9 +103,11 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		// object key with a trailing slash?
 		o, err := project.StatObject(ctx, pr.bucket, pr.realKey)
 		if err == nil {
-			return handler.showObject(ctx, w, r, pr, project, o, nil, httpranger.HTTPRange{})
-		}
-		if !errors.Is(err, uplink.ErrObjectNotFound) {
+			// As a special case, if the object is a folder placeholder (empty contents with a slash-suffixed key) then don't show it.
+			if o.System.ContentLength > 0 {
+				return handler.showObject(ctx, w, r, pr, project, o, nil, httpranger.HTTPRange{})
+			}
+		} else if !errors.Is(err, uplink.ErrObjectNotFound) {
 			return errdata.WithAction(err, "stat object")
 		}
 

@@ -546,6 +546,27 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
+			name:   "GET prefix listing with folder placeholder success",
+			path:   path.Join("s", serializedAccess, "folder-placeholder-bucket", "my-folder") + "/",
+			status: http.StatusOK,
+			body:   []string{"contents"},
+			prepFunc: func() error {
+				// We use a dedicated bucket to avoid polluting testbucket in case there are any issues deleting the objects we create.
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "folder-placeholder-bucket", "my-folder/", nil)
+				if err != nil {
+					return err
+				}
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "folder-placeholder-bucket", "my-folder/contents", []byte("Hello, world!"))
+			},
+			cleanupFunc: func() error {
+				err := planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "folder-placeholder-bucket", "my-folder/")
+				if err != nil {
+					return err
+				}
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "folder-placeholder-bucket", "my-folder/contents")
+			},
+		},
+		{
 			name:   "GET directory listing shows link to parent directory",
 			path:   path.Join("s", serializedAccess, "testbucket", "test") + "/",
 			status: http.StatusOK,
