@@ -23,12 +23,12 @@ func TestGetUserAgent(t *testing.T) {
 	reqInfo := logger.ReqInfo{UserAgent: "Test/1.0 S3 Browser 9.5.5 https://s3browser.com"}
 	ctx := logger.SetReqInfo(context.Background(), &reqInfo)
 	results := getUserAgent(ctx)
-	require.Equal(t, "Gateway-MT/v0.0.0", results)
+	require.Equal(t, "Gateway-MT/0.0.0", results)
 	// preserve good user agents
 	reqInfo = logger.ReqInfo{UserAgent: "Test/1.0 S3-Browser/9.5.5 (https://s3browser.com)"}
 	ctx = logger.SetReqInfo(context.Background(), &reqInfo)
 	results = getUserAgent(ctx)
-	require.Equal(t, "Test/1.0 S3-Browser/9.5.5 (https://s3browser.com) Gateway-MT/v0.0.0", results)
+	require.Equal(t, "Test/1.0 S3-Browser/9.5.5 (https://s3browser.com) Gateway-MT/0.0.0", results)
 }
 
 func TestLogErrors(t *testing.T) {

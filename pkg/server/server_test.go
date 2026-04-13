@@ -147,7 +147,7 @@ func testVersionInfo(ctx context.Context, t *testing.T, url string, client *http
 	require.Equal(t, 200, response.StatusCode)
 	body, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
-	require.Equal(t, "v0.0.0", string(body))
+	require.Equal(t, "0.0.0", string(body))
 }
 
 func testShutdown(ctx *testcontext.Context, t *testing.T, s *server.Peer, url string, client *http.Client) {
