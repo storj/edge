@@ -5,6 +5,7 @@ package sharing
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -393,6 +394,30 @@ func TestHasValue(t *testing.T) {
 	assert.True(t, hasValue(http.Header{"Content-Encoding": []string{"deflate", "gzip"}}, "Content-Encoding", "deflate"))
 	assert.True(t, hasValue(http.Header{"Content-Encoding": []string{"deflate", "gzip"}}, "Content-Encoding", "gzip"))
 }
+
+func TestArchiveRangerClosed(t *testing.T) {
+	cfg := Config{ListPageLimit: 1, URLBases: []string{"http://test.test"}}
+	handler, err := NewHandler(&zap.Logger{}, &objectmap.IPDB{}, nil, nil, cfg)
+	require.NoError(t, err)
+
+	closed := false
+	handler.archiveRanger = func(_ context.Context, _ *uplink.Project, _, _, _ string, _ bool) (ranger.Ranger, bool, error) {
+		return SimpleRanger(&closeTracker{closed: &closed}, 100), false, nil
+	}
+
+	req, err := http.NewRequestWithContext(testcontext.New(t), http.MethodHead, "http://test.test?download=1&path=internal.txt", nil)
+	require.NoError(t, err)
+
+	obj := &uplink.Object{Key: "archive.zip", System: uplink.SystemMetadata{ContentLength: 100}}
+	err = handler.showObject(req.Context(), httptest.NewRecorder(), req, &parsedRequest{}, &uplink.Project{}, obj, nil, httpranger.HTTPRange{})
+	require.NoError(t, err)
+	require.True(t, closed, "archive ranger was not closed")
+}
+
+type closeTracker struct{ closed *bool }
+
+func (c *closeTracker) Read(p []byte) (int, error) { return 0, io.EOF }
+func (c *closeTracker) Close() error               { *c.closed = true; return nil }
 
 func TestZipArchiveContentType(t *testing.T) {
 	cfg := Config{

@@ -245,6 +245,11 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			if err != nil {
 				return errdata.WithStatus(err, http.StatusUnsupportedMediaType)
 			}
+			if closer, ok := ranger.(io.Closer); ok {
+				defer func() {
+					err = errs.Combine(err, closer.Close())
+				}()
+			}
 			if isGz {
 				w.Header().Set("Content-Encoding", gzipContentCoding)
 			}

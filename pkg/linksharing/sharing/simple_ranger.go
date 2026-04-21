@@ -16,13 +16,13 @@ import (
 var UnsupportedRange = errs.Class("unsupported range")
 
 type simpleRanger struct {
-	io.ReadCloser
+	rc   *readCloserOnce
 	size int64
 }
 
 // SimpleRanger implements a Ranger using a ReadCloser, throwing an error for unsupported Range reads.
 func SimpleRanger(readCloser io.ReadCloser, size int64) ranger.Ranger {
-	return &simpleRanger{ReadCloser: readCloser, size: size}
+	return &simpleRanger{rc: &readCloserOnce{ReadCloser: readCloser}, size: size}
 }
 
 // Size returns object size.
@@ -42,17 +42,19 @@ func (ranger *simpleRanger) Range(ctx context.Context, offset, length int64) (_ 
 	if offset+length > ranger.size {
 		return nil, UnsupportedRange.New("buffer runoff")
 	}
-	return ranger.ReadCloser, nil
+	return ranger.rc, nil
 }
+
 func (ranger *simpleRanger) Read(p []byte) (n int, err error) {
-	if ranger.ReadCloser == nil {
+	if ranger.rc.ReadCloser == nil {
 		return 0, nil
 	}
-	return ranger.ReadCloser.Read(p)
+	return ranger.rc.Read(p)
 }
+
 func (ranger *simpleRanger) Close() error {
-	if ranger.ReadCloser == nil {
+	if ranger.rc.ReadCloser == nil {
 		return nil
 	}
-	return ranger.ReadCloser.Close()
+	return ranger.rc.Close()
 }
