@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"mime"
 	"net/http"
 	"net/textproto"
@@ -25,18 +24,12 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/ranger/httpranger"
 	"storj.io/edge/pkg/errdata"
+	"storj.io/edge/pkg/httpcoding"
 	"storj.io/edge/pkg/linksharing/objectranger"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 	"storj.io/zipper"
 )
-
-const (
-	noContentCoding   = "identity"
-	gzipContentCoding = "gzip"
-)
-
-var spaceReplacer = strings.NewReplacer(" ", "", "\t", "")
 
 type parsedRequest struct {
 	access           *uplink.Access
@@ -236,9 +229,9 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 			if len(r.Header.Get("Range")) > 0 { // prohibit range requests for archives for now
 				return errdata.WithStatus(errs.New("Range header isn't compatible with path query"), http.StatusRequestedRangeNotSatisfiable)
 			}
-			acceptsGz := isContentCodingAcceptable(gzipContentCoding, r.Header)
-			if !acceptsGz && !isContentCodingAcceptable(noContentCoding, r.Header) {
-				w.Header().Set("Accept-Encoding", fmt.Sprintf("%s, %s, *;q=0", gzipContentCoding, noContentCoding))
+			acceptsGz := httpcoding.IsAcceptable(httpcoding.Gzip, r.Header)
+			if !acceptsGz && !httpcoding.IsAcceptable(httpcoding.Identity, r.Header) {
+				w.Header().Set("Accept-Encoding", fmt.Sprintf("%s, %s, *;q=0", httpcoding.Gzip, httpcoding.Identity))
 				return errdata.WithStatus(errs.New("Unsupported content coding"), http.StatusUnsupportedMediaType)
 			}
 			ranger, isGz, err := handler.archiveRanger(ctx, project, pr.bucket, o.Key, archivePath, acceptsGz)
@@ -251,7 +244,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 				}()
 			}
 			if isGz {
-				w.Header().Set("Content-Encoding", gzipContentCoding)
+				w.Header().Set("Content-Encoding", httpcoding.Gzip)
 			}
 			err = httpranger.ServeContent(ctx, w, r, o.Key, o.System.Created, ranger)
 			if err != nil {
@@ -592,50 +585,4 @@ func optionsToRange(length int64, options *uplink.DownloadOptions) httpranger.HT
 		r.Length = length - r.Start
 	}
 	return r
-}
-
-// isContentCodingAcceptable returns whether the specified content coding is acceptable
-// in accordance with RFC 9110 Section 12.5.3.
-// It panics if the coding is the wildcard token ("*").
-func isContentCodingAcceptable(coding string, header http.Header) bool {
-	coding = strings.ToLower(coding)
-	if coding == "*" {
-		panic("'*' is a reserved content coding token")
-	}
-	if _, ok := header["Accept-Encoding"]; !ok {
-		return true
-	}
-	codingWeights := parseAcceptEncodingHeader(header)
-	if len(codingWeights) == 0 {
-		return coding == noContentCoding
-	}
-	weight, hasCoding := codingWeights[coding]
-	if hasCoding {
-		if weight == 0 {
-			return false
-		}
-	} else if wildcardWeight, ok := codingWeights["*"]; ok && wildcardWeight == 0 {
-		return false
-	}
-	return true
-}
-
-// parseAcceptEncodingHeader parses the Accept-Encoding header value in accordance with RFC 9110 Section 12.5.3.
-func parseAcceptEncodingHeader(header http.Header) (codingWeights map[string]float64) {
-	codingWeights = make(map[string]float64)
-	value := strings.ToLower(spaceReplacer.Replace(header.Get("Accept-Encoding")))
-	for _, codingWeight := range strings.Split(value, ",") {
-		parts := strings.Split(codingWeight, ";")
-		if parts[0] == "" {
-			continue
-		}
-		weight := 1.0
-		if len(parts) > 1 && strings.HasPrefix(parts[1], "q=") {
-			if q, err := strconv.ParseFloat(parts[1][2:], 64); err == nil {
-				weight = math.Min(math.Max(0, q), 1)
-			}
-		}
-		codingWeights[parts[0]] = weight
-	}
-	return
 }
