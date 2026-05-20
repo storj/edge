@@ -10,8 +10,8 @@ help:
 		FS = ":.*##"; \
 		printf "\nUsage:\n  make \033[36m<target>\033[0m\n" \
 	} \
-	/^[a-zA-Z_-]+:.*?##/ { \
-		printf "  \033[36m%-28s\033[0m %s\n", $$1, $$2 \
+	/^[a-zA-Z0-9_-]+:.*?##/ { \
+		printf "  \033[36m%-32s\033[0m %s\n", $$1, $$2 \
 	} \
 	/^##@/ { \
 		printf "\n\033[1m%s\033[0m\n", substr($$0, 5) \
@@ -43,7 +43,7 @@ install-dev-dependencies: badgerauth-install-dependencies ## install-dev-depende
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 	# golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.57.0
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
 	# shellcheck (TODO(artur,sean): Windows)
 ifneq ($(shell which apt-get),)
@@ -110,15 +110,14 @@ lint: ## Lint
 	check-monkit ./...
 	check-errs ./...
 	staticcheck ./...
-	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG}
+	golangci-lint run --config ${GOLANGCI_LINT_CONFIG}
 	check-downgrades
 
 	go-licenses check --ignore "storj.io/dotworld,storj.io/edge" ./...
 
-	# A bit of an explanation around this shellcheck command:
-	# * Find all scripts recursively that have the .sh extension, except for "testsuite@tmp" which Jenkins creates temporarily
-	# * Use + instead of \ so find returns a non-zero exit if any invocation of shellcheck returns a non-zero exit
-	find . -path ./testsuite@tmp -prune -o -name "*.sh" -type f -exec "shellcheck" "-x" "--format=gcc" {} +;
+	# Prune .build (Python virtualenvs etc.) and testsuite@tmp (Jenkins). Use + so
+	# any failed shellcheck invocation propagates a non-zero exit.
+	find . \( -path ./.build -o -path ./testsuite@tmp \) -prune -o -name "*.sh" -type f -exec "shellcheck" "-x" "--format=gcc" {} +;
 
 	# Execute lint-testsuite in testsuite directory:
 	$(MAKE) -C testsuite -f ../Makefile lint-testsuite
@@ -130,7 +129,7 @@ lint-testsuite: ## Lint testsuite
 	check-monkit ./...
 	check-errs ./...
 	staticcheck ./...
-	golangci-lint run --print-resources-usage --config ${GOLANGCI_LINT_CONFIG_TESTSUITE}
+	golangci-lint run --config ${GOLANGCI_LINT_CONFIG_TESTSUITE}
 
 	go-licenses check --ignore "storj.io/dotworld,storj.io/edge" ./...
 
@@ -278,60 +277,84 @@ clean-images:
 
 BUILD_NUMBER ?= ${TAG}
 
+# docker-compose project names disallow dots.
+INTEGRATION_PROJECT     ?= integration-$(subst .,-,$(BUILD_NUMBER))
+INTEGRATION_NETWORK     ?= integration-network-$(BUILD_NUMBER)
+INTEGRATION_AUTHSERVICE ?= integration-authservice-$(BUILD_NUMBER)
+INTEGRATION_GATEWAY     ?= integration-gateway-$(BUILD_NUMBER)
+INTEGRATION_SATELLITE   ?= satellite-api:7777
+INTEGRATION_COMPOSE     := docker compose -p $(INTEGRATION_PROJECT)
+INTEGRATION_CREDENTIALS := $(INTEGRATION_COMPOSE) exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s $(INTEGRATION_SATELLITE)
+
+# Storj satellite revision storj-up builds. Defaults to testsuite/go.mod's pin.
+STORJ_REF ?= $(shell awk '$$1 == "storj.io/storj" {print $$2}' testsuite/go.mod)
+
 .PHONY: integration-run
-integration-run: integration-env-start integration-all-tests ## Start the integration environment and run all tests
+integration-run: ## Bring up the env, run all integration tests, tear it down (purges even on failure)
+	$(MAKE) integration-env-start
+	$(MAKE) integration-tests; rc=$$?; $(MAKE) integration-env-purge; exit $$rc
+
+.PHONY: integration-tests
+integration-tests: integration-gateway-st-tests integration-gateway-st-tests-s3fs integration-mint-tests integration-ceph-tests ## Run all integration tests (environment needs to be started first)
 
 .PHONY: integration-env-start
 integration-env-start: integration-checkout integration-image-build integration-network-create integration-services-start ## Start the integration environment
 
-.PHONY: integration-env-stop
-integration-env-stop: ## Stop all running services in the integration environment
-	-docker stop --time=1 $$(docker ps -qf network=integration-network-${BUILD_NUMBER})
-
-.PHONY: integration-env-clean
-integration-env-clean:
-	-docker rm $$(docker ps -aqf network=integration-network-${BUILD_NUMBER})
-	-docker rmi $$(docker image ls -qf label=build=${BUILD_NUMBER})
-	-docker rmi redis:latest
-	-docker rmi postgres:latest
-	-docker rmi storjlabs/gateway-mint:latest
-	-docker rmi storjlabs/splunk-s3-tests:latest
-	-docker compose down
-	-rm -r volumes
-	-rm -rf gateway-st storj
-	-rm -rf edge.Dockerfile storj.Dockerfile docker-compose.yaml
-
 .PHONY: integration-env-purge
-integration-env-purge: integration-env-stop integration-env-clean integration-network-remove ## Purge the integration environment
+integration-env-purge: ## Tear down everything created by integration-env-start (idempotent)
+	-docker ps -qf network=$(INTEGRATION_NETWORK) | xargs -r docker stop --timeout=1
+	-docker rm -f $(INTEGRATION_AUTHSERVICE) $(INTEGRATION_GATEWAY)
+	# No --rmi: keep shared base images (redis, spanner-emulator, storjup/build).
+	-$(INTEGRATION_COMPOSE) down --volumes --remove-orphans --timeout 1 2>/dev/null
+	-docker image ls -qf label=build=$(BUILD_NUMBER) | xargs -r docker rmi -f
+	-docker network remove $(INTEGRATION_NETWORK)
+	-rm -rf volumes gateway-st storj edge.Dockerfile storj.Dockerfile docker-compose.yaml
 
 .PHONY: integration-env-logs
 integration-env-logs: ## Retrieve logs from integration services
-	-docker logs integration-authservice-${BUILD_NUMBER}
-	-docker logs integration-gateway-${BUILD_NUMBER}
+	-$(INTEGRATION_COMPOSE) logs
+	-docker logs $(INTEGRATION_AUTHSERVICE)
+	-docker logs $(INTEGRATION_GATEWAY)
 
-.PHONY: integration-all-tests
-integration-all-tests: integration-gateway-st-tests integration-mint-tests integration-splunk-tests ## Run all integration tests (environment needs to be started first)
-
-# note: umask 0000 is needed for rclone tests so files can be cleaned up.
+# umask 0000 is needed for rclone tests so files can be cleaned up.
 .PHONY: integration-gateway-st-tests
-integration-gateway-st-tests: ## Run gateway-st test suite (environment needs to be started first)
-	 $$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
+integration-gateway-st-tests: ## Run a single gateway-st subtest as $$TEST (environment needs to be started first)
+	$$($(INTEGRATION_CREDENTIALS)) && \
 	docker run \
-	--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined \
-	--network integration-network-${BUILD_NUMBER} \
-	-e AWS_ENDPOINT=https://gateway:20011 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	--network $(INTEGRATION_NETWORK) \
+	-e AWS_ENDPOINT=https://gateway:20011 \
+	-e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" \
+	-e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" \
 	-v $$PWD:/build \
 	-w /build \
 	--name integration-gateway-st-tests-${BUILD_NUMBER}-$$TEST \
 	--entrypoint /bin/bash \
 	--rm storjlabs/ci:latest \
-	-c "umask 0000; scripts/integration_tests_run.sh $$TEST" \
+	-c "umask 0000; gateway-st/testsuite/integration/$$TEST.sh"
 
-.PHONY: integration-ceph-tests
-integration-ceph-tests: ## (environment needs to be started first)
-	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
+# s3fs needs FUSE so it can't run as the host user.
+.PHONY: integration-gateway-st-tests-s3fs
+integration-gateway-st-tests-s3fs: ## Run the gateway-st s3fs subtest (privileged; environment needs to be started first)
+	$$($(INTEGRATION_CREDENTIALS)) && \
 	docker run \
-	--network integration-network-${BUILD_NUMBER} \
+	--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined \
+	--network $(INTEGRATION_NETWORK) \
+	-e AWS_ENDPOINT=https://gateway:20011 \
+	-e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" \
+	-e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	-v $$PWD:/build \
+	-w /build \
+	--name integration-gateway-st-tests-s3fs-${BUILD_NUMBER} \
+	--entrypoint /bin/bash \
+	--rm storjlabs/ci:latest \
+	-c "umask 0000; gateway-st/testsuite/integration/s3fs.sh"
+
+# umask 0000 because the container runs as root and writes to bind-mounted /build/.build/.
+.PHONY: integration-ceph-tests
+integration-ceph-tests: ## Run ceph s3-tests suite (environment needs to be started first)
+	$$($(INTEGRATION_CREDENTIALS)) && \
+	docker run \
+	--network $(INTEGRATION_NETWORK) \
 	-e GATEWAY_0_ADDR=gateway:20010 \
 	-e "GATEWAY_0_ACCESS_KEY=$$AWS_ACCESS_KEY_ID" \
 	-e "GATEWAY_0_SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" \
@@ -339,26 +362,20 @@ integration-ceph-tests: ## (environment needs to be started first)
 	-w /build \
 	--name integration-ceph-tests-${BUILD_NUMBER}-$$TEST \
 	--entrypoint /bin/bash \
-	--rm python:3.11-bookworm \
+	--rm python:3.13-bookworm \
 	-c "umask 0000; gateway-st/testsuite/ceph-s3-tests/run.sh"
 
 .PHONY: integration-mint-tests
 integration-mint-tests: ## Run mint test suite (environment needs to be started first)
-	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
+	$$($(INTEGRATION_CREDENTIALS)) && \
 	docker run \
-	--network integration-network-${BUILD_NUMBER} \
-	-e SERVER_ENDPOINT=gateway:20010 -e "ACCESS_KEY=$$AWS_ACCESS_KEY_ID" -e "SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" -e ENABLE_HTTPS=0 \
+	--network $(INTEGRATION_NETWORK) \
+	-e SERVER_ENDPOINT=gateway:20010 \
+	-e "ACCESS_KEY=$$AWS_ACCESS_KEY_ID" \
+	-e "SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	-e ENABLE_HTTPS=0 \
 	--name integration-mint-tests-${BUILD_NUMBER}-$$TEST \
 	--rm storjlabs/gateway-mint:latest $$TEST
-
-.PHONY: integration-splunk-tests
-integration-splunk-tests: ## Run splunk test suite (environment needs to be started first)
-	$$(docker compose exec -T satellite-api storj-up credentials --s3 -e -a http://authservice:20000 -s satellite-api:7777) && \
-	docker run \
-	--network integration-network-${BUILD_NUMBER} \
-	-e ENDPOINT=gateway:20010 -e "AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY" -e SECURE=0 \
-	--name integration-splunk-tests-${BUILD_NUMBER} \
-	--rm storjlabs/splunk-s3-tests:latest
 
 .PHONY: integration-checkout
 integration-checkout:
@@ -375,39 +392,31 @@ integration-image-build:
 		CGO_ENABLED=0 ./scripts/integration_tests_build_image.sh $$C ${BUILD_NUMBER} ${GO_VERSION} \
 	; done
 
-	git clone --filter blob:none --no-checkout https://github.com/storj/storj
 	storj-up init minimal,db && \
-		storj-up build remote github minimal -c $$(git -C storj rev-list --exclude='*rc*' --tags --max-count=1) -s && \
-		docker compose -p storj-up-integration build
+		storj-up build remote github minimal -b $(STORJ_REF) -c $(STORJ_REF) -s && \
+		$(INTEGRATION_COMPOSE) build
 
 .PHONY: integration-network-create
 integration-network-create:
-	docker network create integration-network-${BUILD_NUMBER}
-
-.PHONY: integration-network-remove
-integration-network-remove:
-	-docker network remove integration-network-${BUILD_NUMBER}
+	docker network create $(INTEGRATION_NETWORK)
 
 .PHONY: integration-services-start
 integration-services-start:
-	storj-up network set minimal,db integration-network-${BUILD_NUMBER} && \
+	storj-up network set minimal,db $(INTEGRATION_NETWORK) && \
 	storj-up network unset minimal,db default && \
-	storj-up env setenv satellite-api STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false && \
-	storj-up env setenv satellite-api STORJ_METAINFO_USE_BUCKET_LEVEL_OBJECT_VERSIONING=true && \
-	storj-up env setenv satellite-api STORJ_METAINFO_OBJECT_LOCK_ENABLED=true && \
 	storj-up env setenv satellite-api STORJ_METAINFO_DELETE_OBJECTS_ENABLED=true && \
 	storj-up env setenv satellite-api STORJ_METAINFO_BUCKET_TAGGING_ENABLED=true && \
 	storj-up env set storagenode STORJUP_AUTHSERVICE=http://authservice:20000 && \
-	docker compose up -d && \
+	$(INTEGRATION_COMPOSE) up -d && \
 	storj-up health
 
 	docker run \
-	--network integration-network-${BUILD_NUMBER} --network-alias authservice \
-	--name integration-authservice-${BUILD_NUMBER} \
+	--network $(INTEGRATION_NETWORK) --network-alias authservice \
+	--name $(INTEGRATION_AUTHSERVICE) \
 	--rm -d storjlabs/authservice:${BUILD_NUMBER} run \
 		--listen-addr 0.0.0.0:20000 \
 		--drpc-listen-addr 0.0.0.0:20002 \
-		--allowed-satellites $$(docker compose exec -T satellite-api storj-up util node-id /var/lib/storj/.local/share/storj/identity/satellite-api/identity.cert)@satellite-api:7777 \
+		--allowed-satellites $$($(INTEGRATION_COMPOSE) exec -T satellite-api storj-up util node-id /var/lib/storj/.local/share/storj/identity/satellite-api/identity.cert)@$(INTEGRATION_SATELLITE) \
 		--auth-token super-secret \
 		--endpoint http://gateway:20010 \
 		--kv-backend badger://
@@ -423,8 +432,8 @@ integration-services-start:
 		-addext "subjectAltName = DNS:gateway"
 
 	docker run \
-	--network integration-network-${BUILD_NUMBER} --network-alias gateway \
-	--name integration-gateway-${BUILD_NUMBER} \
+	--network $(INTEGRATION_NETWORK) --network-alias gateway \
+	--name $(INTEGRATION_GATEWAY) \
 	--volume $$PWD/volumes/gateway:/cert:ro \
 	--rm -d storjlabs/gateway-mt:${BUILD_NUMBER} run \
 		--server.address 0.0.0.0:20010 \

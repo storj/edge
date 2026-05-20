@@ -60,13 +60,13 @@ You can also run a specific test using the `TEST` environment variable:
 
 `TEST=aws-sdk-php make integration-mint-tests`
 
-##### ceph/splunk-s3-tests
+##### ceph-s3-tests
 
-We run S3 tests based on Splunk's fork (which is better suited for us) of Ceph's S3 tests ([splunk-s3-tests](https://github.com/storj/splunk-s3-tests)) on every commit to Gateway-MT against Gateway-MT, as well as in the fork's repository itself.
+We run [Ceph's S3 tests](https://github.com/ceph/s3-tests) on every commit to Gateway-MT against Gateway-MT.
 
 To run the tests:
 
-`make integration-env-start integration-splunk-tests`
+`make integration-env-start integration-ceph-tests`
 
 #### Performance
 

@@ -28,12 +28,7 @@ pipeline {
                     parallel {
                         stage('Checkout') {
                             steps {
-                                // delete any content leftover from a previous run:
-                                sh 'chmod -R 777 .'
-
-                                // bash requires the extglob option to support !(.git)
-                                // syntax, and we don't want to delete .git to have
-                                // faster clones.
+                                // extglob lets !(.git) work; dotglob includes dotfiles.
                                 sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
 
                                 checkout scm
@@ -46,6 +41,9 @@ pipeline {
                                 }
 
                                 sh 'mkdir -p .build'
+
+                                // go-junit-report isn't baked into storjlabs/ci yet.
+                                sh 'go install github.com/jstemmer/go-junit-report/v2@v2.1.0'
                             }
                         }
 
@@ -89,11 +87,11 @@ pipeline {
                                 STORJ_TEST_LOG_LEVEL = 'info'
                             }
                             steps {
-                                sh 'make test 2>&1 | grep "^{.*" | tee .build/tests.json | xunit -out .build/tests.xml'
+                                sh 'make test 2>&1 | tee .build/tests.json | go-junit-report -parser gojson -out .build/tests.xml'
                             }
                             post {
                                 always {
-                                    sh script: 'cat .build/tests.json| tparse -all -slow 100', returnStatus: true
+                                    sh script: 'tparse -all -slow 100 -file .build/tests.json', returnStatus: true
                                     archiveArtifacts artifacts: '.build/tests.json'
                                     junit '.build/tests.xml'
                                 }
@@ -111,14 +109,13 @@ pipeline {
                                 STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY = credentials('gcstest-ci')
                             }
                             steps {
-                                // exhaust ports from 1024 to 10000 to ensure we don't
-                                // use hardcoded ports
+                                // Exhaust ports 1024-10000 so tests fail loudly if they hard-code one.
                                 sh 'use-ports -from 1024 -to 10000 &'
-                                sh 'make test-testsuite 2>&1 | grep "^{.*" | tee .build/testsuite.json | xunit -out .build/testsuite.xml'
+                                sh 'make test-testsuite 2>&1 | tee .build/testsuite.json | go-junit-report -parser gojson -out .build/testsuite.xml'
                             }
                             post {
                                 always {
-                                    sh script: 'cat .build/testsuite.json| tparse -all -slow 100', returnStatus: true
+                                    sh script: 'tparse -all -slow 100 -file .build/testsuite.json', returnStatus: true
                                     archiveArtifacts artifacts: '.build/testsuite.json'
                                     junit '.build/testsuite.xml'
                                 }
@@ -174,22 +171,22 @@ pipeline {
                     steps {
                         script {
                             def tests = [:]
-                            tests['splunk-tests'] = {
-                                stage('splunk-tests') {
-                                    sh 'make integration-splunk-tests'
-                                }
-                            }
                             tests['ceph-tests'] = {
                                 stage('ceph-tests') {
                                     sh 'make integration-ceph-tests'
                                 }
                             }
                             // todo(sean): figure out why duplicity fails on gateway-mt, but not gateway-st.
-                            ['awscli', 'awscli_multipart', /*'duplicity',*/ 'duplicati', 'https', 'rclone', 's3fs'].each { test ->
+                            ['awscli', 'awscli_multipart', /*'duplicity',*/ 'duplicati', 'https', 'rclone'].each { test ->
                                 tests["gateway-st-test ${test}"] = {
                                     stage("gateway-st-test ${test}") {
                                         sh "TEST=${test} make integration-gateway-st-tests"
                                     }
+                                }
+                            }
+                            tests['gateway-st-test s3fs'] = {
+                                stage('gateway-st-test s3fs') {
+                                    sh 'make integration-gateway-st-tests-s3fs'
                                 }
                             }
                             ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd', 's3select'].each { test ->
