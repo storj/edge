@@ -87,7 +87,7 @@ func TestPutObject(t *testing.T) {
 
 	require.NoError(t, layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{}))
 
-	hashReader, err := hash.NewReader(bytes.NewReader([]byte("test")),
+	hashReader, err := hash.NewDefaultReader(bytes.NewReader([]byte("test")),
 		int64(len("test")),
 		"098f6bcd4621d373cade4e832627b4f6",
 		"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
@@ -118,7 +118,7 @@ func TestPutObjectTooLarge(t *testing.T) {
 
 	require.NoError(t, layer.MakeBucketWithLocation(ctx, "testbucket", minio.BucketOptions{}))
 
-	hashReader, err := hash.NewReader(bytes.NewReader([]byte("test")),
+	hashReader, err := hash.NewDefaultReader(bytes.NewReader([]byte("test")),
 		int64(len("test")),
 		"098f6bcd4621d373cade4e832627b4f6",
 		"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",

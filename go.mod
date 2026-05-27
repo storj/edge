@@ -33,13 +33,13 @@ require (
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20260328020406-acac5312e030
+	storj.io/common v0.0.0-20260514184426-9f076a4a8d52
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/gateway v1.11.1-0.20260412222848-0cc3abcea859
-	storj.io/minio v0.0.0-20260129101855-14915b3faa6d
-	storj.io/uplink v1.14.0
+	storj.io/gateway v1.11.1-0.20260602094024-7b5c381652df
+	storj.io/minio v0.0.0-20260424005736-af7b2f48133e
+	storj.io/uplink v1.14.2
 	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6
 )
 
@@ -61,7 +61,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/participle v0.2.1 // indirect
-	github.com/amwolff/awsig v0.0.0-20251205113350-51861a127c1f // indirect
+	github.com/amwolff/awsig v0.0.0-20260414063042-162ff7da805a // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/apache/thrift v0.17.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect

@@ -191,7 +191,7 @@ func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucket, object str
 func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *minio.PutObjReader, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	written, err := layer.syncWriteFile(bucket, object, http.MaxBytesReader(nil, data, layer.maxObjectSize.Int64()))
+	written, err := layer.syncWriteFile(bucket, object, http.MaxBytesReader(nil, io.NopCloser(data), layer.maxObjectSize.Int64()))
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		switch {
