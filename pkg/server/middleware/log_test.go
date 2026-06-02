@@ -16,7 +16,6 @@ import (
 
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
-	"storj.io/edge/pkg/trustedip"
 	xhttp "storj.io/minio/cmd/http"
 )
 
@@ -124,7 +123,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 
 	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
 
-	AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
+	AccessKey(authClient, observedLogger)(LogResponses(observedLogger, handler(), true)).ServeHTTP(rr, req)
 
 	filteredLogs := observedLogs.FilterField(zap.String("encryption_key_hash", "64f74892360a5cd203e9111d2ce72dd46ee195bf3dc33a2f0dddc892529b145d"))
 	require.Len(t, filteredLogs.All(), 1)
@@ -244,13 +243,13 @@ func TestRemoteIP(t *testing.T) {
 			desc:       "X-Real-Ip, and RemoteAddr",
 			remoteAddr: "1.2.3.4",
 			header:     http.Header{"X-Real-Ip": []string{"4.5.6.7"}},
-			expectedIP: "1.2.3.4",
+			expectedIP: "4.5.6.7",
 		},
 		{
 			desc:       "Forwarded, and RemoteAddr",
 			remoteAddr: "1.2.3.4",
 			header:     http.Header{"Forwarded": []string{"for=7.8.9.0"}},
-			expectedIP: "1.2.3.4",
+			expectedIP: "7.8.9.0",
 		},
 		{
 			desc:       "X-Forwarded-For, X-Real-Ip, and RemoteAddr",
@@ -269,7 +268,7 @@ func TestRemoteIP(t *testing.T) {
 				"X-Forwarded-For": []string{"4.5.6.7"},
 				"X-Real-Ip":       []string{"7.8.9.0"},
 			},
-			expectedIP: "4.5.6.7",
+			expectedIP: "4.3.2.1",
 		},
 	}
 	for _, tc := range testCases {

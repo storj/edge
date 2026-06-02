@@ -15,7 +15,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
-	"storj.io/edge/pkg/trustedip"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/eventkit"
 )
 
@@ -75,7 +75,7 @@ func EventHandler(h http.Handler) http.Handler {
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
-				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
+				eventkit.String("remote-ip", httpserver.ClientIP(r)),
 				eventkit.String("request-id", requestid.FromContext(r.Context())))
 		}))
 }

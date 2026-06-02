@@ -31,8 +31,8 @@ import (
 	"storj.io/edge/pkg/auth/httpauth"
 	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/nodelist"
-	"storj.io/edge/pkg/trustedip"
 )
 
 var mon = monkit.Package()
@@ -264,7 +264,7 @@ func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 				RequestMethod: r.Method,
 				RequestSize:   r.ContentLength,
 				UserAgent:     r.UserAgent(),
-				RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+				RemoteIP:      httpserver.ClientIP(r),
 			}),
 			zap.String("host", r.Host),
 		}...)
@@ -293,7 +293,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 						RequestSize:   r.ContentLength,
 						ResponseSize:  rw.Written(),
 						UserAgent:     r.UserAgent(),
-						RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+						RemoteIP:      httpserver.ClientIP(r),
 						Latency:       time.Since(start),
 						Status:        rw.StatusCode(),
 					}),

@@ -22,9 +22,9 @@ import (
 
 	"storj.io/common/accesslogs"
 	"storj.io/common/uuid"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/serveraccesslogs"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 )
 
@@ -177,7 +177,7 @@ func populateLogEntry(r *http.Request, rw whmon.ResponseWriter, startTime time.T
 		BucketOwner:        "-",
 		Bucket:             gl.BucketName,
 		Time:               startTime,
-		RemoteIP:           trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+		RemoteIP:           httpserver.ClientIP(r),
 		Requester:          "-",
 		RequestID:          gl.RequestID,
 		Operation:          gl.API,

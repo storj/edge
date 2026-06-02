@@ -67,9 +67,6 @@ cert-magic.project: ""
 # use staging CA endpoints
 cert-magic.staging: false
 
-# list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc.
-# client-trusted-ips-list: []
-
 # timeout for dials
 # client.dial-timeout: 10s
 
@@ -284,6 +281,3 @@ startup-check.timeout: 30s
 
 # how frequent to sample traces
 # tracing.sample: 0
-
-# use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used
-# use-client-ip-headers: true

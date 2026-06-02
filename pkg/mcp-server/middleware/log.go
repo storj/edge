@@ -19,7 +19,7 @@ import (
 	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
-	"storj.io/edge/pkg/trustedip"
+	"storj.io/edge/pkg/httpserver"
 )
 
 // LogRequests logs requests.
@@ -37,7 +37,7 @@ func LogRequests(log *zap.Logger, h http.Handler) http.Handler {
 			RequestURL:    r.RequestURI,
 			RequestSize:   r.ContentLength,
 			UserAgent:     r.UserAgent(),
-			RemoteIP:      getRemoteIP(r),
+			RemoteIP:      httpserver.ClientIP(r),
 		}
 
 		ce.Write([]zapcore.Field{
@@ -82,7 +82,7 @@ func LogResponses(log *zap.Logger, h http.Handler) http.Handler {
 				ResponseSize:  rw.Written(),
 				Status:        rw.StatusCode(),
 				UserAgent:     r.UserAgent(),
-				RemoteIP:      getRemoteIP(r),
+				RemoteIP:      httpserver.ClientIP(r),
 				Latency:       time.Since(start),
 			}
 
@@ -130,8 +130,4 @@ func NewLogResponses(log *zap.Logger) mux.MiddlewareFunc {
 	return func(h http.Handler) http.Handler {
 		return LogResponses(log, h)
 	}
-}
-
-func getRemoteIP(r *http.Request) string {
-	return trustedip.GetClientIP(trustedip.NewListTrustAll(), r)
 }

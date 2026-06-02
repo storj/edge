@@ -18,8 +18,8 @@ import (
 	"storj.io/common/useragent"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/server/gwlog"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/eventkit"
 )
 
@@ -95,7 +95,7 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("encryption-key-hash", encKeyHash),
 				eventkit.String("macaroon-head", macHead),
 				eventkit.String("satellite-address", satelliteAddress),
-				eventkit.String("remote-ip", trustedip.GetClientIP(trustedip.NewListTrustAll(), r)),
+				eventkit.String("remote-ip", httpserver.ClientIP(r)),
 				eventkit.String("error", gl.TagValue("error")),
 				eventkit.String("request-id", requestid.FromContext(r.Context())),
 				eventkit.String("amz-request-id", gl.RequestID),

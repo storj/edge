@@ -15,7 +15,6 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/httplog"
-	"storj.io/edge/pkg/trustedip"
 )
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
@@ -32,7 +31,7 @@ func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 				RequestMethod: r.Method,
 				RequestSize:   r.ContentLength,
 				UserAgent:     r.UserAgent(),
-				RemoteIP:      trustedip.GetClientIP(trustedip.NewListTrustAll(), r),
+				RemoteIP:      ClientIP(r),
 			}),
 			zap.String("host", r.Host),
 			// we are deliberately not logging the request URI as it has
@@ -71,7 +70,7 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 						RequestSize:   r.ContentLength,
 						ResponseSize:  rw.Written(),
 						UserAgent:     r.UserAgent(),
-						RemoteIP:      remoteIP(r),
+						RemoteIP:      ClientIP(r),
 						Latency:       time.Since(start),
 						Status:        rw.StatusCode(),
 					}),
@@ -89,8 +88,4 @@ func logResponses(log *zap.Logger, h http.Handler) http.Handler {
 				}...)
 			}
 		}))
-}
-
-func remoteIP(r *http.Request) string {
-	return trustedip.GetClientIP(trustedip.NewListTrustAll(), r)
 }

@@ -22,20 +22,18 @@ type AddrConfig struct {
 
 // Config determines how server listens for requests.
 type Config struct {
-	Server               AddrConfig
-	CertDir              string        `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
-	InsecureDisableTLS   bool          `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
-	DomainName           string        `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost"`
-	OptionalDomainName   string        `help:"comma-separated optional domain suffixes to serve on, certificate errors are not fatal"`
-	CorsOrigins          string        `help:"list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway" default:"*"`
-	EncodeInMemory       bool          `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true"`
-	ClientTrustedIPSList []string      `help:"list of clients IPs (without port and comma separated) which are trusted; usually used when the service run behinds gateways, load balancers, etc."`
-	UseClientIPHeaders   bool          `help:"use the headers sent by the client to identify its IP. When true the list of IPs set by --client-trusted-ips-list, when not empty, is used" default:"true"`
-	InsecureLogAll       bool          `help:"insecurely log all errors, paths, and headers" default:"false"`
-	IdleTimeout          time.Duration `help:"maximum time to wait for the next request" default:"60s"`
-	ShutdownDelay        time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
-	DisableHTTP2         bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
-	ServerAccessLogging  []string      `help:"list of project IDs and buckets which have access logging enabled. Usage (colon-delimited): watched_project_id:watched_bucket:destination_bucket:destination_access_grant:destination_prefix. destination_prefix can be empty"`
+	Server              AddrConfig
+	CertDir             string        `help:"directory path to search for TLS certificates" default:"$CONFDIR/certs"`
+	InsecureDisableTLS  bool          `help:"listen using insecure connections" releaseDefault:"false" devDefault:"true"`
+	DomainName          string        `help:"comma-separated domain suffixes to serve on" releaseDefault:"" devDefault:"localhost"`
+	OptionalDomainName  string        `help:"comma-separated optional domain suffixes to serve on, certificate errors are not fatal"`
+	CorsOrigins         string        `help:"list of domains (comma separated) other than the gateway's domain, from which a browser should permit loading resources requested from the gateway" default:"*"`
+	EncodeInMemory      bool          `help:"tells libuplink to perform in-memory encoding on file upload" releaseDefault:"true" devDefault:"true"`
+	InsecureLogAll      bool          `help:"insecurely log all errors, paths, and headers" default:"false"`
+	IdleTimeout         time.Duration `help:"maximum time to wait for the next request" default:"60s"`
+	ShutdownDelay       time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
+	DisableHTTP2        bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
+	ServerAccessLogging []string      `help:"list of project IDs and buckets which have access logging enabled. Usage (colon-delimited): watched_project_id:watched_bucket:destination_bucket:destination_access_grant:destination_prefix. destination_prefix can be empty"`
 
 	Auth                    authclient.Config
 	S3Compatibility         miniogw.S3CompatibilityConfig

@@ -24,7 +24,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
-	"storj.io/edge/pkg/trustedip"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/eventkit"
 	"storj.io/minio/cmd"
 )
@@ -62,7 +62,7 @@ var (
 )
 
 // AccessKey implements mux.Middlware and saves the accesskey to context.
-func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log *zap.Logger) mux.MiddlewareFunc {
+func AccessKey(authClient *authclient.AuthClient, log *zap.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var err error
@@ -91,7 +91,7 @@ func AccessKey(authClient *authclient.AuthClient, trustedIPs trustedip.List, log
 				return
 			}
 			var creds Credentials
-			authResponse, err := authClient.ResolveWithCache(ctx, accessKeyID, trustedip.GetClientIP(trustedIPs, r))
+			authResponse, err := authClient.ResolveWithCache(ctx, accessKeyID, httpserver.ClientIP(r))
 			if err != nil {
 				logError(log, err)
 				creds.Error = err

@@ -20,7 +20,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/authclient"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd"
 )
 
@@ -113,7 +112,7 @@ This is some plain text.
 	})
 
 	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
-	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
+	AccessKey(authClient, zap.L())(verify).ServeHTTP(nil, req)
 }
 
 func TestV2MultipartCredentials(t *testing.T) {
@@ -162,7 +161,7 @@ This is some plain text.
 	})
 
 	authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
-	AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(verify).ServeHTTP(nil, req)
+	AccessKey(authClient, zap.L())(verify).ServeHTTP(nil, req)
 }
 
 func TestAuthResponseErrorLogging(t *testing.T) {
@@ -218,7 +217,7 @@ func TestAuthResponseErrorLogging(t *testing.T) {
 			})
 
 			authClient := authclient.New(authclient.Config{BaseURL: authService.URL, Token: "token", Timeout: 5 * time.Second})
-			AccessKey(authClient, trustedip.NewListTrustAll(), observedLogger)(verify).ServeHTTP(nil, req)
+			AccessKey(authClient, observedLogger)(verify).ServeHTTP(nil, req)
 
 			filteredLogs := observedLogs.FilterField(zap.String("error", fmt.Sprintf("auth service: %d %s", tc.status, http.StatusText(tc.status))))
 			require.Len(t, filteredLogs.All(), 1)
@@ -557,7 +556,7 @@ jwaohtj3dhixxfpzhwj522x7z3pb/20000101/region/s3
 			c := monkit.Collect(monkit.ScopeNamed("storj.io/edge/pkg/server/middleware"))
 			initialCount := c[metricKey]
 
-			AccessKey(authClient, trustedip.NewListTrustAll(), zap.L())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			AccessKey(authClient, zap.L())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				creds := GetAccess(r.Context())
 				if tc.expectedAccessKey == "" {
 					require.Nil(t, creds)

@@ -25,7 +25,6 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/linksharing/objectmap"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/uplink"
 	"storj.io/uplink/private/transport"
 	"storj.io/zipper"
@@ -122,21 +121,6 @@ type Config struct {
 	// ConnectionPool is configuration for RPC connection pool options.
 	ConnectionPool ConnectionPoolConfig
 
-	// ClientTrustedIPsList is the list of client IPs which are trusted. These IPs
-	// are usually from gateways, load balancers, etc., which expose the service
-	// to the public internet. Trusting them implies that the service may use
-	// information of the request (e.g. getting client, the originator of the
-	// request, IP from headers).
-	ClientTrustedIPsList []string
-
-	// UseClientIPHeaders indicates that the HTTP headers `Forwarded`,
-	// `X-Forwarded-Ip`, and `X-Real-Ip` (in this order) are used to get the
-	// client IP before falling back of getting from the client request.
-	//
-	// When true it reads them only from the trusted IPs (ClientTrustedIPList) if
-	// it isn't empty.
-	UseClientIPHeaders bool
-
 	// StandardRendersContent controls whether to enable standard (non-hosting)
 	// requests to render content and not only download it.
 	StandardRendersContent bool
@@ -182,7 +166,6 @@ type Handler struct {
 	redirectHTTPS          bool
 	landingRedirect        string
 	uplink                 *uplink.Config
-	trustedClientIPsList   trustedip.List
 	standardRendersContent bool
 	standardViewsHTML      bool
 	archiveRanger          func(ctx context.Context, project *uplink.Project, bucket, key, path string, canReturnGzip bool) (_ ranger.Ranger, isGzip bool, _ error)
@@ -261,17 +244,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		}
 	}
 
-	var trustedClientIPs trustedip.List
-	if config.UseClientIPHeaders {
-		if len(config.ClientTrustedIPsList) > 0 {
-			trustedClientIPs = trustedip.NewList(config.ClientTrustedIPsList...)
-		} else {
-			trustedClientIPs = trustedip.NewListTrustAll()
-		}
-	} else {
-		trustedClientIPs = trustedip.NewListUntrustAll()
-	}
-
 	if authClient == nil {
 		authClient = authclient.New(config.AuthServiceConfig)
 	}
@@ -310,7 +282,6 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 		landingRedirect:        config.LandingRedirectTarget,
 		redirectHTTPS:          config.RedirectHTTPS,
 		uplink:                 uplinkConfig,
-		trustedClientIPsList:   trustedClientIPs,
 		standardRendersContent: config.StandardRendersContent,
 		standardViewsHTML:      config.StandardViewsHTML,
 		archiveRanger:          defaultArchiveRanger,

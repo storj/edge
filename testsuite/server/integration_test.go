@@ -50,7 +50,6 @@ import (
 	"storj.io/edge/pkg/server"
 	"storj.io/edge/pkg/server/middleware"
 	"storj.io/edge/pkg/serveraccesslogs"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -1950,7 +1949,7 @@ func runTest(
 
 		authClient := authclient.New(gwConfig.Auth)
 
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{}, authClient, 10)
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), []string{}, authClient, 10)
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)

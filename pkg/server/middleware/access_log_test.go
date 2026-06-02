@@ -26,7 +26,6 @@ import (
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/serveraccesslogs"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/minio/cmd/logger"
 	"storj.io/uplink"
 )
@@ -290,7 +289,7 @@ func TestProcessLogEntry(t *testing.T) {
 
 	accessKeyHandler := AccessKey(authclient.New(authclient.Config{
 		BaseURL: authServer.URL,
-	}), trustedip.NewListTrustAll(), log)
+	}), log)
 
 	accessLogHandler := AccessLog(log, p, config)
 

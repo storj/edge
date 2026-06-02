@@ -19,8 +19,8 @@ import (
 	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/httplog"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/server/gwlog"
-	"storj.io/edge/pkg/trustedip"
 )
 
 // LogRequests logs requests.
@@ -37,7 +37,7 @@ func LogRequests(log *zap.Logger, h http.Handler, insecureLogPaths bool) http.Ha
 			RequestMethod: r.Method,
 			RequestSize:   r.ContentLength,
 			UserAgent:     r.UserAgent(),
-			RemoteIP:      getRemoteIP(r),
+			RemoteIP:      httpserver.ClientIP(r),
 		}
 		if insecureLogPaths {
 			httpRequestLog.RequestURL = r.RequestURI
@@ -117,7 +117,7 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 		ResponseSize:  rw.Written(),
 		Status:        rw.StatusCode(),
 		UserAgent:     r.UserAgent(),
-		RemoteIP:      getRemoteIP(r),
+		RemoteIP:      httpserver.ClientIP(r),
 		Latency:       d,
 	}
 	if insecureLogAll {
@@ -172,10 +172,6 @@ func logGatewayResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWrite
 	}...)
 }
 
-func getRemoteIP(r *http.Request) string {
-	return trustedip.GetClientIP(trustedip.NewListTrustAll(), r)
-}
-
 func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d time.Duration, insecureLogAll bool) {
 	ce := log.Check(httplog.StatusLevel(rw.StatusCode()), "response")
 	if ce == nil {
@@ -189,7 +185,7 @@ func logResponse(log *zap.Logger, r *http.Request, rw whmon.ResponseWriter, d ti
 		ResponseSize:  rw.Written(),
 		Status:        rw.StatusCode(),
 		UserAgent:     r.UserAgent(),
-		RemoteIP:      getRemoteIP(r),
+		RemoteIP:      httpserver.ClientIP(r),
 		Latency:       d,
 	}
 	if insecureLogAll {

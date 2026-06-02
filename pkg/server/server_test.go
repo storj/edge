@@ -24,7 +24,6 @@ import (
 	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/server"
-	"storj.io/edge/pkg/trustedip"
 )
 
 var (
@@ -94,7 +93,7 @@ func testServer(t *testing.T, useTLS, vHostStyle bool, shutdownDelay bool) {
 		ShutdownDelay:  delay,
 		DomainName:     "gateway.local,*.gateway.local",
 	}
-	s, err := server.New(config, zaptest.NewLogger(t), trustedip.NewListTrustAll(), []string{}, nil, 10)
+	s, err := server.New(config, zaptest.NewLogger(t), []string{}, nil, 10)
 	require.NoError(t, err)
 
 	defer ctx.Check(s.Close)

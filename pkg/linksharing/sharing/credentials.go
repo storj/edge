@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/edge/pkg/errdata"
-	"storj.io/edge/pkg/trustedip"
+	"storj.io/edge/pkg/httpserver"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 )
@@ -132,7 +132,7 @@ func (h *Handler) hostingCredentials(ctx context.Context, r *http.Request) (cred
 		}
 	}
 
-	result, err := h.txtRecords.FetchAccessForHost(ctx, host, trustedip.GetClientIP(h.trustedClientIPsList, r))
+	result, err := h.txtRecords.FetchAccessForHost(ctx, host, httpserver.ClientIP(r))
 	if err != nil {
 		return creds, errdata.WithAction(err, "fetch access")
 	}
@@ -168,7 +168,7 @@ func (h *Handler) standardCredentials(ctx context.Context, r *http.Request) (cre
 	}
 
 	// TODO(artur): make signedAccessValidityTolerance a configuration attribute.
-	result, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, h.authClient, trustedip.GetClientIP(h.trustedClientIPsList, r))
+	result, err := parseAccess(ctx, r, serializedAccess, 15*time.Minute, h.authClient, httpserver.ClientIP(r))
 	if err != nil {
 		return creds, err
 	}

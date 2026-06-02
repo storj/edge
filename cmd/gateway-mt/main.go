@@ -23,7 +23,6 @@ import (
 	"storj.io/common/process"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
-	"storj.io/edge/pkg/trustedip"
 )
 
 var (
@@ -97,24 +96,12 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 		log.Info("Insecurely logging all errors, paths, and headers")
 	}
 
-	var trustedClientIPs trustedip.List
-
-	if runCfg.UseClientIPHeaders {
-		if len(runCfg.ClientTrustedIPSList) > 0 {
-			trustedClientIPs = trustedip.NewList(runCfg.ClientTrustedIPSList...)
-		} else {
-			trustedClientIPs = trustedip.NewListTrustAll()
-		}
-	} else {
-		trustedClientIPs = trustedip.NewListUntrustAll()
-	}
-
 	corsAllowedOrigins := strings.Split(runCfg.CorsOrigins, ",")
 
 	if err := runCfg.Auth.Validate(); err != nil {
 		return err
 	}
-	peer, err := server.New(runCfg, log, trustedClientIPs, corsAllowedOrigins,
+	peer, err := server.New(runCfg, log, corsAllowedOrigins,
 		authclient.New(runCfg.Auth), runCfg.Limits.ConcurrentRequests)
 	if err != nil {
 		return err
