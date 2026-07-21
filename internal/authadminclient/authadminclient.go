@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/sqlauth"
 )
 
 // Error is a class of auth admin client errors.
@@ -72,6 +73,7 @@ func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.Enc
 // Config configures Client.
 type Config struct {
 	Spanner spannerauth.Config
+	SQL     sqlauth.Config
 }
 
 // Open returns an initialized Client connected to the configured databases.
@@ -84,6 +86,14 @@ func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) 
 			return nil, Error.Wrap(err)
 		}
 		client.admins = append(client.admins, spanner)
+	}
+
+	if config.SQL.URL != "" {
+		kv, err := sqlauth.Open(ctx, log, config.SQL.URL, sqlauth.Options{ApplicationName: "authservice-admin"})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		client.admins = append(client.admins, kv)
 	}
 
 	// NOTE(artur): if needed, add more StorageAdmin implementations
