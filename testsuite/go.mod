@@ -4,9 +4,9 @@ go 1.25.10
 
 require (
 	github.com/aws/aws-sdk-go v1.55.6
-	github.com/caddyserver/certmagic v0.25.0
+	github.com/caddyserver/certmagic v0.25.3
 	github.com/foxcpp/go-mockdns v1.0.0
-	github.com/letsencrypt/pebble/v2 v2.4.0
+	github.com/letsencrypt/pebble/v2 v2.10.0
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.11.1
@@ -58,7 +58,7 @@ require (
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/caddyserver/zerossl v0.1.3 // indirect
+	github.com/caddyserver/zerossl v0.1.5 // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
@@ -142,7 +142,7 @@ require (
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/letsencrypt/challtestsrv v1.2.1 // indirect
+	github.com/letsencrypt/challtestsrv v1.4.2 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/googleclouddns v1.2.0 // indirect
 	github.com/libdns/libdns v1.1.1 // indirect
@@ -155,8 +155,8 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
-	github.com/mholt/acmez/v3 v3.1.3 // indirect
-	github.com/miekg/dns v1.1.68 // indirect
+	github.com/mholt/acmez/v3 v3.1.6 // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/minio/cli v1.22.0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.1 // indirect
@@ -295,7 +295,6 @@ require (
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

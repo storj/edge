@@ -810,9 +810,15 @@ func runEnvironment(t *testing.T, ctx *testcontext.Context, config environmentCo
 	pebbleLogger := logger.Named("pebble")
 
 	db := db.NewMemoryStore()
-	ca := ca.New(namedDebugStdLogger(t, pebbleLogger, "ca"), db, "", 0, 1, 600)
-	va := va.New(namedDebugStdLogger(t, pebbleLogger, "va"), lookupPort(ctx, t, peer.Server.Addr()), lookupPort(ctx, t, peer.Server.AddrTLS()), true, dnsSrv.LocalAddr().String())
-	wfeImpl := wfe.New(namedDebugStdLogger(t, pebbleLogger, "wfe"), db, va, ca, true, false)
+	profiles := map[string]ca.Profile{
+		"default": {
+			Description:    "The default profile",
+			ValidityPeriod: 600,
+		},
+	}
+	ca := ca.New(namedDebugStdLogger(t, pebbleLogger, "ca"), db, "", "rsa", 0, 1, profiles)
+	va := va.New(namedDebugStdLogger(t, pebbleLogger, "va"), lookupPort(ctx, t, peer.Server.Addr()), lookupPort(ctx, t, peer.Server.AddrTLS()), true, dnsSrv.LocalAddr().String(), db)
+	wfeImpl := wfe.New(namedDebugStdLogger(t, pebbleLogger, "wfe"), db, va, ca, []string{"pebble.letsencrypt.org"}, true, false, 0, 0)
 
 	pebbleSrv := http.Server{Handler: wfeImpl.Handler()}
 	defer ctx.Check(func() error {
