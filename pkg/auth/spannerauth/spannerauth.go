@@ -6,6 +6,7 @@ package spannerauth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/api/option/internaloption"
 	"google.golang.org/grpc"
@@ -163,20 +165,7 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 	defer mon.Task()(&ctx)(&err)
 
 	key := spanner.Key{keyHash.Bytes()}
-	col := []string{
-		"public",
-		"public_project_id",
-		"satellite_address",
-		"macaroon_head",
-		"created_at",
-		"expires_at",
-		"encrypted_secret_key",
-		"encrypted_access_grant",
-		"invalidation_reason",
-		"invalidated_at",
-		"usage_tags",
-		"project_created_at",
-	}
+	col := recordColumns
 
 	boundedTx := d.client.Single().WithTimestampBound(spanner.ExactStaleness(defaultExactStaleness))
 	defer boundedTx.Close()
@@ -205,60 +194,10 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 		}
 	}
 
-	record := new(authdb.FullRecord)
-	if err := row.ColumnByName("public", &record.Public); err != nil {
-		return nil, Error.Wrap(err)
+	_, record, err := decodeRow(row)
+	if err != nil {
+		return nil, err
 	}
-	if err := row.ColumnByName("public_project_id", &record.PublicProjectID); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if err := row.ColumnByName("satellite_address", &record.SatelliteAddress); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if err := row.ColumnByName("macaroon_head", &record.MacaroonHead); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if err := row.ColumnByName("expires_at", &record.ExpiresAt); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if err := row.ColumnByName("encrypted_secret_key", &record.EncryptedSecretKey); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if err := row.ColumnByName("encrypted_access_grant", &record.EncryptedAccessGrant); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	var createdAt spanner.NullTime
-	if err := row.ColumnByName("created_at", &createdAt); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	record.CreatedAt = createdAt.Time
-
-	var invalidationReason spanner.NullString
-	if err := row.ColumnByName("invalidation_reason", &invalidationReason); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	record.InvalidationReason = invalidationReason.StringVal
-
-	var invalidatedAt spanner.NullTime
-	if err := row.ColumnByName("invalidated_at", &invalidatedAt); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	record.InvalidatedAt = invalidatedAt.Time
-
-	var usageTagsJoined spanner.NullString
-	if err := row.ColumnByName("usage_tags", &usageTagsJoined); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if len(usageTagsJoined.StringVal) > 0 {
-		record.UsageTags = strings.Split(usageTagsJoined.StringVal, ",")
-	}
-
-	var projectCreatedAt spanner.NullTime
-	if err := row.ColumnByName("project_created_at", &projectCreatedAt); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	record.ProjectCreatedAt = projectCreatedAt.Time
 
 	// From https://cloud.google.com/spanner/docs/ttl:
 	//
@@ -274,6 +213,129 @@ func (d *CloudDatabase) GetFullRecord(ctx context.Context, keyHash authdb.KeyHas
 	}
 
 	return record, nil
+}
+
+// recordColumns are the "records" table columns needed to decode a row into
+// an authdb.KeyHash and authdb.FullRecord via decodeRow.
+var recordColumns = []string{
+	"encryption_key_hash",
+	"public",
+	"public_project_id",
+	"satellite_address",
+	"macaroon_head",
+	"created_at",
+	"expires_at",
+	"encrypted_secret_key",
+	"encrypted_access_grant",
+	"invalidation_reason",
+	"invalidated_at",
+	"usage_tags",
+	"project_created_at",
+}
+
+// decodeRow decodes a spanner row containing recordColumns into an
+// authdb.KeyHash and authdb.FullRecord. It does not apply any expiry or
+// invalidation filtering; that's the caller's responsibility.
+func decodeRow(row *spanner.Row) (authdb.KeyHash, *authdb.FullRecord, error) {
+	var keyHashBytes []byte
+	if err := row.ColumnByName("encryption_key_hash", &keyHashBytes); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	var keyHash authdb.KeyHash
+	if err := keyHash.SetBytes(keyHashBytes); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+
+	record := new(authdb.FullRecord)
+	if err := row.ColumnByName("public", &record.Public); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("public_project_id", &record.PublicProjectID); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("satellite_address", &record.SatelliteAddress); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("macaroon_head", &record.MacaroonHead); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("expires_at", &record.ExpiresAt); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("encrypted_secret_key", &record.EncryptedSecretKey); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if err := row.ColumnByName("encrypted_access_grant", &record.EncryptedAccessGrant); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+
+	var createdAt spanner.NullTime
+	if err := row.ColumnByName("created_at", &createdAt); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	record.CreatedAt = createdAt.Time
+
+	var invalidationReason spanner.NullString
+	if err := row.ColumnByName("invalidation_reason", &invalidationReason); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	record.InvalidationReason = invalidationReason.StringVal
+
+	var invalidatedAt spanner.NullTime
+	if err := row.ColumnByName("invalidated_at", &invalidatedAt); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	record.InvalidatedAt = invalidatedAt.Time
+
+	var usageTagsJoined spanner.NullString
+	if err := row.ColumnByName("usage_tags", &usageTagsJoined); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	if len(usageTagsJoined.StringVal) > 0 {
+		record.UsageTags = strings.Split(usageTagsJoined.StringVal, ",")
+	}
+
+	var projectCreatedAt spanner.NullTime
+	if err := row.ColumnByName("project_created_at", &projectCreatedAt); err != nil {
+		return authdb.KeyHash{}, nil, Error.Wrap(err)
+	}
+	record.ProjectCreatedAt = projectCreatedAt.Time
+
+	return keyHash, record, nil
+}
+
+// IterateAll calls fn for every record in the table, including expired and
+// invalidated ones (callers doing migration/backfill need the full set; any
+// filtering, e.g. of expired records, is left to the caller).
+func (d *CloudDatabase) IterateAll(ctx context.Context, fn func(context.Context, authdb.KeyHash, *authdb.FullRecord) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{SQL: `SELECT ` + strings.Join(recordColumns, ", ") + ` FROM ` + d.table}
+
+	iter := d.client.Single().Query(ctx, stmt)
+	defer iter.Stop()
+
+	for {
+		row, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			return nil
+		}
+		if err != nil {
+			if isOperationCanceled(err) {
+				return Error.New("%w: %w", context.Canceled, err)
+			}
+			return Error.Wrap(err)
+		}
+
+		keyHash, record, err := decodeRow(row)
+		if err != nil {
+			return err
+		}
+
+		if err := fn(ctx, keyHash, record); err != nil {
+			return err
+		}
+	}
 }
 
 // HealthCheck ensures there's connectivity to the remote Cloud Spanner database

@@ -284,6 +284,39 @@ func TestProjectInfo(t *testing.T) {
 	testProjectCreatedAt(testDate, testDate)
 }
 
+func TestIterateAll(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+	require.NoError(t, err)
+	defer server.Close()
+
+	db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
+		DatabaseName: "projects/P/instances/I/databases/D",
+		Address:      server.Addr,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	want := 0
+	for i := range 10 {
+		var k authdb.KeyHash
+		require.NoError(t, k.SetBytes([]byte(strconv.Itoa(i))))
+		require.NoError(t, db.Put(ctx, k, createRandomRecord(t, time.Time{}, false)))
+		want++
+	}
+	got := 0
+	require.NoError(t, db.IterateAll(ctx, func(_ context.Context, _ authdb.KeyHash, r *authdb.FullRecord) error {
+		got++
+		return nil
+	}))
+	require.Equal(t, want, got)
+}
+
 func createRandomRecord(t *testing.T, expiresAt time.Time, forcePublic bool) *authdb.Record {
 	var secretKey authdb.SecretKey
 	_, err := rand.Read(secretKey[:])
