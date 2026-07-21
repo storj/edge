@@ -407,8 +407,10 @@ integration-services-start:
 	storj-up env setenv satellite-api STORJ_METAINFO_DELETE_OBJECTS_ENABLED=true && \
 	storj-up env setenv satellite-api STORJ_METAINFO_BUCKET_TAGGING_ENABLED=true && \
 	storj-up env set storagenode STORJUP_AUTHSERVICE=http://authservice:20000 && \
+	storj-up port remove postgres 5432 && \
+	storj-up port add postgres 5432 -e 5433 && \
 	$(INTEGRATION_COMPOSE) up -d && \
-	storj-up health
+	storj-up health -p 5433
 
 	docker run \
 	--network $(INTEGRATION_NETWORK) --network-alias authservice \
@@ -416,7 +418,7 @@ integration-services-start:
 	--rm -d storjlabs/authservice:${BUILD_NUMBER} run \
 		--listen-addr 0.0.0.0:20000 \
 		--drpc-listen-addr 0.0.0.0:20002 \
-		--allowed-satellites $$($(INTEGRATION_COMPOSE) exec -T satellite-api storj-up util node-id /var/lib/storj/.local/share/storj/identity/satellite-api/identity.cert)@$(INTEGRATION_SATELLITE) \
+		--allowed-satellites $$($(INTEGRATION_COMPOSE) exec -T satellite-api storj-up util node-id /storj/.local/share/storj/identity/satellite-api/identity.cert)@$(INTEGRATION_SATELLITE) \
 		--auth-token super-secret \
 		--endpoint http://gateway:20010 \
 		--kv-backend badger://

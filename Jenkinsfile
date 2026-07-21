@@ -212,7 +212,7 @@ pipeline {
             }
             post {
                 always {
-                    junit 'gateway-st/.build/ceph.xml'
+                    junit testResults: 'gateway-st/.build/ceph.xml', allowEmptyResults: true
 
                     catchError {
                         script {
