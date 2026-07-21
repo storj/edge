@@ -13,6 +13,8 @@ import (
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/sqlauth"
+	"storj.io/edge/pkg/auth/sqlauth/sqlauthmigration"
 )
 
 // OpenStorage opens the underlying storage for Auth Service's database,
@@ -30,6 +32,28 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 		return badgerauth.Open(log, config.Node)
 	case "spanner":
 		return spannerauth.Open(ctx, log, config.Spanner)
+	case "sql":
+		return sqlauth.Open(ctx, log, config.SQL.URL, sqlauth.Options{
+			ApplicationName: "authservice",
+			MaxOpenConns:    config.SQL.MaxOpenConns,
+			MaxIdleConns:    config.SQL.MaxIdleConns,
+			ConnMaxLifetime: config.SQL.ConnMaxLifetime,
+		})
+	case "spannersqlmigration":
+		src, err := spannerauth.Open(ctx, log, config.Spanner)
+		if err != nil {
+			return nil, err
+		}
+		dst, err := sqlauth.Open(ctx, log, config.SQL.URL, sqlauth.Options{
+			ApplicationName: "authservice",
+			MaxOpenConns:    config.SQL.MaxOpenConns,
+			MaxIdleConns:    config.SQL.MaxIdleConns,
+			ConnMaxLifetime: config.SQL.ConnMaxLifetime,
+		})
+		if err != nil {
+			return nil, errs.Combine(err, src.Close())
+		}
+		return sqlauthmigration.New(log, src, dst), nil
 	default:
 		return nil, errs.New("unknown scheme: %q", config.KVBackend)
 	}

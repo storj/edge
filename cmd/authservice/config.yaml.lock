@@ -152,6 +152,18 @@ spanner.credentials-filename: ""
 # name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID
 spanner.database-name: ""
 
+# maximum lifetime of a connection (recycles after RDS failover)
+sql.conn-max-lifetime: 30m0s
+
+# maximum number of idle connections
+sql.max-idle-conns: 25
+
+# maximum number of open connections
+sql.max-open-conns: 25
+
+# PostgreSQL connection URL for the sqlauth backend
+sql.url: ""
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
