@@ -1,0 +1,35 @@
+// dbx.v1 golang sqlauth.dbx .
+
+model record (
+    key encryption_key_hash
+
+    field encryption_key_hash    blob
+    field created_at             timestamp
+    field public                 bool
+
+    field public_project_id      blob      ( nullable )
+    field satellite_address      text
+    field macaroon_head          blob
+    field expires_at             timestamp ( nullable )
+
+    field encrypted_secret_key   blob
+    field encrypted_access_grant blob
+
+    field invalidation_reason    text      ( nullable, updatable )
+    field invalidated_at         timestamp ( nullable, updatable )
+
+    field usage_tags             text      ( nullable )
+    field project_created_at     timestamp ( nullable )
+)
+
+create record ( noreturn )
+
+delete record ( where record.encryption_key_hash = ? )
+
+read one ( select record, where record.encryption_key_hash = ? )
+
+update record (
+    noreturn,
+    where record.encryption_key_hash = ?,
+    where record.invalidation_reason = null
+)
