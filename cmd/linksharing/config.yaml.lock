@@ -34,6 +34,18 @@ auth-service.token: ""
 # server certificate file
 cert-file: ""
 
+# AWS access key ID (optional; falls back to the default credential chain)
+cert-magic.aws-access-key-id: ""
+
+# custom S3 endpoint (optional; for S3-compatible services)
+cert-magic.aws-endpoint: ""
+
+# AWS region for S3 cert storage (used when storage-provider is s3)
+cert-magic.aws-region: ""
+
+# AWS secret access key (optional; falls back to the default credential chain)
+cert-magic.aws-secret-access-key: ""
+
 # bucket to use for certificate storage with optional prefix (bucket/prefix)
 cert-magic.bucket: ""
 
@@ -51,6 +63,9 @@ cert-magic.skip-paid-tier-allowlist: []
 
 # use staging CA endpoints
 cert-magic.staging: false
+
+# cert storage backend: gcs or s3
+cert-magic.storage-provider: gcs
 
 # tier querying service cache capacity
 cert-magic.tier-cache-capacity: 10000

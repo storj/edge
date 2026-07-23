@@ -99,6 +99,11 @@ type certMagic struct {
 	Email                 string `user:"true" help:"email address to use when creating an ACME account"`
 	Staging               bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
 	Bucket                string `user:"true" help:"bucket to use for certificate storage with optional prefix (bucket/prefix)"`
+	StorageProvider       string `user:"true" help:"cert storage backend: gcs or s3" default:"gcs"`
+	AWSRegion             string `user:"true" help:"AWS region for S3 cert storage (used when storage-provider is s3)"`
+	AWSAccessKeyID        string `user:"true" help:"AWS access key ID (optional; falls back to the default credential chain)"`
+	AWSSecretAccessKey    string `user:"true" help:"AWS secret access key (optional; falls back to the default credential chain)"`
+	AWSEndpoint           string `user:"true" help:"custom S3 endpoint (optional; for S3-compatible services)"`
 	TierServiceIdentity   identity.Config
 	TierCacheExpiration   time.Duration `user:"true" help:"expiration time for tier querying service cache" devDefault:"10s" releaseDefault:"5m"`
 	TierCacheCapacity     int           `user:"true" help:"tier querying service cache capacity" default:"10000"`
@@ -171,11 +176,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	var tlsConfig *httpserver.TLSConfig
 	if !runCfg.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertMagic:        runCfg.CertMagic.Enabled,
-			CertMagicKeyFile: runCfg.CertMagic.KeyFile,
-			CertMagicEmail:   runCfg.CertMagic.Email,
-			CertMagicStaging: runCfg.CertMagic.Staging,
-			CertMagicBucket:  runCfg.CertMagic.Bucket,
+			CertMagic:                   runCfg.CertMagic.Enabled,
+			CertMagicKeyFile:            runCfg.CertMagic.KeyFile,
+			CertMagicStorageProvider:    runCfg.CertMagic.StorageProvider,
+			CertMagicAWSRegion:          runCfg.CertMagic.AWSRegion,
+			CertMagicAWSAccessKeyID:     runCfg.CertMagic.AWSAccessKeyID,
+			CertMagicAWSSecretAccessKey: runCfg.CertMagic.AWSSecretAccessKey,
+			CertMagicAWSEndpoint:        runCfg.CertMagic.AWSEndpoint,
+			CertMagicEmail:              runCfg.CertMagic.Email,
+			CertMagicStaging:            runCfg.CertMagic.Staging,
+			CertMagicBucket:             runCfg.CertMagic.Bucket,
 			TierService: tierquery.Config{
 				Identity:        runCfg.CertMagic.TierServiceIdentity,
 				CacheExpiration: runCfg.CertMagic.TierCacheExpiration,

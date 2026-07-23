@@ -27,6 +27,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/grantae/certinfo"
 	"github.com/libdns/googleclouddns"
+	"github.com/libdns/route53"
 	"github.com/zeebo/clingy"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -53,6 +54,20 @@ type certmagicConfig struct {
 
 	// Bucket bucket to use for certstorage
 	Bucket string
+
+	// StorageProvider selects the cert storage backend: "gcs" (default) or "s3".
+	StorageProvider string
+
+	// DNSProvider selects the ACME DNS-01 provider: "gcloud" (default) or
+	// "route53".
+	DNSProvider string
+
+	// AWS settings, used when StorageProvider=s3 and/or DNSProvider=route53.
+	AWSRegion           string
+	AWSAccessKeyID      string
+	AWSSecretAccessKey  string
+	AWSEndpoint         string
+	Route53HostedZoneID string
 }
 
 var logger *zap.Logger
@@ -79,6 +94,7 @@ func main() {
 			cmds.New("renew", "renews and stores the certificate for a domain", &cmdRenew{config: c})
 			cmds.New("revoke", "revokes the certificate for a domain and deletes it from storage", &cmdRevoke{config: c})
 			cmds.New("haproxy", "manage HAProxy certificates", &cmdHaproxy{config: c})
+			cmds.New("migrate-storage", "copy certificates from a GCS bucket to an S3 bucket", &cmdMigrateStorage{config: c})
 		})
 	})
 	if err != nil {
@@ -515,10 +531,17 @@ func (cmd *cmdHaproxy) reloadHAProxy(log *zap.SugaredLogger) error {
 func setupGlobalCertmagicConfig(f clingy.Flags, config *certmagicConfig) {
 	config.KeyFile = f.Flag("keyfile", "path to service account key file (permissions to use Google's Cloud Storage, Certificate Manager Public CA and Cloud DNS)", "").(string)
 	config.Bucket = f.Flag("bucket", "bucket to use for certificate storage with optional prefix (bucket/prefix)", "").(string)
+	config.StorageProvider = f.Flag("storage-provider", "cert storage backend: gcs or s3", "gcs").(string)
+	config.AWSRegion = f.Flag("aws-region", "AWS region for S3 cert storage and/or Route53 DNS challenge", "").(string)
+	config.AWSAccessKeyID = f.Flag("aws-access-key-id", "AWS access key ID (optional; falls back to the default credential chain)", "").(string)
+	config.AWSSecretAccessKey = f.Flag("aws-secret-access-key", "AWS secret access key (optional; falls back to the default credential chain)", "").(string)
+	config.AWSEndpoint = f.Flag("aws-endpoint", "custom S3 endpoint (optional; for S3-compatible services)", "").(string)
 }
 
 func setupCommonFlags(f clingy.Flags, config *certmagicConfig) {
+	config.DNSProvider = f.Flag("dns-provider", "ACME DNS-01 provider: gcloud or route53", "gcloud").(string)
 	config.GCloudDNSProject = f.Flag("dnsproject", "a project where the Google Cloud DNS zone exists", "").(string)
+	config.Route53HostedZoneID = f.Flag("route53-hosted-zone-id", "Route53 hosted zone ID (optional; auto-discovered from the zone name when empty)", "").(string)
 	config.ChallengeOverrideDomain = f.Flag("challengeoverridedomain", "domain to set the TXT record on, to delegate the challenge to a different domain", "").(string)
 	config.Email = f.Flag("email", "email address to use when creating an ACME account", "").(string)
 	config.Staging = f.Flag("staging", "Use staging CA endpoints", false,
@@ -527,11 +550,7 @@ func setupCommonFlags(f clingy.Flags, config *certmagicConfig) {
 }
 
 func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA bool, letsEncrypt bool) (*certmagic.Config, error) {
-	jsonKey, err := os.ReadFile(config.KeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read cert-magic-key-file: %w", err)
-	}
-	cs, err := certstorage.NewGCS(ctx, logger, jsonKey, config.Bucket)
+	cs, err := newCertMagicStorage(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("initializing certstorage: %w", err)
 	}
@@ -544,15 +563,11 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 
 	// Enabling the DNS challenge disables the other challenges for that
 	// certmagic.ACMEIssuer instance.
-	certmagic.DefaultACME.DNS01Solver = &certmagic.DNS01Solver{
-		DNSManager: certmagic.DNSManager{
-			DNSProvider: &googleclouddns.Provider{
-				Project:            config.GCloudDNSProject,
-				ServiceAccountJSON: config.KeyFile,
-			},
-			OverrideDomain: config.ChallengeOverrideDomain,
-		},
+	solver, err := newDNS01Solver(config)
+	if err != nil {
+		return nil, err
 	}
+	certmagic.DefaultACME.DNS01Solver = solver
 
 	googleCA := certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
 		CA:                   certmagic.GoogleTrustProductionCA,
@@ -584,6 +599,158 @@ func configureCertMagic(ctx context.Context, config *certmagicConfig, gPublicCA 
 	certmagic.Default.Issuers = issuers
 
 	return certmagic.NewDefault(), nil
+}
+
+// newCertMagicStorage builds the certmagic storage backend selected by
+// config.StorageProvider ("gcs" is the default).
+func newCertMagicStorage(ctx context.Context, config *certmagicConfig) (certmagic.Storage, error) {
+	switch config.StorageProvider {
+	case "s3":
+		return certstorage.NewS3(ctx, logger, certstorage.S3Options{
+			Bucket:          config.Bucket,
+			Region:          config.AWSRegion,
+			AccessKeyID:     config.AWSAccessKeyID,
+			SecretAccessKey: config.AWSSecretAccessKey,
+			Endpoint:        config.AWSEndpoint,
+		})
+	case "", "gcs":
+		jsonKey, err := os.ReadFile(config.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read cert-magic-key-file: %w", err)
+		}
+		return certstorage.NewGCS(ctx, logger, jsonKey, config.Bucket)
+	default:
+		return nil, fmt.Errorf("unknown storage provider: %q", config.StorageProvider)
+	}
+}
+
+// newDNS01Solver builds the ACME DNS-01 solver selected by config.DNSProvider.
+func newDNS01Solver(config *certmagicConfig) (*certmagic.DNS01Solver, error) {
+	switch config.DNSProvider {
+	case "", "gcloud":
+		return &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &googleclouddns.Provider{
+					Project:            config.GCloudDNSProject,
+					ServiceAccountJSON: config.KeyFile,
+				},
+				OverrideDomain: config.ChallengeOverrideDomain,
+			},
+		}, nil
+	case "route53":
+		return &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &route53.Provider{
+					Region:          config.AWSRegion,
+					AccessKeyId:     config.AWSAccessKeyID,
+					SecretAccessKey: config.AWSSecretAccessKey,
+					HostedZoneID:    config.Route53HostedZoneID,
+				},
+				OverrideDomain: config.ChallengeOverrideDomain,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown DNS provider: %q", config.DNSProvider)
+	}
+}
+
+type cmdMigrateStorage struct {
+	config       *certmagicConfig
+	sourceBucket string
+	destBucket   string
+	dryRun       bool
+}
+
+func (cmd *cmdMigrateStorage) Setup(params clingy.Parameters) {
+	cmd.sourceBucket = params.Flag("source-bucket", "GCS bucket (with optional prefix) to copy certificates from", "").(string)
+	cmd.destBucket = params.Flag("dest-bucket", "S3 bucket (with optional prefix) to copy certificates to", "").(string)
+	cmd.dryRun = params.Flag("dry-run", "list what would be copied without writing anything", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
+}
+
+func (cmd *cmdMigrateStorage) Execute(ctx context.Context) error {
+	if cmd.sourceBucket == "" || cmd.destBucket == "" {
+		return errors.New("both --source-bucket and --dest-bucket are required")
+	}
+
+	jsonKey, err := os.ReadFile(cmd.config.KeyFile)
+	if err != nil {
+		return fmt.Errorf("unable to read cert-magic-key-file: %w", err)
+	}
+
+	// GCS's List uses the JSON API, which needs a bare bucket, so split any
+	// prefix off and list under it (mirroring the list command).
+	srcBucket, srcPrefix, found := strings.Cut(cmd.sourceBucket, "/")
+	if found {
+		srcPrefix = strings.TrimSuffix(srcPrefix, "/") + "/"
+	}
+
+	src, err := certstorage.NewGCS(ctx, logger, jsonKey, srcBucket)
+	if err != nil {
+		return fmt.Errorf("initializing source (gcs): %w", err)
+	}
+
+	dst, err := certstorage.NewS3(ctx, logger, certstorage.S3Options{
+		Bucket:          cmd.destBucket,
+		Region:          cmd.config.AWSRegion,
+		AccessKeyID:     cmd.config.AWSAccessKeyID,
+		SecretAccessKey: cmd.config.AWSSecretAccessKey,
+		Endpoint:        cmd.config.AWSEndpoint,
+	})
+	if err != nil {
+		return fmt.Errorf("initializing destination (s3): %w", err)
+	}
+
+	return migrateStorage(ctx, src, dst, srcPrefix, cmd.dryRun)
+}
+
+// migrateStorage copies every object under srcPrefix from src to dst, keeping
+// the certmagic-relative key layout. It is idempotent: keys already present in
+// dst are skipped, so it is safe to re-run.
+func migrateStorage(ctx context.Context, src, dst certmagic.Storage, srcPrefix string, dryRun bool) error {
+	log := logger.Sugar()
+
+	keys, err := src.List(ctx, srcPrefix, true)
+	if err != nil {
+		return fmt.Errorf("listing source: %w", err)
+	}
+
+	var copied, skipped, failed int
+	for _, fullKey := range keys {
+		relKey := strings.TrimPrefix(fullKey, srcPrefix)
+
+		if dst.Exists(ctx, relKey) {
+			skipped++
+			log.Infof("skip (already exists): %s", relKey)
+			continue
+		}
+		if dryRun {
+			copied++
+			log.Infof("would copy: %s", relKey)
+			continue
+		}
+
+		data, err := src.Load(ctx, fullKey)
+		if err != nil {
+			failed++
+			log.Errorf("loading %s: %v", fullKey, err)
+			continue
+		}
+		if err := dst.Store(ctx, relKey, data); err != nil {
+			failed++
+			log.Errorf("storing %s: %v", relKey, err)
+			continue
+		}
+		copied++
+		log.Infof("copied: %s", relKey)
+	}
+
+	log.Infof("migrate-storage done: copied=%d skipped=%d failed=%d", copied, skipped, failed)
+	if failed > 0 {
+		return fmt.Errorf("%d object(s) failed to copy", failed)
+	}
+	return nil
 }
 
 func listCerts(ctx context.Context, prefix string, magic *certmagic.Config) error {
