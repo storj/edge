@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/edge/pkg/internal/gcstest"
+	"storj.io/edge/pkg/internal/s3test"
 )
 
 func TestGCS(t *testing.T) {
@@ -29,6 +30,15 @@ func TestGCS(t *testing.T) {
 	testStorage(ctx, t, gcs)
 }
 
+func TestS3(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	s := newS3(ctx, t)
+	testLocker(ctx, t, s)
+	testStorage(ctx, t, s)
+}
+
 func testLocker(ctx *testcontext.Context, t *testing.T, locker certmagic.Locker) {
 	a, b := gcstest.RandPathUTF8(gcstest.PathLengthLimit), gcstest.RandPathUTF8(gcstest.PathLengthLimit)
 	require.NoError(t, locker.Lock(ctx, a))
@@ -37,16 +47,16 @@ func testLocker(ctx *testcontext.Context, t *testing.T, locker certmagic.Locker)
 
 	// best effort: there's no guarantee this happens concurrently and not
 	// sequentially.
-	var beforeUnlock uint32
+	var beforeUnlock atomic.Uint32
 	ctx.Go(func() error {
-		require.True(t, atomic.CompareAndSwapUint32(&beforeUnlock, 0, 1))
+		require.True(t, beforeUnlock.CompareAndSwap(0, 1))
 		require.NoError(t, locker.Unlock(ctx, a))
 		return nil
 	})
 
 	require.NoError(t, locker.Lock(ctx, a))
 	defer ctx.Check(func() error { return locker.Unlock(ctx, a) })
-	require.True(t, atomic.CompareAndSwapUint32(&beforeUnlock, 1, 0))
+	require.True(t, beforeUnlock.CompareAndSwap(1, 0))
 }
 
 func testStorage(ctx *testcontext.Context, t *testing.T, storage certmagic.Storage) {
@@ -105,4 +115,25 @@ func newGCS(ctx *testcontext.Context, t *testing.T) *GCS {
 	require.NoError(t, err)
 
 	return gcs
+}
+
+func newS3(ctx *testcontext.Context, t *testing.T) *S3 {
+	cfg, err := s3test.FindCredentials()
+	if s3test.ErrCredentialsNotFound.Has(err) {
+		t.Skipf("Skipping %s without credentials/bucket provided", t.Name())
+	}
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	s, err := NewS3(ctx, logger.Named("storage"), S3Options{
+		Bucket:          cfg.Bucket,
+		Region:          cfg.Region,
+		AccessKeyID:     cfg.AccessKeyID,
+		SecretAccessKey: cfg.SecretAccessKey,
+		Endpoint:        cfg.Endpoint,
+	})
+	require.NoError(t, err)
+
+	return s
 }
