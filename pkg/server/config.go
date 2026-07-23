@@ -55,6 +55,14 @@ type certMagic struct {
 	Email                   string `user:"true" help:"email address to use while creating an ACME account"`
 	Staging                 bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
 	Bucket                  string `user:"true" help:"bucket to use for certificate storage"`
+
+	StorageProvider     string `user:"true" help:"cert storage backend: gcs or s3" default:"gcs"`
+	DNSProvider         string `user:"true" help:"ACME DNS-01 provider: gcloud, route53, or empty to use the TLS-ALPN challenge" default:"gcloud"`
+	AWSRegion           string `user:"true" help:"AWS region for S3 cert storage and/or Route53 DNS challenge"`
+	AWSAccessKeyID      string `user:"true" help:"AWS access key ID (optional; falls back to the default credential chain)"`
+	AWSSecretAccessKey  string `user:"true" help:"AWS secret access key (optional; falls back to the default credential chain)"`
+	AWSEndpoint         string `user:"true" help:"custom S3 endpoint (optional; for S3-compatible services)"`
+	Route53HostedZoneID string `user:"true" help:"Route53 hosted zone ID (optional; auto-discovered from the zone name when empty)"`
 }
 
 type startupCheck struct {

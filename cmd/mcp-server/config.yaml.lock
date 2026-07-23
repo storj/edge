@@ -28,11 +28,26 @@ auth.timeout: 10s
 # auth token for giving access to the auth service
 auth.token: ""
 
+# AWS access key ID (optional; falls back to the default credential chain)
+# cert-magic.aws-access-key-id: ""
+
+# custom S3 endpoint (optional; for S3-compatible services)
+# cert-magic.aws-endpoint: ""
+
+# AWS region for S3 cert storage and/or Route53 DNS challenge
+# cert-magic.aws-region: ""
+
+# AWS secret access key (optional; falls back to the default credential chain)
+# cert-magic.aws-secret-access-key: ""
+
 # bucket to use for certificate storage
 # cert-magic.bucket: ""
 
 # domain to set the TXT record on, to delegate the challenge to a different domain
 # cert-magic.challenge-override-domain: ""
+
+# ACME DNS-01 provider: gcloud, route53, or empty to use the TLS-ALPN challenge
+# cert-magic.dns-provider: gcloud
 
 # email address to use while creating an ACME account
 # cert-magic.email: ""
@@ -46,8 +61,14 @@ auth.token: ""
 # a project where the Google Cloud DNS zone exists
 # cert-magic.project: ""
 
+# Route53 hosted zone ID (optional; auto-discovered from the zone name when empty)
+# cert-magic.route53hosted-zone-id: ""
+
 # use staging CA endpoints
 # cert-magic.staging: false
+
+# cert storage backend: gcs or s3
+# cert-magic.storage-provider: gcs
 
 # RPC connection pool capacity (non-satellite connections)
 # connection-pool.capacity: 100

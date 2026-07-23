@@ -92,11 +92,17 @@ func New(log *zap.Logger, config Config) (*Peer, error) {
 	var tlsConfig *httpserver.TLSConfig
 	if !config.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertMagic:                                 config.CertMagic.Enabled,
-			CertMagicKeyFile:                          config.CertMagic.KeyFile,
-			CertMagicDNSChallengeWithGCloudDNS:        true,
+			CertMagic:                config.CertMagic.Enabled,
+			CertMagicKeyFile:         config.CertMagic.KeyFile,
+			CertMagicStorageProvider: config.CertMagic.StorageProvider,
+			CertMagicDNSProvider:     config.CertMagic.DNSProvider,
 			CertMagicDNSChallengeWithGCloudDNSProject: config.CertMagic.Project,
 			CertMagicDNSChallengeOverrideDomain:       config.CertMagic.ChallengeOverrideDomain,
+			CertMagicAWSRegion:                        config.CertMagic.AWSRegion,
+			CertMagicAWSAccessKeyID:                   config.CertMagic.AWSAccessKeyID,
+			CertMagicAWSSecretAccessKey:               config.CertMagic.AWSSecretAccessKey,
+			CertMagicAWSEndpoint:                      config.CertMagic.AWSEndpoint,
+			CertMagicRoute53HostedZoneID:              config.CertMagic.Route53HostedZoneID,
 			CertMagicEmail:                            config.CertMagic.Email,
 			CertMagicStaging:                          config.CertMagic.Staging,
 			CertMagicBucket:                           config.CertMagic.Bucket,

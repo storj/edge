@@ -82,6 +82,12 @@ type certMagic struct {
 	Email   string `user:"true" help:"email address to use when creating an ACME account"`
 	Staging bool   `user:"true" help:"use staging CA endpoints" devDefault:"true" releaseDefault:"false"`
 	Bucket  string `user:"true" help:"bucket to use for certificate storage with optional prefix (bucket/prefix)"`
+
+	StorageProvider    string `user:"true" help:"cert storage backend: gcs or s3" default:"gcs"`
+	AWSRegion          string `user:"true" help:"AWS region for S3 cert storage (used when storage-provider is s3)"`
+	AWSAccessKeyID     string `user:"true" help:"AWS access key ID (optional; falls back to the default credential chain)"`
+	AWSSecretAccessKey string `user:"true" help:"AWS secret access key (optional; falls back to the default credential chain)"`
+	AWSEndpoint        string `user:"true" help:"custom S3 endpoint (optional; for S3-compatible services)"`
 }
 
 // Peer is the representation of authservice.
@@ -169,16 +175,21 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
 
 	tlsInfo := &TLSInfo{
-		CertFile:         config.CertFile,
-		KeyFile:          config.KeyFile,
-		PublicURL:        publicURLs,
-		ConfigDir:        configDir,
-		ListenAddr:       config.ListenAddrTLS,
-		CertMagic:        config.CertMagic.Enabled,
-		CertMagicKeyFile: config.CertMagic.KeyFile,
-		CertMagicEmail:   config.CertMagic.Email,
-		CertMagicStaging: config.CertMagic.Staging,
-		CertMagicBucket:  config.CertMagic.Bucket,
+		CertFile:                    config.CertFile,
+		KeyFile:                     config.KeyFile,
+		PublicURL:                   publicURLs,
+		ConfigDir:                   configDir,
+		ListenAddr:                  config.ListenAddrTLS,
+		CertMagic:                   config.CertMagic.Enabled,
+		CertMagicKeyFile:            config.CertMagic.KeyFile,
+		CertMagicStorageProvider:    config.CertMagic.StorageProvider,
+		CertMagicAWSRegion:          config.CertMagic.AWSRegion,
+		CertMagicAWSAccessKeyID:     config.CertMagic.AWSAccessKeyID,
+		CertMagicAWSSecretAccessKey: config.CertMagic.AWSSecretAccessKey,
+		CertMagicAWSEndpoint:        config.CertMagic.AWSEndpoint,
+		CertMagicEmail:              config.CertMagic.Email,
+		CertMagicStaging:            config.CertMagic.Staging,
+		CertMagicBucket:             config.CertMagic.Bucket,
 	}
 
 	tlsConfig, handler, err := configureTLS(ctx, log, tlsInfo, res)

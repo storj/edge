@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 
 	"github.com/caddyserver/certmagic"
 	"github.com/zeebo/errs"
@@ -42,6 +43,17 @@ type TLSInfo struct {
 
 	// CertMagicBucket bucket to use for certstorage
 	CertMagicBucket string
+
+	// CertMagicStorageProvider selects the cert storage backend: "gcs" (the
+	// default) or "s3".
+	CertMagicStorageProvider string
+
+	// AWS settings, used when CertMagicStorageProvider is "s3". When the access
+	// key/secret are empty, the AWS default credential chain is used.
+	CertMagicAWSRegion          string
+	CertMagicAWSAccessKeyID     string
+	CertMagicAWSSecretAccessKey string
+	CertMagicAWSEndpoint        string
 }
 
 func configureTLS(ctx context.Context, log *zap.Logger, config *TLSInfo, handler http.Handler) (*tls.Config, http.Handler, error) {
@@ -72,12 +84,7 @@ func configureTLS(ctx context.Context, log *zap.Logger, config *TLSInfo, handler
 }
 
 func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (*tls.Config, error) {
-	// Use the GCS cert storage backend
-	jsonKey, err := os.ReadFile(config.CertMagicKeyFile)
-	if err != nil {
-		return nil, errs.New("unable to read cert-magic-key-file: %v", err)
-	}
-	cs, err := certstorage.NewGCS(ctx, log, jsonKey, config.CertMagicBucket)
+	cs, err := newCertMagicStorage(ctx, log, config)
 	if err != nil {
 		return nil, errs.New("initializing certstorage: %v", err)
 	}
@@ -85,10 +92,8 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	certmagic.Default.DisableARI = true
 
 	certmagic.Default.OnDemand = &certmagic.OnDemandConfig{DecisionFunc: func(ctx context.Context, name string) error {
-		for _, host := range config.PublicURL {
-			if name == host {
-				return nil
-			}
+		if slices.Contains(config.PublicURL, name) {
+			return nil
 		}
 		return errs.New("%s is not a public URL", name)
 	}}
@@ -116,4 +121,27 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	}
 	tlsConfig.NextProtos = append([]string{http2.NextProtoTLS, "http/1.1"}, tlsConfig.NextProtos...)
 	return tlsConfig, nil
+}
+
+// newCertMagicStorage builds the certmagic storage backend selected by
+// config.CertMagicStorageProvider ("gcs" is the default).
+func newCertMagicStorage(ctx context.Context, log *zap.Logger, config *TLSInfo) (certmagic.Storage, error) {
+	switch config.CertMagicStorageProvider {
+	case "s3":
+		return certstorage.NewS3(ctx, log, certstorage.S3Options{
+			Bucket:          config.CertMagicBucket,
+			Region:          config.CertMagicAWSRegion,
+			AccessKeyID:     config.CertMagicAWSAccessKeyID,
+			SecretAccessKey: config.CertMagicAWSSecretAccessKey,
+			Endpoint:        config.CertMagicAWSEndpoint,
+		})
+	case "", "gcs":
+		jsonKey, err := os.ReadFile(config.CertMagicKeyFile)
+		if err != nil {
+			return nil, errs.New("unable to read cert-magic-key-file: %v", err)
+		}
+		return certstorage.NewGCS(ctx, log, jsonKey, config.CertMagicBucket)
+	default:
+		return nil, errs.New("unknown cert-magic storage provider: %q", config.CertMagicStorageProvider)
+	}
 }

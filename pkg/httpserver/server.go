@@ -17,6 +17,7 @@ import (
 
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/googleclouddns"
+	"github.com/libdns/route53"
 	"github.com/mholt/acmez"
 	"github.com/pires/go-proxyproto"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -101,18 +102,31 @@ type TLSConfig struct {
 	// CertMagicKeyFile is a path to a file containing the CertMagic service account key.
 	CertMagicKeyFile string
 
-	// CertMagicDNSChallengeWithGCloudDNS is whether to disable HTTP and TLS
-	// ALPN challenges and perform the DNS challenge with Google Cloud DNS (no
-	// other providers are supported at the moment).
-	CertMagicDNSChallengeWithGCloudDNS bool
+	// CertMagicStorageProvider selects the cert storage backend: "gcs" (the
+	// default) or "s3".
+	CertMagicStorageProvider string
+
+	// CertMagicDNSProvider selects the ACME DNS-01 challenge provider: "gcloud",
+	// "route53", or "" to disable the DNS challenge and use the TLS-ALPN
+	// challenge instead.
+	CertMagicDNSProvider string
 
 	// CertMagicDNSChallengeWithGCloudDNSProject is the project where the Google
-	// Cloud DNS zone exists.
+	// Cloud DNS zone exists (used when CertMagicDNSProvider is "gcloud").
 	CertMagicDNSChallengeWithGCloudDNSProject string
 
 	// Domain to set the TXT record on, to delegate the challenge to a different
 	// domain.
 	CertMagicDNSChallengeOverrideDomain string
+
+	// AWS settings, used when CertMagicStorageProvider is "s3" and/or
+	// CertMagicDNSProvider is "route53". When the access key/secret are empty,
+	// the AWS default credential chain is used.
+	CertMagicAWSRegion           string
+	CertMagicAWSAccessKeyID      string
+	CertMagicAWSSecretAccessKey  string
+	CertMagicAWSEndpoint         string
+	CertMagicRoute53HostedZoneID string
 
 	// CertMagicEmail is the email address to use when creating an ACME account
 	CertMagicEmail string
@@ -483,11 +497,7 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 		Logger:   log,
 	})
 
-	jsonKey, err := os.ReadFile(config.TLSConfig.CertMagicKeyFile)
-	if err != nil {
-		return nil, errs.New("unable to read cert-magic-key-file: %v", err)
-	}
-	cs, err := certstorage.NewGCS(config.TLSConfig.Ctx, log, jsonKey, config.TLSConfig.CertMagicBucket)
+	cs, err := newCertMagicStorage(config.TLSConfig.Ctx, log, config.TLSConfig)
 	if err != nil {
 		return nil, errs.New("initializing certstorage: %v", err)
 	}
@@ -546,18 +556,9 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 	tlsConfig := config.BaseTLSConfig()
 	tlsConfig.GetCertificate = magic.GetCertificate
 
-	if config.TLSConfig.CertMagicDNSChallengeWithGCloudDNS {
-		// Enabling the DNS challenge disables the other challenges for that
-		// certmagic.ACMEIssuer instance.
-		s := &certmagic.DNS01Solver{
-			DNSManager: certmagic.DNSManager{
-				DNSProvider: &googleclouddns.Provider{
-					Project:            config.TLSConfig.CertMagicDNSChallengeWithGCloudDNSProject,
-					ServiceAccountJSON: config.TLSConfig.CertMagicKeyFile,
-				},
-				OverrideDomain: config.TLSConfig.CertMagicDNSChallengeOverrideDomain,
-			},
-		}
+	// Enabling the DNS challenge disables the other challenges for that
+	// certmagic.ACMEIssuer instance.
+	if s := newDNS01Solver(config.TLSConfig); s != nil {
 		googleCA.DNS01Solver, letsEncryptCA.DNS01Solver = s, s
 	} else {
 		tlsConfig.NextProtos = append(tlsConfig.NextProtos, acmez.ACMETLS1Protocol)
@@ -603,6 +604,61 @@ func configureCertMagic(log *zap.Logger, decisionFunc CertMagicOnDemandDecisionF
 		return tlsConfig, magic.ManageAsync(context.TODO(), config.TLSConfig.CertMagicAsyncPublicURLs)
 	}
 	return tlsConfig, nil
+}
+
+// newCertMagicStorage builds the certmagic storage backend selected by
+// tc.CertMagicStorageProvider ("gcs" is the default).
+func newCertMagicStorage(ctx context.Context, log *zap.Logger, tc *TLSConfig) (certmagic.Storage, error) {
+	switch tc.CertMagicStorageProvider {
+	case "s3":
+		return certstorage.NewS3(ctx, log, certstorage.S3Options{
+			Bucket:          tc.CertMagicBucket,
+			Region:          tc.CertMagicAWSRegion,
+			AccessKeyID:     tc.CertMagicAWSAccessKeyID,
+			SecretAccessKey: tc.CertMagicAWSSecretAccessKey,
+			Endpoint:        tc.CertMagicAWSEndpoint,
+		})
+	case "", "gcs":
+		jsonKey, err := os.ReadFile(tc.CertMagicKeyFile)
+		if err != nil {
+			return nil, errs.New("unable to read cert-magic-key-file: %v", err)
+		}
+		return certstorage.NewGCS(ctx, log, jsonKey, tc.CertMagicBucket)
+	default:
+		return nil, errs.New("unknown cert-magic storage provider: %q", tc.CertMagicStorageProvider)
+	}
+}
+
+// newDNS01Solver builds the ACME DNS-01 solver selected by
+// tc.CertMagicDNSProvider, or returns nil when the DNS challenge is disabled
+// (in which case the TLS-ALPN challenge is used instead).
+func newDNS01Solver(tc *TLSConfig) *certmagic.DNS01Solver {
+	switch tc.CertMagicDNSProvider {
+	case "gcloud":
+		return &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &googleclouddns.Provider{
+					Project:            tc.CertMagicDNSChallengeWithGCloudDNSProject,
+					ServiceAccountJSON: tc.CertMagicKeyFile,
+				},
+				OverrideDomain: tc.CertMagicDNSChallengeOverrideDomain,
+			},
+		}
+	case "route53":
+		return &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &route53.Provider{
+					Region:          tc.CertMagicAWSRegion,
+					AccessKeyId:     tc.CertMagicAWSAccessKeyID,
+					SecretAccessKey: tc.CertMagicAWSSecretAccessKey,
+					HostedZoneID:    tc.CertMagicRoute53HostedZoneID,
+				},
+				OverrideDomain: tc.CertMagicDNSChallengeOverrideDomain,
+			},
+		}
+	default:
+		return nil
+	}
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {

@@ -163,12 +163,18 @@ func New(config Config, log *zap.Logger, corsAllowedOrigins []string,
 	var tlsConfig *httpserver.TLSConfig
 	if !config.InsecureDisableTLS {
 		tlsConfig = &httpserver.TLSConfig{
-			CertDir:                            config.CertDir,
-			CertMagic:                          config.CertMagic.Enabled,
-			CertMagicKeyFile:                   config.CertMagic.KeyFile,
-			CertMagicDNSChallengeWithGCloudDNS: true,
+			CertDir:                  config.CertDir,
+			CertMagic:                config.CertMagic.Enabled,
+			CertMagicKeyFile:         config.CertMagic.KeyFile,
+			CertMagicStorageProvider: config.CertMagic.StorageProvider,
+			CertMagicDNSProvider:     config.CertMagic.DNSProvider,
 			CertMagicDNSChallengeWithGCloudDNSProject: config.CertMagic.Project,
 			CertMagicDNSChallengeOverrideDomain:       config.CertMagic.ChallengeOverrideDomain,
+			CertMagicAWSRegion:                        config.CertMagic.AWSRegion,
+			CertMagicAWSAccessKeyID:                   config.CertMagic.AWSAccessKeyID,
+			CertMagicAWSSecretAccessKey:               config.CertMagic.AWSSecretAccessKey,
+			CertMagicAWSEndpoint:                      config.CertMagic.AWSEndpoint,
+			CertMagicRoute53HostedZoneID:              config.CertMagic.Route53HostedZoneID,
 			CertMagicEmail:                            config.CertMagic.Email,
 			CertMagicStaging:                          config.CertMagic.Staging,
 			CertMagicBucket:                           config.CertMagic.Bucket,
@@ -207,7 +213,7 @@ func New(config Config, log *zap.Logger, corsAllowedOrigins []string,
 // "gateway.local". These are used by minio.RegisterAPIRouter().
 func deduplicateDomains(domains string) (result []string) {
 	dedupedDomains := make(map[string]struct{})
-	for _, domain := range strings.Split(domains, ",") {
+	for domain := range strings.SplitSeq(domains, ",") {
 		dedupedDomains[strings.TrimPrefix(domain, "*.")] = struct{}{}
 	}
 	for domain := range dedupedDomains {

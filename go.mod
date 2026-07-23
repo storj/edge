@@ -15,6 +15,7 @@ require (
 	github.com/grantae/certinfo v0.0.0-20170412194111-59d56a35515b
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/libdns/googleclouddns v1.2.0
+	github.com/libdns/route53 v1.6.2
 	github.com/mark3labs/mcp-go v0.37.0
 	github.com/mholt/acmez v1.2.0
 	github.com/miekg/dns v1.1.72
@@ -79,6 +80,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.24 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.31 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.32 // indirect
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.58.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.29.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.5 // indirect
