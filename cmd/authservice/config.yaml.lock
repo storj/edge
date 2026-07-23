@@ -152,6 +152,9 @@ spanner.credentials-filename: ""
 # name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID
 spanner.database-name: ""
 
+# maximum time a connection may sit idle before it is closed (0 disables)
+sql.conn-max-idle-time: 0s
+
 # maximum lifetime of a connection (recycles after RDS failover)
 sql.conn-max-lifetime: 30m0s
 

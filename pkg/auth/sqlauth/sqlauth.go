@@ -39,6 +39,7 @@ type Config struct {
 	MaxOpenConns    int           `user:"true" help:"maximum number of open connections" default:"25"`
 	MaxIdleConns    int           `user:"true" help:"maximum number of idle connections" default:"25"`
 	ConnMaxLifetime time.Duration `user:"true" help:"maximum lifetime of a connection (recycles after RDS failover)" default:"30m"`
+	ConnMaxIdleTime time.Duration `user:"true" help:"maximum time a connection may sit idle before it is closed (0 disables)" default:"0"`
 }
 
 // Options are per-connection options.
@@ -47,6 +48,7 @@ type Options struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 // KV is a PostgreSQL-backed authdb.StorageAdmin.
@@ -79,6 +81,9 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, opts Options) (_
 	}
 	if opts.ConnMaxLifetime > 0 {
 		dbxDB.DB.SetConnMaxLifetime(opts.ConnMaxLifetime)
+	}
+	if opts.ConnMaxIdleTime > 0 {
+		dbxDB.DB.SetConnMaxIdleTime(opts.ConnMaxIdleTime)
 	}
 	log.Debug("connected", zap.String("impl", "postgres"))
 

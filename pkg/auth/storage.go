@@ -38,6 +38,7 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 			MaxOpenConns:    config.SQL.MaxOpenConns,
 			MaxIdleConns:    config.SQL.MaxIdleConns,
 			ConnMaxLifetime: config.SQL.ConnMaxLifetime,
+			ConnMaxIdleTime: config.SQL.ConnMaxIdleTime,
 		})
 	case "spannersqlmigration":
 		src, err := spannerauth.Open(ctx, log, config.Spanner)
@@ -49,6 +50,7 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 			MaxOpenConns:    config.SQL.MaxOpenConns,
 			MaxIdleConns:    config.SQL.MaxIdleConns,
 			ConnMaxLifetime: config.SQL.ConnMaxLifetime,
+			ConnMaxIdleTime: config.SQL.ConnMaxIdleTime,
 		})
 		if err != nil {
 			return nil, errs.Combine(err, src.Close())
