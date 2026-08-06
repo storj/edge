@@ -24,6 +24,7 @@ import (
 	"storj.io/edge/internal/authadminclient"
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/edge/pkg/auth/spannerauth"
+	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/eventkit"
 	"storj.io/eventkit/bigquery"
 )
@@ -114,6 +115,9 @@ func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
 		Spanner: spannerauth.Config{
 			DatabaseName:        params.Flag("storage.spanner.db-name", "name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID", "").(string),
 			CredentialsFilename: params.Flag("storage.spanner.creds", "credentials file with access to Cloud Spanner database", "").(string),
+		},
+		SQL: sqlauth.Config{
+			URL: params.Flag("storage.sql.url", "connection URL to SQL database", "").(string),
 		},
 	}
 }
