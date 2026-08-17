@@ -37,6 +37,9 @@ pipeline {
                             sh 'go mod download'
                         }
 
+                        sh 'service postgresql start'
+                        sh "psql -U postgres -c 'create database teststorj;'"
+
                         sh 'mkdir -p .build'
 
                         // go-junit-report isn't baked into storjlabs/ci yet.
@@ -68,12 +71,10 @@ pipeline {
                                 SHORT = true
                                 SKIP_TESTSUITE = true
                                 STORJ_TEST_COCKROACH = 'omit'
-                                STORJ_TEST_POSTGRES = 'omit'
-                                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                                STORJ_TEST_TIDB = 'omit'
                                 STORJ_TEST_LOG_LEVEL = 'info'
                                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
-                                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS = 'true'
                             }
                             steps {
                                 sh 'make test 2>&1 | tee .build/tests.json | go-junit-report -parser gojson -out .build/tests.xml'
@@ -92,12 +93,10 @@ pipeline {
                                 JSON = true
                                 SHORT = false
                                 STORJ_TEST_COCKROACH = 'omit'
-                                STORJ_TEST_POSTGRES = 'omit'
-                                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                                STORJ_TEST_TIDB = 'omit'
                                 STORJ_TEST_LOG_LEVEL = 'info'
                                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
-                                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS = 'true'
                                 STORJ_TEST_GCSTEST_BUCKET = 'gcstest-ci'
                                 STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY = credentials('gcstest-ci')
                             }

@@ -15,9 +15,9 @@ require (
 	golang.org/x/sync v0.20.0
 	storj.io/common v0.0.0-20260629224719-ba1bff0a7846
 	storj.io/edge v0.0.0-00010101000000-000000000000
-	storj.io/minio v0.0.0-20260424005736-af7b2f48133e
-	storj.io/storj v1.160.3
-	storj.io/uplink v1.14.3
+	storj.io/minio v0.0.0-20260604024514-1cc008aaa7ee
+	storj.io/storj v1.161.9
+	storj.io/uplink v1.14.4-0.20260720211738-5ab41105f06d
 )
 
 require (
@@ -126,13 +126,11 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.12 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
-	github.com/googleapis/go-sql-spanner v1.24.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.4.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
@@ -321,7 +319,7 @@ require (
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 // indirect
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
-	storj.io/gateway v1.11.1-0.20260602094024-7b5c381652df // indirect
+	storj.io/gateway v1.11.1-0.20260817001355-b6cfe6d933c9 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
