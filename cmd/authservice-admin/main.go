@@ -23,7 +23,6 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/edge/internal/authadminclient"
 	"storj.io/edge/internal/satelliteadminclient"
-	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/eventkit"
 	"storj.io/eventkit/bigquery"
@@ -92,8 +91,6 @@ func run() (bool, error) {
 			cmds.New("invalidate", "invalidate a record", new(cmdRecordInvalidate))
 			cmds.New("unpublish", "unpublish a record", new(cmdRecordUnpublish))
 			cmds.New("delete", "delete a record", new(cmdRecordDelete))
-			cmds.New("sync", "sync records with satellite database", new(cmdRecordSync))
-			cmds.New("remove-orphans", "remove orphaned records not present in satellite API keys", new(cmdRemoveOrphans))
 		})
 		cmds.Group("links", "links commands", func() {
 			cmds.New("inspect", "inspect given links and return a report", new(cmdLinksInspect))
@@ -112,10 +109,6 @@ func run() (bool, error) {
 
 func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
 	return authadminclient.Config{
-		Spanner: spannerauth.Config{
-			DatabaseName:        params.Flag("storage.spanner.db-name", "name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID", "").(string),
-			CredentialsFilename: params.Flag("storage.spanner.creds", "credentials file with access to Cloud Spanner database", "").(string),
-		},
 		SQL: sqlauth.Config{
 			URL: params.Flag("storage.sql.url", "connection URL to SQL database", "").(string),
 		},

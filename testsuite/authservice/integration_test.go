@@ -25,11 +25,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	internalAccess "storj.io/edge/internal/access"
+	"storj.io/edge/internal/dbutil/pgtest"
 	"storj.io/edge/internal/register"
 	"storj.io/edge/pkg/auth"
 	"storj.io/edge/pkg/auth/authdb"
-	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
+	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/edge/pkg/tierquery"
@@ -346,16 +346,16 @@ func runEnvironment(t *testing.T, recfg reconfigure, fn func(t *testing.T, ctx *
 		logger := zaptest.NewLogger(t)
 		defer ctx.Check(logger.Sync)
 
-		server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
-		require.NoError(t, err)
-		defer server.Close()
+		connstr := pgtest.PickPostgres(t)
 
-		db, err := spannerauth.Open(ctx, logger, spannerauth.Config{
-			DatabaseName: "projects/P/instances/I/databases/D",
-			Address:      server.Addr,
-		})
+		tempDB, err := pgtest.OpenUnique(ctx, connstr, t.Name())
 		require.NoError(t, err)
-		defer ctx.Check(db.Close)
+		defer ctx.Check(tempDB.Close)
+
+		db, err := sqlauth.Open(ctx, logger, tempDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+		require.NoError(t, err)
+		require.NoError(t, db.MigrateToLatest(ctx))
+		require.NoError(t, db.Close())
 
 		testSatellite := testrand.NodeID().String() + "@satellite.test"
 
@@ -367,13 +367,10 @@ func runEnvironment(t *testing.T, recfg reconfigure, fn func(t *testing.T, ctx *
 				planet.Satellites[0].NodeURL().String(),
 				testSatellite,
 			},
-			KVBackend:      "spanner://",
-			ListenAddr:     ":0",
-			DRPCListenAddr: ":0",
-			Spanner: spannerauth.Config{
-				DatabaseName: "projects/P/instances/I/databases/D",
-				Address:      server.Addr,
-			},
+			KVBackend:           "sql://",
+			ListenAddr:          ":0",
+			DRPCListenAddr:      ":0",
+			SQL:                 sqlauth.Config{URL: tempDB.ConnStr},
 			RetrieveProjectInfo: true,
 		}
 

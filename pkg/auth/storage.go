@@ -12,7 +12,6 @@ import (
 	"storj.io/edge/internal/dbutil"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
-	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/sqlauth"
 )
 
@@ -29,8 +28,6 @@ func OpenStorage(ctx context.Context, log *zap.Logger, config Config) (_ authdb.
 	switch driver {
 	case "badger":
 		return badgerauth.Open(log, config.Node)
-	case "spanner":
-		return spannerauth.Open(ctx, log, config.Spanner)
 	case "sql":
 		return sqlauth.Open(ctx, log, config.SQL.URL, sqlauth.Options{
 			ApplicationName: "authservice",

@@ -4,7 +4,6 @@
 package drpcauth
 
 import (
-	"context"
 	"net/url"
 	"testing"
 
@@ -20,8 +19,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/badgerauth"
-	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
 )
 
 const minimalAccess = "13J4Upun87ATb3T5T5sDXVeQaCzWFZeF9Ly4ELfxS5hUwTL8APEkwahTEJ1wxZjyErimiDs3kgid33kDLuYPYtwaY7Toy32mCTapfrUB814X13RiA844HPWK3QLKZb9cAoVceTowmNZXWbcUMKNbkMHCURE4hn8ZrdHPE3S86yngjvDxwKmarfGx"
@@ -87,50 +84,6 @@ func TestRegisterAccess(t *testing.T) {
 	require.Equal(t, false, result.Public)
 	require.Equal(t, minimalAccess, result.AccessGrant)
 	require.Equal(t, response.SecretKey, result.SecretKey.ToBase32())
-}
-
-func TestRegisterAccessContextCanceled(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	logger := zaptest.NewLogger(t)
-	defer ctx.Check(logger.Sync)
-
-	spannerServer, err := spannerauthtest.ConfigureTestServer(ctx, logger)
-	require.NoError(t, err)
-	defer spannerServer.Close()
-
-	storage, err := spannerauth.Open(ctx, logger, spannerauth.Config{
-		DatabaseName: "projects/P/instances/I/databases/D",
-		Address:      spannerServer.Addr,
-	})
-	require.NoError(t, err)
-	defer ctx.Check(storage.Close)
-
-	require.NoError(t, storage.HealthCheck(ctx))
-
-	db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
-		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
-	})
-	require.NoError(t, err)
-
-	endpoint, err := url.Parse("http://gateway.test")
-	require.NoError(t, err)
-
-	server := NewServer(logger, db, endpoint, 4*memory.KiB)
-
-	canceledCtx, cancel := context.WithCancel(ctx)
-	cancel()
-
-	response, err := server.RegisterAccess(
-		canceledCtx,
-		&pb.EdgeRegisterAccessRequest{
-			AccessGrant: minimalAccess,
-			Public:      false,
-		},
-	)
-	require.Nil(t, response)
-	require.EqualError(t, err, rpcstatus.Error(rpcstatus.Canceled, "").Error())
 }
 
 func TestRegisterAccessTooLarge(t *testing.T) {

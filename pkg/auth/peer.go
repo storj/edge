@@ -29,7 +29,6 @@ import (
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/auth/drpcauth"
 	"storj.io/edge/pkg/auth/httpauth"
-	"storj.io/edge/pkg/auth/spannerauth"
 	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/edge/pkg/httplog"
 	"storj.io/edge/pkg/httpserver"
@@ -70,9 +69,8 @@ type Config struct {
 
 	CertMagic certMagic
 
-	Node    badgerauth.Config
-	Spanner spannerauth.Config
-	SQL     sqlauth.Config
+	Node badgerauth.Config
+	SQL  sqlauth.Config
 }
 
 // certMagic is a config struct for configuring CertMagic options.

@@ -18,9 +18,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/edge/internal/authadminclient"
+	"storj.io/edge/internal/dbutil/pgtest"
 	"storj.io/edge/pkg/auth/authdb"
-	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
+	"storj.io/edge/pkg/auth/sqlauth"
 )
 
 const (
@@ -236,28 +236,26 @@ func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testco
 	logger := zaptest.NewLogger(t)
 	defer ctx.Check(logger.Sync)
 
-	server, err := spannerauthtest.ConfigureTestServer(ctx, logger)
-	require.NoError(t, err)
-	defer server.Close()
+	connstr := pgtest.PickPostgres(t)
 
-	spannerCfg := spannerauth.Config{
-		DatabaseName: "projects/P/instances/I/databases/D",
-		Address:      server.Addr,
-	}
-
-	client, err := spannerauth.Open(ctx, logger, spannerCfg)
+	tempDB, err := pgtest.OpenUnique(ctx, connstr, t.Name())
 	require.NoError(t, err)
-	defer ctx.Check(client.Close)
+	defer ctx.Check(tempDB.Close)
+
+	kv, err := sqlauth.Open(ctx, logger, tempDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	require.NoError(t, err)
+	defer ctx.Check(kv.Close)
+	require.NoError(t, kv.MigrateToLatest(ctx))
 
 	admin, err := authadminclient.Open(ctx, authadminclient.Config{
-		Spanner: spannerCfg,
+		SQL: sqlauth.Config{URL: tempDB.ConnStr},
 	}, logger)
 	require.NoError(t, err)
 	defer ctx.Check(admin.Close)
 
 	fn(ctx, t, &environment{
 		logger:      logger,
-		storage:     client,
+		storage:     kv,
 		adminClient: admin,
 	})
 }

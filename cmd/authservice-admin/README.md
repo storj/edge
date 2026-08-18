@@ -10,7 +10,7 @@ $ go install storj.io/edge/cmd/authservice-admin
 
 ## Usage
 
-The tool supports multiple backends (separately and to be used at once). Specify them by supplying the `--storage.*` flags.
+The tool connects to authservice's database by supplying the `--storage.sql.url` flag.
 
 Commands use `<key>` as a common argument to look up a record. This argument can either be the access key ID (base32 encoded, 28 character string), or a SHA-256 hash of the access key (hexadecimal encoded, 64 character string).
 
@@ -19,7 +19,7 @@ Logging can be enabled by using the `--log.enabled` flag.
 Example command:
 
 ```console
-$ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb --storage.spanner.creds path/to.json --storage.spanner.db-name=projects/P/instances/I/databases/D
+$ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb --storage.sql.url "postgres://user:pass@host/db"
 ```
 
 ## Interacting with Satellite admin
@@ -34,8 +34,7 @@ The satellite admin addresses are provided to the command comma separated, and e
 
 ```console
 $ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb \
-	--storage.spanner.creds path/to.json \
-	--storage.spanner.db-name=projects/P/instances/I/databases/D \
+	--storage.sql.url "postgres://user:pass@host/db" \
 	--satellite-addresses satellite1:7777=http://localhost:10005=12345,satellite2:7777=http://localhost:10006=45678"
 ```
 

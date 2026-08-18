@@ -21,9 +21,9 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/edge/internal/dbutil/pgtest"
 	"storj.io/edge/pkg/auth"
-	"storj.io/edge/pkg/auth/spannerauth"
-	"storj.io/edge/pkg/auth/spannerauth/spannerauthtest"
+	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/edge/pkg/authclient"
 	mcpclient "storj.io/edge/pkg/mcp-client"
 	mcpserver "storj.io/edge/pkg/mcp-server"
@@ -363,9 +363,16 @@ func runTest(
 		logger := zaptest.NewLogger(t)
 		defer ctx.Check(logger.Sync)
 
-		spanner, err := spannerauthtest.ConfigureTestServer(ctx, logger)
+		connstr := pgtest.PickPostgres(t)
+
+		tempDB, err := pgtest.OpenUnique(ctx, connstr, t.Name())
 		require.NoError(t, err)
-		defer spanner.Close()
+		defer ctx.Check(tempDB.Close)
+
+		db, err := sqlauth.Open(ctx, logger, tempDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+		require.NoError(t, err)
+		require.NoError(t, db.MigrateToLatest(ctx))
+		require.NoError(t, db.Close())
 
 		// Set a dummy endpoint so we don't have to hardcode port numbers.
 		// Endpoint is only used by authservice to indicate to clients where
@@ -374,13 +381,10 @@ func runTest(
 		authConfig.Endpoint = "http://127.0.0.1:12345"
 		authConfig.AuthToken = []string{"super-secret"}
 		authConfig.AllowedSatellites = []string{planet.Satellites[0].NodeURL().String()}
-		authConfig.KVBackend = "spanner://"
+		authConfig.KVBackend = "sql://"
 		authConfig.ListenAddr = "127.0.0.1:0"
 		authConfig.DRPCListenAddr = "127.0.0.1:0"
-		authConfig.Spanner = spannerauth.Config{
-			DatabaseName: "projects/P/instances/I/databases/D",
-			Address:      spanner.Addr,
-		}
+		authConfig.SQL = sqlauth.Config{URL: tempDB.ConnStr}
 		authConfig.RetrieveProjectInfo = true
 
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))

@@ -161,12 +161,6 @@ retrieve-project-info: true
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 
-# credentials file with access to Cloud Spanner database
-spanner.credentials-filename: ""
-
-# name of Cloud Spanner database in the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID
-spanner.database-name: ""
-
 # maximum time a connection may sit idle before it is closed (0 disables)
 sql.conn-max-idle-time: 0s
 
