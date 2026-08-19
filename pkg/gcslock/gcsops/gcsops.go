@@ -44,12 +44,12 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
-// NewClient properly initializes new Client. It awkwardly takes context.Context
-// because it uses oauth2 that stores it.
+// NewClient properly initializes new Client. jsonKey must be a service account
+// key. It awkwardly takes context.Context because it uses oauth2 that stores it.
 func NewClient(ctx context.Context, jsonKey []byte) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c, err := google.CredentialsFromJSON(ctx, jsonKey, "https://www.googleapis.com/auth/devstorage.full_control")
+	c, err := google.CredentialsFromJSONWithType(ctx, jsonKey, google.ServiceAccount, "https://www.googleapis.com/auth/devstorage.full_control")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

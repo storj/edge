@@ -39,7 +39,13 @@ func newListBucketsWithAttributionHandler(layer *gw.MultiTenancyLayer, handlers 
 
 		response := generateListBucketsWithAttributionResponse(buckets)
 
-		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(response))
+		encodedSuccessResponse, err := cmd.EncodeResponse(response)
+		if err != nil {
+			cmd.WriteErrorResponse(ctx, w, cmd.ToAPIError(ctx, err), r.URL, false)
+			return
+		}
+
+		cmd.WriteSuccessResponseXML(w, encodedSuccessResponse)
 	}
 }
 
@@ -66,9 +72,15 @@ func newGetBucketLocationHandler(layer *gw.MultiTenancyLayer, handlers *cmd.Obje
 			return
 		}
 
-		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(cmd.LocationResponse{
+		encodedSuccessResponse, err := cmd.EncodeResponse(cmd.LocationResponse{
 			Location: location,
-		}))
+		})
+		if err != nil {
+			cmd.WriteErrorResponse(ctx, w, cmd.ToAPIError(ctx, err), r.URL, false)
+			return
+		}
+
+		cmd.WriteSuccessResponseXML(w, encodedSuccessResponse)
 	}
 }
 
@@ -99,6 +111,12 @@ func newListLicensesHandler(layer *gw.MultiTenancyLayer, handlers *cmd.ObjectAPI
 
 		response := generateListLicensesResponse(licenses)
 
-		cmd.WriteSuccessResponseXML(w, cmd.EncodeResponse(response))
+		encodedSuccessResponse, err := cmd.EncodeResponse(response)
+		if err != nil {
+			cmd.WriteErrorResponse(ctx, w, cmd.ToAPIError(ctx, err), r.URL, false)
+			return
+		}
+
+		cmd.WriteSuccessResponseXML(w, encodedSuccessResponse)
 	}
 }
