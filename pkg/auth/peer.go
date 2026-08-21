@@ -52,6 +52,9 @@ type Config struct {
 	KVBackend string `help:"key/value store backend url" default:""`
 	Migration bool   `help:"create or update the database schema, and then continue service startup" default:"false"`
 
+	SQLMigrationConcurrency int `help:"number of parallel key-range workers for the sqlmigration backend's backfill" default:"16"`
+	SQLMigrationBatchSize   int `help:"rows per bulk-copy batch during the sqlmigration backend's backfill" default:"5000"`
+
 	ListenAddr    string `user:"true" help:"public HTTP address to listen on" default:":20000"`
 	ListenAddrTLS string `user:"true" help:"public HTTPS address to listen on" default:":20001"`
 
@@ -69,8 +72,9 @@ type Config struct {
 
 	CertMagic certMagic
 
-	Node badgerauth.Config
-	SQL  sqlauth.Config
+	Node                    badgerauth.Config
+	SQL                     sqlauth.Config
+	SQLMigrationDestination sqlauth.Config
 }
 
 // certMagic is a config struct for configuring CertMagic options.

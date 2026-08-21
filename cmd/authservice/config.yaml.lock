@@ -161,6 +161,27 @@ retrieve-project-info: true
 # time to delay server shutdown while returning 503s on the health endpoint
 # shutdown-delay: 45s
 
+# rows per bulk-copy batch during the sqlmigration backend's backfill
+# sql-migration-batch-size: 5000
+
+# number of parallel key-range workers for the sqlmigration backend's backfill
+# sql-migration-concurrency: 16
+
+# maximum time a connection may sit idle before it is closed (0 disables)
+sql-migration-destination.conn-max-idle-time: 0s
+
+# maximum lifetime of a connection (recycles after RDS failover)
+sql-migration-destination.conn-max-lifetime: 30m0s
+
+# maximum number of idle connections
+sql-migration-destination.max-idle-conns: 25
+
+# maximum number of open connections
+sql-migration-destination.max-open-conns: 25
+
+# PostgreSQL connection URL for the sqlauth backend
+sql-migration-destination.url: ""
+
 # maximum time a connection may sit idle before it is closed (0 disables)
 sql.conn-max-idle-time: 0s
 
