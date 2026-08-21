@@ -44,7 +44,7 @@ func forwardedFor(h string) string {
 	}
 	elements := strings.Split(h, ",")
 	last := strings.TrimSpace(elements[len(elements)-1])
-	for _, pair := range strings.Split(last, ";") {
+	for pair := range strings.SplitSeq(last, ";") {
 		k, v, ok := strings.Cut(strings.TrimSpace(pair), "=")
 		if !ok || !strings.EqualFold(k, "for") {
 			continue

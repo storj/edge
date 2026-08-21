@@ -32,21 +32,21 @@ var (
 
 // Logger is for logging startup checks.
 type Logger interface {
-	Infof(template string, args ...interface{})
-	Errorf(template string, args ...interface{})
+	Infof(template string, args ...any)
+	Errorf(template string, args ...any)
 }
 
 type wrappedLogger struct {
 	logger Logger
 }
 
-func (w *wrappedLogger) Infof(template string, args ...interface{}) {
+func (w *wrappedLogger) Infof(template string, args ...any) {
 	if w.logger != nil {
 		w.logger.Infof(template, args...)
 	}
 }
 
-func (w *wrappedLogger) Errorf(template string, args ...interface{}) {
+func (w *wrappedLogger) Errorf(template string, args ...any) {
 	if w.logger != nil {
 		w.logger.Errorf(template, args...)
 	}
@@ -139,7 +139,6 @@ func (c *NodeURLCheck) Check(ctx context.Context) (err error) {
 	var group errs2.Group
 
 	for nodeURL := range nodeURLs {
-		nodeURL := nodeURL
 		group.Go(func() error {
 			return c.check(ctx, nodeURL)
 		})

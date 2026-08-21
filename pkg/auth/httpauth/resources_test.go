@@ -96,7 +96,7 @@ func TestResources_CRUD(t *testing.T) {
 	endpoint, err := url.Parse("http://endpoint.invalid/")
 	require.NoError(t, err)
 
-	exec := func(res http.Handler, method, path, body string) (map[string]interface{}, bool) {
+	exec := func(res http.Handler, method, path, body string) (map[string]any, bool) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer authToken")
@@ -105,7 +105,7 @@ func TestResources_CRUD(t *testing.T) {
 			return nil, false
 		}
 		if rec.Header().Get("Content-Type") == "application/json" {
-			var out map[string]interface{}
+			var out map[string]any
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
 			return out, true
 		}
@@ -311,7 +311,7 @@ func TestResources_Authorization(t *testing.T) {
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/access", strings.NewReader(createRequest))
 	rec := httptest.NewRecorder()
 	res.ServeHTTP(rec, req)
-	var out map[string]interface{}
+	var out map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
 	baseURL := fmt.Sprintf("/v1/access/%s", out["access_key_id"])
 

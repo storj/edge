@@ -64,7 +64,6 @@ func TestRemoteIP(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			handler := func() http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +83,7 @@ func TestRemoteIP(t *testing.T) {
 			logResponses(observedLogger, handler()).ServeHTTP(rr, req)
 
 			require.Len(t, observedLogs.All(), 1)
-			fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])

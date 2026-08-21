@@ -127,7 +127,6 @@ func TestServer(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.Name, func(t *testing.T) {
 			ctx := testcontext.NewWithTimeout(t, time.Minute)
 			defer ctx.Cleanup()
@@ -218,7 +217,7 @@ func TestProxyProtocol(t *testing.T) {
 	logs = observedLogs.FilterMessage("access").All()
 	require.NotEmpty(t, logs)
 
-	fields, ok := logs[0].ContextMap()["http_request"].(map[string]interface{})
+	fields, ok := logs[0].ContextMap()["http_request"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, expectedClientAddr.IP.String(), fields["remoteIp"])
 }

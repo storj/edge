@@ -73,7 +73,7 @@ func NewService(config Config, product string) (*Service, error) {
 
 // Do fetches and caches the paid status of an account.
 func (s *Service) Do(ctx context.Context, uplinkAccess *uplink.Access, hostname string) (paidTier bool, err error) {
-	v, err := s.cache.Get(ctx, access.APIKey(uplinkAccess).Serialize(), func() (interface{}, error) {
+	v, err := s.cache.Get(ctx, access.APIKey(uplinkAccess).Serialize(), func() (any, error) {
 		paidTier, err := s.queryTier(ctx, uplinkAccess, hostname)
 		return tierQueryResponse{paidTier}, err
 	})

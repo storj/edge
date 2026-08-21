@@ -16,7 +16,7 @@ type MockReader struct{}
 
 // Lookup retrieves the database record for ip and stores it in the value
 // pointed to by result.
-func (mr *MockReader) Lookup(ip net.IP, result interface{}) error {
+func (mr *MockReader) Lookup(ip net.IP, result any) error {
 	// Valid geolocation case
 	if ip.Equal(net.IPv4(172, 146, 10, 1)) {
 		result.(*IPInfo).Location = mockIPInfo(-19.456, 20.123).Location

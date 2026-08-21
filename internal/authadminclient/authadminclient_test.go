@@ -262,7 +262,7 @@ func withEnvironment(ctx *testcontext.Context, t *testing.T, fn func(ctx *testco
 
 // requireRecordEqual asserts that two records are equal, ignoring the
 // timezones of the records' time.Time fields.
-func requireRecordEqual(t *testing.T, expected *authdb.Record, actual *authdb.Record, msgAndArgs ...interface{}) {
+func requireRecordEqual(t *testing.T, expected *authdb.Record, actual *authdb.Record, msgAndArgs ...any) {
 	if expected == nil {
 		require.Nil(t, actual, msgAndArgs...)
 		return
@@ -294,7 +294,7 @@ func createFullRecords(
 ) {
 	records = make(map[authdb.KeyHash]*authdb.Record)
 
-	for i := 0; i < count; i++ {
+	for range count {
 		marker := testrand.RandAlphaNumeric(32)
 
 		var keyHash authdb.KeyHash

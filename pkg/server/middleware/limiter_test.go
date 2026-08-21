@@ -60,7 +60,7 @@ func TestNewConcurrentRequestsLimiter(t *testing.T) {
 	close(allTests)
 
 	// wait for previous responses to arrive so we can retest cred1
-	for x := 0; x < maxConncurrent*2*4; x++ {
+	for range maxConncurrent * 2 * 4 {
 		<-done
 	}
 	// expect burst number of successes again
@@ -72,14 +72,13 @@ func TestNewConcurrentRequestsLimiter(t *testing.T) {
 
 func testWithCredentials(ctx *testcontext.Context, t *testing.T, creds *Credentials, handler http.Handler, next, done chan struct{}) {
 	// expect maxConncurrent HTTP 200s, then maxConncurrent HTTP 429s
-	for x := 0; x < maxConncurrent*2; x++ {
-		localX := x
+	for x := range maxConncurrent * 2 {
 		ctx.Go(func() error {
 			responseCode := doRequest(ctx, t, creds, handler)
-			if localX < maxConncurrent {
-				assert.Equal(t, http.StatusOK, responseCode, localX)
+			if x < maxConncurrent {
+				assert.Equal(t, http.StatusOK, responseCode, x)
 			} else {
-				assert.Equal(t, http.StatusTooManyRequests, responseCode, localX)
+				assert.Equal(t, http.StatusTooManyRequests, responseCode, x)
 			}
 			done <- struct{}{}
 			return nil
@@ -131,12 +130,11 @@ func noopHandler(w http.ResponseWriter, r *http.Request) {}
 // limits for each?
 func benchmarkLimiter(l *Limiter) error {
 	var g errgroup.Group
-	for i := 0; i < 10; i++ {
-		j := i
+	for i := range 10 {
 		g.Go(func() error {
-			r := &http.Request{ProtoMajor: j}
+			r := &http.Request{ProtoMajor: i}
 			var g2 errgroup.Group
-			for k := 0; k < 100; k++ {
+			for range 100 {
 				g2.Go(func() error {
 					l.Limit(http.HandlerFunc(noopHandler)).ServeHTTP(nil, r)
 					return nil

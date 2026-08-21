@@ -48,7 +48,7 @@ func New(baseURL, authToken string, log *log.Logger) *Client {
 type APIKey struct {
 	ID        uuid.UUID `json:"id,omitempty"`
 	Name      string    `json:"name,omitempty"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // Project is a satellite project.
@@ -67,14 +67,14 @@ type User struct {
 
 // APIKeyResponse is a response when looking up API key information from the satellite.
 type APIKeyResponse struct {
-	APIKey  APIKey  `json:"api_key,omitempty"`
-	Project Project `json:"project,omitempty"`
-	Owner   User    `json:"owner,omitempty"`
+	APIKey  APIKey  `json:"api_key"`
+	Project Project `json:"project"`
+	Owner   User    `json:"owner"`
 }
 
 // UserResponse is a response when looking up a user information from the satellite.
 type UserResponse struct {
-	User     User      `json:"user,omitempty"`
+	User     User      `json:"user"`
 	Projects []Project `json:"projects,omitempty"`
 }
 

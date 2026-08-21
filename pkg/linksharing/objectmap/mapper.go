@@ -28,7 +28,7 @@ type IPInfo struct {
 
 // Reader is a maxmind database reader interface.
 type Reader interface {
-	Lookup(ip net.IP, result interface{}) error
+	Lookup(ip net.IP, result any) error
 	Close() error
 }
 

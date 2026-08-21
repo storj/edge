@@ -67,7 +67,6 @@ func TestErrorResponse(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
@@ -135,7 +134,6 @@ func TestAPIKeyResponse(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
@@ -197,7 +195,6 @@ func TestUserResponse(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()

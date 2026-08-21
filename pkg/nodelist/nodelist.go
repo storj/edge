@@ -75,7 +75,7 @@ func Resolve(ctx context.Context, configValues []string) (satMap map[storj.NodeU
 // readList populates a map from a newline separated list of node addresses.
 // Empty lines or lines starting with '#' (comments) are ignored.
 func readNodeList(input []byte, satellites map[storj.NodeURL]struct{}) (err error) {
-	for _, line := range bytes.Split(input, []byte{'\n'}) {
+	for line := range bytes.SplitSeq(input, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 || line[0] == '#' {
 			continue

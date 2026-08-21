@@ -44,8 +44,8 @@ var (
 
 // pageData is the type that is passed to the template rendering engine.
 type pageData struct {
-	Data  interface{} // data to provide to the page
-	Title string      // <title> for the page
+	Data  any    // data to provide to the page
+	Title string // <title> for the page
 
 	// because we are serving data on someone else's domain, for our
 	// branded pages like file listing and the map view, all static assets
@@ -260,8 +260,8 @@ func NewHandler(log *zap.Logger, mapper *objectmap.IPDB, txtRecords *TXTRecords,
 	var blockedRegexes []*regexp.Regexp
 	for _, path := range config.BlockedPaths {
 		if len(path) > 0 {
-			if strings.HasPrefix(path, "r:") {
-				re, err := regexp.Compile(strings.TrimPrefix(path, "r:"))
+			if after, ok := strings.CutPrefix(path, "r:"); ok {
+				re, err := regexp.Compile(after)
 				if err != nil {
 					return nil, errs.Wrap(err)
 				}

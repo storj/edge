@@ -29,6 +29,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -390,10 +391,8 @@ func parseSignedHeaders(signedHeaders string) ([]string, error) {
 	headers := strings.Split(fields[1], ";")
 
 	// The list of signed headers must contain the "host" header.
-	for _, h := range headers {
-		if h == "host" {
-			return headers, nil
-		}
+	if slices.Contains(headers, "host") {
+		return headers, nil
 	}
 
 	return nil, errSignedHeaders.New("host header is mandatory")

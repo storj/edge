@@ -37,7 +37,7 @@ func TestResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -60,7 +60,7 @@ func TestResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 	require.True(t, ok)
 
 	require.Equal(t, "/", fields["requestUrl"])
@@ -87,7 +87,7 @@ func TestGatewayResponseNoPaths(t *testing.T) {
 	LogResponses(observedLogger, handler(), false).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 	require.True(t, ok)
 
 	require.Nil(t, fields["requestUrl"])
@@ -116,7 +116,7 @@ func TestAccessDetailsLogged(t *testing.T) {
 	observedLogger := zap.New(observedZapCore)
 
 	authService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(fmt.Sprintf(`{"public":true,"secret_key":"SecretKey","access_grant":"%s","public_project_id":"11111111-2222-3333-4444-555555555555"}`, testAccessGrant)))
+		_, err := w.Write(fmt.Appendf(nil, `{"public":true,"secret_key":"SecretKey","access_grant":"%s","public_project_id":"11111111-2222-3333-4444-555555555555"}`, testAccessGrant))
 		require.NoError(t, err)
 	}))
 	defer authService.Close()
@@ -158,7 +158,7 @@ func TestGatewayResponsePathsIncluded(t *testing.T) {
 	LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 	require.Len(t, observedLogs.All(), 1)
-	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+	fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 	require.True(t, ok)
 
 	require.Equal(t, "/test?q=123", fields["requestUrl"])
@@ -207,14 +207,14 @@ func TestGatewayLogsObfuscatedRequestMetadata(t *testing.T) {
 
 		if test.header != "" {
 			require.Len(t, observedLogs.All(), 1, i)
-			fields, ok := observedLogs.All()[0].ContextMap()["request_headers"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["request_headers"].(map[string]any)
 			require.True(t, ok, i)
 			require.Equal(t, "[...]", fields[test.header], i)
 		}
 
 		if test.query != "" {
 			require.Len(t, observedLogs.All(), 1, i)
-			fields, ok := observedLogs.All()[0].ContextMap()["query"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["query"].(map[string]any)
 			require.True(t, ok, i)
 			require.Equal(t, "[...]", fields[test.query], i)
 		}
@@ -272,7 +272,6 @@ func TestRemoteIP(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			handler := func() http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +291,7 @@ func TestRemoteIP(t *testing.T) {
 			LogResponses(observedLogger, handler(), true).ServeHTTP(rr, req)
 
 			require.Len(t, observedLogs.All(), 1)
-			fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["http_request"].(map[string]any)
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])

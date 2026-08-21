@@ -29,16 +29,15 @@ func TestMutexGroup(t *testing.T) {
 	var muGroup MutexGroup
 	var counters [3]*int32
 	totalCounter := new(int32)
-	for lockNo := 0; lockNo < len(counters); lockNo++ {
+	for lockNo := range len(counters) {
 		counters[lockNo] = new(int32)
-		for workerNo := 0; workerNo < 10; workerNo++ {
-			lockNo := lockNo
+		for range 10 {
 			accesses.Go(func() error {
 				lockName := strconv.Itoa(lockNo)
 
 				highwater := int32(0)
 
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					randSleep()
 					err := func() error {
 						unlock := muGroup.Lock(lockName)
@@ -85,7 +84,7 @@ func TestMutexGroup(t *testing.T) {
 	require.Empty(t, accesses.Wait())
 
 	require.Equal(t, int32(0), *totalCounter)
-	for lockNo := 0; lockNo < len(counters); lockNo++ {
+	for lockNo := range len(counters) {
 		require.Equal(t, int32(0), *counters[lockNo])
 	}
 }

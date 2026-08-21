@@ -34,6 +34,6 @@ type badgerLogger struct {
 }
 
 // Warningf wraps zap's Warnf.
-func (l badgerLogger) Warningf(format string, v ...interface{}) {
+func (l badgerLogger) Warningf(format string, v ...any) {
 	l.Warnf(format, v...)
 }

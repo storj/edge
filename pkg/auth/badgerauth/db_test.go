@@ -40,7 +40,7 @@ func TestStorage(t *testing.T) {
 			Public:               true,
 		}
 
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			kh := authdb.KeyHash{byte(i)}
 
 			var r authdb.Record
@@ -52,7 +52,7 @@ func TestStorage(t *testing.T) {
 			badgerauthtest.Put{KeyHash: kh, Record: &r}.Check(ctx, t, db)
 		}
 
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			kh := authdb.KeyHash{byte(i)}
 
 			var r authdb.Record
@@ -101,7 +101,7 @@ func TestStorage(t *testing.T) {
 		}
 
 		// (3) Check everything.
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			kh := authdb.KeyHash{byte(i)}
 
 			var r authdb.Record

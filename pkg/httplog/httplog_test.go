@@ -62,7 +62,6 @@ func TestStatusLevel(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(fmt.Sprintf("HTTP %d response logged as %s", tc.status, tc.expectedLevel), func(t *testing.T) {
 			require.Equal(t, tc.expectedLevel, StatusLevel(tc.status))
 		})
@@ -97,14 +96,14 @@ func TestConfidentialLogFields(t *testing.T) {
 
 		if test.header != "" {
 			require.Len(t, observedLogs.All(), 1, i)
-			fields, ok := observedLogs.All()[0].ContextMap()["headers"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["headers"].(map[string]any)
 			require.True(t, ok, i)
 			require.Equal(t, "[...]", fields[test.header], i)
 		}
 
 		if test.query != "" {
 			require.Len(t, observedLogs.All(), 1, i)
-			fields, ok := observedLogs.All()[0].ContextMap()["query"].(map[string]interface{})
+			fields, ok := observedLogs.All()[0].ContextMap()["query"].(map[string]any)
 			require.True(t, ok, i)
 			require.Equal(t, "[...]", fields[test.query], i)
 		}

@@ -30,8 +30,8 @@ type DNSClient struct {
 // NewDNSClient creates a DNS Client that uses the given
 // dnsServerAddr. Currently requires that the DNS Server speaks TCP.
 func NewDNSClient(dnsServerAddr string) (*DNSClient, error) {
-	if strings.HasPrefix(dnsServerAddr, "file:") {
-		path := strings.TrimPrefix(dnsServerAddr, "file:")
+	if after, ok := strings.CutPrefix(dnsServerAddr, "file:"); ok {
+		path := after
 
 		data, err := os.ReadFile(path)
 		if err != nil {

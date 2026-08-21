@@ -207,8 +207,7 @@ func setUsageFunc(cmd *cobra.Command) {
 
 func findBoolFlagEarly(flagName string) bool {
 	for i, arg := range os.Args {
-		arg := arg
-		argHasPrefix := func(format string, args ...interface{}) bool {
+		argHasPrefix := func(format string, args ...any) bool {
 			return strings.HasPrefix(arg, fmt.Sprintf(format, args...))
 		}
 

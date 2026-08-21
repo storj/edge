@@ -52,7 +52,7 @@ func TestMutex_LockUnlock(t *testing.T) {
 
 	mu := newMutex(ctx, t, jsonKey, bucket, gcstest.RandPathUTF8(1024), "")
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		require.NoError(t, mu.Lock(ctx))
 		require.NoError(t, mu.Unlock(ctx))
 	}
@@ -79,8 +79,7 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 	}()
 
 	var observedLock uint32
-	for i := 0; i < 10; i++ {
-		i := i
+	for i := range 10 {
 		ctx.Go(func() error {
 			mu := newMutex(ctx, t, jsonKey, bucket, name, strconv.Itoa(i))
 			require.NoError(t, mu.Lock(ctx))

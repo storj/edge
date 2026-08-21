@@ -91,7 +91,6 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 
 	var observedLock uint32
 	for i := range 10 {
-		i := i
 		ctx.Go(func() error {
 			mu := newMutex(ctx, t, cfg, name, strconv.Itoa(i))
 			require.NoError(t, mu.Lock(ctx))

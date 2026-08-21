@@ -60,7 +60,7 @@ func TestCache_Get_Fuzz(t *testing.T) {
 	var ops uint64
 	procs := runtime.GOMAXPROCS(-1)
 
-	for i := 0; i < procs; i++ {
+	for range procs {
 		ctx.Go(func() error {
 			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for {
@@ -73,7 +73,7 @@ func TestCache_Get_Fuzz(t *testing.T) {
 				kidx := rng.Intn(len(keys))
 				key := keys[kidx : kidx+1]
 
-				value, err := cache.Get(ctx, key, func() (interface{}, error) {
+				value, err := cache.Get(ctx, key, func() (any, error) {
 					ran = true
 					if shouldErr {
 						return nil, errs.New("random error")
@@ -107,7 +107,7 @@ func TestCache_Get_Dedup(t *testing.T) {
 	fnCalled := make(chan struct{})
 
 	ctx.Go(func() error {
-		_, _ = cache.Get(ctx, "key", func() (interface{}, error) {
+		_, _ = cache.Get(ctx, "key", func() (any, error) {
 			fnCalled <- struct{}{}
 			time.Sleep(time.Millisecond * 10)
 			return 1, nil
@@ -118,7 +118,7 @@ func TestCache_Get_Dedup(t *testing.T) {
 
 	<-fnCalled
 
-	value, err := cache.Get(ctx, "key", func() (interface{}, error) {
+	value, err := cache.Get(ctx, "key", func() (any, error) {
 		return 0, nil
 	})
 
@@ -180,7 +180,7 @@ func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 
 	var addCounter1 int64 = -1
 	ctx.Go(func() error {
-		for e := int64(0); e < numEntries/2; e++ {
+		for e := range int64(numEntries / 2) {
 			replaced := cache.Add(ctx, strconv.FormatInt(e, 10), e)
 			atomic.AddInt64(&addCounter1, 1)
 
@@ -229,7 +229,7 @@ func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 	ctx.Go(func() error {
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		for e := uint64(0); e < numEntries; e++ {
+		for range uint64(numEntries) {
 			key := rng.Int63n(numEntries) + numEntries
 
 			_, cached := cache.GetCached(ctx, strconv.FormatInt(key, 10))

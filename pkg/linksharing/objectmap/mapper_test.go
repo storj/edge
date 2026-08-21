@@ -78,7 +78,6 @@ func TestIPDB_GetIPInfos_Concurrent(t *testing.T) {
 	group, _ := errgroup.WithContext(context.Background())
 
 	for _, ip := range ips {
-		ip := ip
 		t.Run(ip, func(t *testing.T) {
 			group.Go(func() error {
 				ipInfo, err := mapper.GetIPInfos(ctx, ip)
@@ -98,7 +97,6 @@ func TestIPDB_GetIPInfos_Concurrent(t *testing.T) {
 	}
 
 	for _, ip := range ipv6addresses {
-		ip := ip
 		t.Run(ip, func(t *testing.T) {
 			group.Go(func() error {
 				ipInfo, err := mapper.GetIPInfos(ctx, ip)

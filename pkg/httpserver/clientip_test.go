@@ -128,7 +128,6 @@ func TestClientIP(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			r := &http.Request{
 				RemoteAddr: tc.remoteAddr,

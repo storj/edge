@@ -178,10 +178,7 @@ func (records *TXTRecords) queryAccessFromDNS(ctx context.Context, hostname stri
 		return nil, errs.New("failure with hostname %q: %w", hostname, err)
 	}
 
-	ttl := set.TTL()
-	if ttl > records.maxTTL {
-		ttl = records.maxTTL
-	}
+	ttl := min(set.TTL(), records.maxTTL)
 
 	return &txtRecord{
 		queryResult: Result{

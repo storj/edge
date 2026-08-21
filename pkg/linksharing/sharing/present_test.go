@@ -50,7 +50,6 @@ func TestDownloadMetadataHeaders(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Config{
 				ListPageLimit: 1,
@@ -225,7 +224,6 @@ func TestContentDisposition(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Config{
 				ListPageLimit:          1,
@@ -381,7 +379,6 @@ func TestContentType(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.expected, contentType(tc.key, tc.metadata, tc.detectType))
 		})

@@ -121,7 +121,6 @@ func TestLoadUserResponse(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte(tc.authResponse))
@@ -152,7 +151,6 @@ func TestBadStatusPassedThrough(t *testing.T) {
 		{status: http.StatusUnauthorized},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(fmt.Sprintf("HTTP %d", tc.status), func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tc.status)

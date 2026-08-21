@@ -97,7 +97,7 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			resp, err := service.ResolveWithCache(ctx, accessKeyID, clientIP)
 			require.NoError(t, err)
 			assert.Equal(t, accessGrant, resp.AccessGrant)
@@ -133,7 +133,7 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			resp, err := service.ResolveWithCache(ctx, accessKeyID, clientIP)
 			assert.Error(t, err)
 
@@ -169,7 +169,7 @@ func TestAuthClient_ResolveWithCache(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		for i := 0; i < expectedCacheMisses; i++ {
+		for range expectedCacheMisses {
 			resp, err := service.ResolveWithCache(ctx, accessKeyID, clientIP)
 			assert.Error(t, err)
 

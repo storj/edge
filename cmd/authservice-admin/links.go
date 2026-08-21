@@ -148,8 +148,6 @@ func isOnline(ctx context.Context, url string) (bool, error) {
 	responses := make([]bool, len(methods))
 	var group errgroup.Group
 	for i, method := range methods {
-		i := i
-		method := method
 		group.Go(func() error {
 			req, err := http.NewRequestWithContext(ctx, method, url, nil)
 			if err != nil {

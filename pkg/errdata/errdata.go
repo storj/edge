@@ -11,11 +11,11 @@ import (
 
 type errWrap struct {
 	error
-	key, val interface{}
+	key, val any
 }
 
 type errWithValue interface {
-	Value(key interface{}) interface{}
+	Value(key any) any
 }
 
 var _ errWithValue = errWrap{}
@@ -34,7 +34,7 @@ func (e errWrap) Name() (string, bool) {
 	return "", false
 }
 
-func (e errWrap) Value(key interface{}) interface{} {
+func (e errWrap) Value(key any) any {
 	if e.key == key {
 		return e.val
 	}
@@ -42,7 +42,7 @@ func (e errWrap) Value(key interface{}) interface{} {
 }
 
 // Value returns the most recent annotation by key on this error.
-func Value(err error, key interface{}) interface{} {
+func Value(err error, key any) any {
 	for e := err; e != nil; e = errors.Unwrap(e) {
 		if u, ok := e.(errWithValue); ok {
 			return u.Value(key)
@@ -53,7 +53,7 @@ func Value(err error, key interface{}) interface{} {
 
 // Annotate returns a new error annotated with the provided key and value.
 // If err is nil, does nothing.
-func Annotate(err error, key, val interface{}) error {
+func Annotate(err error, key, val any) error {
 	if err == nil {
 		return nil
 	}

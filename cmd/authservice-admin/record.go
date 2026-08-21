@@ -21,7 +21,7 @@ import (
 
 type record struct {
 	AuthRecord authadminclient.Record              `json:"auth_record"`
-	SatRecord  satelliteadminclient.APIKeyResponse `json:"satellite_record,omitempty"`
+	SatRecord  satelliteadminclient.APIKeyResponse `json:"satellite_record"`
 }
 
 type cmdRecordShow struct {

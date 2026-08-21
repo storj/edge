@@ -51,7 +51,7 @@ func IsAcceptable(coding string, header http.Header) bool {
 func ParseAcceptEncoding(header http.Header) map[string]float64 {
 	codingWeights := make(map[string]float64)
 	value := strings.ToLower(spaceReplacer.Replace(header.Get("Accept-Encoding")))
-	for _, codingWeight := range strings.Split(value, ",") {
+	for codingWeight := range strings.SplitSeq(value, ",") {
 		parts := strings.Split(codingWeight, ";")
 		if parts[0] == "" {
 			continue
