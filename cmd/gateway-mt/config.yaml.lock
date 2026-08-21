@@ -88,9 +88,6 @@ cert-magic.staging: false
 # cert storage backend: gcs or s3
 cert-magic.storage-provider: gcs
 
-# timeout for dials
-# client.dial-timeout: 10s
-
 # path to the certificate chain for this identity
 client.identity.cert-path: ""
 

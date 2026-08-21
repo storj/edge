@@ -229,9 +229,8 @@ func configureUplinkConfig(clientConfig ClientConfig) (uplink.Config, error) {
 		return uplink.Config{}, err
 	}
 	ret := uplink.Config{
-		DialTimeout: clientConfig.DialTimeout,
-		ChainPEM:    clientCertPEM,
-		KeyPEM:      clientKeyPEM,
+		ChainPEM: clientCertPEM,
+		KeyPEM:   clientKeyPEM,
 	}
 
 	transport.SetMaximumBufferSize(&ret, clientConfig.MaximumBufferSize.Int())

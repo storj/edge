@@ -47,7 +47,6 @@ type LinkSharing struct {
 	DNSServer              string        `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
 	LandingRedirectTarget  string        `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
 	RedirectHTTPS          bool          `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
-	DialTimeout            time.Duration `help:"timeout for dials" default:"10s"`
 	IdleTimeout            time.Duration `help:"timeout for idle connections" default:"60s"`
 	StandardRendersContent bool          `user:"true" help:"enable standard (non-hosting) requests to render content and not only download it" default:"false"`
 	StandardViewsHTML      bool          `user:"true" help:"serve HTML as text/html instead of text/plain for standard (non-hosting) requests" default:"false"`
@@ -226,10 +225,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			StandardViewsHTML:       runCfg.StandardViewsHTML,
 			StandardRendersContent:  runCfg.StandardRendersContent,
 			Uplink: &uplink.Config{
-				UserAgent:   "linksharing",
-				DialTimeout: runCfg.DialTimeout,
-				ChainPEM:    clientCertPEM,
-				KeyPEM:      clientKeyPEM,
+				UserAgent: "linksharing",
+				ChainPEM:  clientCertPEM,
+				KeyPEM:    clientKeyPEM,
 			},
 			ListPageLimit:         runCfg.ListPageLimit,
 			BlockedPaths:          strings.Split(runCfg.BlockedPaths, ","),
