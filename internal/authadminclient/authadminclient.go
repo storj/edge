@@ -6,6 +6,7 @@ package authadminclient
 import (
 	"context"
 	"encoding/hex"
+	"slices"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -72,16 +73,47 @@ func (r *Record) updateFromAuthDB(dbRecord *authdb.FullRecord, encKey authdb.Enc
 // Config configures Client.
 type Config struct {
 	SQL sqlauth.Config
+
+	// SQLMigrationDestination is the destination database of an in-progress
+	// sqlmigration backend migration, and should be set for as long as that
+	// migration window is open.
+	//
+	// The backfill only inserts into the destination, so a mutation applied
+	// to the source alone is lost once the destination is served from: a
+	// revoked key keeps authenticating, an unpublished record stays public,
+	// a deleted one comes back. Setting this makes Invalidate, Unpublish and
+	// Delete apply to both databases, the same way the sqlmigration backend
+	// does for records written through authservice itself.
+	SQLMigrationDestination sqlauth.Config
 }
 
 // Open returns an initialized Client connected to the configured databases.
+//
+// Mutations (Invalidate, Unpublish, Delete) are applied to every configured
+// database; reads return the first database holding the record.
 func Open(ctx context.Context, config Config, log *zap.Logger) (*Client, error) {
 	client := &Client{config: config, log: log}
 
-	if config.SQL.URL != "" {
-		kv, err := sqlauth.Open(ctx, log, config.SQL.URL, sqlauth.Options{ApplicationName: "authservice-admin"})
+	if config.SQLMigrationDestination.URL != "" && config.SQL.URL == "" {
+		// mutating the destination alone is the mirror of mutating the source
+		// alone: it diverges the two databases in a way nothing reconciles,
+		// and reads would still look right because the destination is
+		// preferred. Refuse rather than silently do it.
+		return nil, Error.New("a migration destination was configured without a source database")
+	}
+
+	// admins is ordered source first: mutations are applied in this order (see
+	// withDBs), and a mutation must reach the source before the destination so
+	// that a backfill reading the source afterwards copies across the mutated
+	// row rather than a stale one. Reads want the opposite order, and take it
+	// themselves (see Get).
+	for _, cfg := range []sqlauth.Config{config.SQL, config.SQLMigrationDestination} {
+		if cfg.URL == "" {
+			continue
+		}
+		kv, err := sqlauth.Open(ctx, log, cfg.URL, sqlauth.Options{ApplicationName: "authservice-admin"})
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, Error.Wrap(errs.Combine(err, client.Close()))
 		}
 		client.admins = append(client.admins, kv)
 	}
@@ -117,7 +149,10 @@ func (c *Client) Get(ctx context.Context, encodedKey string) (record Record, err
 	}
 
 	var resp *authdb.FullRecord
-	for i, a := range c.admins {
+	// iterated in reverse of the mutation order admins is stored in, so that a
+	// sqlmigration destination is read first: once a record has been copied
+	// there, that is the copy authservice serves.
+	for i, a := range slices.Backward(c.admins) {
 		resp, err = a.GetFullRecord(ctx, key.hash)
 		if err != nil || resp == nil {
 			c.log.Warn("Get", zap.String("key", encodedKey), zap.Int("backend_index", i), zap.Error(err))

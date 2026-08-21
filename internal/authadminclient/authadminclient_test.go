@@ -213,6 +213,201 @@ func TestResolveRecord(t *testing.T) {
 	})
 }
 
+// TestMigrationDestination covers a client configured with both databases of
+// an in-progress sqlmigration: mutations must reach both, since the backfill
+// never updates what it has already copied into the destination, and reads
+// must prefer the destination, matching how the backend resolves a record.
+func TestMigrationDestination(t *testing.T) {
+	connstr := pgtest.PickPostgres(t)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	logger := zaptest.NewLogger(t)
+
+	srcDB, err := pgtest.OpenUnique(ctx, connstr, t.Name()+"_src")
+	require.NoError(t, err)
+	defer ctx.Check(srcDB.Close)
+	dstDB, err := pgtest.OpenUnique(ctx, connstr, t.Name()+"_dst")
+	require.NoError(t, err)
+	defer ctx.Check(dstDB.Close)
+
+	src, err := sqlauth.Open(ctx, logger, srcDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	require.NoError(t, err)
+	defer ctx.Check(src.Close)
+	require.NoError(t, src.MigrateToLatest(ctx))
+
+	dst, err := sqlauth.Open(ctx, logger, dstDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	require.NoError(t, err)
+	defer ctx.Check(dst.Close)
+	require.NoError(t, dst.MigrateToLatest(ctx))
+
+	admin, err := authadminclient.Open(ctx, authadminclient.Config{
+		SQL:                     sqlauth.Config{URL: srcDB.ConnStr},
+		SQLMigrationDestination: sqlauth.Config{URL: dstDB.ConnStr},
+	}, logger)
+	require.NoError(t, err)
+	defer ctx.Check(admin.Close)
+
+	newRecord := func() *authdb.Record {
+		return &authdb.Record{
+			SatelliteAddress:     testSatelliteURL,
+			MacaroonHead:         testrand.Bytes(32),
+			EncryptedSecretKey:   testrand.Bytes(32),
+			EncryptedAccessGrant: testrand.Bytes(32),
+			Public:               true,
+		}
+	}
+
+	// a key the backfill has already copied, so it exists in both databases.
+	var copied authdb.KeyHash
+	testrand.Read(copied[:])
+	rec := newRecord()
+	require.NoError(t, src.Put(ctx, copied, rec))
+	require.NoError(t, dst.Put(ctx, copied, rec))
+
+	// invalidating it must take effect in the destination too, otherwise the
+	// revoked key keeps authenticating once the destination is served from.
+	require.NoError(t, admin.Invalidate(ctx, copied.ToHex(), "revoked"))
+	for name, kv := range map[string]*sqlauth.KV{"source": src, "destination": dst} {
+		got, err := kv.GetFullRecord(ctx, copied)
+		require.NoError(t, err, name)
+		require.NotNil(t, got, name)
+		require.True(t, got.IsInvalid(), "%s: invalidation did not reach this database", name)
+	}
+
+	// unpublish likewise.
+	var published authdb.KeyHash
+	testrand.Read(published[:])
+	pubRec := newRecord()
+	require.NoError(t, src.Put(ctx, published, pubRec))
+	require.NoError(t, dst.Put(ctx, published, pubRec))
+
+	require.NoError(t, admin.Unpublish(ctx, published.ToHex()))
+	for name, kv := range map[string]*sqlauth.KV{"source": src, "destination": dst} {
+		got, err := kv.GetFullRecord(ctx, published)
+		require.NoError(t, err, name)
+		require.NotNil(t, got, name)
+		require.False(t, got.Public, "%s: unpublish did not reach this database", name)
+	}
+
+	// and delete must not leave the row behind in the destination to be
+	// resurrected at cutover.
+	var deleted authdb.KeyHash
+	testrand.Read(deleted[:])
+	delRec := newRecord()
+	require.NoError(t, src.Put(ctx, deleted, delRec))
+	require.NoError(t, dst.Put(ctx, deleted, delRec))
+
+	require.NoError(t, admin.Delete(ctx, deleted.ToHex()))
+	for name, kv := range map[string]*sqlauth.KV{"source": src, "destination": dst} {
+		got, err := kv.GetFullRecord(ctx, deleted)
+		require.NoError(t, err, name)
+		require.Nil(t, got, "%s: delete did not reach this database", name)
+	}
+
+	// reads prefer the destination: with a different record under the same
+	// key in each database, the destination's is the one returned.
+	var diverged authdb.KeyHash
+	testrand.Read(diverged[:])
+	srcRec, dstRec := newRecord(), newRecord()
+	srcRec.SatelliteAddress = "src.storj.test"
+	dstRec.SatelliteAddress = "dst.storj.test"
+	require.NoError(t, src.Put(ctx, diverged, srcRec))
+	require.NoError(t, dst.Put(ctx, diverged, dstRec))
+
+	got, err := admin.Get(ctx, diverged.ToHex())
+	require.NoError(t, err)
+	require.Equal(t, dstRec.SatelliteAddress, got.SatelliteAddress)
+
+	// a key only the source has (not yet backfilled) still resolves.
+	var srcOnly authdb.KeyHash
+	testrand.Read(srcOnly[:])
+	srcOnlyRec := newRecord()
+	require.NoError(t, src.Put(ctx, srcOnly, srcOnlyRec))
+
+	got, err = admin.Get(ctx, srcOnly.ToHex())
+	require.NoError(t, err)
+	require.Equal(t, srcOnlyRec.EncryptedAccessGrant, got.EncryptedAccessGrant)
+}
+
+// TestMigrationDestinationMutationOrder pins mutations to source-then-
+// destination, matching sqlmigration.Storage. A mutation must reach the
+// source before the destination: a backfill worker reading the source in
+// between would otherwise copy the pre-mutation row into a destination it has
+// just been applied to, and nothing overwrites it afterwards.
+func TestMigrationDestinationMutationOrder(t *testing.T) {
+	connstr := pgtest.PickPostgres(t)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	logger := zaptest.NewLogger(t)
+
+	srcDB, err := pgtest.OpenUnique(ctx, connstr, t.Name()+"_src")
+	require.NoError(t, err)
+	defer ctx.Check(srcDB.Close)
+	dstDB, err := pgtest.OpenUnique(ctx, connstr, t.Name()+"_dst")
+	require.NoError(t, err)
+	defer ctx.Check(dstDB.Close)
+
+	src, err := sqlauth.Open(ctx, logger, srcDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	require.NoError(t, err)
+	defer ctx.Check(src.Close)
+	require.NoError(t, src.MigrateToLatest(ctx))
+
+	dst, err := sqlauth.Open(ctx, logger, dstDB.ConnStr, sqlauth.Options{ApplicationName: "test"})
+	require.NoError(t, err)
+	defer ctx.Check(dst.Close)
+	require.NoError(t, dst.MigrateToLatest(ctx))
+
+	admin, err := authadminclient.Open(ctx, authadminclient.Config{
+		SQL:                     sqlauth.Config{URL: srcDB.ConnStr},
+		SQLMigrationDestination: sqlauth.Config{URL: dstDB.ConnStr},
+	}, logger)
+	require.NoError(t, err)
+	defer ctx.Check(admin.Close)
+
+	var keyHash authdb.KeyHash
+	testrand.Read(keyHash[:])
+	rec := &authdb.Record{
+		SatelliteAddress:     testSatelliteURL,
+		MacaroonHead:         testrand.Bytes(32),
+		EncryptedSecretKey:   testrand.Bytes(32),
+		EncryptedAccessGrant: testrand.Bytes(32),
+		Public:               true,
+	}
+	require.NoError(t, src.Put(ctx, keyHash, rec))
+	require.NoError(t, dst.Put(ctx, keyHash, rec))
+
+	// break the source so its leg of the mutation fails. Mutations are applied
+	// to every database regardless of the others failing, so the order is not
+	// observable from which rows changed; it is observable from the failure,
+	// which the client tags with the position of the database that produced
+	// it. The source failing as position 0 is the invariant under test.
+	_, err = srcDB.DB.ExecContext(ctx, `DROP TABLE records`)
+	require.NoError(t, err)
+
+	err = admin.Delete(ctx, keyHash.ToHex())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "0:", "source must be mutated before the destination")
+
+	// and the destination was still mutated despite the source failing.
+	got, err := dst.GetFullRecord(ctx, keyHash)
+	require.NoError(t, err)
+	require.Nil(t, got)
+}
+
+// TestMigrationDestinationWithoutSource covers the mirror of pointing admin
+// tooling at the source alone: a destination with no source silently mutates
+// only the destination, and reads still look right because the destination is
+// preferred, so it is refused instead.
+func TestMigrationDestinationWithoutSource(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	_, err := authadminclient.Open(ctx, authadminclient.Config{
+		SQLMigrationDestination: sqlauth.Config{URL: "postgres://localhost/nonexistent"},
+	}, zap.NewNop())
+	require.Error(t, err)
+}
+
 func verifyRecords(
 	ctx *testcontext.Context,
 	t *testing.T,

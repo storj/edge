@@ -109,6 +109,10 @@ func getAuthAdminClientConfig(params clingy.Parameters) authadminclient.Config {
 		SQL: sqlauth.Config{
 			URL: params.Flag("storage.sql.url", "connection URL to SQL database", "").(string),
 		},
+		SQLMigrationDestination: sqlauth.Config{
+			URL: params.Flag("storage.sql-migration-destination.url",
+				"connection URL to the destination SQL database of an in-progress sqlmigration; set this for the whole migration window so mutations reach both databases", "").(string),
+		},
 	}
 }
 

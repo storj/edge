@@ -22,6 +22,22 @@ Example command:
 $ authservice-admin record show jwaohtj3dhixxfpzhwj522x7z3pb --storage.sql.url "postgres://user:pass@host/db"
 ```
 
+## During a sqlmigration migration
+
+While authservice is migrating between two SQL databases (`--kv-backend sqlmigration://`), pass the destination database as well:
+
+```console
+$ authservice-admin record invalidate jwaohtj3dhixxfpzhwj522x7z3pb "reason" \
+	--storage.sql.url "postgres://user:pass@source/db" \
+	--storage.sql-migration-destination.url "postgres://user:pass@destination/db"
+```
+
+This is required for the whole migration window, not just while the backfill is running. The backfill only inserts into the destination and never updates or removes what it has already copied, and reads prefer the destination, so an invalidate, unpublish, or delete applied to the source alone is silently lost at cutover: a revoked access key keeps authenticating, an unpublished record stays public, and a deleted record comes back.
+
+With both flags set, mutations are applied to the source first and then the destination, and `record show` returns the destination's copy of a record when it has one.
+
+Note that the flags alone are not sufficient while the backfill of step 1 is still running. The backfill holds a batch of records in memory between reading them from the source and writing them to the destination, and it never overwrites what it finds there, so a record read into a batch before a mutation and written after it lands in the destination in its pre-mutation state. Mutations issued while the backfill is running must be re-applied once it completes, or verified with `record show`.
+
 ## Interacting with Satellite admin
 
 Optionally you can supply [satellite admin](https://github.com/storj/storj/tree/main/satellite/admin) addresses for this tool to interact with the satellite.
