@@ -16,6 +16,7 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
+	"storj.io/edge/pkg/eventkitotel"
 	"storj.io/edge/pkg/simplegateway"
 	minio "storj.io/minio/cmd"
 )
@@ -89,9 +90,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	log := zap.L()
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, nil, process.MetricsIDFromHostname(log), eventkitotel.Destination); err != nil {
 		return errs.New("Failed to initialize telemetry batcher: %w", err)
 	}
+	defer eventkitotel.Shutdown(log)
 
 	zap.S().Info("Starting S3 Gateway")
 	zap.S().Infof("Endpoint: %s", address)

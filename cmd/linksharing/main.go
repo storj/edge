@@ -21,6 +21,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/process"
 	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/eventkitotel"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/linksharing"
 	"storj.io/edge/pkg/linksharing/sharing"
@@ -154,9 +155,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	log := zap.L()
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, nil, process.MetricsIDFromHostname(log), eventkitotel.Destination); err != nil {
 		return errs.New("failed to initialize telemetry batcher: %w", err)
 	}
+	defer eventkitotel.Shutdown(log)
 
 	publicURLs := strings.Split(runCfg.PublicURL, ",")
 

@@ -22,6 +22,7 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/process"
 	"storj.io/edge/pkg/authclient"
+	"storj.io/edge/pkg/eventkitotel"
 	"storj.io/edge/pkg/server"
 )
 
@@ -86,9 +87,10 @@ func cmdRun(cmd *cobra.Command, _ []string) (err error) {
 
 	log := zap.L()
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, nil, process.MetricsIDFromHostname(log), eventkitotel.Destination); err != nil {
 		return errs.New("Failed to initialize telemetry batcher: %w", err)
 	}
+	defer eventkitotel.Shutdown(log)
 
 	log.Info("Starting Storj DCS S3 Gateway")
 

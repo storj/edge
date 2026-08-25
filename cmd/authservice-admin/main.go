@@ -17,15 +17,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/edge/internal/authadminclient"
 	"storj.io/edge/internal/satelliteadminclient"
 	"storj.io/edge/pkg/auth/sqlauth"
+	"storj.io/edge/pkg/eventkitotel"
 	"storj.io/eventkit"
-	"storj.io/eventkit/bigquery"
 )
 
 var (
@@ -52,7 +51,9 @@ func main() {
 func run() (bool, error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 
-	var eg errgroup.Group
+	// set when the event destination cannot be created: the callback cannot
+	// return an error, and the failure must not be swallowed.
+	var eventsErr error
 
 	ok, err := clingy.Environment{}.Run(ctx, func(cmds clingy.Commands) {
 		logEnabled := cmds.Flag("log.enabled", "log debug messages", false,
@@ -67,23 +68,16 @@ func run() (bool, error) {
 			logger.SetOutput(os.Stderr)
 		}
 
-		addr := cmds.Flag("events.addr", "address to send events to", "").(string)
+		addr := cmds.Flag("events.addr", "address(es) to send events to: "+eventkitotel.Prefix+"host:port for an OTLP/HTTP collector, "+eventkitotel.SecurePrefix+"host:port for the same over TLS, or a bare host:port for eventkitd over UDP", "").(string)
 		if addr != "" {
-			logger.Printf("sending events to %s", addr)
-			var ed eventkit.Destination = eventkit.NewUDPClient("authservice-admin", "v0.0.0", "", addr)
-			if strings.HasPrefix(addr, "bigquery:") {
-				var err error
-				ed, err = bigquery.CreateDestination(ctx, addr)
-				if err != nil {
-					logger.Printf("create bigquery destination: %s", err)
-					return
-				}
+			// zapLogger discards everything unless --log.enabled is given, so a
+			// broken destination has to come back as an error, otherwise the
+			// command would keep running with the events silently dropped.
+			if err := eventkitotel.Setup(ctx, zapLogger, addr, eventkit.DefaultRegistry, "authservice-admin", ""); err != nil {
+				eventsErr = errs.New("failed to send events to %s: %v", addr, err)
+				return
 			}
-			eventkit.DefaultRegistry.AddDestination(ed)
-			eg.Go(func() error {
-				ed.Run(ctx)
-				return nil
-			})
+			logger.Printf("sending events to %s", addr)
 		}
 
 		cmds.Group("record", "record commands", func() {
@@ -100,9 +94,12 @@ func run() (bool, error) {
 
 	stop()
 
-	// wait for event collector to shut down after context cancelled.
-	// no errors are returned, so there's no need to check.
-	_ = eg.Wait()
+	// flush the events collected so far after the context was cancelled.
+	eventkitotel.Shutdown(zapLogger)
+
+	if eventsErr != nil {
+		return false, eventsErr
+	}
 
 	return ok, err
 }
