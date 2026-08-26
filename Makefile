@@ -1,4 +1,4 @@
-COMPONENTLIST := gateway-mt authservice linksharing simplegateway mcp-server
+COMPONENTLIST := gateway-mt authservice linksharing simplegateway
 
 #
 # Common
