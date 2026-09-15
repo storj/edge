@@ -53,7 +53,7 @@ func Resolve(ctx context.Context, configValues []string) (satMap map[storj.NodeU
 			if err != nil {
 				return satMap, hasNodeList, Error.Wrap(err)
 			}
-		} else if _, err := os.Stat(c); err == nil {
+		} else if _, statErr := os.Stat(c); statErr == nil {
 			hasNodeList = true
 			bodyBytes, err := os.ReadFile(c)
 			if err != nil {
@@ -63,10 +63,12 @@ func Resolve(ctx context.Context, configValues []string) (satMap map[storj.NodeU
 			if err != nil {
 				return satMap, hasNodeList, Error.Wrap(err)
 			}
-		} else if nodeURL, err := ParseNodeURL(c); err == nil {
+		} else if nodeURL, parseErr := ParseNodeURL(c); parseErr == nil {
 			satMap[nodeURL] = struct{}{}
 		} else {
-			return satMap, hasNodeList, Error.New("unknown config value '%s'", c)
+			// which of the three forms was intended isn't knowable here, so
+			// report why each of the two non-URL ones was rejected.
+			return satMap, hasNodeList, Error.New("unknown config value '%s': not a readable file (%v) and not a node URL (%v)", c, statErr, parseErr)
 		}
 	}
 	return satMap, hasNodeList, nil

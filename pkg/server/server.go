@@ -58,6 +58,12 @@ type Peer struct {
 
 	closeLayer func(context.Context) error
 
+	// the processor must be closed exactly once: Run closes it when the HTTP
+	// server stops, and Close closes it during regular shutdown, whichever
+	// comes first.
+	closeProcessorOnce sync.Once
+	closeProcessorErr  error
+
 	inShutdown int32
 }
 
@@ -267,10 +273,36 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 
 	g.Go(s.processor.Run)
 	g.Go(func() error {
+		// The processor only returns from Run once it's closed, so if the
+		// HTTP server stops on its own (e.g. the startup check failed), close
+		// the processor here. Otherwise waiting for the group below would
+		// block forever, and the server's error would never be reported. Any
+		// error here isn't dropped: closeProcessor memoizes it for Close.
+		//
+		// Only when Close isn't already driving this, though: Shutdown makes
+		// Serve return as soon as the listeners are closed, while in-flight
+		// requests are still being drained and still queueing access log
+		// entries. Closing the processor at that point would drop them. Close
+		// closes the processor unconditionally once the drain is done, so
+		// waiting for the group below still terminates.
+		defer func() {
+			if atomic.LoadInt32(&s.inShutdown) == 0 {
+				_ = s.closeProcessor()
+			}
+		}()
 		return s.server.Run(ctx)
 	})
 
 	return errs.Combine(g.Wait()...)
+}
+
+// closeProcessor closes the access logs processor, at most once. Closing it
+// twice would queue already-shipped parcels onto a closed upload queue.
+func (s *Peer) closeProcessor() error {
+	s.closeProcessorOnce.Do(func() {
+		s.closeProcessorErr = s.processor.Close()
+	})
+	return s.closeProcessorErr
 }
 
 // Close shuts down the server and all underlying resources.
@@ -286,7 +318,7 @@ func (s *Peer) Close() error {
 
 	// NOTE: httpserver.Shutdown and accesslogs.Processor has its own
 	// configured timeout.
-	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.server.Shutdown(), s.processor.Close()))
+	return Error.Wrap(errs.Combine(s.closeLayer(ctx), s.server.Shutdown(), s.closeProcessor()))
 }
 
 // Address returns the web address the peer is listening on.

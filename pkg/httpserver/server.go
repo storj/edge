@@ -324,6 +324,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 	if server.startupCheck != nil {
 		if err = server.startupCheck.Check(ctx); err != nil {
+			server.log.Error("startup check failed, not starting listeners", zap.Error(err))
 			return err
 		}
 	}
