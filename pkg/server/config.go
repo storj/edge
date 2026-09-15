@@ -67,7 +67,7 @@ type certMagic struct {
 
 type startupCheck struct {
 	Enabled    bool          `user:"true" help:"whether to check for satellite connectivity before starting" default:"true"`
-	Satellites []string      `user:"true" help:"list of satellite NodeURLs" default:"https://www.storj.io/dcs-satellites"`
+	Satellites []string      `user:"true" help:"list of satellite NodeURLs" default:"https://static.storj.io/dcs-satellites"`
 	Timeout    time.Duration `user:"true" help:"maximum time to spend on checks" default:"30s"`
 }
 

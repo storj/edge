@@ -216,7 +216,7 @@ startup-check.enabled: true
 
 # list of satellite NodeURLs
 startup-check.satellites:
-- https://www.storj.io/dcs-satellites
+- https://static.storj.io/dcs-satellites
 
 # maximum time to spend on checks
 startup-check.timeout: 30s
