@@ -262,17 +262,19 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		nextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
 	}
 
+	errorLog := newServerErrorLog(log)
+
 	server := &http.Server{
 		IdleTimeout: config.IdleTimeout,
 		Handler:     handler,
-		ErrorLog:    zap.NewStdLog(log),
+		ErrorLog:    errorLog,
 	}
 
 	serverTLS := &http.Server{
 		IdleTimeout:  config.IdleTimeout,
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
-		ErrorLog:     zap.NewStdLog(log),
+		ErrorLog:     errorLog,
 		TLSNextProto: nextProto,
 	}
 
@@ -280,7 +282,7 @@ func New(log *zap.Logger, handler http.Handler, decisionFunc CertMagicOnDemandDe
 		IdleTimeout:  config.IdleTimeout,
 		Handler:      handler,
 		TLSConfig:    tlsConfig.Clone(),
-		ErrorLog:     zap.NewStdLog(log),
+		ErrorLog:     errorLog,
 		TLSNextProto: nextProto,
 	}
 

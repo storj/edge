@@ -4,7 +4,9 @@
 package httpserver
 
 import (
+	stdlog "log"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,6 +18,39 @@ import (
 	"storj.io/common/process/gcloudlogging"
 	"storj.io/edge/pkg/httplog"
 )
+
+// tlsHandshakeErrorPrefix is what net/http prefixes failed TLS handshakes
+// with. They are entirely client-driven (aborted connections, port scanners,
+// health checks) and too noisy to keep at info level.
+const tlsHandshakeErrorPrefix = "http: TLS handshake error"
+
+// newServerErrorLog returns a logger to be used as http.Server.ErrorLog. It
+// behaves like zap.NewStdLog (logging at info level), except that TLS
+// handshake errors are logged at debug level.
+func newServerErrorLog(log *zap.Logger) *stdlog.Logger {
+	// the same caller skip zap.NewStdLog uses, so that the caller still points
+	// at net/http instead of at serverErrorWriter.Write.
+	return stdlog.New(&serverErrorWriter{log: log.WithOptions(zap.AddCallerSkip(3))}, "", 0)
+}
+
+type serverErrorWriter struct {
+	log *zap.Logger
+}
+
+func (w *serverErrorWriter) Write(p []byte) (int, error) {
+	msg := strings.TrimRight(string(p), "\n")
+
+	level := zapcore.InfoLevel
+	if strings.HasPrefix(msg, tlsHandshakeErrorPrefix) {
+		level = zapcore.DebugLevel
+	}
+
+	if ce := w.log.Check(level, msg); ce != nil {
+		ce.Write()
+	}
+
+	return len(p), nil
+}
 
 func logRequests(log *zap.Logger, h http.Handler) http.Handler {
 	return whroute.HandlerFunc(h, func(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
 
@@ -87,6 +88,32 @@ func TestRemoteIP(t *testing.T) {
 			require.True(t, ok)
 
 			require.Equal(t, tc.expectedIP, fields["remoteIp"])
+		})
+	}
+}
+
+func TestServerErrorLog(t *testing.T) {
+	for _, tc := range []struct {
+		msg   string
+		level zapcore.Level
+	}{
+		{
+			msg:   "http: TLS handshake error from 1.2.3.4:65049: EOF",
+			level: zap.DebugLevel,
+		},
+		{
+			msg:   "http: superfluous response.WriteHeader call",
+			level: zap.InfoLevel,
+		},
+	} {
+		t.Run(tc.msg, func(t *testing.T) {
+			observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+
+			newServerErrorLog(zap.New(observedZapCore)).Print(tc.msg)
+
+			require.Len(t, observedLogs.All(), 1)
+			require.Equal(t, tc.msg, observedLogs.All()[0].Message)
+			require.Equal(t, tc.level, observedLogs.All()[0].Level)
 		})
 	}
 }
