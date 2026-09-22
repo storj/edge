@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/accesslogs"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/httpserver"
 )
 

@@ -20,9 +20,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/webhelp.v1/whmon"
 
-	"storj.io/common/accesslogs"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/serveraccesslogs"
@@ -219,7 +219,7 @@ func TestProcessLogEntry(t *testing.T) {
 	defer ctx.Check(log.Sync)
 
 	p := accesslogs.NewProcessor(log, accesslogs.Options{})
-	ctx.Go(p.Run)
+	ctx.Go(func() error { return p.Run(ctx) })
 
 	project1, _ := uuid.New()
 	project2, _ := uuid.New()

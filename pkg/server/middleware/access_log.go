@@ -20,8 +20,8 @@ import (
 	"gopkg.in/webhelp.v1/whmon"
 	"gopkg.in/webhelp.v1/whroute"
 
-	"storj.io/common/accesslogs"
 	"storj.io/common/uuid"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/serveraccesslogs"

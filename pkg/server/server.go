@@ -19,11 +19,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/accesslogs"
 	"storj.io/common/errs2"
 	"storj.io/common/http/requestid"
 	"storj.io/common/rpc/rpcpool"
+	"storj.io/common/sync2"
 	"storj.io/common/version"
+	"storj.io/edge/pkg/accesslogs"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/minio"
@@ -63,6 +64,8 @@ type Peer struct {
 	// comes first.
 	closeProcessorOnce sync.Once
 	closeProcessorErr  error
+	// processorClosed is signaled once closeProcessor has returned.
+	processorClosed sync2.Event
 
 	inShutdown int32
 }
@@ -271,7 +274,26 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 
 	var g errs2.Group
 
-	g.Go(s.processor.Run)
+	// The processor has to outlive the HTTP server's drain, because requests
+	// that are still in flight queue access log entries into it. So it
+	// deliberately doesn't get ctx: cancelling ctx is how a graceful shutdown
+	// starts, and it reaches us while Close is still draining the server.
+	// Close stops the processor instead, once that drain has finished.
+	//
+	// It still gets a context that is canceled once closing the processor has
+	// returned, though. If closing gave up on its shutdown timeout because an
+	// upload is wedged, that's the last resort that makes Run return, so that
+	// the group below doesn't wait for the wedged upload forever.
+	processorCtx, cancelProcessor := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancelProcessor()
+	go func() {
+		select {
+		case <-s.processorClosed.Signaled():
+			cancelProcessor()
+		case <-processorCtx.Done():
+		}
+	}()
+	g.Go(func() error { return s.processor.Run(processorCtx) })
 	g.Go(func() error {
 		// The processor only returns from Run once it's closed, so if the
 		// HTTP server stops on its own (e.g. the startup check failed), close
@@ -301,6 +323,7 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 func (s *Peer) closeProcessor() error {
 	s.closeProcessorOnce.Do(func() {
 		s.closeProcessorErr = s.processor.Close()
+		s.processorClosed.Signal()
 	})
 	return s.closeProcessorErr
 }
