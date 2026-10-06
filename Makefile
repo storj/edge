@@ -133,16 +133,21 @@ lint-testsuite: ## Lint testsuite
 
 	go-licenses check --ignore "storj.io/dotworld,storj.io/edge" ./...
 
-##@ Local development/Public Jenkins/Vet
+##@ Local development/Public Jenkins/Cross-Vet
 
-.PHONY: vet
-vet: ## Vet
-	GOOS=linux   GOARCH=amd64 go vet ./...
-	GOOS=linux   GOARCH=386   go vet ./...
-	GOOS=linux   GOARCH=arm64 go vet ./...
-	GOOS=linux   GOARCH=arm   go vet ./...
-	GOOS=darwin  GOARCH=arm64 go vet -tags kqueue ./...
-	GOOS=windows GOARCH=amd64 go vet ./...
+CROSS_VET_PLATFORMS := \
+	linux/386 linux/amd64 linux/arm linux/arm64 \
+	windows/amd64 \
+	darwin/arm64
+
+.PHONY: cross-vet
+cross-vet: $(addprefix cross-vet/,$(CROSS_VET_PLATFORMS)) ## Run `go vet` across the supported GOOS/GOARCH matrix (parallel with -j)
+
+# Not .PHONY: make skips implicit rules for phony targets.
+# kqueue tag avoids Cgo on darwin.
+cross-vet/%:
+	GOOS=$(word 1,$(subst /, ,$*)) GOARCH=$(word 2,$(subst /, ,$*)) \
+		go vet $(if $(filter darwin/%,$*),-tags kqueue) ./...
 
 ##@ Local development/Public Jenkins/Test
 
@@ -152,7 +157,7 @@ SKIP_TESTSUITE ?= false
 
 .PHONY: test
 test: test-testsuite ## Test
-	go test -json=${JSON} -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
+	go test -json=${JSON} -p 16 -parallel 6 -race -short=${SHORT} -timeout 10m -vet=off ./...
 
 .PHONY: test-testsuite
 test-testsuite: ## Test testsuite
@@ -163,8 +168,7 @@ endif
 
 .PHONY: test-testsuite-do
 test-testsuite-do:
-	go vet ./...
-	go test -json=${JSON} -p 16 -parallel 4 -race -short=${SHORT} -timeout 10m -vet=off ./...
+	go test -json=${JSON} -p 16 -parallel 6 -race -short=${SHORT} -timeout 10m -vet=off ./...
 
 ##@ Local development/Public Jenkins/Verification
 
@@ -349,21 +353,27 @@ integration-gateway-st-tests-s3fs: ## Run the gateway-st s3fs subtest (privilege
 	--rm storjlabs/ci:latest \
 	-c "umask 0000; gateway-st/testsuite/integration/s3fs.sh"
 
-# umask 0000 because the container runs as root and writes to bind-mounted /build/.build/.
+# Runs as the host user so that the agent can clean up what it leaves in /build/.build/. The pip
+# cache is created first, so that docker doesn't create it owned by root.
+# Python 3.11: s3-tests' boto 2 imports imp, which 3.12 removed.
 .PHONY: integration-ceph-tests
 integration-ceph-tests: ## Run ceph s3-tests suite (environment needs to be started first)
+	mkdir -p /tmp/pipcache && \
 	$$($(INTEGRATION_CREDENTIALS)) && \
 	docker run \
 	--network $(INTEGRATION_NETWORK) \
+	-u "$$(id -u):$$(id -g)" \
 	-e GATEWAY_0_ADDR=gateway:20010 \
 	-e "GATEWAY_0_ACCESS_KEY=$$AWS_ACCESS_KEY_ID" \
 	-e "GATEWAY_0_SECRET_KEY=$$AWS_SECRET_ACCESS_KEY" \
+	-e HOME=/tmp -e PIP_CACHE_DIR=/pipcache \
 	-v $$PWD:/build \
 	-w /build \
+	-v /tmp/pipcache:/pipcache \
 	--name integration-ceph-tests-${BUILD_NUMBER}-$$TEST \
 	--entrypoint /bin/bash \
-	--rm python:3.13-bookworm \
-	-c "umask 0000; gateway-st/testsuite/ceph-s3-tests/run.sh"
+	--rm python:3.11-bookworm \
+	gateway-st/testsuite/ceph-s3-tests/run.sh
 
 .PHONY: integration-mint-tests
 integration-mint-tests: ## Run mint test suite (environment needs to be started first)

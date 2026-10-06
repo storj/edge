@@ -13,218 +13,236 @@ pipeline {
     }
 
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    label 'main'
-                    image 'storjlabs/ci:latest'
-                    alwaysPull true
-                    args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
-                }
-            }
+        // Integration runs on its own agent and doesn't need Build's output.
+        stage('Pipeline') {
+            parallel {
+                stage('Build') {
+                    agent {
+                        docker {
+                            label 'main'
+                            image 'storjlabs/ci:latest'
+                            alwaysPull true
+                            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/gocache":/root/.cache/go-build'
+                        }
+                    }
 
-            stages {
-                stage('Preparation') {
-                    steps {
-                        // extglob lets !(.git) work; dotglob includes dotfiles.
-                        sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
+                    environment {
+                        // Explicit so the mounted cache is used whatever HOME Jenkins sets.
+                        GOCACHE = '/root/.cache/go-build'
+                    }
 
-                        checkout scm
-                        sh 'git restore-mtime'
+                    stages {
+                        stage('Preparation') {
+                            steps {
+                                // extglob lets !(.git) work; dotglob includes dotfiles.
+                                sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
 
-                        sh 'go mod download'
-                        dir('testsuite') {
-                            sh 'go mod download'
+                                checkout scm
+                                sh 'git restore-mtime'
+
+                                sh 'go mod download'
+                                dir('testsuite') {
+                                    sh 'go mod download'
+                                }
+
+                                sh 'service postgresql start'
+                                sh "psql -U postgres -c 'create database teststorj;'"
+
+                                sh 'mkdir -p .build'
+
+                                // go-junit-report isn't baked into storjlabs/ci yet.
+                                sh 'go install github.com/jstemmer/go-junit-report/v2@v2.1.0'
+                            }
                         }
 
-                        sh 'service postgresql start'
-                        sh "psql -U postgres -c 'create database teststorj;'"
+                        stage('Verification') {
+                            steps {
+                                // Scripted parallel: declarative parallel can't nest
+                                // inside the top-level parallel below.
+                                script {
+                                    parallel(
+                                        'Lint': {
+                                            stage('Lint') {
+                                                withEnv([
+                                                    'GOLANGCI_LINT_CONFIG=/go/ci/.golangci.yml',
+                                                    'GOLANGCI_LINT_CONFIG_TESTSUITE=/go/ci/.golangci.yml',
+                                                ]) {
+                                                    sh 'make lint'
+                                                }
+                                            }
+                                        },
+                                        'Cross-Vet': {
+                                            stage('Cross-Vet') {
+                                                sh 'make -j 2 --output-sync cross-vet'
+                                            }
+                                        },
+                                        'Test': {
+                                            stage('Test') {
+                                                withEnv([
+                                                    'JSON=true',
+                                                    'SHORT=true',
+                                                    'SKIP_TESTSUITE=true',
+                                                    'STORJ_TEST_COCKROACH=omit',
+                                                    'STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable',
+                                                    'STORJ_TEST_TIDB=omit',
+                                                    'STORJ_TEST_LOG_LEVEL=info',
+                                                    'STORJ_HASHSTORE_TABLE_DEFAULT_KIND=memtbl',
+                                                ]) {
+                                                    try {
+                                                        sh 'bash -o pipefail -c "make test | tee .build/tests.json | go-junit-report -parser gojson -set-exit-code -out .build/tests.xml"'
+                                                    } finally {
+                                                        sh script: 'tparse -all -slow 100 -file .build/tests.json', returnStatus: true
+                                                        // A killed run may leave no reports; don't let that hide its failure.
+                                                        archiveArtifacts artifacts: '.build/tests.json', allowEmptyArchive: true
+                                                        junit testResults: '.build/tests.xml', allowEmptyResults: true
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        'Testsuite': {
+                                            stage('Testsuite') {
+                                                withEnv([
+                                                    'JSON=true',
+                                                    'SHORT=false',
+                                                    'STORJ_TEST_COCKROACH=omit',
+                                                    'STORJ_TEST_POSTGRES=postgres://postgres@localhost/teststorj?sslmode=disable',
+                                                    'STORJ_TEST_TIDB=omit',
+                                                    'STORJ_TEST_LOG_LEVEL=info',
+                                                    'STORJ_HASHSTORE_TABLE_DEFAULT_KIND=memtbl',
+                                                    'STORJ_TEST_GCSTEST_BUCKET=gcstest-ci',
+                                                ]) {
+                                                    withCredentials([file(credentialsId: 'gcstest-ci', variable: 'STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY')]) {
+                                                        try {
+                                                            // Exhaust ports 1024-10000 so tests fail loudly if they hard-code one.
+                                                            sh 'use-ports -from 1024 -to 10000 &'
+                                                            sh 'bash -o pipefail -c "make --no-print-directory test-testsuite | tee .build/testsuite.json | go-junit-report -parser gojson -set-exit-code -out .build/testsuite.xml"'
+                                                        } finally {
+                                                            sh script: 'tparse -all -slow 100 -file .build/testsuite.json', returnStatus: true
+                                                            // A killed run may leave no reports; don't let that hide its failure.
+                                                            archiveArtifacts artifacts: '.build/testsuite.json', allowEmptyArchive: true
+                                                            junit testResults: '.build/testsuite.xml', allowEmptyResults: true
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
 
-                        sh 'mkdir -p .build'
+                        stage('Post-lint') {
+                            steps {
+                                sh 'check-clean-directory'
+                            }
+                        }
+                    }
 
-                        // go-junit-report isn't baked into storjlabs/ci yet.
-                        sh 'go install github.com/jstemmer/go-junit-report/v2@v2.1.0'
+                    post {
+                        always {
+                            sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
+                        }
                     }
                 }
 
-                stage('Verification') {
-                    parallel {
-                        stage('Lint') {
-                            environment {
-                                GOLANGCI_LINT_CONFIG           = '/go/ci/.golangci.yml'
-                                GOLANGCI_LINT_CONFIG_TESTSUITE = '/go/ci/.golangci.yml'
-                            }
+                stage('Integration') {
+                    agent {
+                        node {
+                            label 'ondemand'
+                        }
+                    }
+
+                    stages {
+                        stage('Checkout') {
                             steps {
-                                sh 'make lint'
+                                // delete any content leftover from a previous run.
+                                // bash requires the extglob option to support !(.git)
+                                // syntax, and we don't want to delete .git to have
+                                // faster clones.
+                                sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
+
+                                checkout scm
+
+                                // storj-up's release tags lag behind main, so we track
+                                // main (the team keeps it compatible with storj@latest).
+                                sh 'go install storj.io/storj-up@main'
                             }
                         }
 
-                        stage('Vet') {
+                        stage('Start environment') {
                             steps {
-                                sh 'make vet'
+                                sh 'make integration-env-start'
                             }
                         }
 
                         stage('Test') {
-                            environment {
-                                JSON = true
-                                SHORT = true
-                                SKIP_TESTSUITE = true
-                                STORJ_TEST_COCKROACH = 'omit'
-                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                                STORJ_TEST_TIDB = 'omit'
-                                STORJ_TEST_LOG_LEVEL = 'info'
-                                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                            }
                             steps {
-                                sh 'make test 2>&1 | tee .build/tests.json | go-junit-report -parser gojson -out .build/tests.xml'
-                            }
-                            post {
-                                always {
-                                    sh script: 'tparse -all -slow 100 -file .build/tests.json', returnStatus: true
-                                    archiveArtifacts artifacts: '.build/tests.json'
-                                    junit '.build/tests.xml'
+                                script {
+                                    def tests = [:]
+                                    tests['ceph-tests'] = {
+                                        stage('ceph-tests') {
+                                            sh 'make integration-ceph-tests'
+                                        }
+                                    }
+                                    // todo(sean): figure out why duplicity fails on gateway-mt, but not gateway-st.
+                                    ['awscli', 'awscli_multipart', /*'duplicity',*/ 'duplicati', 'https', 'rclone'].each { test ->
+                                        tests["gateway-st-test ${test}"] = {
+                                            stage("gateway-st-test ${test}") {
+                                                sh "TEST=${test} make integration-gateway-st-tests"
+                                            }
+                                        }
+                                    }
+                                    tests['gateway-st-test s3fs'] = {
+                                        stage('gateway-st-test s3fs') {
+                                            sh 'make integration-gateway-st-tests-s3fs'
+                                        }
+                                    }
+                                    ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd', 's3select'].each { test ->
+                                        tests["mint-test ${test}"] = {
+                                            stage("mint-test ${test}") {
+                                                sh "TEST=${test} make integration-mint-tests"
+                                            }
+                                        }
+                                    }
+                                    parallel tests
                                 }
                             }
                         }
 
-                        stage('Testsuite') {
-                            environment {
-                                JSON = true
-                                SHORT = false
-                                STORJ_TEST_COCKROACH = 'omit'
-                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                                STORJ_TEST_TIDB = 'omit'
-                                STORJ_TEST_LOG_LEVEL = 'info'
-                                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                                STORJ_TEST_GCSTEST_BUCKET = 'gcstest-ci'
-                                STORJ_TEST_GCSTEST_PATH_TO_JSON_KEY = credentials('gcstest-ci')
-                            }
+                        // We run aws-sdk-php and aws-sdk-ruby tests sequentially because
+                        // each of them contains a test that lists buckets and interferes
+                        // with other tests that run in parallel.
+                        //
+                        // TODO: run each Mint test with different credentials.
+                        stage('mint-test aws-sdk-php') {
                             steps {
-                                // Exhaust ports 1024-10000 so tests fail loudly if they hard-code one.
-                                sh 'use-ports -from 1024 -to 10000 &'
-                                sh 'make test-testsuite 2>&1 | tee .build/testsuite.json | go-junit-report -parser gojson -out .build/testsuite.xml'
+                                sh 'TEST=aws-sdk-php make integration-mint-tests'
                             }
-                            post {
-                                always {
-                                    sh script: 'tparse -all -slow 100 -file .build/testsuite.json', returnStatus: true
-                                    archiveArtifacts artifacts: '.build/testsuite.json'
-                                    junit '.build/testsuite.xml'
-                                }
+                        }
+                        stage('mint-test aws-sdk-ruby') {
+                            steps {
+                                sh 'TEST=aws-sdk-ruby make integration-mint-tests'
                             }
                         }
                     }
-                }
+                    post {
+                        always {
+                            junit testResults: 'gateway-st/.build/ceph.xml', allowEmptyResults: true
 
-                stage('Post-lint') {
-                    steps {
-                        sh 'check-clean-directory'
-                    }
-                }
-            }
-
-            post {
-                always {
-                    sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
-                }
-            }
-        }
-
-        stage('Integration') {
-            agent {
-                node {
-                    label 'ondemand'
-                }
-            }
-
-            stages {
-                stage('Checkout') {
-                    steps {
-                        // delete any content leftover from a previous run.
-                        // bash requires the extglob option to support !(.git)
-                        // syntax, and we don't want to delete .git to have
-                        // faster clones.
-                        sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
-
-                        checkout scm
-
-                        // install storj-up dependency
-                        sh 'go install storj.io/storj-up@main'
-                    }
-                }
-
-                stage('Start environment') {
-                    steps {
-                        sh 'make integration-env-start'
-                    }
-                }
-
-                stage('Test') {
-                    steps {
-                        script {
-                            def tests = [:]
-                            tests['ceph-tests'] = {
-                                stage('ceph-tests') {
-                                    sh 'make integration-ceph-tests'
-                                }
-                            }
-                            // todo(sean): figure out why duplicity fails on gateway-mt, but not gateway-st.
-                            ['awscli', 'awscli_multipart', /*'duplicity',*/ 'duplicati', 'https', 'rclone'].each { test ->
-                                tests["gateway-st-test ${test}"] = {
-                                    stage("gateway-st-test ${test}") {
-                                        sh "TEST=${test} make integration-gateway-st-tests"
+                            catchError {
+                                script {
+                                    if(fileExists('gateway-st/.build/rclone-integration-tests')) {
+                                        zip zipFile: 'rclone-integration-tests.zip', archive: true, dir: 'gateway-st/.build/rclone-integration-tests'
+                                        archiveArtifacts artifacts: 'rclone-integration-tests.zip'
                                     }
                                 }
                             }
-                            tests['gateway-st-test s3fs'] = {
-                                stage('gateway-st-test s3fs') {
-                                    sh 'make integration-gateway-st-tests-s3fs'
-                                }
+                            catchError {
+                                sh 'make integration-env-purge'
                             }
-                            ['aws-sdk-go', 'aws-sdk-java', 'awscli', 'minio-go', 's3cmd', 's3select'].each { test ->
-                                tests["mint-test ${test}"] = {
-                                    stage("mint-test ${test}") {
-                                        sh "TEST=${test} make integration-mint-tests"
-                                    }
-                                }
-                            }
-                            parallel tests
+                            sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
                         }
                     }
-                }
-
-                // We run aws-sdk-php and aws-sdk-ruby tests sequentially because
-                // each of them contains a test that lists buckets and interferes
-                // with other tests that run in parallel.
-                //
-                // TODO: run each Mint test with different credentials.
-                stage('mint-test aws-sdk-php') {
-                    steps {
-                        sh 'TEST=aws-sdk-php make integration-mint-tests'
-                    }
-                }
-                stage('mint-test aws-sdk-ruby') {
-                    steps {
-                        sh 'TEST=aws-sdk-ruby make integration-mint-tests'
-                    }
-                }
-            }
-            post {
-                always {
-                    junit testResults: 'gateway-st/.build/ceph.xml', allowEmptyResults: true
-
-                    catchError {
-                        script {
-                            if(fileExists('gateway-st/.build/rclone-integration-tests')) {
-                                zip zipFile: 'rclone-integration-tests.zip', archive: true, dir: 'gateway-st/.build/rclone-integration-tests'
-                                archiveArtifacts artifacts: 'rclone-integration-tests.zip'
-                            }
-                        }
-                    }
-                    catchError {
-                        sh 'make integration-env-purge'
-                    }
-                    sh 'bash -O extglob -O dotglob -c "rm -rf !(.git|.|..)"'
                 }
             }
         }
