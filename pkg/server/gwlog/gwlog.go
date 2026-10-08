@@ -5,6 +5,7 @@ package gwlog
 
 import (
 	"context"
+	"strings"
 
 	"storj.io/minio/cmd/logger"
 )
@@ -27,11 +28,15 @@ func (log *Log) WithContext(ctx context.Context) context.Context {
 }
 
 // TagValue returns the value for the given key in tags, if it exists.
+// The returned value is coerced to valid UTF-8, since tag values may
+// originate from untrusted, non-UTF-8 input (e.g. object keys embedded
+// in error messages), and consumers of this value (access logs, zap
+// logging, and eventkit's events pipeline) expect valid UTF-8 strings.
 func (log *Log) TagValue(key string) string {
 	for _, tag := range log.GetTags() {
 		if tag.Key == key {
 			if v, ok := tag.Val.(string); ok {
-				return v
+				return strings.ToValidUTF8(v, "�")
 			}
 		}
 	}

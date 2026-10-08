@@ -6,6 +6,7 @@ package gwlog
 import (
 	"context"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -29,4 +30,10 @@ func TestTagValue(t *testing.T) {
 	log.SetTags("error", "some error")
 	require.Equal(t, "some error", log.TagValue("error"))
 	require.Equal(t, "", log.TagValue("nonexistentkey"))
+}
+
+func TestTagValueInvalidUTF8(t *testing.T) {
+	log := New()
+	log.SetTags("error", "object not found: bad-key-\xff\xfe")
+	require.True(t, utf8.ValidString(log.TagValue("error")))
 }
