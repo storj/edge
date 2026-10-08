@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 	otellog "go.opentelemetry.io/otel/log"
@@ -95,6 +96,28 @@ func TestDestinationSubmit(t *testing.T) {
 	require.True(t, got["cached"].AsBool())
 	require.Equal(t, int64(3*time.Second), got["elapsed"].AsInt64())
 	require.Equal(t, timestamp.UnixNano(), got["started"].AsInt64())
+}
+
+// TestDestinationSubmitInvalidUTF8 checks that a string tag value containing
+// invalid UTF-8 is coerced to valid UTF-8 rather than passed through as-is,
+// since the OTLP exporter's protobuf encoding rejects invalid UTF-8 strings.
+func TestDestinationSubmitInvalidUTF8(t *testing.T) {
+	exporter := &memoryExporter{}
+	provider := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)),
+	)
+
+	newOtelDestination(provider).Submit(&eventkit.Event{
+		Name:  "upload",
+		Scope: []string{"storj.io", "edge"},
+		Tags: []eventkit.Tag{
+			eventkit.String("user-agent", "bad-agent-\xff\xfe"),
+		},
+	})
+
+	records := exporter.collected()
+	require.Len(t, records, 1)
+	require.True(t, utf8.ValidString(attrs(records[0])["user-agent"].AsString()))
 }
 
 // TestDestinationSubmitNilTimestamp checks that a timestamp tag without a value

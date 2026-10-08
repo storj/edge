@@ -57,7 +57,11 @@ func (d *otelDestination) Run(_ context.Context) {}
 func tagToKeyValue(tag *ekpb.Tag) otellog.KeyValue {
 	switch v := tag.Value.(type) {
 	case *ekpb.Tag_String_:
-		return otellog.String(tag.Key, string(v.String_))
+		// Tag values may originate from untrusted, non-UTF-8 input (e.g. a
+		// truncated User-Agent or an object key embedded in an error
+		// message), and the OTLP exporter's protobuf encoding rejects
+		// invalid UTF-8 strings outright, dropping the whole record.
+		return otellog.String(tag.Key, strings.ToValidUTF8(string(v.String_), "�"))
 	case *ekpb.Tag_Int64:
 		return otellog.Int64(tag.Key, v.Int64)
 	case *ekpb.Tag_Double:
