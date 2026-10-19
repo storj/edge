@@ -9,7 +9,6 @@ import (
 	"time"
 
 	miniogo "github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/tags"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -28,6 +27,7 @@ import (
 	objectlock "storj.io/minio/pkg/bucket/object/lock"
 	"storj.io/minio/pkg/bucket/versioning"
 	"storj.io/minio/pkg/event"
+	"storj.io/minio/pkg/tags"
 	"storj.io/uplink"
 	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/license"
