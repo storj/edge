@@ -138,8 +138,8 @@ func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
 }
 
 // getLive returns 200 when the service is able to process requests and 503
-// Service Unavailable otherwise (e.g. this would return 503 if the database
-// connection failed).
+// Service Unavailable otherwise (e.g. during startup or shutdown, or if the
+// storage backend reports itself unhealthy).
 func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 	res.log.Debug("getLive request", zap.String("remote_address", req.RemoteAddr))
 
@@ -149,7 +149,7 @@ func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Confirm we can at a minimum reach the database.
+	// Confirm the storage backend reports itself healthy.
 	err := res.db.HealthCheck(req.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)

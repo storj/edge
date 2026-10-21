@@ -104,10 +104,13 @@ func OpenTest(ctx context.Context, log *zap.Logger, name, connstr string) (*KV, 
 	return kv, nil
 }
 
-// HealthCheck pings the database.
-func (d *KV) HealthCheck(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(d.db.PingContext(ctx))
+// HealthCheck is a no-op. Like the former Spanner backend, it intentionally
+// does not check the database, so that a database outage doesn't fail the
+// health endpoint and take every authservice instance out of rotation, and
+// so that frequent liveness probes don't compete with requests for
+// connections from the pool.
+func (d *KV) HealthCheck(ctx context.Context) error {
+	return nil
 }
 
 // Close closes the database (and any test cleanup).

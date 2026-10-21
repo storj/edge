@@ -94,8 +94,9 @@ type Storage interface {
 	// If the record is invalid, the error contains why.
 	Get(ctx context.Context, keyHash KeyHash) (record *Record, err error)
 
-	// HealthCheck ensures the storage backend works and returns an error
-	// otherwise.
+	// HealthCheck returns an error if the storage backend is unhealthy.
+	// Implementations backed by a remote database may return nil without
+	// checking it, so liveness doesn't depend on the database.
 	HealthCheck(ctx context.Context) error
 
 	// Close closes the storage backend.

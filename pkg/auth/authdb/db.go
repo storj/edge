@@ -380,8 +380,7 @@ func (db *Database) Get(ctx context.Context, accessKeyID EncryptionKey) (result 
 	}, nil
 }
 
-// HealthCheck ensures the underlying storage backend works and returns an error
-// otherwise.
+// HealthCheck returns an error if the underlying storage backend is unhealthy.
 func (db *Database) HealthCheck(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
