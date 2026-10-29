@@ -102,6 +102,18 @@ func TestServerErrorLog(t *testing.T) {
 			level: zap.DebugLevel,
 		},
 		{
+			msg:   "http2: server: error reading preface from client 1.2.3.4:21850: read tcp 127.0.0.1:20022->127.0.0.1:36180: read: connection reset by peer",
+			level: zap.DebugLevel,
+		},
+		{
+			msg:   "http2: received GOAWAY [FrameHeader GOAWAY len=20], starting graceful shutdown",
+			level: zap.DebugLevel,
+		},
+		{
+			msg:   "timeout waiting for SETTINGS frames from 1.2.3.4:65049",
+			level: zap.DebugLevel,
+		},
+		{
 			msg:   "http: superfluous response.WriteHeader call",
 			level: zap.InfoLevel,
 		},

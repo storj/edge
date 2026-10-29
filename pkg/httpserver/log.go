@@ -19,14 +19,19 @@ import (
 	"storj.io/edge/pkg/httplog"
 )
 
-// tlsHandshakeErrorPrefix is what net/http prefixes failed TLS handshakes
-// with. They are entirely client-driven (aborted connections, port scanners,
-// health checks) and too noisy to keep at info level.
-const tlsHandshakeErrorPrefix = "http: TLS handshake error"
+// clientErrorPrefixes are the net/http server errors that are entirely
+// client-driven (aborted connections, port scanners, health checks, clients
+// going away mid-stream) and too noisy to keep at info level.
+var clientErrorPrefixes = []string{
+	"http: TLS handshake error",
+	"http2: server: error reading preface from client",
+	"http2: received GOAWAY",
+	"timeout waiting for SETTINGS frames from",
+}
 
 // newServerErrorLog returns a logger to be used as http.Server.ErrorLog. It
-// behaves like zap.NewStdLog (logging at info level), except that TLS
-// handshake errors are logged at debug level.
+// behaves like zap.NewStdLog (logging at info level), except that
+// client-driven errors are logged at debug level.
 func newServerErrorLog(log *zap.Logger) *stdlog.Logger {
 	// the same caller skip zap.NewStdLog uses, so that the caller still points
 	// at net/http instead of at serverErrorWriter.Write.
@@ -41,8 +46,11 @@ func (w *serverErrorWriter) Write(p []byte) (int, error) {
 	msg := strings.TrimRight(string(p), "\n")
 
 	level := zapcore.InfoLevel
-	if strings.HasPrefix(msg, tlsHandshakeErrorPrefix) {
-		level = zapcore.DebugLevel
+	for _, prefix := range clientErrorPrefixes {
+		if strings.HasPrefix(msg, prefix) {
+			level = zapcore.DebugLevel
+			break
+		}
 	}
 
 	if ce := w.log.Check(level, msg); ce != nil {
