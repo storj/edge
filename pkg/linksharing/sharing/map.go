@@ -57,6 +57,8 @@ func (handler *Handler) getLocations(ctx context.Context, access *uplink.Access,
 	return locations, ipSummary.PieceCount, ipSummary.PlacementConstraint, nil
 }
 
+const svgContentType = "image/svg+xml"
+
 func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, locations []location, pieces int64, o *uplink.Object, q url.Values) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -75,7 +77,7 @@ func (handler *Handler) serveMap(ctx context.Context, w http.ResponseWriter, loc
 
 	width := queryIntLookup(q, "width", 800)
 
-	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Type", svgContentType)
 
 	var buf bytes.Buffer
 	err = m.EncodeSVG(&buf, width, width/2)

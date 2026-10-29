@@ -388,13 +388,23 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	delete(w.Header(), "Content-Disposition")
+	if !skipRendering {
+		w.Header().Set("Content-Type", htmlContentType)
+	}
 	w.WriteHeader(status)
 	if !skipRendering {
-		handler.renderTemplate(w, "error.html", pageData{Data: message, Title: "Error"})
+		handler.renderTemplate(w, r, "error.html", pageData{Data: message, Title: "Error"})
 	}
 }
 
-func (handler *Handler) renderTemplate(w http.ResponseWriter, template string, data pageData) {
+const htmlContentType = "text/html; charset=utf-8"
+
+func (handler *Handler) renderTemplate(w http.ResponseWriter, r *http.Request, template string, data pageData) {
+	// set explicitly, since a HEAD response has no body to sniff it from.
+	w.Header().Set("Content-Type", htmlContentType)
+	if r.Method == http.MethodHead {
+		return
+	}
 	if handler.templates == nil {
 		handler.log.Error("template filesystem not initialized")
 		return

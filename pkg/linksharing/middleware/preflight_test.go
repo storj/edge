@@ -18,17 +18,20 @@ func TestPreflight(t *testing.T) {
 		method                                                          string
 		expectedStatus                                                  int
 		expectedBody                                                    string
+		expectedAllow                                                   string
 		expectedAllowOrigin, expectedAllowMethods, expectedAllowHeaders string
 	}{
 		{
 			method:         "PUT",
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedBody:   "Method Not Allowed",
+			expectedAllow:  "GET, HEAD, OPTIONS",
 		},
 		{
 			method:         "DELETE",
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedBody:   "Method Not Allowed",
+			expectedAllow:  "GET, HEAD, OPTIONS",
 		},
 		{
 			method:               "OPTIONS",
@@ -66,6 +69,7 @@ func TestPreflight(t *testing.T) {
 
 		require.Equal(t, tc.expectedStatus, resp.StatusCode)
 		require.Contains(t, rec.Body.String(), tc.expectedBody)
+		require.Equal(t, tc.expectedAllow, resp.Header.Get("Allow"))
 		require.Equal(t, tc.expectedAllowOrigin, resp.Header.Get("Access-Control-Allow-Origin"))
 		require.Equal(t, tc.expectedAllowMethods, resp.Header.Get("Access-Control-Allow-Methods"))
 		require.Equal(t, tc.expectedAllowHeaders, resp.Header.Get("Access-Control-Allow-Headers"))

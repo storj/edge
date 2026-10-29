@@ -72,7 +72,11 @@ func (handler *Handler) handleHostingService(ctx context.Context, w http.Respons
 		return err
 	}
 
-	// in ObjectNotFound, let the user provide a custom 404 page
+	// in ObjectNotFound, let the user provide a custom 404 page, unless the
+	// request is HEAD, which gets the same status either way.
+	if r.Method == http.MethodHead {
+		return err
+	}
 
 	bucket, key = determineBucketAndObjectKey(creds.hostingRoot, "/404.html")
 	download, err := project.DownloadObject(ctx, bucket, key, nil)

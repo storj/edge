@@ -319,6 +319,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
 		},
 		{
+			name:             "HEAD map only",
+			method:           "HEAD",
+			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?map=1"),
+			status:           http.StatusOK,
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */},
+		},
+		{
 			name:             "GET view",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo?view=1"),
 			status:           http.StatusOK,
@@ -628,7 +635,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             "s/",
 			status:           http.StatusBadRequest,
-			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -636,7 +642,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", goodAccessName, "testbucket", "test/foo"),
 			status:           http.StatusInternalServerError,
-			body:             []string{"Internal server error."},
 			authserver:       "invalid://",
 			expectedRPCCalls: []string{},
 		},
@@ -645,7 +650,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", missingAccessName, "testbucket", "test/foo"),
 			status:           http.StatusUnauthorized,
-			body:             []string{"Access denied."},
 			authserver:       validAuthServer.URL,
 			expectedRPCCalls: []string{},
 		},
@@ -670,7 +674,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", serializedAccess),
 			status:           http.StatusBadRequest,
-			body:             []string{"Malformed request."},
 			expectedRPCCalls: []string{},
 		},
 		{
@@ -678,7 +681,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			method:           "HEAD",
 			path:             path.Join("s", serializedAccess, "testbucket", "test/bar"),
 			status:           http.StatusNotFound,
-			body:             []string{"Object not found"},
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
 		},
 		{
@@ -687,7 +689,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			path:             path.Join("s", serializedAccess, "testbucket", "test/foo"),
 			status:           http.StatusOK,
 			body:             []string{""},
-			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */, "/metainfo.Metainfo/GetObjectIPs"},
+			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* GetObject */},
 		},
 		{
 			name:             "GET download when exceeded bandwidth limit",
@@ -971,6 +973,30 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 		},
 		{
+			name:   "hosting HEAD root 404.html",
+			method: "HEAD",
+			host:   "mydomain.com",
+			path:   "/doesnotexist",
+			dnsRecords: map[string]mockdns.Zone{
+				"txt-mydomain.com.": {
+					TXT: []string{
+						"storj-access:" + goodAccessName,
+						"storj-root:testbucket",
+					},
+				},
+			},
+			status:     http.StatusNotFound,
+			authserver: validAuthServer.URL,
+			// 404.html isn't downloaded.
+			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 3),
+			prepFunc: func() error {
+				return planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "404.html", []byte("NOT FOUND!"))
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "404.html")
+			},
+		},
+		{
 			name:                  "GET bucket zip download",
 			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
 			status:                http.StatusOK,
@@ -999,6 +1025,22 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 				"pagination/test2":             "FOOBAR",
 			},
 			expectedRPCCalls: slices.Repeat([]string{"/metainfo.Metainfo/CompressedBatch"}, 7),
+		},
+		{
+			name:                  "HEAD bucket zip download",
+			method:                "HEAD",
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=zip"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
+		},
+		{
+			name:                  "HEAD bucket tar download",
+			method:                "HEAD",
+			path:                  path.Join("s", serializedAccess, "testbucket", "?download=1&download-kind=tar.gz"),
+			status:                http.StatusOK,
+			downloadPrefixEnabled: true,
+			expectedRPCCalls:      []string{"/metainfo.Metainfo/CompressedBatch" /* ListObjects */},
 		},
 		{
 			name:                  "GET prefix zip download",
@@ -1278,6 +1320,9 @@ To download a larger number of objects at once, download the prefix using the ta
 
 			assert.Equal(t, testCase.redirectLocation, w.Header().Get("Location"), "redirect location does not match")
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
+			if testCase.method == http.MethodHead {
+				assert.Empty(t, w.Body.String(), "HEAD response has a body")
+			}
 			if testCase.body != nil {
 				for _, elem := range testCase.body {
 					assert.Contains(t, w.Body.String(), elem, fmt.Sprintf("body does not contain expected element: %s", elem))

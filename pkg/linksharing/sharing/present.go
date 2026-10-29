@@ -78,7 +78,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 
 	switch {
 	case handler.downloadPrefixEnabled && (download || !wrap) && !pr.hosting && downloadKind != "":
-		return handler.downloadPrefix(ctx, w, project, pr, downloadKind)
+		return handler.downloadPrefix(ctx, w, r, project, pr, downloadKind)
 	case strings.HasSuffix(pr.realKey, "/"):
 		// kick off background index.html request to cut down on sequential round trips.
 		type statResult struct {
@@ -115,7 +115,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 		}
 
 		// it might be a prefix
-		return handler.servePrefix(ctx, w, project, pr, "", cursor)
+		return handler.servePrefix(ctx, w, r, project, pr, "", cursor)
 
 	case pr.realKey != "":
 		var objectErr error
@@ -188,7 +188,7 @@ func (handler *Handler) presentWithProject(ctx context.Context, w http.ResponseW
 			http.Redirect(w, r, u.String(), http.StatusSeeOther)
 			return nil
 		}
-		return handler.servePrefix(ctx, w, project, pr, "", cursor)
+		return handler.servePrefix(ctx, w, r, project, pr, "", cursor)
 	default:
 		return errdata.WithAction(err, "unexpected case")
 	}
@@ -261,15 +261,26 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if archivePath == "/" {
-		return handler.servePrefix(ctx, w, project, pr, archivePath, "")
+		return handler.servePrefix(ctx, w, r, project, pr, archivePath, "")
 	}
 
-	locations, pieces, placementConstraint, err := handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
-	if err != nil {
-		return errdata.WithAction(err, "get locations")
+	// a HEAD responds with neither the map nor the page, so it has no use for
+	// the locations.
+	var locations []location
+	var pieces int64
+	var placementConstraint uint32
+	if r.Method != http.MethodHead {
+		locations, pieces, placementConstraint, err = handler.getLocations(ctx, pr.access, pr.bucket, o.Key)
+		if err != nil {
+			return errdata.WithAction(err, "get locations")
+		}
 	}
 
 	if mapOnly {
+		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Type", svgContentType)
+			return nil
+		}
 		return handler.serveMap(ctx, w, locations, pieces, o, q)
 	}
 
@@ -280,8 +291,6 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		HasPlacement bool
 		IsInline     bool
 	}
-
-	input.NodesCount = len(locations)
 
 	// TODO(artur): fix image preview paths when the corresponding image is in
 	// the zip archive.
@@ -314,6 +323,12 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 		data.ShowViewContents = strings.HasSuffix(input.Key, ".zip")
 	}
 
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Type", htmlContentType)
+		return nil
+	}
+
+	input.NodesCount = len(locations)
 	input.HasPlacement = placementConstraint != 0
 	input.IsInline = input.NodesCount == 0
 
@@ -321,7 +336,7 @@ func (handler *Handler) showObject(ctx context.Context, w http.ResponseWriter, r
 	data.Title = input.Key
 	data.AllowDownload = handler.isDownloadAllowed(pr.access)
 
-	handler.renderTemplate(w, "single-object.html", data)
+	handler.renderTemplate(w, r, "single-object.html", data)
 
 	return nil
 }

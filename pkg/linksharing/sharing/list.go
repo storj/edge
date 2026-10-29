@@ -28,6 +28,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/edge/pkg/errdata"
 	"storj.io/uplink"
+	"storj.io/uplink/private/object"
 	"storj.io/zipper"
 )
 
@@ -43,8 +44,17 @@ type listObject struct {
 	Prefix bool
 }
 
-func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, archivePath, cursor string) (err error) {
+func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, r *http.Request, project *uplink.Project, pr *parsedRequest, archivePath, cursor string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if r.Method == http.MethodHead && archivePath == "" {
+		if _, err := listFirst(ctx, project, pr, false); err != nil {
+			return err
+		}
+		w.Header().Set("Content-Type", htmlContentType)
+		return nil
+	}
+
 	var input struct {
 		Title            string
 		Breadcrumbs      []breadcrumb
@@ -98,7 +108,7 @@ func (handler *Handler) servePrefix(ctx context.Context, w http.ResponseWriter, 
 		input.ShowBackButton = true
 	}
 
-	handler.renderTemplate(w, "prefix-listing.html", pageData{
+	handler.renderTemplate(w, r, "prefix-listing.html", pageData{
 		Data:             input,
 		Title:            pr.title,
 		ShowViewContents: len(archivePath) > 0,
@@ -174,11 +184,25 @@ func listObjectsArchive(ctx context.Context, project *uplink.Project, pr *parsed
 	return objects, nil
 }
 
-func (handler *Handler) downloadPrefix(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest, downloadKind string) (err error) {
+func (handler *Handler) downloadPrefix(ctx context.Context, w http.ResponseWriter, r *http.Request, project *uplink.Project, pr *parsedRequest, downloadKind string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if downloadKind != "zip" && downloadKind != "tar.gz" {
 		return errdata.WithStatus(errs.New("Invalid download kind provided. Must be 'zip' or 'tar.gz'"), http.StatusBadRequest)
+	}
+
+	if r.Method == http.MethodHead {
+		empty, err := listFirst(ctx, project, pr, true)
+		if err != nil || empty {
+			return err
+		}
+		contentType := zipContentType
+		if downloadKind == "tar.gz" {
+			contentType = gzipContentType
+		}
+		w.Header().Set("Content-Disposition", contentDispositionValue(prefixArchiveName(pr, downloadKind)))
+		w.Header().Set("Content-Type", contentType)
+		return nil
 	}
 
 	if downloadKind == "zip" {
@@ -187,15 +211,36 @@ func (handler *Handler) downloadPrefix(ctx context.Context, w http.ResponseWrite
 	return handler.downloadTarGz(ctx, w, project, pr)
 }
 
-func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
-	defer mon.Task()(&ctx)(&err)
+const (
+	zipContentType  = "application/zip"
+	gzipContentType = "application/x-gzip"
+)
 
+// listFirst lists at most one object under the request's prefix, which is all
+// a HEAD needs to respond with the status the GET would.
+func listFirst(ctx context.Context, project *uplink.Project, pr *parsedRequest, recursive bool) (empty bool, err error) {
+	objects, _, err := object.ListObjects(ctx, project, pr.bucket, &object.ListObjectsOptions{
+		Prefix:    pr.realKey,
+		Recursive: recursive,
+		Limit:     1,
+	})
+	return len(objects) == 0, err
+}
+
+// prefixArchiveName returns the file name of the archive of the request's prefix.
+func prefixArchiveName(pr *parsedRequest, ext string) string {
 	fileName := pr.bucket
 	endOfPrefix := path.Base(pr.realKey)
 	if endOfPrefix != "." && endOfPrefix != "/" {
 		fileName = endOfPrefix
 	}
-	fileName += ".zip"
+	return fileName + "." + ext
+}
+
+func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	fileName := prefixArchiveName(pr, "zip")
 
 	var zipWriter *zip.Writer
 	defer func() {
@@ -219,6 +264,7 @@ func (handler *Handler) downloadZip(ctx context.Context, w http.ResponseWriter, 
 		if totalCount > handler.downloadZipLimit {
 			if zipWriter == nil {
 				w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
+				w.Header().Set("Content-Type", zipContentType)
 				zipWriter = zip.NewWriter(w)
 			}
 			header := zip.FileHeader{
@@ -248,6 +294,7 @@ To download a larger number of objects at once, download the prefix using the ta
 
 		if zipWriter == nil {
 			w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
+			w.Header().Set("Content-Type", zipContentType)
 			zipWriter = zip.NewWriter(w)
 		}
 
@@ -296,12 +343,7 @@ To download a larger number of objects at once, download the prefix using the ta
 func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter, project *uplink.Project, pr *parsedRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	fileName := pr.bucket
-	endOfPrefix := path.Base(pr.realKey)
-	if endOfPrefix != "." && endOfPrefix != "/" {
-		fileName = endOfPrefix
-	}
-	fileName += ".tar.gz"
+	fileName := prefixArchiveName(pr, "tar.gz")
 
 	var gzipWriter *gzip.Writer
 	defer func() {
@@ -333,6 +375,7 @@ func (handler *Handler) downloadTarGz(ctx context.Context, w http.ResponseWriter
 
 		if gzipWriter == nil {
 			w.Header().Set("Content-Disposition", contentDispositionValue(fileName))
+			w.Header().Set("Content-Type", gzipContentType)
 			gzipWriter = gzip.NewWriter(w)
 			tarWriter = tar.NewWriter(gzipWriter)
 		}

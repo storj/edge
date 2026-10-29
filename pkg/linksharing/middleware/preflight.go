@@ -16,6 +16,7 @@ func Preflight(h http.Handler) http.Handler {
 			writeCORSHeaders(w)
 			h.ServeHTTP(w, r)
 		default:
+			w.Header().Set("Allow", "GET, HEAD, OPTIONS")
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})
