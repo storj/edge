@@ -9,20 +9,24 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/edge/pkg/linksharing/objectmap"
 	"storj.io/edge/pkg/linksharing/sharing"
 	"storj.io/edge/pkg/linksharing/sharing/assets"
@@ -277,4 +281,111 @@ func testZipRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 			assert.Equal(t, testCase.expectedRPCCalls, callRecorder.History())
 		})
 	}
+}
+
+// TestZipDownloadsAreClosed checks that serving files from a ZIP
+// archive closes the downloads it opens.
+func TestZipDownloadsAreClosed(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// random data doesn't compress, so the segment isn't inline.
+		content := testrand.BytesInt(256 * memory.KiB.Int())
+
+		buf := new(bytes.Buffer)
+		zw := zip.NewWriter(buf)
+		f, err := zw.Create("big.bin")
+		require.NoError(t, err)
+		_, err = f.Write(content)
+		require.NoError(t, err)
+		require.NoError(t, zw.Close())
+
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test.zip", buf.Bytes()))
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.False(t, segments[0].Inline())
+
+		serializedAccess, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Serialize()
+		require.NoError(t, err)
+
+		handler, err := sharing.NewHandler(zaptest.NewLogger(t), objectmap.NewIPDB(&objectmap.MockReader{}), nil, nil, sharing.Config{
+			Assets:        assets.FS(),
+			ListPageLimit: 1,
+			URLBases:      []string{"http://localhost"},
+		})
+		require.NoError(t, err)
+
+		// a download that isn't closed keeps its stream, and the storage
+		// node's request, open.
+		liveRequests := func() (n int32) {
+			for _, node := range planet.StorageNodes {
+				n += node.Storage2.Endpoint.TestLiveRequestCount()
+			}
+			return n
+		}
+
+		url := "http://localhost/" + path.Join("s", serializedAccess, "testbucket", "test.zip") + "?path=big.bin&download=1"
+
+		for _, tt := range []struct {
+			name           string
+			method         string
+			acceptEncoding string
+			clientGoesAway bool
+		}{
+			{name: "gzip", method: http.MethodGet, acceptEncoding: "gzip"},
+			{name: "uncompressed", method: http.MethodGet, acceptEncoding: "gzip;q=0"},
+			{name: "HEAD", method: http.MethodHead, acceptEncoding: "gzip"},
+			{name: "client goes away", method: http.MethodGet, acceptEncoding: "gzip", clientGoesAway: true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				before := liveRequests()
+
+				reqCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+
+				r, err := http.NewRequestWithContext(reqCtx, tt.method, url, nil)
+				require.NoError(t, err)
+				r.Header.Set("Accept-Encoding", tt.acceptEncoding)
+
+				rec := httptest.NewRecorder()
+				var w http.ResponseWriter = rec
+				if tt.clientGoesAway {
+					w = &goneAfterFirstWrite{ResponseWriter: rec, cancel: cancel}
+				}
+
+				handler.CredentialsHandler(handler).ServeHTTP(w, r)
+				require.Equal(t, http.StatusOK, rec.Code)
+
+				if tt.method == http.MethodGet && !tt.clientGoesAway {
+					body := rec.Body.Bytes()
+					if rec.Header().Get("Content-Encoding") == "gzip" {
+						gz, err := gzip.NewReader(bytes.NewReader(body))
+						require.NoError(t, err)
+						body, err = io.ReadAll(gz)
+						require.NoError(t, err)
+					}
+					require.Equal(t, content, body)
+				}
+
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					assert.Equal(c, before, liveRequests(), "storage node requests left open")
+				}, 10*time.Second, 10*time.Millisecond)
+			})
+		}
+	})
+}
+
+// goneAfterFirstWrite simulates a client disconnecting mid-response.
+type goneAfterFirstWrite struct {
+	http.ResponseWriter
+	cancel func()
+}
+
+func (w *goneAfterFirstWrite) Write(p []byte) (int, error) {
+	w.cancel()
+	return 0, errors.New("client went away")
 }
