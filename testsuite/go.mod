@@ -317,7 +317,7 @@ require (
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
-	storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 // indirect
+	storj.io/zipper v0.0.0-20261029045551-821b9b1ba5ed // indirect
 )
 
 replace storj.io/edge => ../
