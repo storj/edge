@@ -853,5 +853,5 @@ storj.io/picobuf v0.0.4 h1:qswHDla+YZ2TovGtMnU4astjvrADSIz84FXRn0qgP6o=
 storj.io/picobuf v0.0.4/go.mod h1:hSMxmZc58MS/2qSLy1I0idovlO7+6K47wIGUyRZa6mg=
 storj.io/uplink v1.14.6-0.20261015224055-4d6dc3c40b70 h1:M1G3uL6/LhngSMG97fnJ1tFi510gztgMvI6SU1SuW8s=
 storj.io/uplink v1.14.6-0.20261015224055-4d6dc3c40b70/go.mod h1:CJX4CKkG5C8qajzYMhC5sIAIqUgWyJ8fH8J0ikrZGEQ=
-storj.io/zipper v0.0.0-20261029045551-821b9b1ba5ed h1:Oj+1bOaz9uz2XGAV49MIOre2r99FKdX888fJ+qyLKS4=
-storj.io/zipper v0.0.0-20261029045551-821b9b1ba5ed/go.mod h1:dkM5xKlbO7q8Ng3qaLDraamF28Mnwc/PJGLHUEgFbbs=
+storj.io/zipper v0.0.0-20261029224715-a167d242e6c3 h1:2LQMR3xzcFImxQacXVqD23MIj9NGYbhOdPRJGLmi3KQ=
+storj.io/zipper v0.0.0-20261029224715-a167d242e6c3/go.mod h1:dkM5xKlbO7q8Ng3qaLDraamF28Mnwc/PJGLHUEgFbbs=
