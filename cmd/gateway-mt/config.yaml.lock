@@ -273,6 +273,9 @@ startup-check.timeout: 30s
 # - test
 # - placement
 
+# the possible hostnames that the X-Storj-Trace-Host header can send traces to (empty disables the header)
+# tracing-host-regex: \.storj\.tools:[0-9]+$
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 

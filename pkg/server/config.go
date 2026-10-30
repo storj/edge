@@ -45,6 +45,7 @@ type Config struct {
 	StartupCheck            startupCheck
 	AccessLogsProcessor     accesslogs.Options
 	TracingAnnotations      []string `help:"list of annotations which are supported by distributed tracing" default:"checkerng,test,placement"`
+	TracingHostRegex        string   `help:"the possible hostnames that the X-Storj-Trace-Host header can send traces to (empty disables the header)" default:"\\.storj\\.tools:[0-9]+$"`
 }
 
 type certMagic struct {

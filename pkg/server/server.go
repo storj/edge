@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -152,6 +153,13 @@ func New(config Config, log *zap.Logger, corsAllowedOrigins []string,
 	r.Use(func(handler http.Handler) http.Handler {
 		return mhttp.TraceHandler(handler, mon, config.TracingAnnotations...)
 	})
+	if config.TracingHostRegex != "" {
+		traceHostRegex, err := regexp.Compile(config.TracingHostRegex)
+		if err != nil {
+			return nil, err
+		}
+		r.Use(middleware.TraceHost(traceHostRegex))
+	}
 	r.Use(middleware.NewMetrics("gmt"))
 	r.Use(middleware.AccessKey(authClient, log))
 	r.Use(middleware.CollectEvent)
