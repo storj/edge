@@ -66,6 +66,7 @@ type Config struct {
 	CertFile            string   `user:"true" help:"server certificate file" default:""`
 	KeyFile             string   `user:"true" help:"server key file" default:""`
 	PublicURL           []string `user:"true" help:"comma separated list of public urls for the server TLS certificates (e.g. https://auth.example.com,https://auth.us1.example.com)"`
+	OptionalPublicURL   []string `user:"true" help:"comma separated list of optional public urls for the server TLS certificates, certificate errors are not fatal"`
 	RetrieveProjectInfo bool     `user:"true" help:"retrieve and store project info (such as public ID, and created date) when registering access grant" default:"true"`
 
 	FreeTierAccessLimit authdb.FreeTierAccessLimitConfig
@@ -148,16 +149,13 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
-	var publicURLs []string
-	for _, publicURL := range config.PublicURL {
-		u, err := url.Parse(publicURL)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		if u.Hostname() == "" {
-			return nil, errs.New("unable to parse host from %s", publicURL)
-		}
-		publicURLs = append(publicURLs, u.Hostname())
+	publicURLs, err := hostnames(config.PublicURL)
+	if err != nil {
+		return nil, err
+	}
+	optionalPublicURLs, err := hostnames(config.OptionalPublicURL)
+	if err != nil {
+		return nil, err
 	}
 
 	storage, err := OpenStorage(ctx, log.Named("db"), config)
@@ -180,6 +178,7 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		CertFile:                    config.CertFile,
 		KeyFile:                     config.KeyFile,
 		PublicURL:                   publicURLs,
+		OptionalPublicURL:           optionalPublicURLs,
 		ConfigDir:                   configDir,
 		ListenAddr:                  config.ListenAddrTLS,
 		CertMagic:                   config.CertMagic.Enabled,
@@ -464,4 +463,20 @@ func reloadSatelliteList(ctx context.Context, log *zap.Logger, adb *authdb.Datab
 	} else {
 		adb.SetAllowedSatellites(allowedSatelliteURLs)
 	}
+}
+
+// hostnames returns the hostname of each of urls.
+func hostnames(urls []string) ([]string, error) {
+	var hosts []string
+	for _, rawURL := range urls {
+		u, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		if u.Hostname() == "" {
+			return nil, errs.New("unable to parse host from %s", rawURL)
+		}
+		hosts = append(hosts, u.Hostname())
+	}
+	return hosts, nil
 }

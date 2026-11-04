@@ -146,6 +146,9 @@ node.first-start: false
 # path where to store data
 node.path: ""
 
+# comma separated list of optional public urls for the server TLS certificates, certificate errors are not fatal
+optional-public-url: []
+
 # maximum size that the incoming POST request body with access grant can be
 # post-size-limit: 4.0 KiB
 

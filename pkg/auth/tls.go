@@ -27,6 +27,11 @@ type TLSInfo struct {
 	ConfigDir  string
 	ListenAddr string
 
+	// OptionalPublicURL is the same as PublicURL, except that with CertMagic
+	// ACME operations are performed asynchronously (in the background) and
+	// cert errors are not fatal.
+	OptionalPublicURL []string
+
 	// CertMagic obtains and renews TLS certificates and staples OCSP responses
 	// Setting this to true will mean the server obtains certificate through Certmagic
 	// CertFile and KeyFile options will NOT be considered.
@@ -92,7 +97,7 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	certmagic.Default.DisableARI = true
 
 	certmagic.Default.OnDemand = &certmagic.OnDemandConfig{DecisionFunc: func(ctx context.Context, name string) error {
-		if slices.Contains(config.PublicURL, name) {
+		if slices.Contains(config.PublicURL, name) || slices.Contains(config.OptionalPublicURL, name) {
 			return nil
 		}
 		return errs.New("%s is not a public URL", name)
@@ -115,10 +120,22 @@ func configureCertMagic(ctx context.Context, log *zap.Logger, config *TLSInfo) (
 	}
 
 	certmagic.Default.Logger = log
-	tlsConfig, err := certmagic.TLS(config.PublicURL)
-	if err != nil {
+	// The HTTP listener doesn't serve HTTP-01 challenges, so only TLS-ALPN-01
+	// can succeed.
+	certmagic.DefaultACME.DisableHTTPChallenge = true
+	certmagic.DefaultACME.Agreed = true
+
+	magic := certmagic.NewDefault()
+	if err := magic.ManageSync(ctx, config.PublicURL); err != nil {
 		return nil, err
 	}
+	// Retried with backoff for about 30 days, after which a restart is
+	// needed to try again.
+	if err := magic.ManageAsync(ctx, config.OptionalPublicURL); err != nil {
+		return nil, err
+	}
+
+	tlsConfig := magic.TLSConfig()
 	tlsConfig.NextProtos = append([]string{http2.NextProtoTLS, "http/1.1"}, tlsConfig.NextProtos...)
 	return tlsConfig, nil
 }
