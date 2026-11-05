@@ -162,8 +162,13 @@ func (e *ExpiringLRUOf[T]) Delete(ctx context.Context, key string) {
 // Add adds a value to the cache.
 //
 // replaced is true if the key already existed in the cache and was valid, hence
-// the value is replaced.
+// the value is replaced. Like Get, Add caches nothing when Capacity isn't
+// positive.
 func (e *ExpiringLRUOf[T]) Add(ctx context.Context, key string, value T) (replaced bool) {
+	if e.opts.Capacity <= 0 {
+		return false
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -172,6 +177,7 @@ func (e *ExpiringLRUOf[T]) Add(ctx context.Context, key string, value T) (replac
 		if !evicted && e.order.Len() >= e.opts.Capacity {
 			item := e.order.Back()
 			delete(e.data, item.Value.(string))
+			e.order.Remove(item)
 		}
 
 		e.data[key] = &cacheState[T]{

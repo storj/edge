@@ -168,6 +168,38 @@ func TestCache_Add_and_GetCached(t *testing.T) {
 	require.Equal(t, 3, value)
 }
 
+func TestCache_Add_EvictsAtCapacity(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	cache := NewOf[int](Options{Capacity: 2})
+	for i := range 10 {
+		cache.Add(ctx, strconv.Itoa(i), i)
+	}
+
+	require.Len(t, cache.data, 2)
+	require.Equal(t, 2, cache.order.Len())
+	for i := range 8 {
+		_, cached := cache.GetCached(ctx, strconv.Itoa(i))
+		require.False(t, cached, "key %d should have been evicted", i)
+	}
+	for _, i := range []int{8, 9} {
+		value, cached := cache.GetCached(ctx, strconv.Itoa(i))
+		require.True(t, cached, "key %d", i)
+		require.Equal(t, i, value)
+	}
+}
+
+func TestCache_Add_ZeroCapacity(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	cache := NewOf[int](Options{})
+	require.False(t, cache.Add(ctx, "key", 1))
+	_, cached := cache.GetCached(ctx, "key")
+	require.False(t, cached)
+}
+
 func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 	const numEntries = 200
 	require.Zero(t, numEntries%2) // Ensure that numEntries is even.
