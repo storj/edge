@@ -55,7 +55,15 @@ var (
 // NewMultiTenantLayer initializes and returns new MultiTenancyLayer. A properly
 // closed object layer will also close connectionPool.
 func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool.Pool, connectionPool *rpcpool.Pool, config uplink.Config, satelliteIdentities []*identity.FullIdentity) (*MultiTenancyLayer, error) {
-	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
+	minioLayer, err := gateway.NewGatewayLayer(auth.Credentials{})
+	if err != nil {
+		return nil, err
+	}
+
+	layer, ok := minioLayer.(objectLayer)
+	if !ok {
+		return nil, errs.New("gateway layer %T doesn't implement GetBucketLocation", minioLayer)
+	}
 
 	signers := make(map[storj.NodeID]signing.Signer, len(satelliteIdentities))
 	for _, ident := range satelliteIdentities {
@@ -68,7 +76,18 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 		connectionPool:          connectionPool,
 		satelliteSigners:        signers,
 		config:                  config,
-	}, err
+	}, nil
+}
+
+// objectLayer is the gateway layer that MultiTenancyLayer wraps. minio's
+// ObjectLayer doesn't declare GetBucketLocation because minio's handlers
+// don't ask the object layer for it.
+//
+// TODO: switch to storj.io/gateway/api/objectlayer.ObjectLayer once we serve
+// requests with gateway's api package instead of minio's handlers.
+type objectLayer interface {
+	minio.ObjectLayer
+	GetBucketLocation(ctx context.Context, bucket string) (string, error)
 }
 
 // MultiTenancyLayer implements multi-tenant minio.ObjectLayer that logs
@@ -76,7 +95,7 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 type MultiTenancyLayer struct {
 	minio.GatewayUnsupported
 
-	layer                   minio.ObjectLayer
+	layer                   objectLayer
 	satelliteConnectionPool *rpcpool.Pool
 	connectionPool          *rpcpool.Pool
 	satelliteSigners        map[storj.NodeID]signing.Signer
@@ -186,24 +205,17 @@ func (l *MultiTenancyLayer) GetBucketInfo(ctx context.Context, bucket string) (b
 	return bucketInfo, l.log(ctx, err)
 }
 
-// GetBucketLocation is meant to be used for S3's
-// https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
-// and responds with the location that the bucket's placement is annotated with
-// (if any) on the satellite and any error encountered.
+// GetBucketLocation is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetBucketLocation.
 func (l *MultiTenancyLayer) GetBucketLocation(ctx context.Context, bucketName string) (location string, err error) {
-	if err = miniogw.ValidateBucket(ctx, bucketName); err != nil {
-		return "", l.log(ctx, minio.BucketNameInvalid{Bucket: bucketName})
-	}
-
-	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return "", err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	location, err = bucket.GetBucketLocation(ctx, project, bucketName)
-	return location, l.log(ctx, miniogw.ConvertError(err, bucketName, ""))
+	location, err = l.layer.GetBucketLocation(miniogw.WithCredentials(ctx, project, credsInfo), bucketName)
+	return location, l.log(ctx, err)
 }
 
 // GetBucketVersioning retrieves versioning configuration of a bucket.
