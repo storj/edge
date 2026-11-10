@@ -40,13 +40,13 @@ require (
 	golang.org/x/sync v0.24.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20261009084351-793a367e9857
+	storj.io/common v0.0.0-20261105101408-9ec44bcb844a
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
 	storj.io/drpc v1.0.0
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f
-	storj.io/gateway v1.11.1-0.20261109083715-01e4cae39466
+	storj.io/gateway v1.11.1-0.20261110002637-a91d34b7cdaa
 	storj.io/minio v0.0.0-20261102092559-6949ef5dffd7
-	storj.io/uplink v1.14.6-0.20261102032016-63952e4217ad
+	storj.io/uplink v1.14.6-0.20261109055925-e5a98a79f2f6
 	storj.io/zipper v0.0.0-20261029224715-a167d242e6c3
 )
 
@@ -64,7 +64,7 @@ require (
 	github.com/alecthomas/participle v0.2.1 // indirect
 	github.com/amwolff/awsig v0.0.0-20260427205242-5ad7e9e1912b // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
-	github.com/apache/thrift v0.17.0 // indirect
+	github.com/apache/thrift v0.25.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.14 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.31 // indirect
