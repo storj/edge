@@ -204,8 +204,7 @@ func (d *KV) PutFullRecord(ctx context.Context, keyHash authdb.KeyHash, r *authd
 // (SQLSTATE 23505), e.g. from a Put/PutFullRecord racing or re-running
 // against a key that already exists.
 func IsDuplicate(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23505"
 	}
 	return false

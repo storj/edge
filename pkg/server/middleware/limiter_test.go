@@ -147,8 +147,7 @@ func benchmarkLimiter(l *Limiter) error {
 }
 func BenchmarkLimiter(b *testing.B) {
 	l := NewLimiter(10, simpleKeyFunc, noopHandler)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		require.NoError(b, benchmarkLimiter(l))
 	}
 }

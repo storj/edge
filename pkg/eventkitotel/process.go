@@ -109,7 +109,7 @@ func Setup(ctx context.Context, log *zap.Logger, destConfig string, registry *ev
 		return errs.New("eventkit destination %q is not supported anymore, use %shost:port", destConfig, Prefix)
 	}
 
-	for _, address := range strings.Split(destConfig, ",") {
+	for address := range strings.SplitSeq(destConfig, ",") {
 		address = strings.TrimSpace(address)
 
 		endpoint, secure := strings.CutPrefix(address, SecurePrefix)

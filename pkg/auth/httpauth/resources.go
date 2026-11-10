@@ -34,8 +34,8 @@ type Resources struct {
 
 	log *zap.Logger
 
-	startup    int32
-	inShutdown int32
+	startup    atomic.Int32
+	inShutdown atomic.Int32
 }
 
 // New constructs Resources for some database.
@@ -118,19 +118,19 @@ func (res *Resources) writeError(w http.ResponseWriter, method string, msg strin
 
 // SetStartupDone sets the startup status flag to true indicating startup is complete.
 func (res *Resources) SetStartupDone() {
-	atomic.StoreInt32(&res.startup, 1)
+	res.startup.Store(1)
 }
 
 // SetShutdown sets the inShutdown status flag to true indicating the server is shutting down.
 func (res *Resources) SetShutdown() {
-	atomic.StoreInt32(&res.inShutdown, 1)
+	res.inShutdown.Store(1)
 }
 
 // getStartup returns 200 when the service has finished initial start up
 // processing and 503 Service Unavailable otherwise (e.g. established initial
 // database connection, finished database migrations).
 func (res *Resources) getStartup(w http.ResponseWriter, req *http.Request) {
-	if atomic.LoadInt32(&res.startup) != 0 {
+	if res.startup.Load() != 0 {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -144,7 +144,7 @@ func (res *Resources) getLive(w http.ResponseWriter, req *http.Request) {
 	res.log.Debug("getLive request", zap.String("remote_address", req.RemoteAddr))
 
 	// Confirm we have finished startup and are not shutting down.
-	if atomic.LoadInt32(&res.startup) == 0 || atomic.LoadInt32(&res.inShutdown) != 0 {
+	if res.startup.Load() == 0 || res.inShutdown.Load() != 0 {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
@@ -172,8 +172,7 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 	if err := json.NewDecoder(reader).Decode(&request); err != nil {
 		status := http.StatusUnprocessableEntity
 
-		var maxBytesError *http.MaxBytesError
-		if errors.As(err, &maxBytesError) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			status = http.StatusRequestEntityTooLarge
 		}
 

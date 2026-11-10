@@ -401,7 +401,7 @@ nextval:
 			_, _ = fmt.Fprint(f, ", ")
 		}
 		rv := reflect.ValueOf(val)
-		if rv.Kind() == reflect.Ptr {
+		if rv.Kind() == reflect.Pointer {
 			if rv.IsNil() {
 				_, _ = fmt.Fprint(f, "NULL")
 				continue

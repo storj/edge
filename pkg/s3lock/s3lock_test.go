@@ -89,14 +89,14 @@ func TestMutex_ConcurrentLockUnlock(t *testing.T) {
 		})
 	}()
 
-	var observedLock uint32
+	var observedLock atomic.Uint32
 	for i := range 10 {
 		ctx.Go(func() error {
 			mu := newMutex(ctx, t, cfg, name, strconv.Itoa(i))
 			require.NoError(t, mu.Lock(ctx))
-			require.True(t, atomic.CompareAndSwapUint32(&observedLock, 0, 1), "%d already locked", i)
+			require.True(t, observedLock.CompareAndSwap(0, 1), "%d already locked", i)
 			require.True(t, sync2.Sleep(ctx, 100*time.Millisecond))
-			require.True(t, atomic.CompareAndSwapUint32(&observedLock, 1, 0))
+			require.True(t, observedLock.CompareAndSwap(1, 0))
 			return mu.Unlock(ctx)
 		})
 	}

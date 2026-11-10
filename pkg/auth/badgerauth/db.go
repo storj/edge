@@ -60,7 +60,7 @@ type DB struct {
 	gcCycle    sync2.Cycle
 	gcErrGroup errgroup.Group
 
-	closed uint32
+	closed atomic.Uint32
 }
 
 // Open returns initialized DB and any error encountered.
@@ -301,7 +301,7 @@ func (db *DB) HealthCheck(ctx context.Context) (err error) {
 
 // Close closes the underlying storage engine (BadgerDB).
 func (db *DB) Close() error {
-	if !atomic.CompareAndSwapUint32(&db.closed, 0, 1) {
+	if !db.closed.CompareAndSwap(0, 1) {
 		return nil
 	}
 	db.gcCycle.Close()

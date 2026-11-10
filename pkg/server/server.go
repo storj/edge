@@ -68,7 +68,7 @@ type Peer struct {
 	// processorClosed is signaled once closeProcessor has returned.
 	processorClosed sync2.Event
 
-	inShutdown int32
+	inShutdown atomic.Int32
 }
 
 // New returns new instance of an S3 compatible http server.
@@ -267,7 +267,7 @@ func configureUplinkConfig(clientConfig ClientConfig) (uplink.Config, error) {
 func (s *Peer) healthCheck(w http.ResponseWriter, r *http.Request) {
 	// TODO: should this function do any tests to confirm the server is operational before returning a 200?
 	// this function should be low-effort, in the sense that the load balancer is going to be hitting it regularly.
-	if atomic.LoadInt32(&s.inShutdown) != 0 {
+	if s.inShutdown.Load() != 0 {
 		http.Error(w, "down", http.StatusServiceUnavailable)
 		return
 	}
@@ -325,7 +325,7 @@ func (s *Peer) Run(ctx context.Context) (err error) {
 		// closes the processor unconditionally once the drain is done, so
 		// waiting for the group below still terminates.
 		defer func() {
-			if atomic.LoadInt32(&s.inShutdown) == 0 {
+			if s.inShutdown.Load() == 0 {
 				_ = s.closeProcessor()
 			}
 		}()
@@ -347,7 +347,7 @@ func (s *Peer) closeProcessor() error {
 
 // Close shuts down the server and all underlying resources.
 func (s *Peer) Close() error {
-	atomic.StoreInt32(&s.inShutdown, 1)
+	s.inShutdown.Store(1)
 	if s.config.ShutdownDelay > 0 {
 		s.log.Info("Waiting before server shutdown", zap.Duration("delay", s.config.ShutdownDelay))
 		time.Sleep(s.config.ShutdownDelay)

@@ -374,7 +374,7 @@ func BenchmarkRandomKey(b *testing.B) {
 		r   string
 		err error
 	)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r, err = randomKey("prefix", time.Now())
 		require.NoError(b, err)
 	}
@@ -386,7 +386,7 @@ func BenchmarkUniqueString(b *testing.B) {
 		r   string
 		err error
 	)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r, err = uniqueString()
 		require.NoError(b, err)
 	}

@@ -84,10 +84,8 @@ func BenchmarkS3EntryToString(b *testing.B) {
 		TLSVersion:         "TLSv1.2",
 	}
 
-	b.ResetTimer()
-
 	var r string
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r = NewS3Entry(o).String()
 	}
 	result = r
