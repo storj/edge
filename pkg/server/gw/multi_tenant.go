@@ -121,8 +121,9 @@ func (l *MultiTenancyLayer) log(ctx context.Context, err error) error {
 	// middleware itself, and so is accessible here. The alternative to this was
 	// to modify minio to avoid creating a ReqInfo and use the same reference of
 	// a ReqInfo that was set in our middleware, but we want to avoid modifying
-	// minio as much as we can help it.
-	if log, ok := gwlog.FromContext(ctx); ok {
+	// minio as much as we can help it. Gateway's api package fills in the
+	// middleware's ReqInfo itself, so there's nothing to copy.
+	if log, ok := gwlog.FromContext(ctx); ok && log.ReqInfo != reqInfo {
 		copyReqInfo(log, reqInfo)
 	}
 

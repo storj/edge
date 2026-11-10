@@ -21,6 +21,7 @@ import (
 	"storj.io/edge/pkg/httpserver"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/eventkit"
+	"storj.io/gateway/api"
 )
 
 var ek = eventkit.Package()
@@ -97,6 +98,8 @@ func CollectEvent(h http.Handler) http.Handler {
 				eventkit.String("satellite-address", satelliteAddress),
 				eventkit.String("remote-ip", httpserver.ClientIP(r)),
 				eventkit.String("error", gl.TagValue("error")),
+				// Only gateway's api package records the code; minio's handlers leave it empty.
+				eventkit.String("error-code", gl.TagValue(api.ErrorCodeTag)),
 				eventkit.String("request-id", requestid.FromContext(r.Context())),
 				eventkit.String("amz-request-id", gl.RequestID),
 				eventkit.String("trace-id", rw.Header().Get("trace-id")),

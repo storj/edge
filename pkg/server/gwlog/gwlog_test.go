@@ -9,6 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/minio/cmd/logger"
 )
 
 func TestGetReqInfo(t *testing.T) {
@@ -23,6 +25,7 @@ func TestGetReqInfo(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "123", log2.RequestID)
 	require.Equal(t, log, log2)
+	require.Same(t, log.ReqInfo, logger.GetReqInfo(ctx))
 }
 
 func TestTagValue(t *testing.T) {

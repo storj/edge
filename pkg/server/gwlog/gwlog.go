@@ -22,9 +22,10 @@ type Log struct {
 	*logger.ReqInfo
 }
 
-// WithContext returns a copy of the parent context with Log value.
+// WithContext returns a copy of the parent context with Log value. Its ReqInfo is also the
+// context's, so that gateway's api package fills it in. minio's handlers make their own instead.
 func (log *Log) WithContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKey, log)
+	return logger.SetReqInfo(context.WithValue(ctx, contextKey, log), log.ReqInfo)
 }
 
 // TagValue returns the value for the given key in tags, if it exists.
