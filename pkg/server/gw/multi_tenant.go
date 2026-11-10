@@ -81,8 +81,8 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 //
 // TODO: drop minio's ObjectLayer once we serve requests with gateway's api
 // package instead of minio's handlers, which are all that call the methods
-// only it declares: StorageInfo, IsNotificationSupported, IsTaggingSupported,
-// GetMultipartInfo and GetObjectTags.
+// only it declares: StorageInfo, IsNotificationSupported, IsTaggingSupported
+// and GetObjectTags.
 type objectLayer interface {
 	minio.ObjectLayer
 	objectlayer.ObjectLayer
@@ -597,19 +597,6 @@ func (l *MultiTenancyLayer) PutObjectPart(ctx context.Context, bucket, object, u
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	info, err = l.layer.PutObjectPart(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, partID, data, opts)
-	return info, l.log(ctx, err)
-}
-
-// GetMultipartInfo is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).GetMultipartInfo.
-func (l *MultiTenancyLayer) GetMultipartInfo(ctx context.Context, bucket string, object string, uploadID string, opts minio.ObjectOptions) (info minio.MultipartInfo, err error) {
-	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
-	if err != nil {
-		return minio.MultipartInfo{}, err
-	}
-
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	info, err = l.layer.GetMultipartInfo(miniogw.WithCredentials(ctx, project, credsInfo), bucket, object, uploadID, opts)
 	return info, l.log(ctx, err)
 }
 
