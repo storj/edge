@@ -124,8 +124,6 @@ func sanitizeMethod(m string) string {
 // - bytes written
 // partitioned by method, status code, API.
 //
-// It also sends unmapped errors (in the case of Gateway-MT) through eventkit.
-//
 // TODO(artur): calculate approximate request size.
 func Metrics(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
