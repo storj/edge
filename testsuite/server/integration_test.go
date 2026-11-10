@@ -2247,11 +2247,20 @@ func getObjectAttributes(ctx context.Context, client *s3.S3, bucket, key, versio
 	return client.GetObjectAttributesWithContext(ctx, &input)
 }
 
+// copySource returns an object's copy source. An empty versionID is left out, because S3 rejects
+// it.
+func copySource(bucket, key, versionID string) string {
+	if versionID == "" {
+		return bucket + "/" + key
+	}
+	return bucket + "/" + key + "?versionId=" + versionID
+}
+
 func copyObject(ctx context.Context, client *s3.S3, sourceBucket, sourceKey, sourceVersionID, destBucket, destKey string) (*s3.CopyObjectOutput, error) {
 	return client.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:     aws.String(destBucket),
 		Key:        aws.String(destKey),
-		CopySource: aws.String(sourceBucket + "/" + sourceKey + "?versionId=" + sourceVersionID),
+		CopySource: aws.String(copySource(sourceBucket, sourceKey, sourceVersionID)),
 	})
 }
 
@@ -2259,7 +2268,7 @@ func copyObjectWithRetention(ctx context.Context, client *s3.S3, sourceBucket, s
 	return client.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:                    aws.String(destBucket),
 		Key:                       aws.String(destKey),
-		CopySource:                aws.String(sourceBucket + "/" + sourceKey + "?versionId=" + sourceVersionID),
+		CopySource:                aws.String(copySource(sourceBucket, sourceKey, sourceVersionID)),
 		ObjectLockMode:            aws.String(lockMode),
 		ObjectLockRetainUntilDate: retainUntil,
 	})
@@ -2269,7 +2278,7 @@ func copyObjectWithLegalHoldAndRetention(ctx context.Context, client *s3.S3, sou
 	return client.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:                    aws.String(destBucket),
 		Key:                       aws.String(destKey),
-		CopySource:                aws.String(sourceBucket + "/" + sourceKey + "?versionId=" + sourceVersionID),
+		CopySource:                aws.String(copySource(sourceBucket, sourceKey, sourceVersionID)),
 		ObjectLockLegalHoldStatus: aws.String(legalHoldStatus),
 		ObjectLockMode:            aws.String(lockMode),
 		ObjectLockRetainUntilDate: retainUntil,
