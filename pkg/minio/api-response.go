@@ -7,7 +7,7 @@ import (
 	"encoding/xml"
 	"time"
 
-	"storj.io/edge/pkg/server/gw"
+	"storj.io/gateway/api/objectlayer"
 	"storj.io/minio/cmd"
 )
 
@@ -34,7 +34,7 @@ type listBucketsWithAttributionResponse struct {
 // generateListBucketsWithAttributionResponse generates XML and
 // JSON-serializable ListBucketsWithAttributionResponse from a slice of
 // BucketWithAttributionInfo.
-func generateListBucketsWithAttributionResponse(info []gw.BucketWithAttributionInfo) listBucketsWithAttributionResponse {
+func generateListBucketsWithAttributionResponse(info []objectlayer.BucketWithAttributionInfo) listBucketsWithAttributionResponse {
 	response := listBucketsWithAttributionResponse{
 		Owner: cmd.Owner{
 			ID:          cmd.GlobalMinioDefaultOwnerID,
@@ -68,8 +68,8 @@ type listLicensesResponse struct {
 	} `xml:"Licenses"`
 }
 
-// generateListLicensesResponse generates XML response from a slice of LicenseEntry.
-func generateListLicensesResponse(info []gw.LicenseEntry) listLicensesResponse {
+// generateListLicensesResponse generates XML response from a slice of License.
+func generateListLicensesResponse(info []objectlayer.License) listLicensesResponse {
 	response := listLicensesResponse{}
 	for _, v := range info {
 		response.Licenses.Licenses = append(response.Licenses.Licenses, license{

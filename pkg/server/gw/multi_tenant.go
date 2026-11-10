@@ -6,7 +6,6 @@ package gw
 import (
 	"context"
 	"net/http"
-	"time"
 
 	miniogo "github.com/minio/minio-go/v7"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -20,6 +19,7 @@ import (
 	"storj.io/common/version"
 	"storj.io/edge/pkg/server/gwlog"
 	"storj.io/edge/pkg/server/middleware"
+	"storj.io/gateway/api/objectlayer"
 	"storj.io/gateway/miniogw"
 	minio "storj.io/minio/cmd"
 	"storj.io/minio/cmd/logger"
@@ -29,8 +29,6 @@ import (
 	"storj.io/minio/pkg/event"
 	"storj.io/minio/pkg/tags"
 	"storj.io/uplink"
-	"storj.io/uplink/private/bucket"
-	"storj.io/uplink/private/license"
 	"storj.io/uplink/private/project"
 	"storj.io/uplink/private/transport"
 )
@@ -62,7 +60,7 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 
 	layer, ok := minioLayer.(objectLayer)
 	if !ok {
-		return nil, errs.New("gateway layer %T doesn't implement GetBucketLocation", minioLayer)
+		return nil, errs.New("gateway layer %T doesn't implement objectlayer.ObjectLayer", minioLayer)
 	}
 
 	signers := make(map[storj.NodeID]signing.Signer, len(satelliteIdentities))
@@ -79,15 +77,15 @@ func NewMultiTenantLayer(gateway minio.Gateway, satelliteConnectionPool *rpcpool
 	}, nil
 }
 
-// objectLayer is the gateway layer that MultiTenancyLayer wraps. minio's
-// ObjectLayer doesn't declare GetBucketLocation because minio's handlers
-// don't ask the object layer for it.
+// objectLayer is the gateway layer that MultiTenancyLayer wraps.
 //
-// TODO: switch to storj.io/gateway/api/objectlayer.ObjectLayer once we serve
-// requests with gateway's api package instead of minio's handlers.
+// TODO: drop minio's ObjectLayer once we serve requests with gateway's api
+// package instead of minio's handlers, which are all that call the methods
+// only it declares: StorageInfo, IsNotificationSupported, IsTaggingSupported,
+// GetMultipartInfo and GetObjectTags.
 type objectLayer interface {
 	minio.ObjectLayer
-	GetBucketLocation(ctx context.Context, bucket string) (string, error)
+	objectlayer.ObjectLayer
 }
 
 // MultiTenancyLayer implements multi-tenant minio.ObjectLayer that logs
@@ -283,74 +281,30 @@ func (l *MultiTenancyLayer) ListBuckets(ctx context.Context) (buckets []minio.Bu
 	return buckets, l.log(ctx, err)
 }
 
-// BucketWithAttributionInfo represents a bucket with attribution metadata.
-type BucketWithAttributionInfo struct {
-	Name        string
-	Created     time.Time
-	Attribution string
-}
-
-// ListBucketsWithAttribution is like ListBuckets, but it associates information
-// about attribution (if any) with each bucket.
-func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buckets []BucketWithAttributionInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
+// ListBucketsWithAttribution is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListBucketsWithAttribution.
+func (l *MultiTenancyLayer) ListBucketsWithAttribution(ctx context.Context) (buckets []objectlayer.BucketWithAttributionInfo, err error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	it := bucket.ListBucketsWithAttribution(ctx, project, nil)
-
-	for it.Next() {
-		buckets = append(buckets, BucketWithAttributionInfo{
-			Name:        it.Item().Name,
-			Created:     it.Item().Created,
-			Attribution: it.Item().Attribution,
-		})
-	}
-
-	return buckets, l.log(ctx, miniogw.ConvertError(it.Err(), "", ""))
+	buckets, err = l.layer.ListBucketsWithAttribution(miniogw.WithCredentials(ctx, project, credsInfo))
+	return buckets, l.log(ctx, err)
 }
 
-// LicenseEntry represents license information for a bucket.
-type LicenseEntry struct {
-	Type      string
-	ExpiresAt time.Time
-	Key       []byte
-}
-
-// ListLicenses returns license information for the specified bucket and license type.
-func (l *MultiTenancyLayer) ListLicenses(ctx context.Context, bucketName, licenseType string) (licenses []LicenseEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err = miniogw.ValidateBucket(ctx, bucketName); err != nil {
-		return nil, l.log(ctx, minio.BucketNameInvalid{Bucket: bucketName})
-	}
-
-	project, _, err := l.parseCredentials(ctx, getCredentials(ctx))
+// ListLicenses is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).ListLicenses.
+func (l *MultiTenancyLayer) ListLicenses(ctx context.Context, bucketName, licenseType string) (licenses []objectlayer.License, err error) {
+	project, credsInfo, err := l.parseCredentials(ctx, getCredentials(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	rawLicenses, err := license.List(ctx, project, licenseType, bucketName)
-	if err != nil {
-		return nil, l.log(ctx, miniogw.ConvertError(err, bucketName, ""))
-	}
-
-	for _, rawLicense := range rawLicenses {
-		licenses = append(licenses, LicenseEntry{
-			Type:      rawLicense.Type,
-			ExpiresAt: rawLicense.ExpiresAt,
-			Key:       rawLicense.Key,
-		})
-	}
-
-	return licenses, nil
+	licenses, err = l.layer.ListLicenses(miniogw.WithCredentials(ctx, project, credsInfo), bucketName, licenseType)
+	return licenses, l.log(ctx, err)
 }
 
 // DeleteBucket is a multi-tenant wrapping of storj.io/gateway.(*gatewayLayer).DeleteBucket.
