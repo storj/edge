@@ -3,6 +3,7 @@ module storj.io/edge
 go 1.26.0
 
 require (
+	github.com/amwolff/awsig v0.0.0-20260427205242-5ad7e9e1912b
 	github.com/aws/aws-sdk-go-v2 v1.43.0
 	github.com/aws/aws-sdk-go-v2/config v1.31.10
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.14
@@ -62,7 +63,6 @@ require (
 	github.com/Shopify/sarama v1.27.2 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/participle v0.2.1 // indirect
-	github.com/amwolff/awsig v0.0.0-20260427205242-5ad7e9e1912b // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/apache/thrift v0.25.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.14 // indirect
@@ -256,3 +256,5 @@ require (
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
 )
+
+replace github.com/amwolff/awsig => github.com/storj/awsig v0.0.0-20261022091552-de544e9f13d5

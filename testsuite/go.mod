@@ -318,4 +318,7 @@ require (
 	storj.io/zipper v0.0.0-20261029224715-a167d242e6c3 // indirect
 )
 
-replace storj.io/edge => ../
+replace (
+	github.com/amwolff/awsig => github.com/storj/awsig v0.0.0-20261022091552-de544e9f13d5
+	storj.io/edge => ../
+)

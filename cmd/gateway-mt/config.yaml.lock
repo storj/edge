@@ -133,6 +133,9 @@ client.satellite-identities.key-paths: ""
 # tells libuplink to perform in-memory encoding on file upload
 # encode-in-memory: true
 
+# (experimental) serve S3 requests with gateway's api package instead of minio's handlers
+# experimental-api: false
+
 # maximum time to wait for the next request
 # idle-timeout: 1m0s
 

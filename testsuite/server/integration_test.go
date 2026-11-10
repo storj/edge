@@ -45,6 +45,7 @@ import (
 	"storj.io/edge/internal/minioclient"
 	"storj.io/edge/internal/register"
 	"storj.io/edge/pkg/auth"
+	"storj.io/edge/pkg/auth/authdb"
 	"storj.io/edge/pkg/auth/sqlauth"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
@@ -975,6 +976,24 @@ func TestAccessLogs(t *testing.T) {
 	})
 }
 
+func TestInvalidAccessKey(t *testing.T) {
+	t.Parallel()
+
+	runTest(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, nil, func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials) {
+		unknownKey, err := authdb.NewEncryptionKey()
+		require.NoError(t, err)
+
+		// authclient rejects the malformed key itself and authservice the unknown one.
+		for _, accessKeyID := range []string{"AKIAIOSFODNN7EXAMPLE", unknownKey.ToBase32()} {
+			client := createS3Client(t, gateway.Address(), accessKeyID, creds.SecretKey)
+			_, err := client.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+			requireS3Error(t, err, http.StatusForbidden, "InvalidAccessKeyId")
+		}
+	})
+}
+
 func TestUploadDownload(t *testing.T) {
 	runTest(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -1894,9 +1913,31 @@ func runTest(
 	prepare func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config),
 	test func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials),
 ) {
+	for _, mode := range []struct {
+		name            string
+		experimentalAPI bool
+	}{
+		{name: "minio"},
+		{name: "api", experimentalAPI: true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			runTestWithAPI(t, planetConfig, mode.experimentalAPI, prepare, test)
+		})
+	}
+}
+
+// runTestWithAPI is runTest for minio's handlers or, with experimentalAPI, gateway's api package.
+func runTestWithAPI(
+	t *testing.T,
+	planetConfig testplanet.Config,
+	experimentalAPI bool,
+	prepare func(ctx *testcontext.Context, planet *testplanet.Planet, gwConfig *server.Config),
+	test func(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, gateway *server.Peer, auth *auth.Peer, creds register.Credentials),
+) {
 	testplanet.Run(t, planetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var gwConfig server.Config
 		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
+		gwConfig.ExperimentalAPI = experimentalAPI
 
 		var authConfig auth.Config
 		cfgstruct.Bind(&pflag.FlagSet{}, &authConfig, cfgstruct.UseTestDefaults())

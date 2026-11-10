@@ -141,7 +141,13 @@ func New(config Config, log *zap.Logger, corsAllowedOrigins []string,
 		return nil, err
 	}
 
-	minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
+	if config.ExperimentalAPI {
+		if err := registerAPI(log, r, layer, dedupedDomains, corsAllowedOrigins, concurrentAllowed); err != nil {
+			return nil, err
+		}
+	} else {
+		minio.RegisterAPIRouter(r, layer, dedupedDomains, concurrentAllowed, corsAllowedOrigins)
+	}
 
 	processor := accesslogs.NewProcessor(log, config.AccessLogsProcessor)
 	accessLogsConfigs, err := middleware.ParseAccessLogConfig(log, config.ServerAccessLogging)
@@ -165,8 +171,11 @@ func New(config Config, log *zap.Logger, corsAllowedOrigins []string,
 	r.Use(middleware.CollectEvent)
 	r.Use(middleware.AccessLog(log, processor, accessLogsConfigs))
 
-	for i, m := range cmd.GlobalHandlers {
-		r.Use(middleware.MonitorMinioGlobalHandler(i, m))
+	// minio's global handlers check requests for minio's handlers.
+	if !config.ExperimentalAPI {
+		for i, m := range cmd.GlobalHandlers {
+			r.Use(middleware.MonitorMinioGlobalHandler(i, m))
+		}
 	}
 
 	// we deliberately don't log paths for this service because they have

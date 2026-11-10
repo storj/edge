@@ -31,6 +31,17 @@ import (
 	"storj.io/minio/pkg/wildcard"
 )
 
+// CorsAllowedMethods are the methods that CorsHandler allows.
+var CorsAllowedMethods = []string{
+	http.MethodGet,
+	http.MethodPut,
+	http.MethodHead,
+	http.MethodPost,
+	http.MethodDelete,
+	http.MethodOptions,
+	http.MethodPatch,
+}
+
 // CorsHandler handler for CORS (Cross Origin Resource Sharing).
 func CorsHandler(allowedOrigins []string) mux.MiddlewareFunc {
 	return func(handler http.Handler) http.Handler {
@@ -65,15 +76,7 @@ func CorsHandler(allowedOrigins []string) mux.MiddlewareFunc {
 				}
 				return false
 			},
-			AllowedMethods: []string{
-				http.MethodGet,
-				http.MethodPut,
-				http.MethodHead,
-				http.MethodPost,
-				http.MethodDelete,
-				http.MethodOptions,
-				http.MethodPatch,
-			},
+			AllowedMethods:   CorsAllowedMethods,
 			AllowedHeaders:   commonS3Headers,
 			ExposedHeaders:   commonS3Headers,
 			AllowCredentials: true,

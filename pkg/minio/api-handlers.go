@@ -217,10 +217,7 @@ func (h objectAPIHandlersWrapper) GetBucketCorsHandler(w http.ResponseWriter, r 
 	for _, o := range h.corsAllowedOrigins {
 		fmt.Fprintf(&sb, "<AllowedOrigin>%s</AllowedOrigin>", o)
 	}
-	// CorsHandler's AllowedHeader list is duplicated here
-	allowedMethods := []string{http.MethodGet, http.MethodPut, http.MethodHead, http.MethodPost,
-		http.MethodDelete, http.MethodOptions, http.MethodPatch}
-	for _, o := range allowedMethods {
+	for _, o := range CorsAllowedMethods {
 		fmt.Fprintf(&sb, "<AllowedMethod>%s</AllowedMethod>", o)
 	}
 	// CorsHandler's AllowedHeader list is not implemented here, because it includes "*"

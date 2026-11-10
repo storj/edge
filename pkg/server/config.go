@@ -33,6 +33,7 @@ type Config struct {
 	IdleTimeout         time.Duration `help:"maximum time to wait for the next request" default:"60s"`
 	ShutdownDelay       time.Duration `help:"time to delay server shutdown while returning 503s on the health endpoint" devDefault:"1s" releaseDefault:"45s"`
 	DisableHTTP2        bool          `help:"whether support for HTTP/2 should be disabled" default:"false"`
+	ExperimentalAPI     bool          `help:"(experimental) serve S3 requests with gateway's api package instead of minio's handlers" default:"false"`
 	ServerAccessLogging []string      `help:"list of project IDs and buckets which have access logging enabled. Usage (colon-delimited): watched_project_id:watched_bucket:destination_bucket:destination_access_grant:destination_prefix. destination_prefix can be empty"`
 
 	Auth                    authclient.Config
