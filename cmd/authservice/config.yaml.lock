@@ -71,6 +71,9 @@ free-tier-access-limit.tier-query.identity.cert-path: /identity.cert
 # path to the private key for this identity
 free-tier-access-limit.tier-query.identity.key-path: /identity.key
 
+# comma separated list of hostname=endpoint pairs; HTTP requests to hostname return endpoint instead of --endpoint (e.g. auth.example.com=https://gateway.example.com)
+# host-endpoints: []
+
 # timeout for idle connections
 # idle-timeout: 1m0s
 

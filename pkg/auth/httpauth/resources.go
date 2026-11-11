@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +29,10 @@ type Resources struct {
 	db        *authdb.Database
 	endpoint  *url.URL
 	authToken []string
+
+	// hostEndpoints maps the lowercase hostname a request was made to, to the
+	// endpoint returned for it instead of endpoint.
+	hostEndpoints map[string]*url.URL
 
 	handler       http.Handler
 	id            *Arg
@@ -210,11 +216,41 @@ func (res *Resources) newAccess(w http.ResponseWriter, req *http.Request) {
 
 	response.AccessKeyID = key.ToBase32()
 	response.SecretKey = putResult.SecretKey.ToBase32()
-	response.Endpoint = res.endpoint.String()
+	response.Endpoint = res.endpointFor(req).String()
 	response.FreeTierRestrictedExpiration = putResult.FreeTierRestrictedExpiration
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+// WithHostEndpoints makes newly registered accesses return a different
+// endpoint depending on the hostname the request was made to, e.g. so that a
+// white label auth hostname returns the white label gateway hostname. Requests
+// to other hostnames keep returning the default endpoint. Hostnames are matched
+// case-insensitively and without port.
+func (res *Resources) WithHostEndpoints(hostEndpoints map[string]*url.URL) *Resources {
+	res.hostEndpoints = make(map[string]*url.URL, len(hostEndpoints))
+	for host, endpoint := range hostEndpoints {
+		res.hostEndpoints[strings.ToLower(host)] = endpoint
+	}
+	return res
+}
+
+// endpointFor returns the endpoint to return for req.
+func (res *Resources) endpointFor(req *http.Request) *url.URL {
+	if len(res.hostEndpoints) == 0 {
+		return res.endpoint
+	}
+
+	host := req.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
+	if endpoint, ok := res.hostEndpoints[strings.ToLower(host)]; ok {
+		return endpoint
+	}
+	return res.endpoint
 }
 
 func (res *Resources) newAccessCORS(w http.ResponseWriter, req *http.Request) {

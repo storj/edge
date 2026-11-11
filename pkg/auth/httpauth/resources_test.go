@@ -486,6 +486,57 @@ func TestResources_EntityTooLarge(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, r.StatusCode)
 }
 
+func TestResources_HostEndpoints(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	logger := zaptest.NewLogger(t)
+	defer ctx.Check(logger.Sync)
+
+	storage := newStorage(t, logger)
+	defer ctx.Check(storage.Close)
+
+	db, err := authdb.NewDatabase(zaptest.NewLogger(t), storage, authdb.Config{
+		AllowedSatelliteURLs: map[storj.NodeURL]struct{}{minimalAccessSatelliteID: {}},
+	})
+	require.NoError(t, err)
+
+	defaultEndpoint, err := url.Parse("https://gateway.example.test")
+	require.NoError(t, err)
+	whiteLabelEndpoint, err := url.Parse("https://gateway.whitelabel.test")
+	require.NoError(t, err)
+
+	res := newResource(t, logger, db, defaultEndpoint).WithHostEndpoints(map[string]*url.URL{
+		"Auth.WhiteLabel.test": whiteLabelEndpoint,
+	})
+
+	register := func(host string) string {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(t.Context(), "POST", "/v1/access",
+			strings.NewReader(fmt.Sprintf(`{"access_grant": %q}`, minimalAccess)))
+		req.Host = host
+		res.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+		return out["endpoint"].(string)
+	}
+
+	for _, tc := range []struct {
+		host     string
+		endpoint string
+	}{
+		{host: "auth.whitelabel.test", endpoint: whiteLabelEndpoint.String()},
+		{host: "AUTH.whitelabel.TEST", endpoint: whiteLabelEndpoint.String()},
+		{host: "auth.whitelabel.test:20001", endpoint: whiteLabelEndpoint.String()},
+		{host: "auth.example.test", endpoint: defaultEndpoint.String()},
+		{host: "", endpoint: defaultEndpoint.String()},
+	} {
+		assert.Equal(t, tc.endpoint, register(tc.host), "host %q", tc.host)
+	}
+}
+
 func newResource(t *testing.T, logger *zap.Logger, db *authdb.Database, endpoint *url.URL) *Resources {
 	t.Helper()
 

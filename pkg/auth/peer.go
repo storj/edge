@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pires/go-proxyproto"
@@ -42,6 +43,7 @@ const serverShutdownTimeout = 10 * time.Second
 // Config holds authservice's configuration.
 type Config struct {
 	Endpoint          string        `help:"Gateway endpoint URL to return to clients" default:""`
+	HostEndpoints     []string      `help:"comma separated list of hostname=endpoint pairs; HTTP requests to hostname return endpoint instead of --endpoint (e.g. auth.example.com=https://gateway.example.com)" default:""`
 	AuthToken         []string      `help:"auth security token(s) to validate requests" releaseDefault:"" devDefault:""`
 	POSTSizeLimit     memory.Size   `help:"maximum size that the incoming POST request body with access grant can be" default:"4KiB"`
 	AllowedSatellites []string      `help:"list of satellite NodeURLs allowed for incoming access grants" default:"https://www.storj.io/dcs-satellites"`
@@ -149,6 +151,11 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.New("unexpected scheme found in endpoint parameter %s", endpoint.Scheme)
 	}
 
+	hostEndpoints, err := parseHostEndpoints(config.HostEndpoints)
+	if err != nil {
+		return nil, err
+	}
+
 	publicURLs, err := hostnames(config.PublicURL)
 	if err != nil {
 		return nil, err
@@ -172,7 +179,8 @@ func New(ctx context.Context, log *zap.Logger, config Config, configDir string) 
 		return nil, errs.Wrap(err)
 	}
 
-	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit)
+	res := httpauth.New(log.Named("resources"), adb, endpoint, config.AuthToken, config.POSTSizeLimit).
+		WithHostEndpoints(hostEndpoints)
 
 	tlsInfo := &TLSInfo{
 		CertFile:                    config.CertFile,
@@ -479,4 +487,28 @@ func hostnames(urls []string) ([]string, error) {
 		hosts = append(hosts, u.Hostname())
 	}
 	return hosts, nil
+}
+
+// parseHostEndpoints parses hostname=endpoint pairs into a map from hostname
+// to endpoint URL.
+func parseHostEndpoints(pairs []string) (map[string]*url.URL, error) {
+	hostEndpoints := make(map[string]*url.URL, len(pairs))
+	for _, pair := range pairs {
+		host, rawEndpoint, ok := strings.Cut(pair, "=")
+		host = strings.TrimSpace(host)
+		if !ok || host == "" {
+			return nil, errs.New("invalid host endpoint %q, expected hostname=endpoint", pair)
+		}
+
+		endpoint, err := url.Parse(strings.TrimSpace(rawEndpoint))
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		if endpoint.Scheme != "http" && endpoint.Scheme != "https" {
+			return nil, errs.New("unexpected scheme found in host endpoint %q", pair)
+		}
+
+		hostEndpoints[strings.ToLower(host)] = endpoint
+	}
+	return hostEndpoints, nil
 }

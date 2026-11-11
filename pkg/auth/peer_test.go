@@ -40,6 +40,31 @@ import (
 
 // TestPeer_Close ensures that closing bare Peer with minimal config it needs to
 // start will not panic and has released all the resources.
+func TestParseHostEndpoints(t *testing.T) {
+	hostEndpoints, err := parseHostEndpoints([]string{
+		"Auth.Example.test=https://gateway.example.test",
+		" auth.other.test = http://gateway.other.test:7777 ",
+	})
+	require.NoError(t, err)
+	require.Len(t, hostEndpoints, 2)
+	require.Equal(t, "https://gateway.example.test", hostEndpoints["auth.example.test"].String())
+	require.Equal(t, "http://gateway.other.test:7777", hostEndpoints["auth.other.test"].String())
+
+	hostEndpoints, err = parseHostEndpoints(nil)
+	require.NoError(t, err)
+	require.Empty(t, hostEndpoints)
+
+	for _, invalid := range []string{
+		"auth.example.test",
+		"=https://gateway.example.test",
+		"auth.example.test=gateway.example.test",
+		"auth.example.test=ftp://gateway.example.test",
+	} {
+		_, err := parseHostEndpoints([]string{invalid})
+		require.Error(t, err, invalid)
+	}
+}
+
 func TestPeer_Close(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
