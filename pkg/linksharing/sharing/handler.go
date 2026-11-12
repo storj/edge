@@ -303,6 +303,13 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Headers set for the object don't describe the error page. Left in
+	// place, a CDN could cache the error with the object's Cache-Control,
+	// or a client could try to decode it as gzip.
+	for _, k := range []string{"Cache-Control", "Content-Disposition", "Content-Encoding", "Etag", "Last-Modified"} {
+		w.Header().Del(k)
+	}
+
 	status := http.StatusInternalServerError
 	message := "Internal server error. Please try again later."
 	action := errdata.GetAction(handlerErr, "unknown")
@@ -387,7 +394,6 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	delete(w.Header(), "Content-Disposition")
 	if !skipRendering {
 		w.Header().Set("Content-Type", htmlContentType)
 	}

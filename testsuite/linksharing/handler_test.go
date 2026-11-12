@@ -227,6 +227,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		reqHeader             map[string]string
 		body                  []string
 		notContains           []string
+		absentRespHeaders     []string
 		downloadPrefixEnabled bool
 		zipContent            map[string]string
 		tarContent            map[string]string
@@ -448,6 +449,41 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			},
 			status:           http.StatusRequestedRangeNotSatisfiable,
 			expectedRPCCalls: []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
+		},
+		{
+			name: "GET download error drops object headers",
+			path: path.Join("raw", serializedAccess, "testbucket", "test/cached"),
+			reqHeader: map[string]string{
+				"Range": "bytes=10-20",
+			},
+			status:            http.StatusRequestedRangeNotSatisfiable,
+			absentRespHeaders: []string{"Cache-Control", "Content-Encoding", "Last-Modified"},
+			expectedRPCCalls:  []string{"/metainfo.Metainfo/CompressedBatch" /* DownloadObject */},
+			prepFunc: func() (err error) {
+				project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+				if err != nil {
+					return err
+				}
+				defer func() { err = errs.Combine(err, project.Close()) }()
+
+				upload, err := project.UploadObject(ctx, "testbucket", "test/cached", nil)
+				if err != nil {
+					return err
+				}
+				if _, err := upload.Write([]byte("FOOBAR")); err != nil {
+					return errs.Combine(err, upload.Abort())
+				}
+				if err := upload.SetCustomMetadata(ctx, uplink.CustomMetadata{
+					"Cache-Control":    "max-age=31536000",
+					"Content-Encoding": "gzip",
+				}); err != nil {
+					return errs.Combine(err, upload.Abort())
+				}
+				return upload.Commit()
+			},
+			cleanupFunc: func() error {
+				return planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/cached")
+			},
 		},
 		{
 			name: "GET download range with modtime mismatch",
@@ -1332,6 +1368,9 @@ To download a larger number of objects at once, download the prefix using the ta
 				for _, elem := range testCase.notContains {
 					assert.NotContains(t, w.Body.String(), elem, fmt.Sprintf("body should not contain element: %s", elem))
 				}
+			}
+			for _, k := range testCase.absentRespHeaders {
+				assert.Empty(t, w.Header().Values(k), "response should not have header %s", k)
 			}
 			if testCase.zipContent != nil {
 				zf, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
