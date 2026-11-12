@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
@@ -1976,14 +1977,18 @@ func runTestWithAPI(
 		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))
 		require.NoError(t, err)
 
-		// auth peer needs to be canceled to shut the servers down.
+		// auth must stop and close its DB pool before tempDB.Close drops
+		// the database, so wait for it here rather than in ctx's cleanup.
 		cancelCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		ctx.Go(func() error {
-			defer ctx.Check(auth.Close)
+		var authGroup errgroup.Group
+		authGroup.Go(func() error {
 			return errs2.IgnoreCanceled(auth.Run(cancelCtx))
 		})
+		defer func() {
+			cancel()
+			ctx.Check(authGroup.Wait)
+			ctx.Check(auth.Close)
+		}()
 
 		gwConfig.Server.Address = "127.0.0.1:0"
 		gwConfig.Auth = authclient.Config{
