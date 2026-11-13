@@ -37,8 +37,7 @@ type listBucketsWithAttributionResponse struct {
 func generateListBucketsWithAttributionResponse(info []objectlayer.BucketWithAttributionInfo) listBucketsWithAttributionResponse {
 	response := listBucketsWithAttributionResponse{
 		Owner: cmd.Owner{
-			ID:          cmd.GlobalMinioDefaultOwnerID,
-			DisplayName: "minio",
+			ID: cmd.GlobalMinioDefaultOwnerID,
 		},
 	}
 

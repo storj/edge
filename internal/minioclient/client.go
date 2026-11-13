@@ -117,8 +117,7 @@ var emptySHA256Hex = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b78
 type listAllMyBucketsResult struct {
 	XMLName xml.Name `xml:"ListAllMyBucketsResult"`
 	Owner   struct {
-		ID          string `xml:"ID"`
-		DisplayName string `xml:"DisplayName"`
+		ID string `xml:"ID"`
 	} `xml:"Owner"`
 	Buckets struct {
 		Bucket []struct {
