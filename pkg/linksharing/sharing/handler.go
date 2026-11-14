@@ -103,7 +103,8 @@ type Config struct {
 	// access key ids into access grants.
 	AuthServiceConfig authclient.Config
 
-	// DNS Server address, for TXT record lookup
+	// DNSServer is a comma-separated list of DNS servers for TXT and CNAME
+	// lookups, or empty to use /etc/resolv.conf. See NewDNSClient.
 	DNSServer string
 
 	// RedirectHTTPS enables redirection to https://.
