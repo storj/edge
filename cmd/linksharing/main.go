@@ -45,7 +45,7 @@ type LinkSharing struct {
 	GeoLocationDB          string        `user:"true" help:"maxmind database file path"`
 	TXTRecordTTL           time.Duration `user:"true" help:"max ttl (seconds) for website hosting txt record cache" devDefault:"10s" releaseDefault:"1h"`
 	AuthService            authclient.Config
-	DNSServer              string        `user:"true" help:"dns server address to use for TXT resolution" default:"1.1.1.1:53"`
+	DNSServer              string        `user:"true" help:"comma separated list of dns servers (host:port) for TXT and CNAME lookups, tried in order. empty uses the nameservers in /etc/resolv.conf"`
 	LandingRedirectTarget  string        `user:"true" help:"the url to redirect empty requests to" default:"https://www.storj.io/"`
 	RedirectHTTPS          bool          `user:"true" help:"redirect to HTTPS" devDefault:"false" releaseDefault:"true"`
 	IdleTimeout            time.Duration `help:"timeout for idle connections" default:"60s"`

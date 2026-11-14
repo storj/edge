@@ -103,8 +103,8 @@ connection-pool.key-capacity: 5
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# dns server address to use for TXT resolution
-dns-server: 1.1.1.1:53
+# comma separated list of dns servers (host:port) for TXT and CNAME lookups, tried in order. empty uses the nameservers in /etc/resolv.conf
+dns-server: ""
 
 # whether downloading a prefix as a zip or tar file is enabled
 # download-prefix-enabled: false
