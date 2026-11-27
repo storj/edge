@@ -196,6 +196,9 @@ client.satellite-identities.key-paths: ""
 # The default number of iterations for each check
 # quickchecks: 100
 
+# algorithm of the checksum stored with objects uploaded without one if object-checksums is on: CRC32, CRC32C, CRC64NVME, or empty for none
+# s3compatibility.default-checksum-algorithm: CRC64NVME
+
 # how many objects to delete in parallel with DeleteObjects
 # s3compatibility.delete-objects-concurrency: 100
 
@@ -219,6 +222,9 @@ client.satellite-identities.key-paths: ""
 
 # minimum part size for multipart uploads
 # s3compatibility.min-part-size: 5242880
+
+# store the checksums that objects are uploaded with, which the satellite must allow (metainfo.checksums-enabled)
+# s3compatibility.object-checksums: false
 
 # if set, projects created after this date using self-managed encryption are no longer allowed to use arbitrary prefixes and delimiters (in RFC3339 format)
 # s3compatibility.unsupported-listing-deadline: ""

@@ -41,13 +41,13 @@ require (
 	golang.org/x/sync v0.24.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49
-	storj.io/common v0.0.0-20261110015124-599033c90265
+	storj.io/common v0.0.0-20261124135442-7652ceab0f0d
 	storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840
-	storj.io/drpc v1.0.0
+	storj.io/drpc v1.1.0
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f
-	storj.io/gateway v1.11.1-0.20261112193658-8fc863adf120
-	storj.io/minio v0.0.0-20261112114603-5349b4571cad
-	storj.io/uplink v1.14.6-0.20261112190731-173d950a6c8c
+	storj.io/gateway v1.11.1-0.20261126150156-15e82e444c3f
+	storj.io/minio v0.0.0-20261113105205-fed7ec058273
+	storj.io/uplink v1.14.6-0.20261124140257-e38bc6712e6d
 	storj.io/zipper v0.0.0-20261029224715-a167d242e6c3
 )
 
@@ -254,7 +254,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/infectious v1.0.1 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
-	storj.io/picobuf v0.0.4 // indirect
+	storj.io/picobuf v0.9.6 // indirect
 )
 
-replace github.com/amwolff/awsig => github.com/storj/awsig v0.0.0-20261022091552-de544e9f13d5
+replace github.com/amwolff/awsig => github.com/storj/awsig v0.0.0-20261125001415-971085f10a79

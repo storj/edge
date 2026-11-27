@@ -11,6 +11,7 @@ import (
 
 	"storj.io/edge/pkg/server/gw"
 	"storj.io/edge/pkg/server/middleware"
+	"storj.io/gateway/miniogw/minioobjectlayer"
 	"storj.io/minio/cmd"
 	xhttp "storj.io/minio/cmd/http"
 )
@@ -18,7 +19,7 @@ import (
 // RegisterAPIRouter - registers S3 compatible APIs.
 func RegisterAPIRouter(router *mux.Router, layer *gw.MultiTenancyLayer, domainNames []string, concurrentAllowed uint, corsAllowedOrigins []string) {
 	api := objectAPIHandlersWrapper{
-		core:               mustNewObjectAPIHandlers(layer),
+		core:               mustNewObjectAPIHandlers(minioobjectlayer.New(layer)),
 		corsAllowedOrigins: corsAllowedOrigins,
 	}
 
